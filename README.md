@@ -240,23 +240,6 @@ python benchmarks/clinical_validation.py
 black --line-length 100 .
 isort --profile black .
 ```
-
-## 论文与引用
-
-- 英文论文草稿：[docs/bioinformatics_draft.md](docs/bioinformatics_draft.md)
-- 中文论文草稿：[docs/bioinformatics_draft_cn.md](docs/bioinformatics_draft_cn.md)
-
-```bibtex
-@article{confluencia2024,
-  title={Confluencia: Adaptive Mixture-of-Experts with Pharmacokinetic Dynamics
-         for Small-Sample circRNA Drug Discovery},
-  author={IGEM-FBH Confluencia Team},
-  journal={Bioinformatics},
-  year={2024},
-  note={Under review}
-}
-```
-
 ## 许可证
 
 MIT License. 本仓库为研究/原型用途，代码与模型仅用于研究演示，不构成临床建议。
