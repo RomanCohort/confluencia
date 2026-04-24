@@ -1,0 +1,77 @@
+{
+  "iedb_heldout": {
+    "confluencia_metrics": {
+      "auc": 0.7669868364789234,
+      "accuracy": 0.6956233421750663,
+      "f1": 0.640141121128969,
+      "mcc": 0.3936479623040956,
+      "optimal_threshold": 0.4048864543437958,
+      "n_test": 6032,
+      "n_binders": 2222,
+      "n_nonbinders": 3810
+    },
+    "mhcflurry_reference": {
+      "name": "MHCflurry",
+      "citation": "O'Donnell et al. (2018) Cell Systems 7:129-134",
+      "auc_range": [
+        0.85,
+        0.9
+      ],
+      "training_data": "IEDB + mass spectrometry",
+      "model_type": "Neural network ensemble",
+      "specialization": "MHC-I binding affinity",
+      "license": "Apache 2.0 (open source)",
+      "url": "https://github.com/openvax/mhcflurry"
+    },
+    "comparison": {
+      "auc_gap_range": [
+        0.08301316352107657,
+        0.13301316352107662
+      ],
+      "confluencia_advantage": "Multi-task prediction (efficacy, PK, immunogenicity)",
+      "mhcflurry_advantage": "Specialized binding prediction with higher AUC"
+    },
+    "interpretation": "Confluencia achieves AUC=0.767 vs MHCflurry's reported 0.85-0.90. The 0.08-0.13 AUC gap reflects the trade-off between Confluencia's multi-task capability and MHCflurry's specialized binding focus. Confluencia provides RNACTM pharmacokinetic simulation and dose optimization that MHCflurry cannot address."
+  },
+  "netmhcpan_benchmark": {
+    "confluencia_metrics": {
+      "auc": 0.6869300911854104,
+      "accuracy": 0.5245901639344263,
+      "f1": 0.5538461538461539,
+      "mcc": 0.3531157701871637,
+      "optimal_threshold": 0.4988962709903717,
+      "correlation_log_ic50": -0.44811270721463686,
+      "correlation_p_value": 0.00029288395546198483,
+      "n_test": 61
+    },
+    "mhcflurry_reference": {
+      "name": "MHCflurry",
+      "citation": "O'Donnell et al. (2018) Cell Systems 7:129-134",
+      "auc_range": [
+        0.85,
+        0.9
+      ],
+      "training_data": "IEDB + mass spectrometry",
+      "model_type": "Neural network ensemble",
+      "specialization": "MHC-I binding affinity",
+      "license": "Apache 2.0 (open source)",
+      "url": "https://github.com/openvax/mhcflurry"
+    },
+    "comparison": {
+      "auc_gap": 0.1630699088145896
+    }
+  },
+  "mhcflurry_reference": {
+    "name": "MHCflurry",
+    "citation": "O'Donnell et al. (2018) Cell Systems 7:129-134",
+    "auc_range": [
+      0.85,
+      0.9
+    ],
+    "training_data": "IEDB + mass spectrometry",
+    "model_type": "Neural network ensemble",
+    "specialization": "MHC-I binding affinity",
+    "license": "Apache 2.0 (open source)",
+    "url": "https://github.com/openvax/mhcflurry"
+  }
+}

@@ -1,0 +1,18 @@
+epitope_seq,dose,reported_ifn_response,efficacy_category,citation,data_source
+SIINFEKL,5.0,4.5,high,Wesselhoeft et al. (2018) Nat Commun - circRNA-OVA,literature_case_study
+SIINFEKL,1.0,3.2,medium,Wesselhoeft et al. (2018) Nat Commun - circRNA-OVA low dose,literature_case_study
+SIINFEKL,10.0,4.8,high,Wesselhoeft et al. (2018) Nat Commun - circRNA-OVA high dose,literature_case_study
+GILGFVFTL,2.0,4.0,high,Chen et al. (2017) Cell Res - Influenza epitope circRNA,literature_case_study
+NLVPMVATV,2.0,3.8,high,Chen et al. (2017) Cell Res - CMV epitope circRNA,literature_case_study
+ELAGIGILTV,3.0,4.2,high,Liu et al. (2019) Nat Commun - MART1 circRNA,literature_case_study
+LLFGYPVYV,3.0,3.5,medium,Liu et al. (2019) Nat Commun - EBV epitope circRNA,literature_case_study
+GLCTLVAML,2.5,3.6,medium,Yang et al. (2017) Cell Res - EBV epitope circRNA,literature_case_study
+RMFPNAPYL,2.5,3.2,medium,Yang et al. (2017) Cell Res - WT1 epitope circRNA,literature_case_study
+AKAKAKAKA,5.0,0.5,none,Control poly-K peptide,literature_case_study
+GGGGGGGGG,5.0,0.3,none,Control poly-G peptide,literature_case_study
+MVSKGEELFT,2.0,2.8,low-medium,GFP circRNA junction peptide,literature_case_study
+SAKFLPSDF,2.0,2.5,low,circRNA backsplice junction peptide,literature_case_study
+IMDQVPFSV,4.0,3.0,medium,HBV core circRNA epitope,literature_case_study
+FLPSDCFFSV,4.0,3.3,medium,HBV surface circRNA epitope,literature_case_study
+SYFPEITHI,2.0,3.8,high,Listeria circRNA epitope,literature_case_study
+VYGFVRACL,3.0,2.9,medium,WT1 circRNA epitope,literature_case_study

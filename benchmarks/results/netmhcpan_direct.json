@@ -1,0 +1,81 @@
+{
+  "models": {
+    "moe": {
+      "mae": 1.1556761264801025,
+      "rmse": 1.3242968320846558,
+      "r2": -0.15271806716918945,
+      "pearson_r": 0.1842515468597412,
+      "pearson_p": 0.15517655559417187,
+      "spearman_r": 0.16594822031730333,
+      "spearman_p": 0.20119049212912796,
+      "correlation_with_log_ic50": -0.18425153411794395,
+      "correlation_with_log_ic50_p": 0.15517658465198245,
+      "classification_auc": 0.5571095571095572,
+      "classification_accuracy": 0.5573770491803278,
+      "classification_f1": 0.6086956521739131,
+      "train_time": 4.2949378490448,
+      "n_train": 300,
+      "n_test": 61
+    },
+    "ridge": {
+      "mae": 1.573992371559143,
+      "rmse": 1.9452592134475708,
+      "r2": -1.4871809482574463,
+      "pearson_r": 0.12653139233589172,
+      "pearson_p": 0.33119499216097986,
+      "spearman_r": 0.13381641351482945,
+      "spearman_p": 0.3038787876033582,
+      "correlation_with_log_ic50": -0.1265313738737417,
+      "correlation_with_log_ic50_p": 0.3311949484714113,
+      "classification_auc": 0.5652680652680653,
+      "classification_accuracy": 0.5573770491803278,
+      "classification_f1": 0.6086956521739131,
+      "train_time": 0.0032799243927001953,
+      "n_train": 300,
+      "n_test": 61
+    },
+    "hgb": {
+      "mae": 1.1769554454655846,
+      "rmse": 1.3515383347723886,
+      "r2": -0.20062982072254099,
+      "pearson_r": 0.12656921664951362,
+      "pearson_p": 0.3310491742201929,
+      "spearman_r": 0.1254330532215091,
+      "spearman_p": 0.33544340579448817,
+      "correlation_with_log_ic50": -0.12656920269746116,
+      "correlation_with_log_ic50_p": 0.33104922795747627,
+      "classification_auc": 0.5233100233100233,
+      "classification_accuracy": 0.5245901639344263,
+      "classification_f1": 0.5797101449275363,
+      "train_time": 0.43602991104125977,
+      "n_train": 300,
+      "n_test": 61
+    },
+    "rf": {
+      "mae": 1.131004192447818,
+      "rmse": 1.2641188152183604,
+      "r2": -0.05033582797591274,
+      "pearson_r": 0.26345061203521875,
+      "pearson_p": 0.040223874441785004,
+      "spearman_r": 0.2247375260966444,
+      "spearman_p": 0.08163197320414366,
+      "correlation_with_log_ic50": -0.2634505958151334,
+      "correlation_with_log_ic50_p": 0.04022388718394904,
+      "classification_auc": 0.5955710955710956,
+      "classification_accuracy": 0.5245901639344263,
+      "classification_f1": 0.5797101449275363,
+      "train_time": 0.5090811252593994,
+      "n_train": 300,
+      "n_test": 61
+    }
+  },
+  "summary": {
+    "n_benchmark_peptides": 61,
+    "n_binders": 39,
+    "n_nonbinders": 22,
+    "best_model": "rf",
+    "best_auc": 0.5955710955710956,
+    "note": "Confluencia predicts multi-dimensional efficacy beyond MHC binding alone.",
+    "reference": "NetMHCpan benchmark from Jurtz et al. (2017) J Immunol 199:3360-3368"
+  }
+}

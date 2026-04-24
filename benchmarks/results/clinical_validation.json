@@ -1,0 +1,340 @@
+{
+  "iedb_mhc_validation": {
+    "n_total": 10461,
+    "n_train": 8506,
+    "n_test": 1955,
+    "n_train_seqs": 4000,
+    "n_test_seqs": 1000,
+    "leakage_check": true,
+    "models": {
+      "ridge": {
+        "mae": 1.1110332012176514,
+        "rmse": 1.2595858186845974,
+        "r2": -0.06614625453948975,
+        "pearson_r": 0.1258300244808197,
+        "pearson_p": 2.3740530858845314e-08,
+        "spearman_r": 0.13506587597860772,
+        "spearman_p": 2.026578111060105e-09,
+        "n_samples": 1955,
+        "train_time": 0.03696155548095703
+      },
+      "hgb": {
+        "mae": 1.0466961860656738,
+        "rmse": 1.1655730105508189,
+        "r2": 0.08706420660018921,
+        "pearson_r": 0.30197370052337646,
+        "pearson_p": 1.6758545214330724e-42,
+        "spearman_r": 0.30116541230516325,
+        "spearman_p": 2.83673435285426e-42,
+        "n_samples": 1955,
+        "train_time": 2.7531328201293945
+      },
+      "rf": {
+        "mae": 1.028816819190979,
+        "rmse": 1.1684053045317617,
+        "r2": 0.08262205123901367,
+        "pearson_r": 0.30134251713752747,
+        "pearson_p": 2.5281596729296864e-42,
+        "spearman_r": 0.30032155129578225,
+        "spearman_p": 4.905510743094143e-42,
+        "n_samples": 1955,
+        "train_time": 93.57428932189941
+      },
+      "moe": {
+        "mae": 1.0578373670578003,
+        "rmse": 1.1746956004852656,
+        "r2": 0.07271772623062134,
+        "pearson_r": 0.2783293128013611,
+        "pearson_p": 4.112379699549009e-36,
+        "spearman_r": 0.27965077496715746,
+        "spearman_p": 1.8749185428278662e-36,
+        "n_samples": 1955
+      }
+    },
+    "pearson_r_ci_95": {
+      "lower": -0.04434755844995378,
+      "upper": 0.044856970105320214,
+      "point_estimate": 0.2783293128013611
+    },
+    "efficacy_range_train": [
+      0.0,
+      8.555954933166504
+    ],
+    "efficacy_range_test": [
+      0.035269077867269516,
+      6.698969841003418
+    ],
+    "data_source": "IEDB + NetMHCpan + circRNA literature (sequence-aware split)"
+  },
+  "chembl_drug_validation": {
+    "n_heldout": 500,
+    "n_active": 242,
+    "target_distribution": {
+      "Aromatase": 174,
+      "HER2": 158,
+      "ER_alpha": 129,
+      "EGFR": 39
+    },
+    "models": {
+      "ridge": {
+        "mae": 1.2237519025802612,
+        "rmse": 3.912444063706949,
+        "r2": -0.012885570526123047,
+        "pearson_r": -0.033443886786699295,
+        "pearson_p": 0.45692920972511497,
+        "spearman_r": -0.11734900777501535,
+        "spearman_p": 0.00882952073806914,
+        "n_samples": 497,
+        "train_time": 0.14459991455078125,
+        "classification_auc": 0.3864535694593104,
+        "classification_accuracy": 0.48088531187122735,
+        "classification_f1": 0.6494565217391305
+      },
+      "hgb": {
+        "mae": 1.277440071105957,
+        "rmse": 3.915047101045626,
+        "r2": -0.014233827590942383,
+        "pearson_r": 0.020208600908517838,
+        "pearson_p": 0.6531202083244715,
+        "spearman_r": -0.030790988483677537,
+        "spearman_p": 0.49342422422033383,
+        "n_samples": 497,
+        "train_time": 3.593055248260498,
+        "classification_auc": 0.4146151600661671,
+        "classification_accuracy": 0.47283702213279677,
+        "classification_f1": 0.6330532212885154
+      }
+    },
+    "data_source": "ChEMBL (held-out, IC50 measurements)"
+  },
+  "netmhcpan_concordance": {
+    "n_heldout": 61,
+    "n_binders": 47,
+    "n_nonbinders": 14,
+    "models": {
+      "ridge": {
+        "mae": 1.077345848083496,
+        "rmse": 1.2579869688356775,
+        "r2": -1.9559650421142578,
+        "pearson_r": -0.06014112010598183,
+        "pearson_p": 0.645217207499415,
+        "spearman_r": -0.019648807567385383,
+        "spearman_p": 0.8805265498408081,
+        "n_samples": 61,
+        "correlation_with_log_ic50": 0.06014367938041687,
+        "correlation_with_log_ic50_p": 0.6452027728189983,
+        "classification_auc": 0.5623100303951367,
+        "classification_accuracy": 0.3442622950819672,
+        "classification_f1": 0.3333333333333333
+      },
+      "hgb": {
+        "mae": 1.027458667755127,
+        "rmse": 1.1444875038301379,
+        "r2": -1.4466347694396973,
+        "pearson_r": 0.2384689301252365,
+        "pearson_p": 0.0642026583993225,
+        "spearman_r": 0.3071084822073304,
+        "spearman_p": 0.016063701056326513,
+        "n_samples": 61,
+        "correlation_with_log_ic50": -0.23847277462482452,
+        "correlation_with_log_ic50_p": 0.06419813295632626,
+        "classification_auc": 0.6534954407294833,
+        "classification_accuracy": 0.6557377049180327,
+        "classification_f1": 0.7469879518072289
+      },
+      "moe": {
+        "mae": 1.0306464433670044,
+        "rmse": 1.17925380793675,
+        "r2": -1.5975360870361328,
+        "pearson_r": 0.06631391495466232,
+        "pearson_p": 0.6116128753329588,
+        "spearman_r": 0.14259269233289634,
+        "spearman_p": 0.27296581842666184,
+        "n_samples": 61,
+        "correlation_with_log_ic50": -0.06631379208332863,
+        "correlation_with_log_ic50_p": 0.6116132559616265,
+        "classification_auc": 0.6231003039513677,
+        "classification_accuracy": 0.39344262295081966,
+        "classification_f1": 0.4126984126984127
+      }
+    },
+    "pearson_r_ci_95": {
+      "lower": -0.24565298855304718,
+      "upper": 0.26401930674910534,
+      "point_estimate": 0.06631391495466232
+    },
+    "note": "Negative corr(logIC50) indicates correct directionality (higher efficacy = lower IC50)",
+    "data_source": "NetMHCpan-4.1 benchmark (external)"
+  },
+  "literature_cases": {
+    "n_cases": 17,
+    "pearson_r_with_ifn": -0.05624576843155683,
+    "pearson_p": 0.8302260172114909,
+    "spearman_r_with_category": 0.13530659864338632,
+    "spearman_p": 0.6046109342319375,
+    "direction_accuracy": 0.5882352941176471,
+    "n_direction_tests": 17,
+    "cases": [
+      {
+        "epitope_seq": "SIINFEKL",
+        "dose": 5.0,
+        "predicted_efficacy": 0.9937,
+        "reported_category": "high",
+        "reported_ifn_response": 4.5,
+        "direction_agree": "False",
+        "citation": "Wesselhoeft et al. (2018) Nat Commun - circRNA-OVA"
+      },
+      {
+        "epitope_seq": "SIINFEKL",
+        "dose": 1.0,
+        "predicted_efficacy": 0.9914,
+        "reported_category": "medium",
+        "reported_ifn_response": 3.2,
+        "direction_agree": "False",
+        "citation": "Wesselhoeft et al. (2018) Nat Commun - circRNA-OVA low dose"
+      },
+      {
+        "epitope_seq": "SIINFEKL",
+        "dose": 10.0,
+        "predicted_efficacy": 0.9966,
+        "reported_category": "high",
+        "reported_ifn_response": 4.8,
+        "direction_agree": "False",
+        "citation": "Wesselhoeft et al. (2018) Nat Commun - circRNA-OVA high dose"
+      },
+      {
+        "epitope_seq": "GILGFVFTL",
+        "dose": 2.0,
+        "predicted_efficacy": 2.2893,
+        "reported_category": "high",
+        "reported_ifn_response": 4.0,
+        "direction_agree": "True",
+        "citation": "Chen et al. (2017) Cell Res - Influenza epitope circRNA"
+      },
+      {
+        "epitope_seq": "NLVPMVATV",
+        "dose": 2.0,
+        "predicted_efficacy": 1.8429,
+        "reported_category": "high",
+        "reported_ifn_response": 3.8,
+        "direction_agree": "True",
+        "citation": "Chen et al. (2017) Cell Res - CMV epitope circRNA"
+      },
+      {
+        "epitope_seq": "ELAGIGILTV",
+        "dose": 3.0,
+        "predicted_efficacy": 2.0878,
+        "reported_category": "high",
+        "reported_ifn_response": 4.2,
+        "direction_agree": "True",
+        "citation": "Liu et al. (2019) Nat Commun - MART1 circRNA"
+      },
+      {
+        "epitope_seq": "LLFGYPVYV",
+        "dose": 3.0,
+        "predicted_efficacy": 1.889,
+        "reported_category": "medium",
+        "reported_ifn_response": 3.5,
+        "direction_agree": "True",
+        "citation": "Liu et al. (2019) Nat Commun - EBV epitope circRNA"
+      },
+      {
+        "epitope_seq": "GLCTLVAML",
+        "dose": 2.5,
+        "predicted_efficacy": 2.0306,
+        "reported_category": "medium",
+        "reported_ifn_response": 3.6,
+        "direction_agree": "True",
+        "citation": "Yang et al. (2017) Cell Res - EBV epitope circRNA"
+      },
+      {
+        "epitope_seq": "RMFPNAPYL",
+        "dose": 2.5,
+        "predicted_efficacy": 1.7306,
+        "reported_category": "medium",
+        "reported_ifn_response": 3.2,
+        "direction_agree": "False",
+        "citation": "Yang et al. (2017) Cell Res - WT1 epitope circRNA"
+      },
+      {
+        "epitope_seq": "AKAKAKAKA",
+        "dose": 5.0,
+        "predicted_efficacy": 1.4236,
+        "reported_category": "none",
+        "reported_ifn_response": 0.5,
+        "direction_agree": "True",
+        "citation": "Control poly-K peptide"
+      },
+      {
+        "epitope_seq": "GGGGGGGGG",
+        "dose": 5.0,
+        "predicted_efficacy": 1.8012,
+        "reported_category": "none",
+        "reported_ifn_response": 0.3,
+        "direction_agree": "False",
+        "citation": "Control poly-G peptide"
+      },
+      {
+        "epitope_seq": "MVSKGEELFT",
+        "dose": 2.0,
+        "predicted_efficacy": 1.4895,
+        "reported_category": "low-medium",
+        "reported_ifn_response": 2.8,
+        "direction_agree": "True",
+        "citation": "GFP circRNA junction peptide"
+      },
+      {
+        "epitope_seq": "SAKFLPSDF",
+        "dose": 2.0,
+        "predicted_efficacy": 1.6544,
+        "reported_category": "low",
+        "reported_ifn_response": 2.5,
+        "direction_agree": "True",
+        "citation": "circRNA backsplice junction peptide"
+      },
+      {
+        "epitope_seq": "IMDQVPFSV",
+        "dose": 4.0,
+        "predicted_efficacy": 1.8313,
+        "reported_category": "medium",
+        "reported_ifn_response": 3.0,
+        "direction_agree": "True",
+        "citation": "HBV core circRNA epitope"
+      },
+      {
+        "epitope_seq": "FLPSDCFFSV",
+        "dose": 4.0,
+        "predicted_efficacy": 2.0227,
+        "reported_category": "medium",
+        "reported_ifn_response": 3.3,
+        "direction_agree": "True",
+        "citation": "HBV surface circRNA epitope"
+      },
+      {
+        "epitope_seq": "SYFPEITHI",
+        "dose": 2.0,
+        "predicted_efficacy": 1.4708,
+        "reported_category": "high",
+        "reported_ifn_response": 3.8,
+        "direction_agree": "False",
+        "citation": "Listeria circRNA epitope"
+      },
+      {
+        "epitope_seq": "VYGFVRACL",
+        "dose": 3.0,
+        "predicted_efficacy": 1.4636,
+        "reported_category": "medium",
+        "reported_ifn_response": 2.9,
+        "direction_agree": "False",
+        "citation": "WT1 circRNA epitope"
+      }
+    ],
+    "data_source": "Published circRNA vaccine literature",
+    "references": [
+      "Wesselhoeft et al. (2018) Nature Communications",
+      "Chen et al. (2017) Cell Research",
+      "Liu et al. (2019) Nature Communications",
+      "Yang et al. (2017) Cell Research"
+    ]
+  }
+}

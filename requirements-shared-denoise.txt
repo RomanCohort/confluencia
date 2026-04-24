@@ -1,0 +1,5 @@
+# 共用虚拟环境（denoise）：minimal + 实验数据增强与去噪（tensorflow/keras）
+# 注意：tensorflow 在 Windows 上体积较大，建议按需安装。
+
+-r requirements-shared-minimal.txt
+-r 新建文件夹/requirements-aug-denoise.txt

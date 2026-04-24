@@ -1,0 +1,10 @@
+# Shared virtual environment (minimal): Epitope module + Streamlit frontend
+# Lightweight - does not include tensorflow/keras/rdkit/torch
+
+# Core dependencies (epitope module only)
+-r confluencia-2.0-epitope/requirements.txt
+
+# Frontend optional dependencies
+matplotlib
+altair
+openpyxl

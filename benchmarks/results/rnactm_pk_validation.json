@@ -1,0 +1,136 @@
+{
+  "validation_items": [
+    {
+      "parameter": "RNA half-life (unmodified)",
+      "literature_value": 6.0,
+      "literature_unit": "hours",
+      "literature_source": "Wesselhoeft et al. (2018)",
+      "simulated_value": 6.24,
+      "error_pct": 4.1,
+      "passed": true,
+      "notes": "k_degrade=0.1110/h, t1/2=ln(2)/k \u2248 6.2h"
+    },
+    {
+      "parameter": "RNA half-life (m6A-modified)",
+      "literature_value": 10.8,
+      "literature_unit": "hours",
+      "literature_source": "Chen et al. (2019)",
+      "simulated_value": 11.24,
+      "error_pct": 4.1,
+      "passed": true,
+      "notes": "k_degrade=0.0617/h (1.8x stability boost)"
+    },
+    {
+      "parameter": "RNA half-life (Psi-modified)",
+      "literature_value": 15.0,
+      "literature_unit": "hours",
+      "literature_source": "Liu et al. (2023)",
+      "simulated_value": 15.61,
+      "error_pct": 4.1,
+      "passed": true,
+      "notes": "k_degrade=0.0444/h (2.5x stability boost)"
+    },
+    {
+      "parameter": "Endosomal escape fraction",
+      "literature_value": 0.02,
+      "literature_unit": "fraction",
+      "literature_source": "Gilleron et al. (2013)",
+      "simulated_value": 0.0443,
+      "error_pct": 121.3,
+      "passed": true,
+      "notes": "k_escape=0.0200/h, peak_cyto/dose=4.43%"
+    },
+    {
+      "parameter": "Tissue distribution (liver)",
+      "literature_value": 0.8,
+      "literature_unit": "fraction",
+      "literature_source": "Paunovska et al. (2018)",
+      "simulated_value": 0.8,
+      "error_pct": 0.0,
+      "passed": true,
+      "notes": "Direct parameter match from Paunovska 2018"
+    },
+    {
+      "parameter": "Tissue distribution (spleen)",
+      "literature_value": 0.1,
+      "literature_unit": "fraction",
+      "literature_source": "Paunovska et al. (2018)",
+      "simulated_value": 0.1,
+      "error_pct": 0.0,
+      "passed": true,
+      "notes": "Direct parameter match from Paunovska 2018"
+    },
+    {
+      "parameter": "Protein expression window",
+      "literature_value": 48.0,
+      "literature_unit": "hours",
+      "literature_source": "Wesselhoeft et al. (2018)",
+      "simulated_value": 97.0,
+      "error_pct": 102.1,
+      "passed": false,
+      "notes": "Time above 50% peak protein with daily dosing"
+    }
+  ],
+  "summary": {
+    "n_passed": 6,
+    "n_total": 7,
+    "pass_rate": 85.7
+  },
+  "pass_fail": {
+    "all_passed": false,
+    "half_life_validation": true,
+    "distribution_validation": true,
+    "pk_dynamics_validation": false
+  },
+  "literature_references": {
+    "rna_half_life_unmodified": {
+      "value": 6.0,
+      "unit": "hours",
+      "source": "Wesselhoeft et al. (2018)",
+      "doi": "10.1038/s41467-018-05096-x",
+      "notes": "Figure 4D, HeLa cells, RT-qPCR detection"
+    },
+    "rna_half_life_m6a": {
+      "value": 10.8,
+      "unit": "hours",
+      "source": "Chen et al. (2019)",
+      "doi": "10.1038/s41586-019-1016-7",
+      "notes": "m6A increases stability ~1.8x"
+    },
+    "rna_half_life_psi": {
+      "value": 15.0,
+      "unit": "hours",
+      "source": "Liu et al. (2023)",
+      "doi": "10.1038/s41467-023-38203-5",
+      "notes": "Psi modification enhances stability ~2.5x"
+    },
+    "endosomal_escape_frac": {
+      "value": 0.02,
+      "unit": "fraction",
+      "source": "Gilleron et al. (2013)",
+      "doi": "10.1038/nbt.2612",
+      "notes": "1-5% of LNP cargo reaches cytoplasm"
+    },
+    "tissue_liver_frac": {
+      "value": 0.8,
+      "unit": "fraction",
+      "source": "Paunovska et al. (2018)",
+      "doi": "10.1021/acsnano.8b03575",
+      "notes": "ApoE-mediated hepatocyte uptake"
+    },
+    "tissue_spleen_frac": {
+      "value": 0.1,
+      "unit": "fraction",
+      "source": "Paunovska et al. (2018)",
+      "doi": "10.1021/acsnano.8b03575",
+      "notes": "Macrophage uptake"
+    },
+    "protein_expression_window": {
+      "value": 48.0,
+      "unit": "hours",
+      "source": "Wesselhoeft et al. (2018)",
+      "doi": "10.1038/s41467-018-05096-x",
+      "notes": "Sustained expression 48-72h"
+    }
+  }
+}

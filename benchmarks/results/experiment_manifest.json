@@ -1,0 +1,97 @@
+{
+  "started": "2026-04-20 15:10:48",
+  "seed": 42,
+  "experiments": {
+    "ablation_epitope": {
+      "status": "ok",
+      "path": "D:\\IGEM集成方案\\benchmarks\\results\\ablation_epitope.json"
+    },
+    "ablation_drug": {
+      "status": "failed",
+      "error": "cannot import name 'build_feature_names' from 'core.features' (D:\\IGEM集成方案\\confluencia-2.0-epitope\\core\\features.py)"
+    },
+    "baselines_epitope": {
+      "status": "ok",
+      "path": "D:\\IGEM集成方案\\benchmarks\\results\\baselines_epitope.json"
+    },
+    "baselines_drug": {
+      "status": "failed",
+      "error": "cannot import name 'MixedFeatureSpec' from 'core.features' (D:\\IGEM集成方案\\confluencia-2.0-epitope\\core\\features.py)"
+    },
+    "sensitivity_epitope": {
+      "status": "ok",
+      "path": "D:\\IGEM集成方案\\benchmarks\\results\\sample_sensitivity_epitope.json"
+    },
+    "sensitivity_drug": {
+      "status": "failed",
+      "error": "cannot import name 'MixedFeatureSpec' from 'core.features' (D:\\IGEM集成方案\\confluencia-2.0-epitope\\core\\features.py)"
+    },
+    "mamba_corrected": {
+      "status": "ok",
+      "results": {
+        "mamba_default": {
+          "mae": 0.8215290307998657,
+          "rmse": 1.0208752422423557,
+          "r2": -0.04422628879547119,
+          "train_time": 15.705358028411865,
+          "n_train": 240,
+          "n_test": 60,
+          "used_real_mamba": false,
+          "final_train_loss": 1.6187308033307393,
+          "final_val_loss": 0.9985566735267639,
+          "config": {
+            "d_model": 96,
+            "n_layers": 2,
+            "lr": 0.002,
+            "epochs": 100,
+            "batch_size": 32,
+            "dropout": 0.1
+          }
+        },
+        "mamba_deep": {
+          "mae": 0.8294113874435425,
+          "rmse": 1.0282449576942654,
+          "r2": -0.059357285499572754,
+          "train_time": 40.658451557159424,
+          "n_train": 240,
+          "n_test": 60,
+          "used_real_mamba": false,
+          "final_train_loss": 1.6152140200138092,
+          "final_val_loss": 1.008091002702713,
+          "config": {
+            "d_model": 128,
+            "n_layers": 4,
+            "lr": 0.001,
+            "epochs": 150,
+            "batch_size": 32,
+            "dropout": 0.15
+          }
+        },
+        "mamba_wide": {
+          "mae": 0.8524454832077026,
+          "rmse": 1.0508905517000935,
+          "r2": -0.10653269290924072,
+          "train_time": 49.01547026634216,
+          "n_train": 240,
+          "n_test": 60,
+          "used_real_mamba": false,
+          "final_train_loss": 1.6136366128921509,
+          "final_val_loss": 1.1034502983093262,
+          "config": {
+            "d_model": 192,
+            "n_layers": 2,
+            "lr": 0.002,
+            "epochs": 100,
+            "batch_size": 64,
+            "dropout": 0.1
+          }
+        }
+      }
+    },
+    "leakage_check": {
+      "status": "failed",
+      "error": "name 'pd' is not defined"
+    }
+  },
+  "completed": "2026-04-20 15:18:31"
+}

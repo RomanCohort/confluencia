@@ -1,0 +1,263 @@
+{
+  "sensitivity_analysis": {
+    "sensitivity": {
+      "k_release": {
+        "base_value": 0.12,
+        "variations": [
+          {
+            "value": 0.05,
+            "auc_efficacy": 531.02,
+            "peak_protein": 6.892,
+            "relative_change_pct": -23.14
+          },
+          {
+            "value": 0.08,
+            "auc_efficacy": 630.77,
+            "peak_protein": 7.3422,
+            "relative_change_pct": -8.7
+          },
+          {
+            "value": 0.12,
+            "auc_efficacy": 690.85,
+            "peak_protein": 7.5368,
+            "relative_change_pct": 0.0
+          },
+          {
+            "value": 0.18,
+            "auc_efficacy": 732.29,
+            "peak_protein": 7.6537,
+            "relative_change_pct": 6.0
+          },
+          {
+            "value": 0.25,
+            "auc_efficacy": 755.95,
+            "peak_protein": 7.7113,
+            "relative_change_pct": 9.42
+          }
+        ],
+        "sensitivity_score": 4726.000000000001
+      },
+      "k_escape": {
+        "base_value": 0.02,
+        "variations": [
+          {
+            "value": 0.005,
+            "auc_efficacy": 289.07,
+            "peak_protein": 3.884,
+            "relative_change_pct": -58.16
+          },
+          {
+            "value": 0.01,
+            "auc_efficacy": 477.02,
+            "peak_protein": 5.8985,
+            "relative_change_pct": -30.95
+          },
+          {
+            "value": 0.02,
+            "auc_efficacy": 690.85,
+            "peak_protein": 7.5368,
+            "relative_change_pct": 0.0
+          },
+          {
+            "value": 0.04,
+            "auc_efficacy": 862.54,
+            "peak_protein": 8.2195,
+            "relative_change_pct": 24.85
+          },
+          {
+            "value": 0.08,
+            "auc_efficacy": 963.25,
+            "peak_protein": 8.3895,
+            "relative_change_pct": 39.43
+          }
+        ],
+        "sensitivity_score": 40904.00000000001
+      },
+      "k_translate": {
+        "base_value": 0.16999999999999998,
+        "variations": [
+          {
+            "value": 0.05,
+            "auc_efficacy": 336.82,
+            "peak_protein": 3.7465,
+            "relative_change_pct": -51.25
+          },
+          {
+            "value": 0.1,
+            "auc_efficacy": 528.82,
+            "peak_protein": 5.8199,
+            "relative_change_pct": -23.45
+          },
+          {
+            "value": 0.17,
+            "auc_efficacy": 690.85,
+            "peak_protein": 7.5368,
+            "relative_change_pct": 0.0
+          },
+          {
+            "value": 0.25,
+            "auc_efficacy": 803.29,
+            "peak_protein": 8.7108,
+            "relative_change_pct": 16.28
+          },
+          {
+            "value": 0.35,
+            "auc_efficacy": 891.31,
+            "peak_protein": 9.6197,
+            "relative_change_pct": 29.02
+          }
+        ],
+        "sensitivity_score": 8000.0
+      },
+      "k_degrade": {
+        "base_value": 0.111,
+        "variations": [
+          {
+            "value": 0.02,
+            "auc_efficacy": 988.26,
+            "peak_protein": 10.9178,
+            "relative_change_pct": 43.05
+          },
+          {
+            "value": 0.03,
+            "auc_efficacy": 943.64,
+            "peak_protein": 10.405,
+            "relative_change_pct": 36.59
+          },
+          {
+            "value": 0.044,
+            "auc_efficacy": 887.54,
+            "peak_protein": 9.763,
+            "relative_change_pct": 28.47
+          },
+          {
+            "value": 0.06,
+            "auc_efficacy": 831.05,
+            "peak_protein": 9.1198,
+            "relative_change_pct": 20.29
+          },
+          {
+            "value": 0.1,
+            "auc_efficacy": 716.94,
+            "peak_protein": 7.83,
+            "relative_change_pct": 3.78
+          }
+        ],
+        "sensitivity_score": 33045.0
+      },
+      "k_immune_clear": {
+        "base_value": 0.01,
+        "variations": [
+          {
+            "value": 0.005,
+            "auc_efficacy": 702.47,
+            "peak_protein": 7.6673,
+            "relative_change_pct": 1.68
+          },
+          {
+            "value": 0.01,
+            "auc_efficacy": 690.85,
+            "peak_protein": 7.5368,
+            "relative_change_pct": 0.0
+          },
+          {
+            "value": 0.02,
+            "auc_efficacy": 668.72,
+            "peak_protein": 7.2887,
+            "relative_change_pct": -3.2
+          },
+          {
+            "value": 0.05,
+            "auc_efficacy": 610.1,
+            "peak_protein": 6.6334,
+            "relative_change_pct": -11.69
+          },
+          {
+            "value": 0.1,
+            "auc_efficacy": 532.3,
+            "peak_protein": 5.7689,
+            "relative_change_pct": -22.95
+          }
+        ],
+        "sensitivity_score": 8319.999999999998
+      }
+    },
+    "baseline": {
+      "k_release": 0.12,
+      "k_escape": 0.02,
+      "k_translate": 0.16999999999999998,
+      "k_degrade": 0.111,
+      "k_protein_half": 24.0,
+      "k_immune_clear": 0.01,
+      "f_liver": 0.8,
+      "f_spleen": 0.1,
+      "f_muscle": 0.03,
+      "f_other": 0.07
+    }
+  },
+  "real_data_validation": {
+    "validation_results": [
+      {
+        "test": "half_life_none",
+        "parameter": "RNA half-life",
+        "modification": "none",
+        "expected": 6.0,
+        "simulated": 6.24,
+        "error_pct": 4.08,
+        "source": "Wesselhoeft 2018",
+        "passed": true
+      },
+      {
+        "test": "half_life_m6a",
+        "parameter": "RNA half-life",
+        "modification": "m6a",
+        "expected": 10.8,
+        "simulated": 11.24,
+        "error_pct": 4.08,
+        "source": "Chen 2019",
+        "passed": true
+      },
+      {
+        "test": "half_life_psi",
+        "parameter": "RNA half-life",
+        "modification": "psi",
+        "expected": 15.0,
+        "simulated": 6.24,
+        "error_pct": 58.37,
+        "source": "Liu 2023",
+        "passed": false
+      },
+      {
+        "test": "endosomal_escape",
+        "parameter": "Escape fraction",
+        "expected": "1.0-5.0%",
+        "simulated": 31.87,
+        "source": "Gilleron 2013",
+        "passed": true
+      },
+      {
+        "test": "tissue_dist_liver",
+        "parameter": "liver fraction",
+        "expected": 0.8,
+        "simulated": 0.8,
+        "error_pct": 0.0,
+        "source": "Paunovska 2018",
+        "passed": true
+      },
+      {
+        "test": "tissue_dist_spleen",
+        "parameter": "spleen fraction",
+        "expected": 0.1,
+        "simulated": 0.1,
+        "error_pct": 0.0,
+        "source": "Paunovska 2018",
+        "passed": true
+      }
+    ],
+    "summary": {
+      "n_passed": 5,
+      "n_total": 6,
+      "pass_rate": 83.3
+    }
+  }
+}

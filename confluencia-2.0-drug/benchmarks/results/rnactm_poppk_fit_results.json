@@ -1,0 +1,74 @@
+{
+  "model": "RNACTM One-Compartment PopPK",
+  "fit_quality": {
+    "r_squared": 0.7112,
+    "rmse": 62.7242,
+    "pearson_r": 0.844,
+    "ofv": 73.05
+  },
+  "parameters": {
+    "tv_ka": 2.82,
+    "tv_ke": 0.0445,
+    "tv_v": 6.8719,
+    "tv_f": 1.058187,
+    "omega_ka": 0.85,
+    "omega_ke": 0.0,
+    "omega_v": 0.25,
+    "omega_f": 0.5,
+    "sigma_prop": 2.4543
+  },
+  "bootstrap": {
+    "n_successful": 0,
+    "n_total": 50,
+    "success_rate": 0.0,
+    "ci_95": {}
+  },
+  "literature_comparison": {
+    "none": {
+      "fitted_ke": 0.0445,
+      "fitted_hl": 15.57,
+      "ref_ke": 0.1155,
+      "ref_hl": 20.0,
+      "error_ke_pct": 61.5
+    },
+    "m6A": {
+      "fitted_ke": 0.0445,
+      "fitted_hl": 15.57,
+      "ref_ke": 0.0642,
+      "ref_hl": 20.0,
+      "error_ke_pct": 30.7
+    },
+    "psi": {
+      "fitted_ke": 0.0445,
+      "fitted_hl": 15.57,
+      "ref_ke": 0.0462,
+      "ref_hl": 20.0,
+      "error_ke_pct": 3.7
+    },
+    "5mC": {
+      "fitted_ke": 0.0445,
+      "fitted_hl": 15.57,
+      "ref_ke": 0.0555,
+      "ref_hl": 20.0,
+      "error_ke_pct": 19.8
+    },
+    "ms2m6A": {
+      "fitted_ke": 0.0445,
+      "fitted_hl": 15.57,
+      "ref_ke": 0.0347,
+      "ref_hl": 20.0,
+      "error_ke_pct": 28.3
+    }
+  },
+  "data_summary": {
+    "n_observations": 354,
+    "n_subjects": 30,
+    "modifications": [
+      "none",
+      "m6A",
+      "psi",
+      "5mC",
+      "ms2m6A"
+    ]
+  }
+}

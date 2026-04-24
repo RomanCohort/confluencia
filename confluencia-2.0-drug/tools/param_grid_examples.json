@@ -1,0 +1,25 @@
+{
+  "hgb": {
+    "l2_regularization": [0.0, 1e-6, 1e-4],
+    "max_iter": [100, 300, 500]
+  },
+  "gbr": {
+    "n_estimators": [100, 300, 500],
+    "learning_rate": [0.001, 0.01, 0.1]
+  },
+  "rf": {
+    "n_estimators": [100, 300, 500],
+    "max_depth": [null, 8, 16]
+  },
+  "mlp": {
+    "mlp__alpha": [1e-4, 1e-3, 1e-2],
+    "mlp__hidden_layer_sizes": [[128, 64], [256, 128], [512, 256]]
+  },
+  "sgd": {
+    "sgd__alpha": [1e-6, 1e-4, 1e-3],
+    "sgd__l1_ratio": [0.0, 0.15, 0.5]
+  },
+  "ridge": {
+    "alpha": [0.1, 1.0, 10.0]
+  }
+}

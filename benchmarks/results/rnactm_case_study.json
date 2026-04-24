@@ -1,0 +1,1151 @@
+{
+  "modification_comparison": {
+    "none": {
+      "name": "Unmodified",
+      "params": {
+        "k_release": 0.12,
+        "k_escape": 0.02,
+        "k_translate": 0.17,
+        "k_degrade": 0.111,
+        "k_protein_half": 24.0,
+        "k_immune_clear": 0.01
+      },
+      "pk_summary": {
+        "auc_efficacy": 690.85,
+        "peak_protein": 7.5368,
+        "peak_cytoplasmic_rna": 1.399,
+        "expression_window_h": 97.0,
+        "rna_half_life_h": 0.0,
+        "bioavailability": 1.0,
+        "peak_toxicity": 7.8678
+      }
+    },
+    "m6a": {
+      "name": "m6A (N6-methyladenosine)",
+      "params": {
+        "k_release": 0.12,
+        "k_escape": 0.02,
+        "k_translate": 0.17,
+        "k_degrade": 0.0617,
+        "k_protein_half": 24.0,
+        "k_immune_clear": 0.01
+      },
+      "pk_summary": {
+        "auc_efficacy": 825.58,
+        "peak_protein": 9.0576,
+        "peak_cytoplasmic_rna": 1.6812,
+        "expression_window_h": 96.0,
+        "rna_half_life_h": 0.0,
+        "bioavailability": 1.0,
+        "peak_toxicity": 7.5072
+      },
+      "improvement_vs_unmodified_pct": 19.5
+    },
+    "psi": {
+      "name": "Psi (Pseudouridine)",
+      "params": {
+        "k_release": 0.12,
+        "k_escape": 0.02,
+        "k_translate": 0.17,
+        "k_degrade": 0.0444,
+        "k_protein_half": 24.0,
+        "k_immune_clear": 0.01
+      },
+      "pk_summary": {
+        "auc_efficacy": 886.03,
+        "peak_protein": 9.7458,
+        "peak_cytoplasmic_rna": 1.8087,
+        "expression_window_h": 96.0,
+        "rna_half_life_h": 0.0,
+        "bioavailability": 1.0,
+        "peak_toxicity": 7.344
+      },
+      "improvement_vs_unmodified_pct": 28.3
+    },
+    "5mc": {
+      "name": "5mC (5-methylcytosine)",
+      "params": {
+        "k_release": 0.12,
+        "k_escape": 0.02,
+        "k_translate": 0.17,
+        "k_degrade": 0.0555,
+        "k_protein_half": 24.0,
+        "k_immune_clear": 0.01
+      },
+      "pk_summary": {
+        "auc_efficacy": 846.2,
+        "peak_protein": 9.292,
+        "peak_cytoplasmic_rna": 1.7246,
+        "expression_window_h": 96.0,
+        "rna_half_life_h": 0.0,
+        "bioavailability": 1.0,
+        "peak_toxicity": 7.4516
+      },
+      "improvement_vs_unmodified_pct": 22.5
+    },
+    "ms2m6a": {
+      "name": "ms2m6A (2-methylthio-N6-methyladenosine)",
+      "params": {
+        "k_release": 0.12,
+        "k_escape": 0.02,
+        "k_translate": 0.17,
+        "k_degrade": 0.037,
+        "k_protein_half": 24.0,
+        "k_immune_clear": 0.01
+      },
+      "pk_summary": {
+        "auc_efficacy": 914.73,
+        "peak_protein": 10.0738,
+        "peak_cytoplasmic_rna": 1.8696,
+        "expression_window_h": 96.0,
+        "rna_half_life_h": 0.0,
+        "bioavailability": 1.0,
+        "peak_toxicity": 7.2662
+      },
+      "improvement_vs_unmodified_pct": 32.4
+    }
+  },
+  "dose_optimization": {
+    "dose_frequency_matrix": {
+      "dose_1.0_freq_0.5": {
+        "dose": 1.0,
+        "frequency_per_day": 0.5,
+        "auc_efficacy": 50.03,
+        "peak_protein": 0.4952,
+        "peak_toxicity": 0.4114,
+        "therapeutic_index": 121.62,
+        "expression_window_h": 103.0
+      },
+      "dose_1.0_freq_1.0": {
+        "dose": 1.0,
+        "frequency_per_day": 1.0,
+        "auc_efficacy": 88.6,
+        "peak_protein": 0.9746,
+        "peak_toxicity": 0.7344,
+        "therapeutic_index": 120.65,
+        "expression_window_h": 96.0
+      },
+      "dose_1.0_freq_1.5": {
+        "dose": 1.0,
+        "frequency_per_day": 1.5,
+        "auc_efficacy": 127.15,
+        "peak_protein": 1.443,
+        "peak_toxicity": 1.0566,
+        "therapeutic_index": 120.34,
+        "expression_window_h": 92.0
+      },
+      "dose_1.0_freq_2.0": {
+        "dose": 1.0,
+        "frequency_per_day": 2.0,
+        "auc_efficacy": 165.72,
+        "peak_protein": 1.9145,
+        "peak_toxicity": 1.3791,
+        "therapeutic_index": 120.16,
+        "expression_window_h": 90.0
+      },
+      "dose_2.5_freq_0.5": {
+        "dose": 2.5,
+        "frequency_per_day": 0.5,
+        "auc_efficacy": 125.08,
+        "peak_protein": 1.238,
+        "peak_toxicity": 1.0284,
+        "therapeutic_index": 121.62,
+        "expression_window_h": 103.0
+      },
+      "dose_2.5_freq_1.0": {
+        "dose": 2.5,
+        "frequency_per_day": 1.0,
+        "auc_efficacy": 221.51,
+        "peak_protein": 2.4364,
+        "peak_toxicity": 1.836,
+        "therapeutic_index": 120.65,
+        "expression_window_h": 96.0
+      },
+      "dose_2.5_freq_1.5": {
+        "dose": 2.5,
+        "frequency_per_day": 1.5,
+        "auc_efficacy": 317.88,
+        "peak_protein": 3.6075,
+        "peak_toxicity": 2.6415,
+        "therapeutic_index": 120.34,
+        "expression_window_h": 92.0
+      },
+      "dose_2.5_freq_2.0": {
+        "dose": 2.5,
+        "frequency_per_day": 2.0,
+        "auc_efficacy": 414.29,
+        "peak_protein": 4.7863,
+        "peak_toxicity": 3.4478,
+        "therapeutic_index": 120.16,
+        "expression_window_h": 90.0
+      },
+      "dose_5.0_freq_0.5": {
+        "dose": 5.0,
+        "frequency_per_day": 0.5,
+        "auc_efficacy": 250.15,
+        "peak_protein": 2.476,
+        "peak_toxicity": 2.0569,
+        "therapeutic_index": 121.62,
+        "expression_window_h": 103.0
+      },
+      "dose_5.0_freq_1.0": {
+        "dose": 5.0,
+        "frequency_per_day": 1.0,
+        "auc_efficacy": 443.02,
+        "peak_protein": 4.8729,
+        "peak_toxicity": 3.672,
+        "therapeutic_index": 120.65,
+        "expression_window_h": 96.0
+      },
+      "dose_5.0_freq_1.5": {
+        "dose": 5.0,
+        "frequency_per_day": 1.5,
+        "auc_efficacy": 635.75,
+        "peak_protein": 7.2149,
+        "peak_toxicity": 5.2829,
+        "therapeutic_index": 120.34,
+        "expression_window_h": 92.0
+      },
+      "dose_5.0_freq_2.0": {
+        "dose": 5.0,
+        "frequency_per_day": 2.0,
+        "auc_efficacy": 828.58,
+        "peak_protein": 9.5725,
+        "peak_toxicity": 6.8955,
+        "therapeutic_index": 120.16,
+        "expression_window_h": 90.0
+      },
+      "dose_10.0_freq_0.5": {
+        "dose": 10.0,
+        "frequency_per_day": 0.5,
+        "auc_efficacy": 500.31,
+        "peak_protein": 4.952,
+        "peak_toxicity": 4.1137,
+        "therapeutic_index": 121.62,
+        "expression_window_h": 103.0
+      },
+      "dose_10.0_freq_1.0": {
+        "dose": 10.0,
+        "frequency_per_day": 1.0,
+        "auc_efficacy": 886.03,
+        "peak_protein": 9.7458,
+        "peak_toxicity": 7.344,
+        "therapeutic_index": 120.65,
+        "expression_window_h": 96.0
+      },
+      "dose_10.0_freq_1.5": {
+        "dose": 10.0,
+        "frequency_per_day": 1.5,
+        "auc_efficacy": 1271.51,
+        "peak_protein": 14.4298,
+        "peak_toxicity": 10.5659,
+        "therapeutic_index": 120.34,
+        "expression_window_h": 92.0
+      },
+      "dose_10.0_freq_2.0": {
+        "dose": 10.0,
+        "frequency_per_day": 2.0,
+        "auc_efficacy": 1657.16,
+        "peak_protein": 19.1451,
+        "peak_toxicity": 13.791,
+        "therapeutic_index": 120.16,
+        "expression_window_h": 90.0
+      },
+      "dose_15.0_freq_0.5": {
+        "dose": 15.0,
+        "frequency_per_day": 0.5,
+        "auc_efficacy": 750.46,
+        "peak_protein": 7.428,
+        "peak_toxicity": 6.1706,
+        "therapeutic_index": 121.62,
+        "expression_window_h": 103.0
+      },
+      "dose_15.0_freq_1.0": {
+        "dose": 15.0,
+        "frequency_per_day": 1.0,
+        "auc_efficacy": 1329.05,
+        "peak_protein": 14.6187,
+        "peak_toxicity": 11.016,
+        "therapeutic_index": 120.65,
+        "expression_window_h": 96.0
+      },
+      "dose_15.0_freq_1.5": {
+        "dose": 15.0,
+        "frequency_per_day": 1.5,
+        "auc_efficacy": 1907.26,
+        "peak_protein": 21.6447,
+        "peak_toxicity": 15.8488,
+        "therapeutic_index": 120.34,
+        "expression_window_h": 92.0
+      },
+      "dose_15.0_freq_2.0": {
+        "dose": 15.0,
+        "frequency_per_day": 2.0,
+        "auc_efficacy": 2485.73,
+        "peak_protein": 28.7176,
+        "peak_toxicity": 20.6865,
+        "therapeutic_index": 120.16,
+        "expression_window_h": 90.0
+      },
+      "dose_20.0_freq_0.5": {
+        "dose": 20.0,
+        "frequency_per_day": 0.5,
+        "auc_efficacy": 1000.61,
+        "peak_protein": 9.904,
+        "peak_toxicity": 8.2274,
+        "therapeutic_index": 121.62,
+        "expression_window_h": 103.0
+      },
+      "dose_20.0_freq_1.0": {
+        "dose": 20.0,
+        "frequency_per_day": 1.0,
+        "auc_efficacy": 1772.06,
+        "peak_protein": 19.4916,
+        "peak_toxicity": 14.688,
+        "therapeutic_index": 120.65,
+        "expression_window_h": 96.0
+      },
+      "dose_20.0_freq_1.5": {
+        "dose": 20.0,
+        "frequency_per_day": 1.5,
+        "auc_efficacy": 2543.01,
+        "peak_protein": 28.8596,
+        "peak_toxicity": 21.1318,
+        "therapeutic_index": 120.34,
+        "expression_window_h": 92.0
+      },
+      "dose_20.0_freq_2.0": {
+        "dose": 20.0,
+        "frequency_per_day": 2.0,
+        "auc_efficacy": 3314.31,
+        "peak_protein": 38.2902,
+        "peak_toxicity": 27.582,
+        "therapeutic_index": 120.16,
+        "expression_window_h": 90.0
+      }
+    },
+    "optimal_regimen": "dose_1.0_freq_0.5",
+    "optimal_metrics": {
+      "dose": 1.0,
+      "frequency_per_day": 0.5,
+      "auc_efficacy": 50.03,
+      "peak_protein": 0.4952,
+      "peak_toxicity": 0.4114,
+      "therapeutic_index": 121.62,
+      "expression_window_h": 103.0
+    }
+  },
+  "delivery_route_comparison": {
+    "IV": {
+      "name": "Intravenous",
+      "pk_summary": {
+        "auc_efficacy": 886.03,
+        "peak_protein": 9.7458,
+        "time_to_peak_h": 167,
+        "expression_window_h": 96.0,
+        "rna_half_life_h": 0.0
+      }
+    },
+    "SC": {
+      "name": "Subcutaneous",
+      "pk_summary": {
+        "auc_efficacy": 666.41,
+        "peak_protein": 8.8232,
+        "time_to_peak_h": 167,
+        "expression_window_h": 76.0,
+        "rna_half_life_h": 0.0
+      }
+    },
+    "IM": {
+      "name": "Intramuscular",
+      "pk_summary": {
+        "auc_efficacy": 734.86,
+        "peak_protein": 9.1854,
+        "time_to_peak_h": 167,
+        "expression_window_h": 82.0,
+        "rna_half_life_h": 0.0
+      }
+    }
+  },
+  "efficacy_toxicity_tradeoff": {
+    "all_points": [
+      {
+        "dose": 1.0,
+        "freq": 0.25,
+        "auc_efficacy": 31.69,
+        "peak_toxicity": 0.2588
+      },
+      {
+        "dose": 1.0,
+        "freq": 0.64,
+        "auc_efficacy": 61.52,
+        "peak_toxicity": 0.5074
+      },
+      {
+        "dose": 1.0,
+        "freq": 1.04,
+        "auc_efficacy": 91.96,
+        "peak_toxicity": 0.7623
+      },
+      {
+        "dose": 1.0,
+        "freq": 1.43,
+        "auc_efficacy": 120.34,
+        "peak_toxicity": 0.9997
+      },
+      {
+        "dose": 1.0,
+        "freq": 1.82,
+        "auc_efficacy": 153.85,
+        "peak_toxicity": 1.2799
+      },
+      {
+        "dose": 1.0,
+        "freq": 2.21,
+        "auc_efficacy": 179.74,
+        "peak_toxicity": 1.4964
+      },
+      {
+        "dose": 1.0,
+        "freq": 2.61,
+        "auc_efficacy": 217.15,
+        "peak_toxicity": 1.8092
+      },
+      {
+        "dose": 1.0,
+        "freq": 3.0,
+        "auc_efficacy": 242.87,
+        "peak_toxicity": 2.0242
+      },
+      {
+        "dose": 4.2,
+        "freq": 0.25,
+        "auc_efficacy": 133.82,
+        "peak_toxicity": 1.0928
+      },
+      {
+        "dose": 4.2,
+        "freq": 0.64,
+        "auc_efficacy": 259.74,
+        "peak_toxicity": 2.1425
+      },
+      {
+        "dose": 4.2,
+        "freq": 1.04,
+        "auc_efficacy": 388.29,
+        "peak_toxicity": 3.2186
+      },
+      {
+        "dose": 4.2,
+        "freq": 1.43,
+        "auc_efficacy": 508.11,
+        "peak_toxicity": 4.2209
+      },
+      {
+        "dose": 4.2,
+        "freq": 1.82,
+        "auc_efficacy": 649.58,
+        "peak_toxicity": 5.4038
+      },
+      {
+        "dose": 4.2,
+        "freq": 2.21,
+        "auc_efficacy": 758.91,
+        "peak_toxicity": 6.3181
+      },
+      {
+        "dose": 4.2,
+        "freq": 2.61,
+        "auc_efficacy": 916.86,
+        "peak_toxicity": 7.6387
+      },
+      {
+        "dose": 4.2,
+        "freq": 3.0,
+        "auc_efficacy": 1025.46,
+        "peak_toxicity": 8.5468
+      },
+      {
+        "dose": 7.4,
+        "freq": 0.25,
+        "auc_efficacy": 235.95,
+        "peak_toxicity": 1.9267
+      },
+      {
+        "dose": 7.4,
+        "freq": 0.64,
+        "auc_efficacy": 457.96,
+        "peak_toxicity": 3.7775
+      },
+      {
+        "dose": 7.4,
+        "freq": 1.04,
+        "auc_efficacy": 684.61,
+        "peak_toxicity": 5.675
+      },
+      {
+        "dose": 7.4,
+        "freq": 1.43,
+        "auc_efficacy": 895.89,
+        "peak_toxicity": 7.4422
+      },
+      {
+        "dose": 7.4,
+        "freq": 1.82,
+        "auc_efficacy": 1145.31,
+        "peak_toxicity": 9.5278
+      },
+      {
+        "dose": 7.4,
+        "freq": 2.21,
+        "auc_efficacy": 1338.09,
+        "peak_toxicity": 11.1399
+      },
+      {
+        "dose": 7.4,
+        "freq": 2.61,
+        "auc_efficacy": 1616.57,
+        "peak_toxicity": 13.4683
+      },
+      {
+        "dose": 7.4,
+        "freq": 3.0,
+        "auc_efficacy": 1808.04,
+        "peak_toxicity": 15.0693
+      },
+      {
+        "dose": 10.7,
+        "freq": 0.25,
+        "auc_efficacy": 338.08,
+        "peak_toxicity": 2.7607
+      },
+      {
+        "dose": 10.7,
+        "freq": 0.64,
+        "auc_efficacy": 656.18,
+        "peak_toxicity": 5.4126
+      },
+      {
+        "dose": 10.7,
+        "freq": 1.04,
+        "auc_efficacy": 980.93,
+        "peak_toxicity": 8.1313
+      },
+      {
+        "dose": 10.7,
+        "freq": 1.43,
+        "auc_efficacy": 1283.66,
+        "peak_toxicity": 10.6634
+      },
+      {
+        "dose": 10.7,
+        "freq": 1.82,
+        "auc_efficacy": 1641.04,
+        "peak_toxicity": 13.6518
+      },
+      {
+        "dose": 10.7,
+        "freq": 2.21,
+        "auc_efficacy": 1917.26,
+        "peak_toxicity": 15.9616
+      },
+      {
+        "dose": 10.7,
+        "freq": 2.61,
+        "auc_efficacy": 2316.28,
+        "peak_toxicity": 19.2979
+      },
+      {
+        "dose": 10.7,
+        "freq": 3.0,
+        "auc_efficacy": 2590.63,
+        "peak_toxicity": 21.5918
+      },
+      {
+        "dose": 13.9,
+        "freq": 0.25,
+        "auc_efficacy": 440.2,
+        "peak_toxicity": 3.5946
+      },
+      {
+        "dose": 13.9,
+        "freq": 0.64,
+        "auc_efficacy": 854.39,
+        "peak_toxicity": 7.0476
+      },
+      {
+        "dose": 13.9,
+        "freq": 1.04,
+        "auc_efficacy": 1277.26,
+        "peak_toxicity": 10.5876
+      },
+      {
+        "dose": 13.9,
+        "freq": 1.43,
+        "auc_efficacy": 1671.43,
+        "peak_toxicity": 13.8847
+      },
+      {
+        "dose": 13.9,
+        "freq": 1.82,
+        "auc_efficacy": 2136.77,
+        "peak_toxicity": 17.7758
+      },
+      {
+        "dose": 13.9,
+        "freq": 2.21,
+        "auc_efficacy": 2496.43,
+        "peak_toxicity": 20.7833
+      },
+      {
+        "dose": 13.9,
+        "freq": 2.61,
+        "auc_efficacy": 3015.99,
+        "peak_toxicity": 25.1275
+      },
+      {
+        "dose": 13.9,
+        "freq": 3.0,
+        "auc_efficacy": 3373.21,
+        "peak_toxicity": 28.1144
+      },
+      {
+        "dose": 17.1,
+        "freq": 0.25,
+        "auc_efficacy": 542.33,
+        "peak_toxicity": 4.4286
+      },
+      {
+        "dose": 17.1,
+        "freq": 0.64,
+        "auc_efficacy": 1052.61,
+        "peak_toxicity": 8.6827
+      },
+      {
+        "dose": 17.1,
+        "freq": 1.04,
+        "auc_efficacy": 1573.58,
+        "peak_toxicity": 13.044
+      },
+      {
+        "dose": 17.1,
+        "freq": 1.43,
+        "auc_efficacy": 2059.2,
+        "peak_toxicity": 17.1059
+      },
+      {
+        "dose": 17.1,
+        "freq": 1.82,
+        "auc_efficacy": 2632.5,
+        "peak_toxicity": 21.8998
+      },
+      {
+        "dose": 17.1,
+        "freq": 2.21,
+        "auc_efficacy": 3075.6,
+        "peak_toxicity": 25.6051
+      },
+      {
+        "dose": 17.1,
+        "freq": 2.61,
+        "auc_efficacy": 3715.7,
+        "peak_toxicity": 30.957
+      },
+      {
+        "dose": 17.1,
+        "freq": 3.0,
+        "auc_efficacy": 4155.8,
+        "peak_toxicity": 34.6369
+      },
+      {
+        "dose": 20.3,
+        "freq": 0.25,
+        "auc_efficacy": 644.46,
+        "peak_toxicity": 5.2626
+      },
+      {
+        "dose": 20.3,
+        "freq": 0.64,
+        "auc_efficacy": 1250.83,
+        "peak_toxicity": 10.3178
+      }
+    ],
+    "pareto_frontier": [
+      {
+        "dose": 1.0,
+        "freq": 0.25,
+        "auc_efficacy": 31.69,
+        "peak_toxicity": 0.2588
+      },
+      {
+        "dose": 1.0,
+        "freq": 0.64,
+        "auc_efficacy": 61.52,
+        "peak_toxicity": 0.5074
+      },
+      {
+        "dose": 1.0,
+        "freq": 1.04,
+        "auc_efficacy": 91.96,
+        "peak_toxicity": 0.7623
+      },
+      {
+        "dose": 1.0,
+        "freq": 1.43,
+        "auc_efficacy": 120.34,
+        "peak_toxicity": 0.9997
+      },
+      {
+        "dose": 4.2,
+        "freq": 0.25,
+        "auc_efficacy": 133.82,
+        "peak_toxicity": 1.0928
+      },
+      {
+        "dose": 1.0,
+        "freq": 1.82,
+        "auc_efficacy": 153.85,
+        "peak_toxicity": 1.2799
+      },
+      {
+        "dose": 1.0,
+        "freq": 2.21,
+        "auc_efficacy": 179.74,
+        "peak_toxicity": 1.4964
+      },
+      {
+        "dose": 1.0,
+        "freq": 2.61,
+        "auc_efficacy": 217.15,
+        "peak_toxicity": 1.8092
+      },
+      {
+        "dose": 7.4,
+        "freq": 0.25,
+        "auc_efficacy": 235.95,
+        "peak_toxicity": 1.9267
+      },
+      {
+        "dose": 1.0,
+        "freq": 3.0,
+        "auc_efficacy": 242.87,
+        "peak_toxicity": 2.0242
+      },
+      {
+        "dose": 4.2,
+        "freq": 0.64,
+        "auc_efficacy": 259.74,
+        "peak_toxicity": 2.1425
+      },
+      {
+        "dose": 10.7,
+        "freq": 0.25,
+        "auc_efficacy": 338.08,
+        "peak_toxicity": 2.7607
+      },
+      {
+        "dose": 4.2,
+        "freq": 1.04,
+        "auc_efficacy": 388.29,
+        "peak_toxicity": 3.2186
+      },
+      {
+        "dose": 13.9,
+        "freq": 0.25,
+        "auc_efficacy": 440.2,
+        "peak_toxicity": 3.5946
+      },
+      {
+        "dose": 7.4,
+        "freq": 0.64,
+        "auc_efficacy": 457.96,
+        "peak_toxicity": 3.7775
+      },
+      {
+        "dose": 4.2,
+        "freq": 1.43,
+        "auc_efficacy": 508.11,
+        "peak_toxicity": 4.2209
+      },
+      {
+        "dose": 17.1,
+        "freq": 0.25,
+        "auc_efficacy": 542.33,
+        "peak_toxicity": 4.4286
+      },
+      {
+        "dose": 20.3,
+        "freq": 0.25,
+        "auc_efficacy": 644.46,
+        "peak_toxicity": 5.2626
+      },
+      {
+        "dose": 4.2,
+        "freq": 1.82,
+        "auc_efficacy": 649.58,
+        "peak_toxicity": 5.4038
+      },
+      {
+        "dose": 10.7,
+        "freq": 0.64,
+        "auc_efficacy": 656.18,
+        "peak_toxicity": 5.4126
+      },
+      {
+        "dose": 7.4,
+        "freq": 1.04,
+        "auc_efficacy": 684.61,
+        "peak_toxicity": 5.675
+      },
+      {
+        "dose": 23.6,
+        "freq": 0.25,
+        "auc_efficacy": 746.59,
+        "peak_toxicity": 6.0965
+      },
+      {
+        "dose": 4.2,
+        "freq": 2.21,
+        "auc_efficacy": 758.91,
+        "peak_toxicity": 6.3181
+      },
+      {
+        "dose": 26.8,
+        "freq": 0.25,
+        "auc_efficacy": 848.71,
+        "peak_toxicity": 6.9305
+      },
+      {
+        "dose": 13.9,
+        "freq": 0.64,
+        "auc_efficacy": 854.39,
+        "peak_toxicity": 7.0476
+      },
+      {
+        "dose": 7.4,
+        "freq": 1.43,
+        "auc_efficacy": 895.89,
+        "peak_toxicity": 7.4422
+      },
+      {
+        "dose": 4.2,
+        "freq": 2.61,
+        "auc_efficacy": 916.86,
+        "peak_toxicity": 7.6387
+      },
+      {
+        "dose": 30.0,
+        "freq": 0.25,
+        "auc_efficacy": 950.84,
+        "peak_toxicity": 7.7644
+      },
+      {
+        "dose": 10.7,
+        "freq": 1.04,
+        "auc_efficacy": 980.93,
+        "peak_toxicity": 8.1313
+      },
+      {
+        "dose": 4.2,
+        "freq": 3.0,
+        "auc_efficacy": 1025.46,
+        "peak_toxicity": 8.5468
+      },
+      {
+        "dose": 17.1,
+        "freq": 0.64,
+        "auc_efficacy": 1052.61,
+        "peak_toxicity": 8.6827
+      },
+      {
+        "dose": 7.4,
+        "freq": 1.82,
+        "auc_efficacy": 1145.31,
+        "peak_toxicity": 9.5278
+      },
+      {
+        "dose": 20.3,
+        "freq": 0.64,
+        "auc_efficacy": 1250.83,
+        "peak_toxicity": 10.3178
+      },
+      {
+        "dose": 13.9,
+        "freq": 1.04,
+        "auc_efficacy": 1277.26,
+        "peak_toxicity": 10.5876
+      },
+      {
+        "dose": 10.7,
+        "freq": 1.43,
+        "auc_efficacy": 1283.66,
+        "peak_toxicity": 10.6634
+      },
+      {
+        "dose": 7.4,
+        "freq": 2.21,
+        "auc_efficacy": 1338.09,
+        "peak_toxicity": 11.1399
+      },
+      {
+        "dose": 23.6,
+        "freq": 0.64,
+        "auc_efficacy": 1449.05,
+        "peak_toxicity": 11.9528
+      },
+      {
+        "dose": 17.1,
+        "freq": 1.04,
+        "auc_efficacy": 1573.58,
+        "peak_toxicity": 13.044
+      },
+      {
+        "dose": 7.4,
+        "freq": 2.61,
+        "auc_efficacy": 1616.57,
+        "peak_toxicity": 13.4683
+      },
+      {
+        "dose": 26.8,
+        "freq": 0.64,
+        "auc_efficacy": 1647.27,
+        "peak_toxicity": 13.5879
+      },
+      {
+        "dose": 13.9,
+        "freq": 1.43,
+        "auc_efficacy": 1671.43,
+        "peak_toxicity": 13.8847
+      },
+      {
+        "dose": 7.4,
+        "freq": 3.0,
+        "auc_efficacy": 1808.04,
+        "peak_toxicity": 15.0693
+      },
+      {
+        "dose": 30.0,
+        "freq": 0.64,
+        "auc_efficacy": 1845.49,
+        "peak_toxicity": 15.2229
+      },
+      {
+        "dose": 20.3,
+        "freq": 1.04,
+        "auc_efficacy": 1869.91,
+        "peak_toxicity": 15.5003
+      },
+      {
+        "dose": 10.7,
+        "freq": 2.21,
+        "auc_efficacy": 1917.26,
+        "peak_toxicity": 15.9616
+      },
+      {
+        "dose": 17.1,
+        "freq": 1.43,
+        "auc_efficacy": 2059.2,
+        "peak_toxicity": 17.1059
+      },
+      {
+        "dose": 13.9,
+        "freq": 1.82,
+        "auc_efficacy": 2136.77,
+        "peak_toxicity": 17.7758
+      },
+      {
+        "dose": 23.6,
+        "freq": 1.04,
+        "auc_efficacy": 2166.23,
+        "peak_toxicity": 17.9566
+      },
+      {
+        "dose": 10.7,
+        "freq": 2.61,
+        "auc_efficacy": 2316.28,
+        "peak_toxicity": 19.2979
+      },
+      {
+        "dose": 20.3,
+        "freq": 1.43,
+        "auc_efficacy": 2446.97,
+        "peak_toxicity": 20.3271
+      },
+      {
+        "dose": 26.8,
+        "freq": 1.04,
+        "auc_efficacy": 2462.55,
+        "peak_toxicity": 20.413
+      },
+      {
+        "dose": 13.9,
+        "freq": 2.21,
+        "auc_efficacy": 2496.43,
+        "peak_toxicity": 20.7833
+      },
+      {
+        "dose": 10.7,
+        "freq": 3.0,
+        "auc_efficacy": 2590.63,
+        "peak_toxicity": 21.5918
+      },
+      {
+        "dose": 17.1,
+        "freq": 1.82,
+        "auc_efficacy": 2632.5,
+        "peak_toxicity": 21.8998
+      },
+      {
+        "dose": 30.0,
+        "freq": 1.04,
+        "auc_efficacy": 2758.88,
+        "peak_toxicity": 22.8693
+      },
+      {
+        "dose": 23.6,
+        "freq": 1.43,
+        "auc_efficacy": 2834.74,
+        "peak_toxicity": 23.5484
+      },
+      {
+        "dose": 13.9,
+        "freq": 2.61,
+        "auc_efficacy": 3015.99,
+        "peak_toxicity": 25.1275
+      },
+      {
+        "dose": 17.1,
+        "freq": 2.21,
+        "auc_efficacy": 3075.6,
+        "peak_toxicity": 25.6051
+      },
+      {
+        "dose": 20.3,
+        "freq": 1.82,
+        "auc_efficacy": 3128.23,
+        "peak_toxicity": 26.0238
+      },
+      {
+        "dose": 26.8,
+        "freq": 1.43,
+        "auc_efficacy": 3222.51,
+        "peak_toxicity": 26.7696
+      },
+      {
+        "dose": 13.9,
+        "freq": 3.0,
+        "auc_efficacy": 3373.21,
+        "peak_toxicity": 28.1144
+      },
+      {
+        "dose": 30.0,
+        "freq": 1.43,
+        "auc_efficacy": 3610.28,
+        "peak_toxicity": 29.9909
+      },
+      {
+        "dose": 23.6,
+        "freq": 1.82,
+        "auc_efficacy": 3623.96,
+        "peak_toxicity": 30.1478
+      },
+      {
+        "dose": 20.3,
+        "freq": 2.21,
+        "auc_efficacy": 3654.77,
+        "peak_toxicity": 30.4268
+      },
+      {
+        "dose": 17.1,
+        "freq": 2.61,
+        "auc_efficacy": 3715.7,
+        "peak_toxicity": 30.957
+      },
+      {
+        "dose": 26.8,
+        "freq": 1.82,
+        "auc_efficacy": 4119.69,
+        "peak_toxicity": 34.2718
+      },
+      {
+        "dose": 17.1,
+        "freq": 3.0,
+        "auc_efficacy": 4155.8,
+        "peak_toxicity": 34.6369
+      },
+      {
+        "dose": 23.6,
+        "freq": 2.21,
+        "auc_efficacy": 4233.94,
+        "peak_toxicity": 35.2486
+      },
+      {
+        "dose": 20.3,
+        "freq": 2.61,
+        "auc_efficacy": 4415.4,
+        "peak_toxicity": 36.7866
+      },
+      {
+        "dose": 30.0,
+        "freq": 1.82,
+        "auc_efficacy": 4615.42,
+        "peak_toxicity": 38.3957
+      },
+      {
+        "dose": 26.8,
+        "freq": 2.21,
+        "auc_efficacy": 4813.11,
+        "peak_toxicity": 40.0703
+      },
+      {
+        "dose": 20.3,
+        "freq": 3.0,
+        "auc_efficacy": 4938.38,
+        "peak_toxicity": 41.1594
+      },
+      {
+        "dose": 23.6,
+        "freq": 2.61,
+        "auc_efficacy": 5115.11,
+        "peak_toxicity": 42.6162
+      },
+      {
+        "dose": 30.0,
+        "freq": 2.21,
+        "auc_efficacy": 5392.28,
+        "peak_toxicity": 44.892
+      },
+      {
+        "dose": 23.6,
+        "freq": 3.0,
+        "auc_efficacy": 5720.96,
+        "peak_toxicity": 47.682
+      },
+      {
+        "dose": 26.8,
+        "freq": 2.61,
+        "auc_efficacy": 5814.82,
+        "peak_toxicity": 48.4457
+      },
+      {
+        "dose": 26.8,
+        "freq": 3.0,
+        "auc_efficacy": 6503.55,
+        "peak_toxicity": 54.2045
+      },
+      {
+        "dose": 30.0,
+        "freq": 2.61,
+        "auc_efficacy": 6514.53,
+        "peak_toxicity": 54.2753
+      },
+      {
+        "dose": 30.0,
+        "freq": 3.0,
+        "auc_efficacy": 7286.13,
+        "peak_toxicity": 60.727
+      }
+    ],
+    "n_pareto_optimal": 79
+  }
+}

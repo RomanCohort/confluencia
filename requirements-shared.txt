@@ -1,0 +1,5 @@
+# 共用虚拟环境依赖入口（在工作区根目录的 .venv 中安装）
+# 默认使用 minimal，避免 Windows 上 rdkit/torch 等重依赖导致安装失败。
+# 如需药物模块（rdkit/torch），请改用 requirements-shared-full.txt。
+
+-r requirements-shared-minimal.txt

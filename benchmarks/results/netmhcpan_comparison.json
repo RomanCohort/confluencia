@@ -1,0 +1,30 @@
+{
+  "confluencia_metrics": {
+    "auc": 0.6534954407294833,
+    "accuracy": 0.6885245901639344,
+    "f1": 0.7764705882352941,
+    "mcc": 0.2993347890963543,
+    "optimal_threshold": 0.44595128297805786,
+    "correlation_with_log_ic50": -0.23847276885681232,
+    "correlation_p_value": 0.06419819101553062,
+    "n_samples": 61,
+    "n_binders": 47,
+    "n_nonbinders": 14
+  },
+  "netmhcpan_reference": {
+    "auc_range": [
+      0.92,
+      0.96
+    ],
+    "training_size": 180000,
+    "specialization": "MHC-I binding affinity only",
+    "note": "NetMHCpan-4.1 is trained specifically for binding prediction with large-scale data"
+  },
+  "comparison": {
+    "auc_gap": 0.26650455927051675,
+    "confluencia_training_size": 300,
+    "confluencia_specialization": "Multi-task (efficacy, PK, immunogenicity)",
+    "explanation": "NetMHCpan-4.1 achieves higher AUC (0.92-0.96) than Confluencia (0.653) on pure binding prediction. This is expected because: (1) NetMHCpan is trained on 180,000 peptides vs Confluencia's ~300, (2) NetMHCpan specializes in binding affinity only, while Confluencia predicts multiple therapeutic properties including pharmacokinetics and immunogenicity."
+  },
+  "conclusion": "Confluencia's AUC of 0.653 for binder classification, while lower than NetMHCpan-4.1's ~0.94, represents reasonable performance given the 600x smaller training set and broader prediction scope. Confluencia's value proposition is multi-task prediction (efficacy, PK trajectory, immunogenicity) rather than pure binding affinity."
+}

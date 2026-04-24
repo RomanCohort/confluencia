@@ -1,0 +1,250 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RNACTM Six-Compartment Model - PK Analysis Report</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .header {
+            background: linear-gradient(135deg, #1f77b4, #2ca02c);
+            color: white;
+            padding: 40px;
+            border-radius: 10px;
+            margin-bottom: 30px;
+        }
+        .header h1 { margin: 0; font-size: 2.5em; }
+        .subtitle { font-size: 1.2em; opacity: 0.9; }
+        .meta { margin-top: 20px; font-size: 0.9em; opacity: 0.8; }
+        .meta span { margin-right: 20px; }
+        .section {
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .section h2 {
+            color: #1f77b4;
+            border-bottom: 2px solid #1f77b4;
+            padding-bottom: 10px;
+            margin-top: 0;
+        }
+        .section h3 { color: #333; margin-top: 20px; }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+        }
+        th, td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+        th {
+            background: #f8f9fa;
+            font-weight: 600;
+            color: #1f77b4;
+        }
+        .card {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 10px;
+            flex: 1;
+        }
+        .summary-cards {
+            display: flex;
+            gap: 20px;
+            flex-wrap: wrap;
+        }
+        .footer {
+            text-align: center;
+            color: #666;
+            padding: 20px;
+            font-size: 0.9em;
+        }
+        .placeholder {
+            background: #e0e0e0;
+            padding: 100px;
+            text-align: center;
+            border-radius: 8px;
+            color: #666;
+        }
+    </style>
+</head>
+<body>
+
+        <div class="header">
+            <h1>RNACTM Six-Compartment Model</h1>
+            <p class="subtitle">Pharmacokinetic Analysis Report</p>
+            <div class="meta">
+                <span>Generated: 2026-04-22T23:45:35.249556</span>
+                <span>Author: Confluencia</span>
+                <span>Version: 1.0.0</span>
+            </div>
+        </div>
+        
+
+        <div class="section">
+            <h2>Executive Summary</h2>
+            <div class="summary-cards">
+                <div class="card">
+                    <h3>Model Performance</h3>
+                    <p>R² = N/A</p>
+                    <p>VPC Agreement = 85.0%</p>
+                </div>
+                <div class="card">
+                    <h3>Key Parameters</h3>
+                    <p>tv_ke = 0.3680 /h</p>
+                    <p>tv_V = 6.8879 L/kg</p>
+                </div>
+                <div class="card">
+                    <h3>Compliance</h3>
+                    <p>FDA: Non-Compliant</p>
+                    <p>EMA: Non-Compliant</p>
+                </div>
+            </div>
+        </div>
+        
+
+        <div class="section">
+            <h2>Model Description</h2>
+            <h3>RNACTM Six-Compartment Model</h3>
+            <p>The RNACTM model simulates circRNA pharmacokinetics through six compartments:</p>
+            <ol>
+                <li><strong>Injection:</strong> Initial dose pool at injection site</li>
+                <li><strong>LNP:</strong> Lipid nanoparticle encapsulated circRNA</li>
+                <li><strong>Endosome:</strong> Intracellular endosomal compartment</li>
+                <li><strong>Cytoplasm:</strong> Cytoplasmic circRNA available for translation</li>
+                <li><strong>Protein:</strong> Translated therapeutic protein</li>
+                <li><strong>Clearance:</strong> Cumulative clearance (RNA + protein degradation)</li>
+            </ol>
+            <h3>Mathematical Framework</h3>
+            <pre>
+Individual: θ_i = TV(θ) × exp(η_i), η_i ~ N(0, ω²)
+Residual: ε_ij ~ N(0, σ²)
+            </pre>
+        </div>
+        
+
+        <div class="section">
+            <h2>Parameter Estimates</h2>
+            
+        <table class="parameter-table">
+            <thead>
+                <tr>
+                    <th>Parameter</th>
+                    <th>Estimate</th>
+                    <th>Unit</th>
+                    <th>Description</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>tv_ka</td>
+                    <td>2.8246</td>
+                    <td>1/h</td>
+                    <td>Absorption rate constant (typical value)</td>
+                </tr>
+                <tr>
+                    <td>tv_ke</td>
+                    <td>0.3680</td>
+                    <td>1/h</td>
+                    <td>Elimination rate constant (typical value)</td>
+                </tr>
+                <tr>
+                    <td>tv_V</td>
+                    <td>6.8879</td>
+                    <td>L/kg</td>
+                    <td>Volume of distribution (typical value)</td>
+                </tr>
+                <tr>
+                    <td>tv_F</td>
+                    <td>0.0010</td>
+                    <td>-</td>
+                    <td>Bioavailability fraction</td>
+                </tr>
+                <tr>
+                    <td>ω_ka</td>
+                    <td>0.8534</td>
+                    <td>CV%</td>
+                    <td>IIV on ka (between-subject variability)</td>
+                </tr>
+                <tr>
+                    <td>ω_ke</td>
+                    <td>0.7817</td>
+                    <td>CV%</td>
+                    <td>IIV on ke</td>
+                </tr>
+                <tr>
+                    <td>σ_prop</td>
+                    <td>0.1043</td>
+                    <td>CV%</td>
+                    <td>Proportional residual error</td>
+                </tr>
+            </tbody>
+        </table>
+        
+        </div>
+        
+
+        <div class="section">
+            <h2>Parameter Stability (Bootstrap)</h2>
+            <p>Bootstrap analysis was performed to assess parameter uncertainty.</p>
+            <p><em>Bootstrap parameter distributions would be displayed here.</em></p>
+        </div>
+        
+
+        <div class="section">
+            <h2>Validation Summary</h2>
+            <h3>Internal Validation</h3>
+            <p>Pass Rate: 100.0%</p>
+            <h3>External Validation</h3>
+            <p>Pass Rate: N/A</p>
+        </div>
+        
+
+        <div class="section">
+            <h2>Regulatory Compliance</h2>
+            <h3>FDA Requirements</h3>
+            <ul>
+                <li>Model Structure: ✓</li>
+                <li>Parameter Estimates: ✓</li>
+                <li>Validation Evidence: ✗</li>
+            </ul>
+            <h3>EMA Requirements</h3>
+            <ul>
+                <li>Model Documentation: ✗</li>
+                <li>VPC Plots: ✗</li>
+            </ul>
+        </div>
+        
+
+        <div class="section">
+            <h2>Limitations and Assumptions</h2>
+            <ol>
+                <li><strong>Literature-derived parameters:</strong> RNACTM parameters are initialized from literature values rather than directly fitted to circRNA PK data.</li>
+                <li><strong>Limited external validation:</strong> Model validation is based on synthetic data and published literature values. Prospective validation against in vivo circRNA PK studies is required.</li>
+                <li><strong>Species extrapolation:</strong> Most parameter estimates are from mouse studies. Extrapolation to human requires additional allometric scaling and validation.</li>
+                <li><strong>Simplified compartment structure:</strong> The six-compartment model is a simplification. More complex models may be needed for specific applications.</li>
+            </ol>
+        </div>
+        
+
+        <div class="footer">
+            <p>Generated by Confluencia Platform | For research use only</p>
+            <p>© 2026 IGEM-FBH Team. All rights reserved.</p>
+        </div>
+        
+</body>
+</html>

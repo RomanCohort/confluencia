@@ -1,0 +1,26 @@
+cff-version: 1.2.0
+message: "If you use Confluencia in your research, please cite:"
+type: software
+title: "Confluencia"
+version: 2.0.0
+date-released: 2026-04-20
+url: "https://github.com/IGEM-FBH/confluencia"
+repository-code: "https://github.com/IGEM-FBH/confluencia"
+license: MIT
+keywords:
+  - circRNA
+  - drug discovery
+  - small-sample learning
+  - mixture-of-experts
+  - pharmacokinetics
+  - bioinformatics
+  - multi-task prediction
+abstract: >
+  Confluencia is a multi-task computational platform for circRNA drug discovery
+  that combines adaptive Mixture-of-Experts ensemble, pharmacokinetic dynamics
+  modeling (CTM/NDP4PD), and multi-scale sequence encoding (Mamba3Lite) to
+  enable stable prediction and closed-loop optimization under small-sample
+  conditions.
+authors:
+  - family-names: "IGEM-FBH"
+    given-names: "Confluencia Team"

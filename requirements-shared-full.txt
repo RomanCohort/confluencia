@@ -1,0 +1,16 @@
+# Shared virtual environment (full): Drug module + Epitope + Data augmentation
+# Note: On Windows, rdkit-pypi typically requires Python 3.10/3.11.
+
+# Core dependencies (epitope module)
+-r confluencia-2.0-epitope/requirements.txt
+
+# Drug module dependencies (includes rdkit, torch)
+-r confluencia-2.0-drug/requirements.txt
+
+# Data augmentation and denoising (optional - tensorflow/keras based)
+# Uncomment the following line if data augmentation is needed:
+# -r modules/data-augmentation/requirements.txt
+
+# Additional shared utilities
+rdkit>=2023.3
+joblib>=1.3

@@ -1,0 +1,28 @@
+version: '3.8'
+
+services:
+  confluencia-drug:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8501:8501"
+    volumes:
+      - ./data:/app/data
+      - ./models:/app/models
+    environment:
+      - PYTHONUNBUFFERED=1
+    command: streamlit run confluencia-2.0-drug/app.py --server.port=8501 --server.address=0.0.0.0
+
+  confluencia-epitope:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8502:8502"
+    volumes:
+      - ./data:/app/data
+      - ./models:/app/models
+    environment:
+      - PYTHONUNBUFFERED=1
+    command: streamlit run confluencia-2.0-epitope/epitope_frontend.py --server.port=8502 --server.address=0.0.0.0
