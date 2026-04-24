@@ -1,0 +1,16 @@
+\begin{table}[htbp]
+\centering
+\caption{Classical ML vs Deep Learning on epitope prediction (external IEDB validation). All models evaluated on held-out IEDB data (N=1955). Deep MLPs achieve negative R2, performing worse than the mean baseline.}
+\label{tab:dl_comparison}
+\begin{tabular}{lccccc}
+\toprule
+Model & MAE & RMSE & $R^2$ & Pearson $r$ & Type \\
+\midrule
+\textbf{MOE (Classical)} & 1.132 & 1.263 & -0.014 & 0.242 & Classical \\
+MLP (128-64) & 1.227 & 1.410 & -0.263 & 0.134 & Deep \\
+MLP (256-128-64) & 1.208 & 1.316 & -0.099 & 0.092 & Deep \\
+MLP (512-256) & 1.185 & 1.333 & -0.134 & 0.165 & Deep \\
+\bottomrule
+\end{tabular}
+\footnotesize {\textit{Note:} Negative R2 indicates model predictions are worse than simply predicting the mean. Classical ML outperforms deep learning in small-sample regimes.}
+\end{table}

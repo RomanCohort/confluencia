@@ -1,0 +1,18 @@
+\begin{table}[htbp]
+\centering
+\caption{Baseline comparison for epitope prediction task (N=300, 5-fold CV). MAE: Mean Absolute Error. R2: Coefficient of determination. Improvement shows MOE advantage over each baseline.}
+\label{tab:baseline}
+\begin{tabular}{lccc}
+\toprule
+Method & MAE & $R^2$ & Improvement \\
+\midrule
+\textbf{MOE} & 0.389 $\pm$ 0.045 & 0.819 $\pm$ 0.027 & --- \\
+\textbf{Ridge} & 0.639 $\pm$ 0.054 & 0.533 $\pm$ 0.117 & +39.2\% \\
+\textbf{HGB} & 0.409 $\pm$ 0.051 & 0.794 $\pm$ 0.038 & +4.9\% \\
+\textbf{RF} & 0.498 $\pm$ 0.068 & 0.704 $\pm$ 0.067 & +22.0\% \\
+\textbf{GBR} & 0.527 $\pm$ 0.061 & 0.664 $\pm$ 0.070 & +26.3\% \\
+\textbf{MLP} & 0.771 $\pm$ 0.067 & 0.338 $\pm$ 0.123 & +49.6\% \\
+\bottomrule
+\end{tabular}
+\footnotesize {\textit{Note:} MOE: Mixture-of-Experts ensemble. HGB: Histogram Gradient Boosting. RF: Random Forest. GBR: Gradient Boosting Regressor. MLP: Multi-Layer Perceptron.}
+\end{table}

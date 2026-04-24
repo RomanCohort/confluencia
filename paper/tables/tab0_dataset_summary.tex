@@ -1,0 +1,27 @@
+\begin{table}[htbp]
+\centering
+\caption{Summary of datasets used in this study. Training data is used for model fitting and internal cross-validation. External validation data is held-out and not used during training.}
+\label{tab:dataset}
+\begin{tabular}{llccc}
+\toprule
+Dataset & Source & N & Features & Purpose \\
+\midrule
+\multicolumn{5}{l}{\textit{Small-Sample Training Data}} \\
+Epitope training & IEDB/circRNA lit. & 300 & 317 & Epitope prediction \\
+Drug training & PubChem/ChEMBL & 200 & 35$^*$ & Drug efficacy \\
+\midrule
+\multicolumn{5}{l}{\textit{Full-Scale Training Data}} \\
+IEDB MHC-I (binary) & IEDB tcell\_full\_v3 & 288,135 & 317 & Epitope classification \\
+Drug extended & PubChem/ChEMBL/synthetic & 91,150 & 2,083 & Drug multi-task \\
+\midrule
+\multicolumn{5}{l}{\textit{External Validation}} \\
+IEDB MHC-I & IEDB (held-out) & 1,955 & 317 & Binding prediction \\
+NetMHCpan & Jurtz et al. 2017 & 61 & 317 & Binding concordance \\
+ChEMBL drug & ChEMBL (held-out) & 500 & 35 & Drug bioactivity \\
+TCCIA circRNA & TCCIA Atlas & 75 & 5 & Immunotherapy response \\
+GDSC drug & GDSC database & 50 & 12 & Drug sensitivity \\
+Literature cases & Published papers & 17 & 317 & Case-level validation \\
+\bottomrule
+\end{tabular}
+\footnotesize {$^*$After removing Morgan fingerprints (2048-bit) based on ablation results. Full feature set is 2083. Drug multi-task uses 6 targets: efficacy, target\_binding, immune\_activation, immune\_cell\_activation, inflammation\_risk, toxicity\_risk.}
+\end{table}

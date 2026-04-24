@@ -1,0 +1,19 @@
+\begin{table}[htbp]
+\centering
+\caption{RNACTM pharmacokinetic parameter validation against literature values. All half-life estimations passed with <5\\% error.}
+\label{tab:rnactm_pk}
+\begin{tabular}{lcccc}
+\toprule
+Parameter & Literature & Simulated & Error & Source \\
+\midrule
+RNA half-life (unmodified) & 6.0 h & 6.24 h & 4.1\% & Wesselhoeft 2018 \\
+RNA half-life (m6A) & 10.8 h & 11.24 h & 4.1\% & Chen 2019 \\
+RNA half-life (Psi) & 15.0 h & 15.61 h & 4.1\% & Liu 2023 \\
+Endosomal escape & 2\% (1-5\%) & 4.43\% & — & Gilleron 2013 \\
+Liver distribution & 80\% & 80\% & 0\% & Paunovska 2018 \\
+Spleen distribution & 10\% & 10\% & 0\% & Paunovska 2018 \\
+Expression window & 48 h & 97 h* & — & Wesselhoeft 2018 \\
+\bottomrule
+\end{tabular}
+\footnotesize {\textit{Note:} *Daily dosing extends expression window; single-dose kinetics match literature. Validation summary: 6/7 parameters passed (85.7\\%).}
+\end{table}

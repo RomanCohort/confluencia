@@ -1,0 +1,16 @@
+\begin{table}[htbp]
+\centering
+\caption{Impact of VAE feature denoising on IEDB binary classification (N=288,135). Negative \$\Delta\$ AUC indicates denoising removed discriminatory signal rather than noise.}
+\label{tab:vae_denoise}
+\begin{tabular}{lcccc}
+\toprule
+Method & Raw AUC & Denoised AUC & Latent AUC & $\Delta$ AUC \\
+\midrule
+HGB & 0.731 & 0.694 & 0.595 & -0.037 \\
+RF & 0.725 & 0.686 & --- & -0.039 \\
+LR & 0.663 & 0.588 & 0.567 & -0.075 \\
+MLP & 0.644 & 0.649 & --- & +0.006 \\
+\bottomrule
+\end{tabular}
+\footnotesize {\textit{Note:} VAE config: latent\\_dim=64, hidden=[256, 128], \$\beta\$=0.05, 50 epochs, trained on 50,000 samples. Reconstruction MSE=0.231. Denoising degraded signal across all tree-based models.}
+\end{table}

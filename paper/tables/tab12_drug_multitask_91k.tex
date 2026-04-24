@@ -1,0 +1,18 @@
+\begin{table}[htbp]
+\centering
+\caption{Multi-task drug prediction results on extended dataset (N=91,150, group-aware split, 2,083 RDKit features). Each target shows the best-performing model and its metrics.}
+\label{tab:drug_multitask}
+\begin{tabular}{lccccc}
+\toprule
+Target & Best Model & MAE & $R^2$ & Pearson $r$ & MOE $R^2$ \\
+\midrule
+efficacy & MOE & 0.035 & 0.603 & 0.777 & 0.603 \\
+target\\_binding & \textbf{Ridge} & 0.029 & 0.965 & 0.982 & 0.951 \\
+immune\\_activation & \textbf{HGB} & 0.045 & 0.737 & 0.863 & 0.720 \\
+immune\\_cell\\_activation & \textbf{HGB} & 0.046 & 0.725 & 0.859 & 0.698 \\
+inflammation\\_risk & \textbf{RF} & 0.049 & 0.698 & 0.839 & 0.633 \\
+toxicity\\_risk & \textbf{RF} & 0.036 & 0.670 & 0.820 & 0.624 \\
+\bottomrule
+\end{tabular}
+\footnotesize {\textit{Note:} Group-aware split: 120 train groups (N=71,745), 31 test groups (N=19,405). Feature extraction: RDKit Morgan FP (2048-bit) + descriptors (35-dim). MOE uses OOF-RMSE inverse weighting with 5-fold CV.}
+\end{table}

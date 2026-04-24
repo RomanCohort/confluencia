@@ -1,0 +1,41 @@
+\begin{table}[htbp]
+\centering
+\caption{Complete drug multi-task prediction results (N=91,150). All four models evaluated on each of six prediction targets. Bold indicates best model per target.}
+\label{tab:drug_all_targets}
+\begin{tabular}{lccccc}
+\toprule
+Target & Model & MAE & $R^2$ & Pearson $r$ & Time (s) \\
+\midrule
+efficacy & \textbf{MOE} & 0.035 & 0.603 & 0.777 & 1599 \\
+ & HGB & 0.035 & 0.586 & 0.767 & 29 \\
+ & RF & 0.036 & 0.563 & 0.751 & 267 \\
+ & Ridge & 0.035 & 0.586 & 0.766 & 64 \\
+ &  &  &  &  &  \\
+target\\_binding & MOE & 0.034 & 0.951 & 0.976 & 7627 \\
+ & HGB & 0.047 & 0.910 & 0.955 & 79 \\
+ & RF & 0.046 & 0.898 & 0.948 & 532 \\
+ & \textbf{Ridge} & 0.029 & 0.965 & 0.982 & 66 \\
+ &  &  &  &  &  \\
+immune\\_activation & MOE & 0.046 & 0.720 & 0.857 & 4181 \\
+ & \textbf{HGB} & 0.045 & 0.737 & 0.863 & 39 \\
+ & RF & 0.059 & 0.492 & 0.738 & 371 \\
+ & Ridge & 0.053 & 0.576 & 0.768 & 62 \\
+ &  &  &  &  &  \\
+immune\\_cell\\_activation & MOE & 0.048 & 0.698 & 0.851 & 2121 \\
+ & \textbf{HGB} & 0.046 & 0.725 & 0.859 & 40 \\
+ & RF & 0.053 & 0.627 & 0.796 & 386 \\
+ & Ridge & 0.065 & 0.366 & 0.633 & 57 \\
+ &  &  &  &  &  \\
+inflammation\\_risk & MOE & 0.057 & 0.633 & 0.823 & 2951 \\
+ & HGB & 0.059 & 0.624 & 0.804 & 47 \\
+ & \textbf{RF} & 0.049 & 0.698 & 0.839 & 359 \\
+ & Ridge & 0.082 & 0.213 & 0.468 & 295 \\
+ &  &  &  &  &  \\
+toxicity\\_risk & MOE & 0.041 & 0.624 & 0.830 & 2334 \\
+ & HGB & 0.042 & 0.608 & 0.808 & 39 \\
+ & \textbf{RF} & 0.036 & 0.670 & 0.820 & 363 \\
+ & Ridge & 0.057 & 0.241 & 0.493 & 62 \\
+\bottomrule
+\end{tabular}
+\footnotesize {\textit{Note:} Data: 91,150 samples (train=71,745, test=19,405), 2,083 RDKit features, group-aware split. Feature extraction: 67.9s (train) + 21.4s (test).}
+\end{table}

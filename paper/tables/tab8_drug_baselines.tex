@@ -1,0 +1,17 @@
+\begin{table}[htbp]
+\centering
+\caption{Baseline comparison for drug efficacy prediction task (N=200, 5-fold CV).}
+\label{tab:baseline_drug}
+\begin{tabular}{lccc}
+\toprule
+Method & MAE & $R^2$ & Improvement \\
+\midrule
+\textbf{MOE} & 0.039 $\pm$ 0.004 & 0.982 $\pm$ 0.005 & --- \\
+\textbf{Ridge} & 0.037 $\pm$ 0.003 & 0.984 $\pm$ 0.005 & -6.5\% \\
+\textbf{HGB} & 0.047 $\pm$ 0.008 & 0.966 $\pm$ 0.019 & +17.7\% \\
+\textbf{RF} & 0.042 $\pm$ 0.005 & 0.979 $\pm$ 0.007 & +7.5\% \\
+\textbf{GBR} & 0.046 $\pm$ 0.006 & 0.974 $\pm$ 0.008 & +15.7\% \\
+\textbf{MLP} & 0.082 $\pm$ 0.041 & 0.900 $\pm$ 0.088 & +52.7\% \\
+\bottomrule
+\end{tabular}
+\end{table}

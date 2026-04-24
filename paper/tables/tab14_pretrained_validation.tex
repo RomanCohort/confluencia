@@ -1,0 +1,17 @@
+\begin{table}[htbp]
+\centering
+\caption{External validation comparison: original small-sample models (N=300) vs 288k pretrained RF model. AUC / Pearson r shown for IEDB and NetMHCpan.}
+\label{tab:pretrained_validation}
+\begin{tabular}{lcccc}
+\toprule
+Dataset & N & Original & 288k Model & Change \\
+\midrule
+IEDB held-out & 2,166 & 0.650 / 0.302 & \textbf{0.888} / \textbf{0.635} & +0.238 / +0.333 \\
+NetMHCpan & 61 & 0.653 / -0.239 & \textbf{0.663} / \textbf{-0.402} & +0.010 / enhanced \\
+TCCIA circRNA & 75 & 0.888 & \textbf{0.888} & Consistent \\
+GDSC drug & 50 & 0.986 & \textbf{0.841} & $-0.145$ \\
+Literature cases & 17 & 58.8\% & \textbf{64.7\%} & +5.9\% \\
+\bottomrule
+\end{tabular}
+\footnotesize {\textit{Note:} 288k pretrained model: RF (200 trees, max\\_depth=15), trained on 231,067 IEDB sequences. IEDB and NetMHCpan values show AUC/Pearson r. NetMHCpan corr(logIC50) improved from \$-0.239\$ to \$-0.402\$.}
+\end{table}

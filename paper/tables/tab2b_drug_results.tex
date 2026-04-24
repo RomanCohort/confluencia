@@ -1,0 +1,17 @@
+\begin{table}[htbp]
+\centering
+\caption{Drug efficacy prediction results (N=200, sequence-aware split). Best results use RDKit descriptors without Morgan fingerprints.}
+\label{tab:drug_results}
+\begin{tabular}{lcc}
+\toprule
+Configuration & MAE & $R^2$ \\
+\midrule
+\textbf{Ridge (no Morgan FP)} & \textbf{0.037} & \textbf{0.984} \\
+Full features (with Morgan FP) & 0.201 & 0.668 \\
+Only descriptors (no FP) & 0.076 & 0.960 \\
+Only Morgan FP + context & 0.648 & -2.057 \\
+Context only (baseline) & 0.463 & -0.731 \\
+\bottomrule
+\end{tabular}
+\footnotesize {\textit{Note:} Removing 2048-bit Morgan fingerprints improves $R^2$ from 0.67 to 0.96, indicating that high-dimensional sparse features cause overfitting in small-sample regimes.}
+\end{table}

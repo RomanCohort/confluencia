@@ -1,0 +1,18 @@
+\begin{table}[htbp]
+\centering
+\caption{Binary binder/non-binder classification on full IEDB MHC-I dataset (N=288,135). Sequence-aware 80/20 split (train=231,067, test=57,068) via GroupShuffleSplit.}
+\label{tab:iedb_binary}
+\begin{tabular}{lcccc}
+\toprule
+Method & AUC & Accuracy & F1 & MCC \\
+\midrule
+\textbf{RF} & 0.735 & 0.655 & 0.335 & 0.251 \\
+HGB & 0.731 & 0.690 & 0.571 & 0.338 \\
+RF & 0.725 & 0.647 & 0.296 & 0.230 \\
+MOE & 0.717 & 0.600 & 0.000 & 0.000 \\
+LR & 0.663 & 0.648 & 0.457 & 0.232 \\
+MLP & 0.644 & 0.629 & 0.466 & 0.197 \\
+\bottomrule
+\end{tabular}
+\footnotesize {\textit{Note:} Pretrained RF model (200 trees, max\\_depth=15) achieves best AUC=0.735. HGB achieves best F1=0.571 with optimal precision-recall balance. Binder rate: 40.6\\%. MOE trained as regression ensemble with threshold at 3.0 produced degenerate F1=0.}
+\end{table}

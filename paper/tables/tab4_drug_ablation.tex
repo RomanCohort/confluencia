@@ -1,0 +1,16 @@
+\begin{table}[htbp]
+\centering
+\caption{Drug efficacy prediction ablation (N=200). Removing Morgan fingerprints dramatically improves R2 from 0.67 to 0.96.}
+\label{tab:drug_ablation}
+\begin{tabular}{lccc}
+\toprule
+Configuration & Features & MAE & $R^2$ \\
+\midrule
+Full & 2083 & 0.201 & 0.668 \\
+No Morgan FP & 35 & 0.076 & 0.960 \\
+No Descriptors & 2075 & 0.648 & -2.057 \\
+Baseline (context only) & 3 & 0.463 & -0.731 \\
+\bottomrule
+\end{tabular}
+\footnotesize {\textit{Note:} Key finding: High-dimensional Morgan fingerprints (2048-bit) cause overfitting in small-sample regimes. Simpler RDKit descriptors (35 features) perform better.}
+\end{table}

@@ -1,0 +1,19 @@
+\begin{table}[htbp]
+\centering
+\caption{NetMHCpan-4.1 direct comparison on 61-peptide benchmark (Jurtz et al. 2017). Confluencia achieves lower AUC but provides multi-task prediction capability.}
+\label{tab:netmhcpan_compare}
+\begin{tabular}{lccc}
+\toprule
+Metric & Confluencia & NetMHCpan-4.1 & Notes \\
+\midrule
+AUC & 0.653 & 0.92-0.96 & Binding classification \\
+Accuracy & 0.689 & — & — \\
+F1 & 0.776 & — & — \\
+MCC & 0.299 & — & — \\
+Corr(logIC50) & -0.238 & — & Negative = correct direction \\
+Training size & ~300 & ~180,000 & Peptides \\
+Prediction scope & Multi-task & Binding only & — \\
+\bottomrule
+\end{tabular}
+\footnotesize {\textit{Note:} NetMHCpan-4.1's higher AUC reflects 600× larger training set and specialized binding-only prediction. Confluencia's value is multi-task prediction including pharmacokinetics and immunogenicity.}
+\end{table}

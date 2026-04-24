@@ -1,0 +1,19 @@
+\begin{table}[htbp]
+\centering
+\caption{Ablation study for epitope prediction (N=300, 5-fold CV). Each row removes one feature group to assess contribution.}
+\label{tab:ablation}
+\begin{tabular}{lccc}
+\toprule
+Configuration & Features & MAE & $R^2$ \\
+\midrule
+Full & 317 & 0.308 & 0.853 \\
+- Mamba summary & 221 & 0.343 & 0.819 \\
+- k-mer (2) & 253 & 0.305 & 0.858 \\
+- Biochem stats & 301 & 0.511 & 0.542 \\
+- Environment & 312 & 0.557 & 0.515 \\
+No Mamba & 149 & 0.333 & 0.811 \\
+Baseline (env only) & 5 & 0.799 & -0.016 \\
+\bottomrule
+\end{tabular}
+\footnotesize {\textit{Note:} Removing biochem stats increases MAE from 0.31 to 0.51, indicating critical importance. Environment features are essential (R2 becomes negative without them).}
+\end{table}

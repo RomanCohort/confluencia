@@ -1,0 +1,23 @@
+\begin{table}[htbp]
+\centering
+\caption{Sample size sensitivity for epitope prediction. Performance improves dramatically with more training data.}
+\label{tab:sensitivity}
+\begin{tabular}{lcccc}
+\toprule
+Data \% & N train & MAE & $R^2$ & Quality \\
+\midrule
+5\% & 15 & 0.970 & -0.018 & No learning \\
+10\% & 24 & 0.974 & -0.052 & No learning \\
+20\% & 48 & 0.691 & 0.462 & Poor \\
+30\% & 72 & 0.571 & 0.616 & Moderate \\
+40\% & 96 & 0.499 & 0.688 & Moderate \\
+50\% & 120 & 0.460 & 0.743 & Good \\
+60\% & 144 & 0.453 & 0.755 & Good \\
+70\% & 168 & 0.437 & 0.763 & Good \\
+80\% & 192 & 0.428 & 0.784 & Good \\
+90\% & 216 & 0.414 & 0.791 & Good \\
+100\% & 240 & 0.397 & 0.811 & Good \\
+\bottomrule
+\end{tabular}
+\footnotesize {\textit{Note:} N<48: R2 near or below zero. N>=48: Reliable prediction begins. N>=200: Optimal performance.}
+\end{table}

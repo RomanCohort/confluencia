@@ -1,0 +1,25 @@
+\begin{table}[htbp]
+\centering
+\caption{External validation results across multiple independent datasets. Top: original small-sample models. Bottom: pretrained large-scale models (288k epitope RF, 91k drug MOE).}
+\label{tab:validation}
+\begin{tabular}{lcccc}
+\toprule
+Dataset & N & Metric & Value & Task \\
+\midrule
+IEDB MHC-I & 1,955 & Pearson r & 0.302 & Epitope efficacy \\
+IEDB MHC-I & 1,955 & AUC & 0.650 & Binder classification \\
+NetMHCpan & 61 & AUC & 0.653 & Binder classification \\
+ChEMBL Drug & 300 & Pearson r & 0.020 & Target binding \\
+TCCIA circRNA & 75 & Pearson r & 0.888 & Immunotherapy response \\
+GDSC Drug & 50 & Pearson r & 0.986 & Drug sensitivity \\
+Literature & 17 & Direction acc. & 59\% & IFN response \\
+ &  &  &  &  \\
+IEDB (288k model) & 2,166 & AUC & \textbf{0.888} & Binder classification \\
+IEDB (288k model) & 2,166 & Pearson r & \textbf{0.635} & Epitope efficacy \\
+NetMHCpan (288k) & 61 & AUC & \textbf{0.663} & Binder classification \\
+Drug 91k efficacy & 91,150 & $R^2$ & \textbf{0.603} & Drug efficacy (MOE) \\
+Drug 91k binding & 91,150 & $R^2$ & \textbf{0.965} & Target binding (Ridge) \\
+\bottomrule
+\end{tabular}
+\footnotesize {\textit{Note:} IEDB: Immune Epitope Database. NetMHCpan: Benchmark from Jurtz et al. 2017. TCCIA: circRNA Immunotherapy Atlas. GDSC: Genomics of Drug Sensitivity in Cancer.}
+\end{table}

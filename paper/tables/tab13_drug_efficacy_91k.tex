@@ -1,0 +1,16 @@
+\begin{table}[htbp]
+\centering
+\caption{Drug efficacy prediction on extended dataset (N=91,150). MOE ensemble with OOF-RMSE inverse weighting achieves best R2.}
+\label{tab:drug_efficacy}
+\begin{tabular}{lccccc}
+\toprule
+Method & MAE & RMSE & $R^2$ & Pearson $r$ & Time (s) \\
+\midrule
+\textbf{MOE} & 0.035 & 0.043 & 0.603 & 0.777 & 1599.4 \\
+HGB & 0.035 & 0.044 & 0.586 & 0.767 & 29.3 \\
+RF & 0.036 & 0.045 & 0.563 & 0.751 & 266.8 \\
+Ridge & 0.035 & 0.044 & 0.586 & 0.766 & 63.5 \\
+\bottomrule
+\end{tabular}
+\footnotesize {\textit{Note:} MOE weights: Ridge=0.333, HGB=0.337, RF=0.330. OOF-RMSE: Ridge=0.0446, HGB=0.0440, RF=0.0449. MOE provides marginal R2 improvement (+2.9\\%) over best single model at cost of 55x longer training time.}
+\end{table}

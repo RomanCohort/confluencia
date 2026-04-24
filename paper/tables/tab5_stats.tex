@@ -1,0 +1,17 @@
+\begin{table}[htbp]
+\centering
+\caption{Statistical significance of MOE improvement over baselines (paired t-test, 15 folds). Cohen's d effect size: |d|<0.2 negligible, 0.2-0.5 small, 0.5-0.8 medium, >0.8 large.}
+\label{tab:stats}
+\begin{tabular}{lcccc}
+\toprule
+Comparison & t-statistic & p-value & Cohen's d & Effect \\
+\midrule
+MOE vs RIDGE & -21.83 & 3.27e-12*** & -6.36 & Large \\
+MOE vs HGB & -2.45 & 2.81e-02* & -0.79 & Medium \\
+MOE vs RF & -8.88 & 4.00e-07*** & -3.20 & Large \\
+MOE vs GBR & -11.33 & 1.94e-08*** & -3.83 & Large \\
+MOE vs MLP & -24.06 & 8.66e-13*** & -8.82 & Large \\
+\bottomrule
+\end{tabular}
+\footnotesize {\textit{Note:} Significance: * p<0.05, ** p<0.01, *** p<0.001. All improvements are statistically significant.}
+\end{table}
