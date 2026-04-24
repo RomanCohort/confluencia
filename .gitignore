@@ -88,10 +88,10 @@ skills/
 external/
 nanobot/
 
-# Pre-trained weights (download at runtime)
-esm2/
-gnn_weights/
-chemberta/
+# Papers and documentation (local only)
+docs/
+paper/
+readme/
 
 # Confluencia v1.0 (legacy)
 confluencia-1.0/
