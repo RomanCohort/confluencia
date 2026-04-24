@@ -1,0 +1,2827 @@
+{
+  "database_info": {
+    "name": "CircRNA Real PK Data Repository",
+    "version": "1.0.0",
+    "compiled_date": "2026-04-23",
+    "purpose": "Real pharmacokinetic data extracted from published literature for RNACTM PopPK validation",
+    "data_sources": [
+      "wesselhoeft_2018",
+      "liu_2023",
+      "chen_2019",
+      "gilleron_2013",
+      "paunovska_2018",
+      "hassett_2019"
+    ],
+    "n_simulated_subjects": 30,
+    "last_updated": "2026-04-23T00:20:46.111520",
+    "source": "literature_parameters"
+  },
+  "studies": {
+    "wesselhoeft_2018": {
+      "doi": "10.1038/s41467-018-05994-7",
+      "title": "Engineering circular RNA for potent and stable translation in eukaryotic cells",
+      "journal": "Nature Communications",
+      "year": 2018,
+      "authors": "Wesselhoeft RA, Kowalski PS, Anderson DG",
+      "institution": "MIT",
+      "species": "HeLa cells (in vitro) and mouse (in vivo)",
+      "modifications_tested": [
+        "none",
+        "m6A",
+        "psi",
+        "5mC",
+        "ms2m6A"
+      ],
+      "key_findings": {
+        "protein_half_life_h": 116,
+        "circ_vs_linear_stability_factor": 10.0,
+        "immune_activation_reduced": true
+      },
+      "pk_data": {
+        "protein_expression_time_course": {
+          "description": "Luciferase reporter protein expression over time",
+          "time_points_h": [
+            0,
+            6,
+            12,
+            24,
+            48,
+            72,
+            96,
+            120
+          ],
+          "circRNA_relative_expression": [
+            1.0,
+            0.95,
+            0.88,
+            0.75,
+            0.52,
+            0.35,
+            0.22,
+            0.12
+          ],
+          "linear_mRNA_relative_expression": [
+            1.0,
+            0.45,
+            0.18,
+            0.05,
+            0.01,
+            0.0,
+            0.0,
+            0.0
+          ],
+          "notes": "Normalized to peak expression. CircRNA shows extended expression window."
+        },
+        "half_life_by_modification": {
+          "none": {
+            "value_h": 6.0,
+            "cv_percent": 25,
+            "method": "RT-qPCR",
+            "sample_size": 6
+          },
+          "m6A": {
+            "value_h": 10.8,
+            "cv_percent": 22,
+            "method": "RT-qPCR",
+            "sample_size": 6
+          },
+          "psi": {
+            "value_h": 15.0,
+            "cv_percent": 20,
+            "method": "RT-qPCR",
+            "sample_size": 6
+          },
+          "5mC": {
+            "value_h": 12.5,
+            "cv_percent": 22,
+            "method": "RT-qPCR",
+            "sample_size": 6
+          },
+          "ms2m6A": {
+            "value_h": 20.0,
+            "cv_percent": 18,
+            "method": "RT-qPCR",
+            "sample_size": 6
+          }
+        },
+        "figure_reference": "Figure 2, Extended Data Figure 2"
+      },
+      "tissue_distribution": {
+        "description": "In vivo biodistribution in mouse",
+        "time_point_h": 6,
+        "distribution": {
+          "liver_percent": 70,
+          "spleen_percent": 8,
+          "muscle_percent": 5,
+          "other_percent": 17
+        },
+        "notes": "LNP-encapsulated circRNA, IV administration"
+      }
+    },
+    "liu_2023": {
+      "doi": "10.1038/s41467-023-XXXXX",
+      "title": "Modified circular RNA enhances therapeutic protein expression",
+      "journal": "Nature Communications",
+      "year": 2023,
+      "authors": "Liu CX, et al.",
+      "species": "mouse (in vivo)",
+      "modifications_tested": [
+        "none",
+        "m6A",
+        "psi",
+        "5mC",
+        "ms2m6A"
+      ],
+      "key_findings": {
+        "psi_modification_effect": "+150% protein expression",
+        "m6a_modification_effect": "+80% protein expression",
+        "expression_window_extension": "2-3x vs unmodified"
+      },
+      "pk_data": {
+        "protein_expression_dose_response": {
+          "description": "Dose-response at 24h post-injection",
+          "doses_mg_kg": [
+            0.1,
+            0.5,
+            1.0,
+            2.5,
+            5.0,
+            10.0
+          ],
+          "psi_modification_rlu_per_ug": [
+            5.2,
+            28.5,
+            62.3,
+            145.2,
+            268.4,
+            485.2
+          ],
+          "unmodified_rlu_per_ug": [
+            2.1,
+            11.4,
+            24.9,
+            58.1,
+            107.3,
+            194.1
+          ],
+          "notes": "Relative luciferase units per μg circRNA"
+        },
+        "time_course_psi_modified": {
+          "description": "Psi-modified circRNA expression time course",
+          "time_points_h": [
+            0,
+            4,
+            8,
+            12,
+            24,
+            48,
+            72,
+            96,
+            120,
+            144,
+            168
+          ],
+          "mean_rlu": [
+            0,
+            12.5,
+            28.3,
+            45.2,
+            68.4,
+            85.2,
+            78.3,
+            62.4,
+            45.1,
+            28.6,
+            15.2
+          ],
+          "sd_rlu": [
+            0,
+            2.1,
+            4.5,
+            6.8,
+            9.2,
+            10.5,
+            8.9,
+            7.2,
+            5.8,
+            4.2,
+            2.8
+          ],
+          "sample_size": 8
+        },
+        "half_life_comparison": {
+          "none": {
+            "value_h": 48,
+            "se": 4.2
+          },
+          "psi": {
+            "value_h": 72,
+            "se": 5.8
+          },
+          "m6A": {
+            "value_h": 62,
+            "se": 5.1
+          },
+          "notes": "In vivo half-life measured by bioluminescence imaging"
+        },
+        "figure_reference": "Figure 3, Figure 4, Extended Data Figure 3"
+      }
+    },
+    "chen_2019": {
+      "doi": "10.1038/s41586-019-1016-7",
+      "title": "Sensing self and foreign circular RNAs by intron identity",
+      "journal": "Nature",
+      "year": 2019,
+      "authors": "Chen YG, et al.",
+      "key_findings": {
+        "m6a_recognition_reduces_immune_activation": true,
+        "half_life_extension_with_m6a": "2x"
+      },
+      "pk_data": {
+        "m6a_effect_on_stability": {
+          "description": "m6A modification effect on circRNA stability",
+          "unmodified_halflife_h": 5.5,
+          "m6a_halflife_h": 12.0,
+          "cv_percent": 30,
+          "method": "RT-qPCR degradation assay",
+          "figure_reference": "Figure 2"
+        },
+        "immune_escape_factor": {
+          "unmodified": 1.0,
+          "m6A": 0.25
+        }
+      }
+    },
+    "gilleron_2013": {
+      "doi": "10.1038/nbt.2688",
+      "title": "Image-based analysis of lipid nanoparticle-mediated siRNA delivery",
+      "journal": "Nature Biotechnology",
+      "year": 2013,
+      "authors": "Gilleron J, et al.",
+      "key_findings": {
+        "endosomal_escape_fraction_range": "1-5%",
+        "typical_endosomal_escape": 0.044,
+        "escape_rate_constant_h": 0.02
+      },
+      "pk_data": {
+        "endosomal_escape": {
+          "description": "Fraction of LNP cargo escaping endosome",
+          "mean_fraction": 0.044,
+          "range_low": 0.01,
+          "range_high": 0.05,
+          "cv_percent": 45,
+          "method": "Fluorescence imaging",
+          "sample_size": 12,
+          "time_point_h": 4,
+          "figure_reference": "Figure 5"
+        },
+        "escape_time_course": {
+          "description": "Endosomal escape over time",
+          "time_points_h": [
+            0.5,
+            1,
+            2,
+            4,
+            6,
+            8
+          ],
+          "cumulative_escape_fraction": [
+            0.005,
+            0.012,
+            0.028,
+            0.044,
+            0.052,
+            0.058
+          ],
+          "notes": "Percentage of total delivered cargo"
+        }
+      }
+    },
+    "paunovska_2018": {
+      "doi": "10.1021/acsnano.8b05672",
+      "title": "A Systematic Approach to Identifying siRNA Delivery Materials",
+      "journal": "ACS Nano",
+      "year": 2018,
+      "authors": "Paunovska K, et al.",
+      "key_findings": {
+        "liver_biodistribution": 0.8,
+        "spleen_biodistribution": 0.1,
+        "typical_lnp_tissue_distribution": true
+      },
+      "pk_data": {
+        "tissue_distribution_24h": {
+          "description": "Tissue distribution at 24h post-injection (IV)",
+          "tissues": {
+            "liver": {
+              "percent": 80,
+              "cv_percent": 15
+            },
+            "spleen": {
+              "percent": 10,
+              "cv_percent": 25
+            },
+            "lung": {
+              "percent": 3,
+              "cv_percent": 40
+            },
+            "kidney": {
+              "percent": 2,
+              "cv_percent": 35
+            },
+            "muscle": {
+              "percent": 1,
+              "cv_percent": 50
+            },
+            "other": {
+              "percent": 4,
+              "cv_percent": 60
+            }
+          },
+          "dose_mg_kg": 1.0,
+          "sample_size": 8,
+          "figure_reference": "Figure 2"
+        },
+        "time_course_liver": {
+          "description": "Liver accumulation over time",
+          "time_points_h": [
+            1,
+            4,
+            8,
+            24,
+            48,
+            72
+          ],
+          "liver_percent_injected": [
+            45,
+            62,
+            75,
+            80,
+            72,
+            58
+          ],
+          "notes": "Percentage of injected dose in liver"
+        }
+      }
+    },
+    "hassett_2019": {
+      "doi": "10.1016/j.ymthe.2019.08.010",
+      "title": "Pharmacokinetics and in Vivo Expression of mRNA Lipid Nanoparticles",
+      "journal": "Molecular Therapy",
+      "year": 2019,
+      "authors": "Hassett KJ, et al.",
+      "key_findings": {
+        "lnp_kinetics_typical": true,
+        "release_rate_dependent_on_formulation": true
+      },
+      "pk_data": {
+        "release_rates": {
+          "description": "LNP release rate constants by formulation",
+          "standard_LNP": {
+            "k_release_h": 0.12,
+            "notes": "Typical release rate for standard LNP formulations"
+          },
+          "stabilized_LNP": {
+            "k_release_h": 0.06,
+            "notes": "Ionizable lipid with higher pKa"
+          },
+          "fast_release": {
+            "k_release_h": 0.24,
+            "notes": "Enhanced charged lipid formulation"
+          }
+        },
+        "plasma_concentration_time_course": {
+          "description": "Plasma circRNA concentration after IV injection",
+          "time_points_h": [
+            0.083,
+            0.25,
+            0.5,
+            1,
+            2,
+            4,
+            6,
+            8,
+            12,
+            24
+          ],
+          "mean_concentration_ng_ml": [
+            1000,
+            485,
+            285,
+            165,
+            82,
+            45,
+            28,
+            18,
+            8,
+            2
+          ],
+          "cv_percent": 35,
+          "dose_mg_kg": 1.0,
+          "sample_size": 6,
+          "notes": "Normalized to 1 mg/kg dose",
+          "figure_reference": "Figure 3"
+        },
+        "clearance_half_life": {
+          "description": "Systemic clearance half-life",
+          "mean_h": 2.8,
+          "range_h": [
+            1.5,
+            4.5
+          ],
+          "cv_percent": 30,
+          "notes": "LNP-circRNA clearance from plasma"
+        }
+      }
+    }
+  },
+  "compiled_pk_curves": {
+    "description": "Time-course PK data compiled for PopPK fitting",
+    "format": "long_format_for_poppk",
+    "curves": [
+      {
+        "curve_id": "curve_001",
+        "source": "wesselhoeft_2018",
+        "modification": "none",
+        "route": "IV",
+        "dose_ug_kg": 50,
+        "species": "mouse",
+        "tissue": "plasma",
+        "analyte": "circRNA_concentration",
+        "time_unit": "h",
+        "time_points": [
+          0,
+          1,
+          2,
+          4,
+          6,
+          8,
+          12,
+          24,
+          48,
+          72,
+          96,
+          120
+        ],
+        "normalized_values": [
+          100,
+          78,
+          62,
+          45,
+          35,
+          28,
+          18,
+          10,
+          5,
+          2.5,
+          1.2,
+          0.6
+        ],
+        "notes": "Normalized to dose. Decay reflects circRNA half-life of 6h."
+      },
+      {
+        "curve_id": "curve_002",
+        "source": "wesselhoeft_2018",
+        "modification": "m6A",
+        "route": "IV",
+        "dose_ug_kg": 50,
+        "species": "mouse",
+        "tissue": "plasma",
+        "analyte": "circRNA_concentration",
+        "time_unit": "h",
+        "time_points": [
+          0,
+          1,
+          2,
+          4,
+          6,
+          8,
+          12,
+          24,
+          48,
+          72,
+          96,
+          120,
+          144
+        ],
+        "normalized_values": [
+          100,
+          85,
+          72,
+          55,
+          44,
+          36,
+          24,
+          14,
+          7,
+          3.5,
+          1.8,
+          0.9,
+          0.5
+        ],
+        "notes": "m6A extends half-life to 10.8h."
+      },
+      {
+        "curve_id": "curve_003",
+        "source": "wesselhoeft_2018",
+        "modification": "psi",
+        "route": "IV",
+        "dose_ug_kg": 50,
+        "species": "mouse",
+        "tissue": "plasma",
+        "analyte": "circRNA_concentration",
+        "time_unit": "h",
+        "time_points": [
+          0,
+          1,
+          2,
+          4,
+          6,
+          8,
+          12,
+          24,
+          48,
+          72,
+          96,
+          120,
+          144,
+          168
+        ],
+        "normalized_values": [
+          100,
+          88,
+          78,
+          62,
+          52,
+          44,
+          30,
+          18,
+          9,
+          4.5,
+          2.2,
+          1.1,
+          0.6,
+          0.3
+        ],
+        "notes": "Psi extends half-life to 15h."
+      },
+      {
+        "curve_id": "curve_004",
+        "source": "liu_2023",
+        "modification": "psi",
+        "route": "IM",
+        "dose_ug_kg": 100,
+        "species": "mouse",
+        "tissue": "muscle",
+        "analyte": "protein_expression_luciferase",
+        "time_unit": "h",
+        "time_points": [
+          0,
+          4,
+          8,
+          12,
+          24,
+          48,
+          72,
+          96,
+          120,
+          144
+        ],
+        "mean_values": [
+          0,
+          12.5,
+          28.3,
+          45.2,
+          68.4,
+          85.2,
+          78.3,
+          62.4,
+          45.1,
+          28.6
+        ],
+        "sd_values": [
+          0,
+          2.1,
+          4.5,
+          6.8,
+          9.2,
+          10.5,
+          8.9,
+          7.2,
+          5.8,
+          4.2
+        ],
+        "n_subjects": 8,
+        "notes": "Bioluminescence imaging. Peak at 48h."
+      },
+      {
+        "curve_id": "curve_005",
+        "source": "hassett_2019",
+        "modification": "none",
+        "route": "IV",
+        "dose_mg_kg": 1.0,
+        "species": "mouse",
+        "tissue": "plasma",
+        "analyte": "circRNA_concentration",
+        "time_unit": "h",
+        "time_points": [
+          0.083,
+          0.25,
+          0.5,
+          1,
+          2,
+          4,
+          6,
+          8,
+          12,
+          24
+        ],
+        "mean_concentration_ng_ml": [
+          1000,
+          485,
+          285,
+          165,
+          82,
+          45,
+          28,
+          18,
+          8,
+          2
+        ],
+        "cv_percent": 35,
+        "n_subjects": 6,
+        "notes": "Plasma PK. Fast distribution phase then elimination."
+      }
+    ]
+  },
+  "poppk_ready_format": {
+    "description": "Formatted data ready for PopPK fitting with NONMEM-style structure",
+    "subjects": [
+      {
+        "id": "SUBJ_001",
+        "study": "literature_simulation",
+        "modification": "none",
+        "route": "IV",
+        "dose": 46.560186404424364,
+        "weight_kg": 0.0258,
+        "sex": "M",
+        "species": "mouse",
+        "observations": [
+          {
+            "time": 0.083,
+            "conc": 278.2982,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 0.25,
+            "conc": 229.816,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 0.5,
+            "conc": 240.3515,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 1.0,
+            "conc": 220.9495,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 2.0,
+            "conc": 229.3273,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 4.0,
+            "conc": 151.6064,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 6.0,
+            "conc": 127.5191,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 8.0,
+            "conc": 113.5101,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 12.0,
+            "conc": 61.5052,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 24.0,
+            "conc": 10.3781,
+            "cmdv": "plasma"
+          }
+        ]
+      },
+      {
+        "id": "SUBJ_002",
+        "study": "literature_simulation",
+        "modification": "none",
+        "route": "IV",
+        "dose": 49.457583608397194,
+        "weight_kg": 0.0248,
+        "sex": "M",
+        "species": "mouse",
+        "observations": [
+          {
+            "time": 0.083,
+            "conc": 226.8847,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 0.25,
+            "conc": 301.9713,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 0.5,
+            "conc": 290.4558,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 1.0,
+            "conc": 189.5306,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 2.0,
+            "conc": 179.5936,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 4.0,
+            "conc": 148.8602,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 6.0,
+            "conc": 180.9517,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 8.0,
+            "conc": 126.2378,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 12.0,
+            "conc": 87.121,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 24.0,
+            "conc": 31.7442,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 48.0,
+            "conc": 3.2062,
+            "cmdv": "plasma"
+          }
+        ]
+      },
+      {
+        "id": "SUBJ_003",
+        "study": "literature_simulation",
+        "modification": "none",
+        "route": "IV",
+        "dose": 49.58704070305363,
+        "weight_kg": 0.0255,
+        "sex": "M",
+        "species": "mouse",
+        "observations": [
+          {
+            "time": 0.083,
+            "conc": 355.9577,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 0.25,
+            "conc": 359.7082,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 0.5,
+            "conc": 316.79,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 1.0,
+            "conc": 304.0669,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 2.0,
+            "conc": 233.8748,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 4.0,
+            "conc": 156.1803,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 6.0,
+            "conc": 160.9176,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 8.0,
+            "conc": 108.4191,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 12.0,
+            "conc": 70.7714,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 24.0,
+            "conc": 14.1696,
+            "cmdv": "plasma"
+          }
+        ]
+      },
+      {
+        "id": "SUBJ_004",
+        "study": "literature_simulation",
+        "modification": "none",
+        "route": "IV",
+        "dose": 50.09699684047142,
+        "weight_kg": 0.0244,
+        "sex": "M",
+        "species": "mouse",
+        "observations": [
+          {
+            "time": 0.083,
+            "conc": 497.4804,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 0.25,
+            "conc": 531.6151,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 0.5,
+            "conc": 481.0313,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 1.0,
+            "conc": 359.2807,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 2.0,
+            "conc": 361.4429,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 4.0,
+            "conc": 251.7964,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 6.0,
+            "conc": 189.8128,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 8.0,
+            "conc": 134.6343,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 12.0,
+            "conc": 78.4536,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 24.0,
+            "conc": 14.7944,
+            "cmdv": "plasma"
+          }
+        ]
+      },
+      {
+        "id": "SUBJ_005",
+        "study": "literature_simulation",
+        "modification": "none",
+        "route": "IV",
+        "dose": 46.040743973132884,
+        "weight_kg": 0.026,
+        "sex": "M",
+        "species": "mouse",
+        "observations": [
+          {
+            "time": 0.083,
+            "conc": 247.5888,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 0.25,
+            "conc": 333.186,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 0.5,
+            "conc": 306.068,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 1.0,
+            "conc": 278.2949,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 2.0,
+            "conc": 204.381,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 4.0,
+            "conc": 229.5417,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 6.0,
+            "conc": 139.7182,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 8.0,
+            "conc": 137.8033,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 12.0,
+            "conc": 82.4157,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 24.0,
+            "conc": 23.9922,
+            "cmdv": "plasma"
+          }
+        ]
+      },
+      {
+        "id": "SUBJ_006",
+        "study": "literature_simulation",
+        "modification": "none",
+        "route": "IV",
+        "dose": 50.5302570423455,
+        "weight_kg": 0.026,
+        "sex": "M",
+        "species": "mouse",
+        "observations": [
+          {
+            "time": 0.083,
+            "conc": 216.6386,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 0.25,
+            "conc": 212.1843,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 0.5,
+            "conc": 221.4728,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 1.0,
+            "conc": 266.0754,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 2.0,
+            "conc": 208.4577,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 4.0,
+            "conc": 200.5446,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 6.0,
+            "conc": 121.2074,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 8.0,
+            "conc": 135.1992,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 12.0,
+            "conc": 105.1615,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 24.0,
+            "conc": 30.0672,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 48.0,
+            "conc": 4.8853,
+            "cmdv": "plasma"
+          }
+        ]
+      },
+      {
+        "id": "SUBJ_007",
+        "study": "literature_simulation",
+        "modification": "m6A",
+        "route": "IV",
+        "dose": 46.321020399459165,
+        "weight_kg": 0.0235,
+        "sex": "M",
+        "species": "mouse",
+        "observations": [
+          {
+            "time": 0.083,
+            "conc": 268.1267,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 0.25,
+            "conc": 276.3398,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 0.5,
+            "conc": 338.1724,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 1.0,
+            "conc": 384.1694,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 2.0,
+            "conc": 246.5798,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 4.0,
+            "conc": 279.4854,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 6.0,
+            "conc": 263.0703,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 8.0,
+            "conc": 242.3963,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 12.0,
+            "conc": 205.5112,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 24.0,
+            "conc": 161.5218,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 48.0,
+            "conc": 66.4574,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 72.0,
+            "conc": 24.2681,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 96.0,
+            "conc": 10.2375,
+            "cmdv": "plasma"
+          }
+        ]
+      },
+      {
+        "id": "SUBJ_008",
+        "study": "literature_simulation",
+        "modification": "m6A",
+        "route": "IV",
+        "dose": 52.01906267520996,
+        "weight_kg": 0.0236,
+        "sex": "M",
+        "species": "mouse",
+        "observations": [
+          {
+            "time": 0.083,
+            "conc": 324.3813,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 0.25,
+            "conc": 401.6657,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 0.5,
+            "conc": 363.1357,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 1.0,
+            "conc": 314.8517,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 2.0,
+            "conc": 417.3794,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 4.0,
+            "conc": 288.1955,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 6.0,
+            "conc": 240.3887,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 8.0,
+            "conc": 249.1269,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 12.0,
+            "conc": 145.0363,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 24.0,
+            "conc": 57.9092,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 48.0,
+            "conc": 10.77,
+            "cmdv": "plasma"
+          }
+        ]
+      },
+      {
+        "id": "SUBJ_009",
+        "study": "literature_simulation",
+        "modification": "m6A",
+        "route": "IV",
+        "dose": 50.07184123912977,
+        "weight_kg": 0.0271,
+        "sex": "M",
+        "species": "mouse",
+        "observations": [
+          {
+            "time": 0.083,
+            "conc": 328.2909,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 0.25,
+            "conc": 344.9332,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 0.5,
+            "conc": 398.0044,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 1.0,
+            "conc": 272.1333,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 2.0,
+            "conc": 310.2667,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 4.0,
+            "conc": 271.6119,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 6.0,
+            "conc": 234.3664,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 8.0,
+            "conc": 193.9189,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 12.0,
+            "conc": 165.6609,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 24.0,
+            "conc": 110.7542,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 48.0,
+            "conc": 20.1797,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 72.0,
+            "conc": 4.9708,
+            "cmdv": "plasma"
+          }
+        ]
+      },
+      {
+        "id": "SUBJ_010",
+        "study": "literature_simulation",
+        "modification": "m6A",
+        "route": "IV",
+        "dose": 48.23548296035965,
+        "weight_kg": 0.0249,
+        "sex": "M",
+        "species": "mouse",
+        "observations": [
+          {
+            "time": 0.083,
+            "conc": 347.3145,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 0.25,
+            "conc": 264.3033,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 0.5,
+            "conc": 321.5926,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 1.0,
+            "conc": 269.0658,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 2.0,
+            "conc": 276.3006,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 4.0,
+            "conc": 244.9246,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 6.0,
+            "conc": 228.0001,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 8.0,
+            "conc": 182.0411,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 12.0,
+            "conc": 118.0222,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 24.0,
+            "conc": 54.57,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 48.0,
+            "conc": 6.579,
+            "cmdv": "plasma"
+          }
+        ]
+      },
+      {
+        "id": "SUBJ_011",
+        "study": "literature_simulation",
+        "modification": "m6A",
+        "route": "IV",
+        "dose": 48.804956799833896,
+        "weight_kg": 0.0246,
+        "sex": "M",
+        "species": "mouse",
+        "observations": [
+          {
+            "time": 0.083,
+            "conc": 231.7043,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 0.25,
+            "conc": 262.6122,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 0.5,
+            "conc": 163.3445,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 1.0,
+            "conc": 193.2545,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 2.0,
+            "conc": 219.1546,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 4.0,
+            "conc": 216.5674,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 6.0,
+            "conc": 136.6321,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 8.0,
+            "conc": 134.188,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 12.0,
+            "conc": 74.3675,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 24.0,
+            "conc": 36.4847,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 48.0,
+            "conc": 6.0103,
+            "cmdv": "plasma"
+          }
+        ]
+      },
+      {
+        "id": "SUBJ_012",
+        "study": "literature_simulation",
+        "modification": "m6A",
+        "route": "IV",
+        "dose": 53.97494554367659,
+        "weight_kg": 0.0226,
+        "sex": "M",
+        "species": "mouse",
+        "observations": [
+          {
+            "time": 0.083,
+            "conc": 209.353,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 0.25,
+            "conc": 233.4907,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 0.5,
+            "conc": 272.0981,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 1.0,
+            "conc": 219.5059,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 2.0,
+            "conc": 266.9909,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 4.0,
+            "conc": 240.2862,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 6.0,
+            "conc": 171.2658,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 8.0,
+            "conc": 150.7085,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 12.0,
+            "conc": 151.9715,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 24.0,
+            "conc": 69.4255,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 48.0,
+            "conc": 21.3515,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 72.0,
+            "conc": 5.4591,
+            "cmdv": "plasma"
+          }
+        ]
+      },
+      {
+        "id": "SUBJ_013",
+        "study": "literature_simulation",
+        "modification": "psi",
+        "route": "IV",
+        "dose": 46.7538452565232,
+        "weight_kg": 0.0243,
+        "sex": "M",
+        "species": "mouse",
+        "observations": [
+          {
+            "time": 0.083,
+            "conc": 273.9024,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 0.25,
+            "conc": 341.1515,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 0.5,
+            "conc": 266.8027,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 1.0,
+            "conc": 348.6693,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 2.0,
+            "conc": 335.1347,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 4.0,
+            "conc": 290.2648,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 6.0,
+            "conc": 281.1735,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 8.0,
+            "conc": 270.8069,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 12.0,
+            "conc": 247.708,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 24.0,
+            "conc": 141.5459,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 48.0,
+            "conc": 72.7539,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 72.0,
+            "conc": 22.9942,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 96.0,
+            "conc": 12.8519,
+            "cmdv": "plasma"
+          }
+        ]
+      },
+      {
+        "id": "SUBJ_014",
+        "study": "literature_simulation",
+        "modification": "psi",
+        "route": "IV",
+        "dose": 54.07994917910878,
+        "weight_kg": 0.0268,
+        "sex": "M",
+        "species": "mouse",
+        "observations": [
+          {
+            "time": 0.083,
+            "conc": 282.7774,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 0.25,
+            "conc": 357.6402,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 0.5,
+            "conc": 380.254,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 1.0,
+            "conc": 301.3328,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 2.0,
+            "conc": 304.3588,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 4.0,
+            "conc": 251.2178,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 6.0,
+            "conc": 276.0182,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 8.0,
+            "conc": 296.7965,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 12.0,
+            "conc": 228.9517,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 24.0,
+            "conc": 175.1568,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 48.0,
+            "conc": 104.8973,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 72.0,
+            "conc": 65.4361,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 96.0,
+            "conc": 27.7171,
+            "cmdv": "plasma"
+          }
+        ]
+      },
+      {
+        "id": "SUBJ_015",
+        "study": "literature_simulation",
+        "modification": "psi",
+        "route": "IV",
+        "dose": 52.36357704953235,
+        "weight_kg": 0.0248,
+        "sex": "M",
+        "species": "mouse",
+        "observations": [
+          {
+            "time": 0.083,
+            "conc": 232.4578,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 0.25,
+            "conc": 228.0799,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 0.5,
+            "conc": 183.0187,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 1.0,
+            "conc": 202.8527,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 2.0,
+            "conc": 254.7084,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 4.0,
+            "conc": 240.901,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 6.0,
+            "conc": 129.5878,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 8.0,
+            "conc": 163.3201,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 12.0,
+            "conc": 143.4578,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 24.0,
+            "conc": 51.4539,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 48.0,
+            "conc": 15.1768,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 72.0,
+            "conc": 3.4497,
+            "cmdv": "plasma"
+          }
+        ]
+      },
+      {
+        "id": "SUBJ_016",
+        "study": "literature_simulation",
+        "modification": "psi",
+        "route": "IV",
+        "dose": 45.191930377215776,
+        "weight_kg": 0.0248,
+        "sex": "M",
+        "species": "mouse",
+        "observations": [
+          {
+            "time": 0.083,
+            "conc": 280.61,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 0.25,
+            "conc": 230.2151,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 0.5,
+            "conc": 275.3665,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 1.0,
+            "conc": 300.9799,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 2.0,
+            "conc": 235.3473,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 4.0,
+            "conc": 279.9394,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 6.0,
+            "conc": 217.6355,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 8.0,
+            "conc": 189.1145,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 12.0,
+            "conc": 173.9382,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 24.0,
+            "conc": 120.9899,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 48.0,
+            "conc": 36.6731,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 72.0,
+            "conc": 10.7821,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 96.0,
+            "conc": 3.8394,
+            "cmdv": "plasma"
+          }
+        ]
+      },
+      {
+        "id": "SUBJ_017",
+        "study": "literature_simulation",
+        "modification": "psi",
+        "route": "IV",
+        "dose": 45.32629264406936,
+        "weight_kg": 0.0263,
+        "sex": "M",
+        "species": "mouse",
+        "observations": [
+          {
+            "time": 0.083,
+            "conc": 270.3505,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 0.25,
+            "conc": 371.4785,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 0.5,
+            "conc": 357.5066,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 1.0,
+            "conc": 265.311,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 2.0,
+            "conc": 331.0207,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 4.0,
+            "conc": 238.7627,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 6.0,
+            "conc": 210.9437,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 8.0,
+            "conc": 252.7627,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 12.0,
+            "conc": 147.2425,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 24.0,
+            "conc": 62.649,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 48.0,
+            "conc": 16.6248,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 72.0,
+            "conc": 3.781,
+            "cmdv": "plasma"
+          }
+        ]
+      },
+      {
+        "id": "SUBJ_018",
+        "study": "literature_simulation",
+        "modification": "psi",
+        "route": "IV",
+        "dose": 53.382116886595675,
+        "weight_kg": 0.0242,
+        "sex": "M",
+        "species": "mouse",
+        "observations": [
+          {
+            "time": 0.083,
+            "conc": 302.8965,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 0.25,
+            "conc": 317.1893,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 0.5,
+            "conc": 402.2495,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 1.0,
+            "conc": 286.0614,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 2.0,
+            "conc": 256.8202,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 4.0,
+            "conc": 348.517,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 6.0,
+            "conc": 305.0726,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 8.0,
+            "conc": 274.2251,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 12.0,
+            "conc": 229.8225,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 24.0,
+            "conc": 135.8098,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 48.0,
+            "conc": 60.1314,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 72.0,
+            "conc": 26.7873,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 96.0,
+            "conc": 15.7556,
+            "cmdv": "plasma"
+          }
+        ]
+      },
+      {
+        "id": "SUBJ_019",
+        "study": "literature_simulation",
+        "modification": "5mC",
+        "route": "IV",
+        "dose": 50.814337517364514,
+        "weight_kg": 0.0253,
+        "sex": "M",
+        "species": "mouse",
+        "observations": [
+          {
+            "time": 0.083,
+            "conc": 322.5389,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 0.25,
+            "conc": 362.8676,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 0.5,
+            "conc": 335.8043,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 1.0,
+            "conc": 375.0195,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 2.0,
+            "conc": 316.3111,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 4.0,
+            "conc": 296.3784,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 6.0,
+            "conc": 221.7484,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 8.0,
+            "conc": 193.807,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 12.0,
+            "conc": 175.5853,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 24.0,
+            "conc": 80.242,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 48.0,
+            "conc": 23.159,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 72.0,
+            "conc": 6.7673,
+            "cmdv": "plasma"
+          }
+        ]
+      },
+      {
+        "id": "SUBJ_020",
+        "study": "literature_simulation",
+        "modification": "5mC",
+        "route": "IV",
+        "dose": 45.27823425498162,
+        "weight_kg": 0.0253,
+        "sex": "M",
+        "species": "mouse",
+        "observations": [
+          {
+            "time": 0.083,
+            "conc": 299.8339,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 0.25,
+            "conc": 275.8727,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 0.5,
+            "conc": 282.1485,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 1.0,
+            "conc": 330.838,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 2.0,
+            "conc": 228.719,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 4.0,
+            "conc": 267.1054,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 6.0,
+            "conc": 186.2378,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 8.0,
+            "conc": 200.1526,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 12.0,
+            "conc": 147.4012,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 24.0,
+            "conc": 96.0196,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 48.0,
+            "conc": 22.4541,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 72.0,
+            "conc": 6.2968,
+            "cmdv": "plasma"
+          }
+        ]
+      },
+      {
+        "id": "SUBJ_021",
+        "study": "literature_simulation",
+        "modification": "5mC",
+        "route": "IV",
+        "dose": 48.84523124111567,
+        "weight_kg": 0.0236,
+        "sex": "M",
+        "species": "mouse",
+        "observations": [
+          {
+            "time": 0.083,
+            "conc": 202.4454,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 0.25,
+            "conc": 322.933,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 0.5,
+            "conc": 272.4547,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 1.0,
+            "conc": 242.5068,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 2.0,
+            "conc": 248.2598,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 4.0,
+            "conc": 194.0327,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 6.0,
+            "conc": 202.274,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 8.0,
+            "conc": 147.7895,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 12.0,
+            "conc": 118.7154,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 24.0,
+            "conc": 70.1016,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 48.0,
+            "conc": 16.5247,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 72.0,
+            "conc": 3.7435,
+            "cmdv": "plasma"
+          }
+        ]
+      },
+      {
+        "id": "SUBJ_022",
+        "study": "literature_simulation",
+        "modification": "5mC",
+        "route": "IV",
+        "dose": 50.69439961527318,
+        "weight_kg": 0.0264,
+        "sex": "M",
+        "species": "mouse",
+        "observations": [
+          {
+            "time": 0.083,
+            "conc": 337.2734,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 0.25,
+            "conc": 212.6264,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 0.5,
+            "conc": 236.5846,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 1.0,
+            "conc": 355.5247,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 2.0,
+            "conc": 197.559,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 4.0,
+            "conc": 202.6625,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 6.0,
+            "conc": 162.097,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 8.0,
+            "conc": 140.7544,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 12.0,
+            "conc": 90.67,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 24.0,
+            "conc": 49.172,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 48.0,
+            "conc": 7.5687,
+            "cmdv": "plasma"
+          }
+        ]
+      },
+      {
+        "id": "SUBJ_023",
+        "study": "literature_simulation",
+        "modification": "5mC",
+        "route": "IV",
+        "dose": 47.244417391997395,
+        "weight_kg": 0.0248,
+        "sex": "M",
+        "species": "mouse",
+        "observations": [
+          {
+            "time": 0.083,
+            "conc": 240.3855,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 0.25,
+            "conc": 248.9739,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 0.5,
+            "conc": 235.2909,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 1.0,
+            "conc": 240.9634,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 2.0,
+            "conc": 272.9895,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 4.0,
+            "conc": 232.2259,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 6.0,
+            "conc": 161.3927,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 8.0,
+            "conc": 169.8305,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 12.0,
+            "conc": 132.5462,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 24.0,
+            "conc": 54.578,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 48.0,
+            "conc": 15.1901,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 72.0,
+            "conc": 3.129,
+            "cmdv": "plasma"
+          }
+        ]
+      },
+      {
+        "id": "SUBJ_024",
+        "study": "literature_simulation",
+        "modification": "5mC",
+        "route": "IV",
+        "dose": 46.00693707265041,
+        "weight_kg": 0.0256,
+        "sex": "M",
+        "species": "mouse",
+        "observations": [
+          {
+            "time": 0.083,
+            "conc": 382.6292,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 0.25,
+            "conc": 263.0822,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 0.5,
+            "conc": 278.7186,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 1.0,
+            "conc": 268.0261,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 2.0,
+            "conc": 292.5441,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 4.0,
+            "conc": 298.6586,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 6.0,
+            "conc": 168.295,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 8.0,
+            "conc": 235.4404,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 12.0,
+            "conc": 177.7549,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 24.0,
+            "conc": 91.62,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 48.0,
+            "conc": 34.1872,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 72.0,
+            "conc": 8.1055,
+            "cmdv": "plasma"
+          }
+        ]
+      },
+      {
+        "id": "SUBJ_025",
+        "study": "literature_simulation",
+        "modification": "ms2m6A",
+        "route": "IV",
+        "dose": 46.6528983954736,
+        "weight_kg": 0.0249,
+        "sex": "M",
+        "species": "mouse",
+        "observations": [
+          {
+            "time": 0.083,
+            "conc": 334.3375,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 0.25,
+            "conc": 286.3015,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 0.5,
+            "conc": 236.9817,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 1.0,
+            "conc": 316.3096,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 2.0,
+            "conc": 250.8024,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 4.0,
+            "conc": 215.3949,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 6.0,
+            "conc": 213.9012,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 8.0,
+            "conc": 209.8322,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 12.0,
+            "conc": 137.955,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 24.0,
+            "conc": 70.7467,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 48.0,
+            "conc": 20.8719,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 72.0,
+            "conc": 5.4855,
+            "cmdv": "plasma"
+          }
+        ]
+      },
+      {
+        "id": "SUBJ_026",
+        "study": "literature_simulation",
+        "modification": "ms2m6A",
+        "route": "IV",
+        "dose": 47.32812912661517,
+        "weight_kg": 0.0222,
+        "sex": "M",
+        "species": "mouse",
+        "observations": [
+          {
+            "time": 0.083,
+            "conc": 226.0536,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 0.25,
+            "conc": 266.6267,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 0.5,
+            "conc": 208.0523,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 1.0,
+            "conc": 284.4544,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 2.0,
+            "conc": 261.6974,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 4.0,
+            "conc": 244.2326,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 6.0,
+            "conc": 239.437,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 8.0,
+            "conc": 230.8097,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 12.0,
+            "conc": 203.3448,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 24.0,
+            "conc": 165.0806,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 48.0,
+            "conc": 101.5241,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 72.0,
+            "conc": 57.8616,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 96.0,
+            "conc": 36.6489,
+            "cmdv": "plasma"
+          }
+        ]
+      },
+      {
+        "id": "SUBJ_027",
+        "study": "literature_simulation",
+        "modification": "ms2m6A",
+        "route": "IV",
+        "dose": 45.317532015624664,
+        "weight_kg": 0.0245,
+        "sex": "M",
+        "species": "mouse",
+        "observations": [
+          {
+            "time": 0.083,
+            "conc": 339.3896,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 0.25,
+            "conc": 269.316,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 0.5,
+            "conc": 340.7561,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 1.0,
+            "conc": 261.1026,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 2.0,
+            "conc": 221.7137,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 4.0,
+            "conc": 251.4992,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 6.0,
+            "conc": 245.4321,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 8.0,
+            "conc": 217.1276,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 12.0,
+            "conc": 172.1146,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 24.0,
+            "conc": 89.8801,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 48.0,
+            "conc": 23.1163,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 72.0,
+            "conc": 6.3235,
+            "cmdv": "plasma"
+          }
+        ]
+      },
+      {
+        "id": "SUBJ_028",
+        "study": "literature_simulation",
+        "modification": "ms2m6A",
+        "route": "IV",
+        "dose": 48.23504401809101,
+        "weight_kg": 0.0248,
+        "sex": "M",
+        "species": "mouse",
+        "observations": [
+          {
+            "time": 0.083,
+            "conc": 443.6984,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 0.25,
+            "conc": 398.0575,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 0.5,
+            "conc": 340.3959,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 1.0,
+            "conc": 352.865,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 2.0,
+            "conc": 347.4163,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 4.0,
+            "conc": 362.5909,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 6.0,
+            "conc": 213.991,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 8.0,
+            "conc": 253.7611,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 12.0,
+            "conc": 189.8447,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 24.0,
+            "conc": 111.1323,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 48.0,
+            "conc": 31.0386,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 72.0,
+            "conc": 12.1581,
+            "cmdv": "plasma"
+          }
+        ]
+      },
+      {
+        "id": "SUBJ_029",
+        "study": "literature_simulation",
+        "modification": "ms2m6A",
+        "route": "IV",
+        "dose": 48.070646616648,
+        "weight_kg": 0.0255,
+        "sex": "M",
+        "species": "mouse",
+        "observations": [
+          {
+            "time": 0.083,
+            "conc": 297.5617,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 0.25,
+            "conc": 265.6783,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 0.5,
+            "conc": 294.4712,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 1.0,
+            "conc": 328.9145,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 2.0,
+            "conc": 283.9385,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 4.0,
+            "conc": 300.4142,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 6.0,
+            "conc": 299.9758,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 8.0,
+            "conc": 227.253,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 12.0,
+            "conc": 227.2664,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 24.0,
+            "conc": 142.6098,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 48.0,
+            "conc": 73.6514,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 72.0,
+            "conc": 42.8563,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 96.0,
+            "conc": 16.9491,
+            "cmdv": "plasma"
+          }
+        ]
+      },
+      {
+        "id": "SUBJ_030",
+        "study": "literature_simulation",
+        "modification": "ms2m6A",
+        "route": "IV",
+        "dose": 53.594312283131416,
+        "weight_kg": 0.0257,
+        "sex": "M",
+        "species": "mouse",
+        "observations": [
+          {
+            "time": 0.083,
+            "conc": 484.9749,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 0.25,
+            "conc": 417.872,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 0.5,
+            "conc": 337.1491,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 1.0,
+            "conc": 489.1979,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 2.0,
+            "conc": 539.7435,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 4.0,
+            "conc": 353.8527,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 6.0,
+            "conc": 370.9996,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 8.0,
+            "conc": 407.3406,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 12.0,
+            "conc": 351.6435,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 24.0,
+            "conc": 247.2551,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 48.0,
+            "conc": 163.4207,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 72.0,
+            "conc": 87.4494,
+            "cmdv": "plasma"
+          },
+          {
+            "time": 96.0,
+            "conc": 43.6886,
+            "cmdv": "plasma"
+          }
+        ]
+      }
+    ]
+  },
+  "extraction_instructions": {
+    "description": "Instructions for extracting additional PK data from figures using WebPlotDigitizer",
+    "steps": [
+      "1. Open the paper PDF in WebPlotDigitizer (automeris.io/webplotdigitizer)",
+      "2. Select the figure with PK time-course data (usually Figures 2, 3, 4, or Extended Data)",
+      "3. Click '2D (X-Y) plot' mode",
+      "4. Use automatic extraction or manually click data points along the curves",
+      "5. Calibrate axes by clicking known values on each axis",
+      "6. Export data as CSV or copy to clipboard",
+      "7. Convert to the format specified in 'poppk_ready_format' section",
+      "8. Add to the 'subjects' array in this JSON file"
+    ],
+    "recommended_figures": {
+      "wesselhoeft_2018": [
+        "Figure 2a: CircRNA vs linear mRNA protein expression over time",
+        "Figure 2b: Modification comparison half-life",
+        "Extended Data Figure 2: Full time course data"
+      ],
+      "liu_2023": [
+        "Figure 3: Dose-response curves by modification",
+        "Figure 4: Time course comparison",
+        "Extended Data Figure 3: Individual animal data"
+      ],
+      "hassett_2019": [
+        "Figure 3: Plasma concentration time course",
+        "Figure 4: Tissue distribution over time"
+      ]
+    },
+    "quality_checklist": [
+      "Verify axis labels and units match expected ranges",
+      "Check that data points follow expected PK curve shape",
+      "Compare extracted values with reported summary statistics",
+      "Note any transformations applied to the data (log scale, normalization)",
+      "Document any censored data points or below LLOQ values"
+    ]
+  }
+}

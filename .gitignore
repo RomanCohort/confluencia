@@ -1,0 +1,111 @@
+# Build artifacts
+build/
+dist/
+release/
+*.spec
+_internal/
+*.exe
+*.egg-info/
+.eggs/
+
+# Virtual environments
+.venv/
+.venv-*/
+venv/
+__pycache__/
+*.pyc
+*.pyo
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# Data and models (optional - uncomment if needed)
+data/cache/
+data/raw/
+data/processed/
+models/
+*.joblib
+*.pkl
+*.h5
+*.pt
+*.pth
+*.onnx
+*.bin
+*.npz
+
+# Logs
+logs/
+*.log
+pip_*.log
+pyinstaller_*.log
+build_*.log
+
+# Temporary
+tmp/
+*.tmp
+*.temp
+.cache/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+
+# Distribution
+*.whl
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Large files
+*.png
+*.jpg
+*.jpeg
+*.gif
+*.svg
+*.pdf
+*.zip
+*.tar
+*.gz
+*.rar
+
+# Local configs and memory
+nanobot.local.json
+memory/
+sessions/
+skills/
+
+# External tools (include as submodule or skip)
+external/
+nanobot/
+
+# Pre-trained weights (download at runtime)
+esm2/
+gnn_weights/
+chemberta/
+
+# Confluencia v1.0 (legacy)
+confluencia-1.0/
+
+# GitHub workflow artifacts
+.github/workflows/
+
+# Environment variables
+.env
+.env.*
+!.env.example
+
+# Credentials and secrets
+*secret*
+*credential*
+*.key
+*.pem
