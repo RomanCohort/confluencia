@@ -37,14 +37,89 @@ Confluencia 通过以下创新解决这些问题：
 
 | 指标 | 数值 | 说明 |
 |------|------|------|
+| **288K IEDB 训练 AUC** | **0.734** | HGB/RF，序列感知分割 |
+| **Drug Ridge R²** | **0.984** | 小样本药物预测最优 |
 | MOE MAE (表位) | 0.389 | 比 Ridge 降低 39.2% (p<0.001) |
 | MOE R² (表位) | 0.819 | 5折交叉验证 |
 | **Mamba3Lite+Attn(d=16)** | **MAE=0.395, R²=0.802** | 注意力增强最佳单编码器配置 |
-| **注意力消融** | **d=48时ΔMAE=-0.012** | 注意力最大增益；d=64时反而有害 |
-| 药物 R² | 0.984 | RDKit 描述符 + Ridge |
-| IEDB 外部验证 | r=0.30, AUC=0.65 | N=1955 |
+| **Drug 无 FP R²** | **0.960** | 移除过拟合的 Morgan FP 后 |
 | TCCIA circRNA 验证 | r=0.888 | N=75 |
-| GDSC 药物敏感性 | r=0.986 | N=50 |
+
+### 真实数据端到端验证 (2026-04-27 更新)
+
+| 模块 | 样本量 | 方法 | 核心指标 | 数值 |
+|------|--------|------|----------|------|
+| **A. Drug Binding** | 4,774 | 5-Fold OOF Ensemble | **AUC** | **0.9252** (95% CI: 0.917–0.933) |
+| **B. Target Binding** | 70,583 | 5-Fold OOF + MHC Distillation | **AUC** | **0.8245** (95% CI: 0.821–0.828) |
+| **C. Immune Activation** | 126,259 | 5-Fold OOF Ensemble | **AUC** | **0.9054** (95% CI: 0.901–0.909) |
+| D. Drug Toxicity | 21 | LOO Bayesian Ridge | Pearson r | 0.41 (toxicity), 0.25 (inflammation) |
+| **E. GDSC Sensitivity** | 50 | LOO | **Pearson r** | **0.9155**, **AUC 0.94** |
+
+**详细性能指标：**
+
+| 模块 | XGB | LGB | HGB | Ensemble | 说明 |
+|------|-----|-----|-----|----------|------|
+| Drug Binding | 0.9238 | 0.9228 | 0.9235 | **0.9252** | ChEMBL 持有集验证 |
+| Target Binding | 0.8344 | 0.8171 | 0.813 | **0.8245** | 368 等位基因，序列感知分割 |
+| Immune Activation | 0.9046 | 0.9045 | 0.9029 | **0.9054** | 标签清洗 + 特征增强 |
+
+### 288K IEDB 大规模训练 (2026-04-28)
+
+| 模型 | AUC | F1 | MCC | 训练时间 |
+|------|-----|----|----|----------|
+| **RF** | **0.7343** | 0.3193 | 0.2337 | 134s |
+| **HGB** | 0.7334 | **0.5783** | **0.3456** | 27s |
+| LR | 0.6630 | 0.4569 | 0.2321 | 43s |
+| MLP | 0.6627 | 0.5190 | 0.2390 | 244s |
+
+**配置：** 288,135 样本，序列感知分割 (231K train / 57K test)，325 维特征，40.6% binder 率。
+**模型已缓存：** `data/cache/epitope_model_288k.joblib`
+
+### Drug 消融实验 (2026-04-28 新增)
+
+| 配置 | 维度 | MAE | R² | 说明 |
+|------|------|-----|-----|------|
+| Full | 2083 | 0.201 | 0.668 | 完整特征 |
+| **- Morgan FP** | **35** | **0.076** | **0.960** | 最佳！FP 在小样本过拟合 |
+| - Descriptors | 2075 | 0.648 | -2.057 | 描述符单独无预测力 |
+| Only context (baseline) | 3 | 0.463 | -0.731 | 环境参数无预测力 |
+
+**关键发现：** Morgan FP 在小样本 (n=200) 上严重过拟合 (R² 0.668 → 0.960 移除后)。Ridge 等线性模型更适合小样本药物数据。
+
+### Drug 基线对比
+
+| 模型 | MAE | R² | 说明 |
+|------|-----|----|-----|
+| **Ridge** | **0.037** | **0.984** | 线性模型最优 |
+| MOE | 0.039 | 0.982 | 自适应集成 |
+| RF | 0.042 | 0.979 | 随机森林 |
+| GBR | 0.046 | 0.974 | 梯度提升 |
+| HGB | 0.047 | 0.966 | 直方图梯度提升 |
+| MLP | 0.082 | 0.900 | 神经网络 |
+
+MOE 对比基线：比 MLP MAE 降低 52.7%，比 HGB 降低 17.7%。
+
+### 消融实验结果 (Epitope, 2026-04-27)
+
+| 配置 | 维度 | MAE | R² | 说明 |
+|------|------|-----|-----|------|
+| Full (all components) | 317 | 0.332 | **0.828** | 完整模型 |
+| - Mamba local pool | 293 | **0.315** | **0.844** | 最佳！局部池化可能过拟合 |
+| - Biochem stats | 301 | 0.537 | 0.547 | 生化统计重要 |
+| - Environment | 312 | 0.567 | 0.520 | 环境特征关键 |
+| Only env (baseline) | 5 | 0.799 | -0.016 | 环境单独无预测力 |
+
+**关键发现：** 移除 Mamba local pool 后性能反而提升 (R² 0.828→0.844)，建议后续版本移除此组件。
+
+### SOTA 工具对比 (2026-04-28 更新)
+
+| 对比 | Confluencia | SOTA | 差距 | 基准数据 |
+|------|-------------|------|------|----------|
+| vs NetMHCpan-4.1 | AUC 0.678 | 0.92-0.96 | -0.24 | 61 肽段 |
+| vs MHCflurry | AUC 0.769 | 0.85-0.90 | -0.08~-0.13 | 6,032 held-out |
+| vs MHCflurry (288K) | AUC 0.734 | 0.85-0.90 | -0.12~-0.17 | 57K test |
+
+**差距原因分析：** (1) 训练量差距 (300 vs 180K) (2) Confluencia 多任务而非专门做 MHC binding (3) 特征工程未针对 MHC 结合位点优化。**价值定位：** Confluencia 提供 RNACTM 药代动力学仿真、剂量优化、免疫原性预测等多任务能力，专业工具无法覆盖。
 
 ## 架构概览
 
@@ -130,12 +205,33 @@ cd confluencia-2.0-drug && PYTHONPATH=.. streamlit run app.py
 PYTHONPATH=. streamlit run src/frontend.py
 ```
 
-### 4. Docker
+### 4. 命令行
+
+```bash
+pip install -e .                              # 安装入口点
+confluencia version                            # Confluencia CLI v2.1.0
+confluencia drug props --smiles CC(=O)Oc1ccccc1C(=O)O  # 分子属性
+confluencia interactive                        # 启动交互式 REPL
+```
+
+### 5. Docker
 
 ```bash
 docker build -t confluencia .
 docker run -p 8501:8501 -p 8502:8502 confluencia
 ```
+
+## 命令行界面 (CLI)
+
+Confluencia 提供功能完整的命令行终端界面，支持交互式 REPL 和 60+ 子命令。
+
+```bash
+pip install -e .        # 安装入口点 confluencia
+confluencia --help      # 查看所有命令
+confluencia interactive # 交互式 REPL
+```
+
+主要模块：`drug` (分子属性/训练/筛选/PK仿真), `epitope` (表位预测/ESM-2编码/MHC编码), `circrna` (免疫原性/多组学/生存分析), `joint` (联合评估), `bench` (基准测试), `chart` (可视化)。
 
 ## 核心模块
 
@@ -230,8 +326,17 @@ python -m pytest confluencia-2.0-epitope/tests/smoke_test.py tests/test_shared_m
 ### 运行基准测试
 
 ```bash
-python benchmarks/run_benchmarks.py --module epitope
-python benchmarks/clinical_validation.py
+# 完整基准测试套件
+python -m benchmarks.run_all --data-epitope data/example_epitope.csv --data-drug data/example_drug.csv
+
+# 快速基准
+python -m benchmarks.quick_benchmark
+
+# 消融实验
+python -m benchmarks.ablation
+
+# 真实数据端到端验证
+python benchmarks/validate_all_real_data.py
 ```
 
 ### 代码风格
