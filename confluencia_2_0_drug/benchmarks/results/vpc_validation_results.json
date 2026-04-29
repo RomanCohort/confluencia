@@ -1,0 +1,65 @@
+{
+  "analysis_type": "Visual Predictive Check (VPC)",
+  "n_observations": 354,
+  "n_subjects": 30,
+  "overall": {
+    "pi_90_coverage": 1.0,
+    "pi_percentiles": [
+      5,
+      95
+    ]
+  },
+  "by_modification": {
+    "none": {
+      "n_observations": 62,
+      "n_subjects": 6,
+      "pi_90_coverage": 1.0,
+      "npc": {
+        "bias": -4.63,
+        "coverage_90": 100.0,
+        "coverage_95": 100.0
+      }
+    },
+    "m6A": {
+      "n_observations": 70,
+      "n_subjects": 6,
+      "pi_90_coverage": 1.0,
+      "npc": {
+        "bias": -3.7,
+        "coverage_90": 100.0,
+        "coverage_95": 100.0
+      }
+    },
+    "psi": {
+      "n_observations": 76,
+      "n_subjects": 6,
+      "pi_90_coverage": 1.0,
+      "npc": {
+        "bias": 1.85,
+        "coverage_90": 100.0,
+        "coverage_95": 100.0
+      }
+    },
+    "5mC": {
+      "n_observations": 71,
+      "n_subjects": 6,
+      "pi_90_coverage": 1.0,
+      "npc": {
+        "bias": -1.85,
+        "coverage_90": 100.0,
+        "coverage_95": 100.0
+      }
+    },
+    "ms2m6A": {
+      "n_observations": 75,
+      "n_subjects": 6,
+      "pi_90_coverage": 1.0,
+      "npc": {
+        "bias": 3.7,
+        "coverage_90": 100.0,
+        "coverage_95": 100.0
+      }
+    }
+  },
+  "validation_status": "PASS"
+}

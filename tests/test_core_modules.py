@@ -30,37 +30,65 @@ SHARED_ROOT = str(PROJECT_ROOT)
 if SHARED_ROOT not in sys.path:
     sys.path.insert(0, SHARED_ROOT)
 
+# Modules whose cached state must be purged between epitope/drug imports
+_PURGE_PREFIXES = ("core", "confluencia_shared")
 
-def _import_from_epitope(module_name: str):
-    """Import a module from the epitope package (adds epitope root first)."""
-    # Clear any cached core modules to ensure fresh import
+
+def _purge_cached_modules() -> None:
+    """Remove all cached modules that start with known conflicting prefixes."""
     for key in list(sys.modules.keys()):
-        if key.startswith("core"):
+        if any(key.startswith(pfx) for pfx in _PURGE_PREFIXES):
             del sys.modules[key]
 
-    if EPITOPE_ROOT in sys.path:
-        sys.path.remove(EPITOPE_ROOT)
-    if DRUG_ROOT in sys.path:
-        sys.path.remove(DRUG_ROOT)
+
+def _restore_path() -> None:
+    """Ensure only SHARED_ROOT is on sys.path (remove epitope/drug roots)."""
+    for root in (EPITOPE_ROOT, DRUG_ROOT):
+        while root in sys.path:
+            sys.path.remove(root)
+    if SHARED_ROOT not in sys.path:
+        sys.path.insert(0, SHARED_ROOT)
+
+
+def _import_from_epitope(module_name: str):
+    """Import a module from the epitope package (adds epitope root first).
+
+    After import, purges cached modules and restores sys.path so that
+    subsequent tests import from the correct location.
+    """
+    _purge_cached_modules()
+    _restore_path()
+
+    # Temporarily add epitope root for this import
     sys.path.insert(0, EPITOPE_ROOT)
 
-    return importlib.import_module(module_name)
+    try:
+        mod = importlib.import_module(module_name)
+    finally:
+        # Immediately remove epitope root so it doesn't pollute later imports
+        if EPITOPE_ROOT in sys.path:
+            sys.path.remove(EPITOPE_ROOT)
+    return mod
 
 
 def _import_from_drug(module_name: str):
-    """Import a module from the drug package (adds drug root first)."""
-    # Clear any cached core modules to ensure fresh import
-    for key in list(sys.modules.keys()):
-        if key.startswith("core"):
-            del sys.modules[key]
+    """Import a module from the drug package (adds drug root first).
 
-    if EPITOPE_ROOT in sys.path:
-        sys.path.remove(EPITOPE_ROOT)
-    if DRUG_ROOT in sys.path:
-        sys.path.remove(DRUG_ROOT)
+    After import, purges cached modules and restores sys.path so that
+    subsequent tests import from the correct location.
+    """
+    _purge_cached_modules()
+    _restore_path()
+
+    # Temporarily add drug root for this import
     sys.path.insert(0, DRUG_ROOT)
 
-    return importlib.import_module(module_name)
+    try:
+        mod = importlib.import_module(module_name)
+    finally:
+        if DRUG_ROOT in sys.path:
+            sys.path.remove(DRUG_ROOT)
+    return mod
 
 
 # ============================================================================
