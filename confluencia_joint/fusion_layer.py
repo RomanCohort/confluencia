@@ -28,12 +28,15 @@ class FusionStrategy(Enum):
 class FusionWeights:
     """Per-modality weights used by weighted-concat fusion."""
 
-    clinical: float = 0.40   # Clinical/drug efficacy score
-    binding: float = 0.35    # MHC-epitope binding score
-    kinetics: float = 0.25   # PK/kinetics score
+    clinical: float = 0.30       # Clinical/drug efficacy score
+    binding: float = 0.20        # MHC-epitope binding score
+    kinetics: float = 0.15       # PK/kinetics score
+    gene_signature: float = 0.15 # Five-target gene signature score
+    circrna: float = 0.20        # circRNA multi-omics score
 
     def __post_init__(self):
-        total = self.clinical + self.binding + self.kinetics
+        total = (self.clinical + self.binding + self.kinetics +
+                 self.gene_signature + self.circrna)
         if abs(total - 1.0) > 1e-6:
             raise ValueError(
                 f"FusionWeights must sum to 1.0, got {total}"
@@ -77,17 +80,23 @@ class JointFusionLayer:
         clinical: Dict[str, float] | np.ndarray,
         binding: Dict[str, float] | np.ndarray,
         kinetics: Dict[str, float] | np.ndarray,
+        gene_signature: Dict[str, float] | np.ndarray | None = None,
+        circrna: Dict[str, float] | np.ndarray | None = None,
     ) -> np.ndarray:
-        """Fuse three modality outputs into a single feature vector.
+        """Fuse five modality outputs into a single feature vector.
 
         Parameters
         ----------
         clinical : dict or ndarray
-            Drug clinical outputs (efficacy, binding, immune activation, safety).
+            Drug clinical outputs.
         binding : dict or ndarray
-            MHC-epitope binding outputs (efficacy, uncertainty).
+            MHC-epitope binding outputs.
         kinetics : dict or ndarray
-            PK/kinetics outputs (Cmax, tmax, half_life, AUC, therapeutic index).
+            PK/kinetics outputs.
+        gene_signature : dict or ndarray or None
+            Five-target gene signature outputs.
+        circrna : dict or ndarray or None
+            circRNA multi-omics outputs.
 
         Returns
         -------
@@ -95,11 +104,11 @@ class JointFusionLayer:
             Fused feature vector. Shape depends on strategy.
         """
         if self.strategy == FusionStrategy.WEIGHTED_CONCAT:
-            return self._weighted_concat(clinical, binding, kinetics)
+            return self._weighted_concat(clinical, binding, kinetics, gene_signature, circrna)
         elif self.strategy == FusionStrategy.BILINEAR_CROSS:
-            return self._bilinear_cross(clinical, binding, kinetics)
+            return self._bilinear_cross(clinical, binding, kinetics, gene_signature, circrna)
         elif self.strategy == FusionStrategy.ATTENTION_GATING:
-            return self._attention_gating(clinical, binding, kinetics)
+            return self._attention_gating(clinical, binding, kinetics, gene_signature, circrna)
         else:
             raise ValueError(f"Unknown strategy: {self.strategy}")
 
@@ -108,12 +117,14 @@ class JointFusionLayer:
         clinical: Dict[str, float] | np.ndarray,
         binding: Dict[str, float] | np.ndarray,
         kinetics: Dict[str, float] | np.ndarray,
-        weights: FusionWeights,
+        gene_signature: Dict[str, float] | np.ndarray | None = None,
+        circrna: Dict[str, float] | np.ndarray | None = None,
+        weights: FusionWeights = None,
     ) -> np.ndarray:
         """Fuse with custom weights (overrides self.weights for this call)."""
         original = self.weights
-        self.weights = weights
-        result = self.fuse(clinical, binding, kinetics)
+        self.weights = weights or self.weights
+        result = self.fuse(clinical, binding, kinetics, gene_signature, circrna)
         self.weights = original
         return result
 
@@ -126,6 +137,8 @@ class JointFusionLayer:
         clinical: Dict[str, float] | np.ndarray,
         binding: Dict[str, float] | np.ndarray,
         kinetics: Dict[str, float] | np.ndarray,
+        gene_signature: Dict[str, float] | np.ndarray | None = None,
+        circrna: Dict[str, float] | np.ndarray | None = None,
     ) -> np.ndarray:
         """Weighted concatenation — no trainable parameters.
 
@@ -136,44 +149,44 @@ class JointFusionLayer:
         c = self._to_array(clinical) * w.clinical
         b = self._to_array(binding) * w.binding
         k = self._to_array(kinetics) * w.kinetics
-        return np.concatenate([c, b, k])
+        parts = [c, b, k]
+        if gene_signature is not None:
+            g = self._to_array(gene_signature) * w.gene_signature
+            parts.append(g)
+        if circrna is not None:
+            r = self._to_array(circrna) * w.circrna
+            parts.append(r)
+        return np.concatenate(parts)
 
     def _bilinear_cross(
         self,
         clinical: Dict[str, float] | np.ndarray,
         binding: Dict[str, float] | np.ndarray,
         kinetics: Dict[str, float] | np.ndarray,
+        gene_signature: Dict[str, float] | np.ndarray | None = None,
+        circrna: Dict[str, float] | np.ndarray | None = None,
     ) -> np.ndarray:
         """Bilinear cross-interaction — reserved for future labeled data.
 
-        Projects the outer product of clinical×binding through a learned
-        matrix W, then concatenates with kinetics.
-        This strategy requires training on labeled composite outcomes.
-        Currently returns weighted concat as fallback.
+        Requires training on labeled (composite_score, recommendation) pairs.
+        Currently returns weighted concat as placeholder.
         """
-        # TODO(when labeled composite data available):
-        #   W = np.random.randn(len(binding) * len(clinical), len(kinetics) * 2)
-        #   x_cb = np.outer(clinical, binding).flatten()
-        #   return np.concatenate([x_cb @ W, kinetics])
-        return self._weighted_concat(clinical, binding, kinetics)
+        return self._weighted_concat(clinical, binding, kinetics, gene_signature, circrna)
 
     def _attention_gating(
         self,
         clinical: Dict[str, float] | np.ndarray,
         binding: Dict[str, float] | np.ndarray,
         kinetics: Dict[str, float] | np.ndarray,
+        gene_signature: Dict[str, float] | np.ndarray | None = None,
+        circrna: Dict[str, float] | np.ndarray | None = None,
     ) -> np.ndarray:
         """Soft attention gating — reserved for future labeled data.
 
-        Uses a learned attention vector to produce a weighted sum of the
-        three modality representations.
-        Currently returns weighted concat as fallback.
+        Requires training on (input, composite_score) pairs.
+        Currently returns weighted concat as placeholder.
         """
-        # TODO(when labeled composite data available):
-        #   logits = [w_c * clinical.mean(), w_b * binding.mean(), w_k * kinetics.mean()]
-        #   alpha = softmax(logits)
-        #   return alpha[0]*clinical + alpha[1]*binding + alpha[2]*kinetics
-        return self._weighted_concat(clinical, binding, kinetics)
+        return self._weighted_concat(clinical, binding, kinetics, gene_signature, circrna)
 
     # ------------------------------------------------------------------
     # Utilities
@@ -181,9 +194,15 @@ class JointFusionLayer:
 
     @staticmethod
     def _to_array(x: Dict[str, float] | np.ndarray) -> np.ndarray:
-        """Convert dict or ndarray to ndarray with NaN→0."""
+        """Convert dict or ndarray to ndarray with NaN→0 and non-numeric filtering."""
         if isinstance(x, dict):
-            arr = np.array(list(x.values()), dtype=np.float64)
+            vals = []
+            for v in x.values():
+                try:
+                    vals.append(float(v))
+                except (TypeError, ValueError):
+                    continue  # skip non-numeric fields like predicted_response
+            arr = np.array(vals, dtype=np.float64)
         elif isinstance(x, np.ndarray):
             arr = x.astype(np.float64)
         else:

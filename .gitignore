@@ -88,10 +88,35 @@ skills/
 external/
 nanobot/
 
-# Papers and documentation (local only)
-docs/
+# Papers and documentation (local only — publish docs separately)
 paper/
 readme/
+docs/Confluencia— An Integrated circRNA Drug Discovery Platform*.md
+docs/Confluencia_Studio_Command_Reference.md
+
+# Large data files (include sample/head files if needed)
+benchmarks/results/
+output/
+data/trained/
+data/gene_signature/
+src/ui/
+src/representations/
+examples/
+scripts/
+fetch_survival_data.py
+
+# Training data
+confluencia_2_0_drug/data/*.csv
+confluencia_2_0_drug/data/raw/
+confluencia_2_0_epitope/data/*.csv
+confluencia_2_0_epitope/data/raw/
+confluencia_2_0_epitope/data/iedb_mhc_i_binding.csv
+confluencia_2_0_epitope/data/epitope_table_export*.csv
+confluencia_circrna/data/
+
+# Scripts and tools
+scripts/
+src/
 
 # Confluencia v1.0 (legacy)
 confluencia-1.0/
