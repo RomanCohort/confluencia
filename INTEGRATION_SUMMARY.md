@@ -360,3 +360,39 @@ print(result.pk_curve)                      # time-series DataFrame
 cd D:\IGEM集成方案
 streamlit run confluencia_joint/joint_streamlit.py
 ```
+
+---
+
+## 2026-04-29 联合评估系统 Bug 修复
+
+### P1 功能缺陷（已修复）
+
+| # | 问题 | 修复 | 文件 |
+|---|------|------|------|
+| 1 | Gene Signature 遗漏 `proliferation_score` | 加入权重 0.15，eff 调至 0.30 | `scoring.py:579-586` |
+| 2 | circRNA overall 直接透传上游 | 独立计算 8 子指标加权 (imm=0.20, tki=0.15, …) | `scoring.py:642-657` |
+| 3 | 安全性双重惩罚（分数内+推荐层） | 分数内移除 safety penalty，仅在推荐层做硬性门槛 | `scoring.py:453-461` |
+
+### P2 设计问题（已修复）
+
+| # | 问题 | 修复 | 文件 |
+|---|------|------|------|
+| 4 | BILINEAR_CROSS/ATTENTION_GATING 是空壳 | 文档更新为 "reserved, requires labeled data" | `fusion_layer.py:161-187` |
+| 5 | SMILES 不做化学验证 | 添加 `_validate_smiles()`，RDKit 可用时用 RDKit， fallback 做基本格式检查 | `joint_input.py` |
+| 6 | safety_penalty 语义混淆 `(1 - immune)` | 移除 immune 分项，改为 `0.6*tox + 0.4*infl` | `scoring.py:448-451` |
+| 7 | Batch 模式不支持高级字段 | `from_dataframe()` 支持 `gene_signature_outputs` (JSON)、`circ_sequence` | `joint_input.py` |
+
+### P3 次要问题（已修复）
+
+| # | 问题 | 修复 | 文件 |
+|---|------|------|------|
+| 8 | 评估时间分配粗糙 | 移除固定的 `0.1*len(inputs)` 噪声项，改为 `(drug+epi)/n` | `joint_evaluator.py:562` |
+| 9 | 无端到端集成测试 | 添加 5 个集成测试：完整流水线、safety override、自适应权重、proliferation 验证、circRNA 独立计算 | `tests/test_joint.py` |
+
+### 测试结果
+
+```
+35 passed in 1.38s
+```
+
+所有修改通过 `python -m py_compile` 语法检查。

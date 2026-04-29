@@ -34,6 +34,7 @@ dependencies = [
     "scipy>=1.10,<2.0",
     "streamlit>=1.30,<2.0",
     "joblib>=1.3,<2.0",
+    "rich>=13.0,<14.0",
 ]
 
 [project.optional-dependencies]
@@ -56,16 +57,23 @@ dev = [
     "pytest-cov>=4.0,<7.0",
 ]
 
+[project.scripts]
+confluencia = "confluencia_cli.cli:main"
+
 [project.urls]
 Repository = "https://github.com/IGEM-FBH/confluencia"
 
 [tool.setuptools.packages.find]
-include = ["benchmarks*", "confluencia_2_0_drug*", "confluencia_2_0_epitope*", "confluencia_shared*", "src*"]
+include = ["benchmarks*", "confluencia_2_0_drug*", "confluencia_2_0_epitope*", "confluencia_circrna*", "confluencia_joint*", "confluencia_shared*", "confluencia_cli*", "confluencia_studio*", "src*"]
 
 [tool.setuptools.package-dir]
 "confluencia_2_0_drug" = "confluencia-2.0-drug"
 "confluencia_2_0_epitope" = "confluencia-2.0-epitope"
+"confluencia_circrna" = "confluencia_circrna"
+"confluencia_joint" = "confluencia_joint"
 "confluencia_shared" = "confluencia_shared"
+"confluencia_cli" = "confluencia_cli"
+"confluencia_studio" = "confluencia_studio"
 
 [tool.setuptools.package-data]
 "*" = ["*.yaml", "*.yml", "*.csv"]
@@ -79,4 +87,10 @@ profile = "black"
 line_length = 100
 
 [tool.pytest.ini_options]
-testpaths = ["benchmarks", "confluencia-2.0-epitope/tests", "confluencia-2.0-drug/tests"]
+testpaths = [
+    "tests",
+    "confluencia-2.0-epitope/tests",
+    "confluencia-2.0-drug/tests",
+    "confluencia_circrna/tests",
+    "benchmarks",
+]

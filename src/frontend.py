@@ -91,6 +91,14 @@ def _import_tab_modules():
     except ImportError:
         pass
 
+    # 四靶点基因签名
+    try:
+        from src.ui import four_target_ui
+        modules["four_target_signature_ui"] = four_target_ui.four_target_signature_ui
+        modules["four_target_combined_ui"] = four_target_ui.four_target_combined_ui
+    except ImportError:
+        pass
+
     return modules
 
 
@@ -195,8 +203,8 @@ def main() -> None:
 
     # === tab_drug: 药效预测 ===
     with tab_drug:
-        t_pred, t_trans_pred, t_screen, t_plot, t_dleps, t_legacy = st.tabs(
-            ["单条预测", "Transformer预测", "批量筛选", "绘图", "DLEPS 富集", "torch预测"]
+        t_pred, t_trans_pred, t_screen, t_plot, t_dleps, t_four_target, t_legacy = st.tabs(
+            ["单条预测", "Transformer预测", "批量筛选", "绘图", "DLEPS 富集", "四靶点签名", "torch预测"]
         )
         with t_pred:
             set_feedback_context("drug", "predict")
@@ -218,6 +226,14 @@ def main() -> None:
                 get_ui("dleps_ui")()
             except Exception as e:
                 st.error(f"加载 DLEPS 前端失败：{e}")
+        with t_four_target:
+            set_feedback_context("four_target", "signature")
+            st.markdown("### 四靶点基因签名疗效预测")
+            st.caption("基于 TROP2 / NECTIN4 / LIV-1 / B7-H4 的基因签名预测 circRNA 药物疗效。")
+            try:
+                get_ui("four_target_signature_ui")()
+            except Exception as e:
+                st.error(f"加载四靶点界面失败：{e}")
         with t_legacy:
             set_feedback_context("drug", "legacy_demo")
             get_ui("drug_legacy_demo_ui")()

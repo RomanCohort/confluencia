@@ -1,0 +1,192 @@
+{
+  "name": "confluencia-studio",
+  "version": "1.0.0",
+  "description": "RStudio-style desktop IDE for circRNA drug discovery",
+  "main": "dist-electron/main.js",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "preview": "vite preview",
+    "electron:dev": "concurrently \"vite\" \"wait-on http://localhost:5173 && electron .\"",
+    "electron:build": "vite build && electron-builder",
+    "electron:build:win": "vite build && electron-builder --win",
+    "electron:build:portable": "vite build && electron-builder --win --config.win.target=portable"
+  },
+  "keywords": [
+    "electron",
+    "bioinformatics",
+    "drug-discovery",
+    "circrna"
+  ],
+  "author": "IGEM-FBH",
+  "license": "MIT",
+  "dependencies": {
+    "@monaco-editor/react": "^4.6.0",
+    "allotment": "^1.20.0",
+    "plotly.js": "^2.35.3",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "react-plotly.js": "^2.6.0",
+    "uuid": "^9.0.0",
+    "xterm": "^5.3.0",
+    "xterm-addon-fit": "^0.8.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.0",
+    "@types/react": "^18.2.0",
+    "@types/react-dom": "^18.2.0",
+    "@vitejs/plugin-react": "^4.2.0",
+    "concurrently": "^8.2.0",
+    "electron": "^28.0.0",
+    "electron-builder": "^24.9.0",
+    "typescript": "^5.3.0",
+    "vite": "^5.0.0",
+    "vite-plugin-electron": "^0.28.0",
+    "vite-plugin-electron-renderer": "^0.14.0",
+    "wait-on": "^7.2.0"
+  },
+  "build": {
+    "appId": "com.igem.confluencia-studio",
+    "productName": "Confluencia Studio",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "dist/**/*",
+      "dist-electron/**/*",
+      "package.json"
+    ],
+    "win": {
+      "icon": "resources/icon.ico",
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true
+    },
+    "extraResources": [
+      {
+        "from": "../confluencia_cli",
+        "to": "confluencia_cli",
+        "filter": [
+          "**/*",
+          "!__pycache__",
+          "!*.pyc"
+        ]
+      },
+      {
+        "from": "../confluencia_shared",
+        "to": "confluencia_shared",
+        "filter": [
+          "**/*",
+          "!__pycache__",
+          "!*.pyc"
+        ]
+      },
+      {
+        "from": "../confluencia-2.0-drug",
+        "to": "confluencia-2.0-drug",
+        "filter": [
+          "**/*",
+          "!__pycache__",
+          "!*.pyc",
+          "!node_modules",
+          "!*.egg-info"
+        ]
+      },
+      {
+        "from": "../confluencia-2.0-epitope",
+        "to": "confluencia-2.0-epitope",
+        "filter": [
+          "**/*",
+          "!__pycache__",
+          "!*.pyc",
+          "!node_modules",
+          "!*.egg-info"
+        ]
+      },
+      {
+        "from": "../confluencia_circrna",
+        "to": "confluencia_circrna",
+        "filter": [
+          "**/*",
+          "!__pycache__",
+          "!*.pyc"
+        ]
+      },
+      {
+        "from": "../confluencia_joint",
+        "to": "confluencia_joint",
+        "filter": [
+          "**/*",
+          "!__pycache__",
+          "!*.pyc"
+        ]
+      },
+      {
+        "from": "../confluencia_studio/core",
+        "to": "confluencia_studio/core",
+        "filter": [
+          "**/*.py"
+        ]
+      },
+      {
+        "from": "../confluencia_studio/__init__.py",
+        "to": "confluencia_studio/__init__.py"
+      },
+      {
+        "from": "../src",
+        "to": "src",
+        "filter": [
+          "**/*.py",
+          "!__pycache__",
+          "!*.pyc"
+        ]
+      },
+      {
+        "from": "../confluencia_cli",
+        "to": "confluencia_cli",
+        "filter": [
+          "**/*.py",
+          "!__pycache__",
+          "!*.pyc"
+        ]
+      },
+      {
+        "from": "../benchmarks",
+        "to": "benchmarks",
+        "filter": [
+          "**/*.py",
+          "!__pycache__",
+          "!*.pyc"
+        ]
+      },
+      {
+        "from": "../data",
+        "to": "data",
+        "filter": [
+          "**/*"
+        ]
+      },
+      {
+        "from": "../pyproject.toml",
+        "to": "pyproject.toml"
+      },
+      {
+        "from": "electron/python/kernel-server.py",
+        "to": "python/kernel-server.py"
+      }
+    ],
+    "asar": true,
+    "asarUnpack": [
+      "node_modules/**/*.node"
+    ]
+  }
+}
