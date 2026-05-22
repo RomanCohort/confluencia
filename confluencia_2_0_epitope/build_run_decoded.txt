@@ -1,0 +1,63 @@
+powershell : 109 DEPRECATION: Running PyInstaller as admin is not necessary nor
+ sensible. Run PyInstaller from a non-administrator terminal. PyInstaller 7.0 w
+ill block this.
+所在位置 行:1 字符: 1
++ powershell -ExecutionPolicy Bypass -File .\build_full.ps1 -Clean -Pyt ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (109 DEPRECATION...ill block this. 
+   :String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+361 INFO: PyInstaller: 6.19.0, contrib hooks: 2026.4
+362 INFO: Python: 3.13.7
+419 INFO: Platform: Windows-11-10.0.26200-SP0
+419 INFO: Python environment: D:\IGEM集成方案\confluencia-2.0-epitope\.venv
+424 INFO: Removing temporary files and cleaning cache in C:\Users\LENOVO\AppDat
+a\Local\pyinstaller
+879 INFO: Module search paths (PYTHONPATH):
+['D:\\IGEM集成方案\\confluencia-2.0-epitope',
+ 'C:\\Program Files\\Python313\\python313.zip',
+ 'C:\\Program Files\\Python313\\DLLs',
+ 'C:\\Program Files\\Python313\\Lib',
+ 'C:\\Program Files\\Python313',
+ 'D:\\IGEM集成方案\\confluencia-2.0-epitope\\.venv',
+ 'D:\\IGEM集成方案\\confluencia-2.0-epitope\\.venv\\Lib\\site-packages',
+ 'D:\\IGEM集成方案\\confluencia-2.0-epitope']
+1753 INFO: Appending 'datas' from .spec
+1770 INFO: checking Analysis
+1770 INFO: Building Analysis because Analysis-00.toc is non existent
+1770 INFO: Looking for Python shared library...
+1770 INFO: Using Python shared library: C:\Program Files\Python313\python313.dl
+l
+1770 INFO: Running Analysis Analysis-00.toc
+1770 INFO: Target bytecode optimization level: 0
+1770 INFO: Initializing module dependency graph...
+1772 INFO: Initializing module graph hook caches...
+1791 INFO: Analyzing modules for base_library.zip ...
+3408 INFO: Processing standard module hook 'hook-heapq.py' from 'D:\\IGEM集成方案\\
+confluencia-2.0-epitope\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
+4354 INFO: Processing standard module hook 'hook-encodings.py' from 'D:\\IGEM集成
+方案\\confluencia-2.0-epitope\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
+7390 INFO: Processing standard module hook 'hook-pickle.py' from 'D:\\IGEM集成方案\
+\confluencia-2.0-epitope\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
+9665 INFO: Caching module dependency graph...
+9740 INFO: Analyzing D:\IGEM集成方案\confluencia-2.0-epitope\launcher_streamlit.py
+10535 INFO: Processing standard module hook 'hook-platform.py' from 'D:\\IGEM集成
+方案\\confluencia-2.0-epitope\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
+10585 INFO: Processing standard module hook 'hook-_ctypes.py' from 'D:\\IGEM集成方
+案\\confluencia-2.0-epitope\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
+12175 INFO: Processing standard module hook 'hook-multiprocessing.util.py' from
+ 'D:\\IGEM集成方案\\confluencia-2.0-epitope\\.venv\\Lib\\site-packages\\PyInstaller
+\\hooks'
+12329 INFO: Processing standard module hook 'hook-xml.py' from 'D:\\IGEM集成方案\\c
+onfluencia-2.0-epitope\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
+13525 INFO: Processing pre-safe-import-module hook 'hook-typing_extensions.py' 
+from 'D:\\IGEM集成方案\\confluencia-2.0-epitope\\.venv\\Lib\\site-packages\\PyInsta
+ller\\hooks\\pre_safe_import_module'
+13528 INFO: SetuptoolsInfo: initializing cached setuptools info...
+14953 INFO: Processing standard module hook 'hook-numpy.py' from 'D:\\IGEM集成方案\
+\confluencia-2.0-epitope\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
+15959 INFO: Processing standard module hook 'hook-difflib.py' from 'D:\\IGEM集成方
+案\\confluencia-2.0-epitope\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
+16887 INFO: Processing standard module hook 'hook-sysconfig.py' from 'D:\\IGEM集
+成方案\\confluencia-2.0-epitope\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
