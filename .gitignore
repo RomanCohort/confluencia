@@ -134,3 +134,11 @@ confluencia-1.0/
 *credential*
 *.key
 *.pem
+
+# But preserve runtime-required files
+!output/five_gene_hybrid.joblib
+!data/gene_signature/combined_five_gene.csv
+!data/gene_signature/tcga_brca_five_gene.csv
+!data/gene_signature/metabric_five_gene.csv
+!data/gene_signature/combined_with_survival.csv
+!data/gene_signature/cache/

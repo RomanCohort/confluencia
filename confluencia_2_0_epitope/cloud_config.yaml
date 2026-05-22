@@ -1,0 +1,34 @@
+# Confluencia 2.0 云服务器配置
+# 将此文件放置于项目根目录，或通过环境变量 CLOUD_CONFIG_PATH 指定路径
+
+server:
+  # 云服务器地址（必填）
+  url: "https://your-cloud-server.example.com"
+  # API 路径前缀
+  api_prefix: "/api/v1"
+  # 请求超时（秒）
+  timeout: 300
+  # 重试次数
+  max_retries: 3
+  # 重试间隔（秒）
+  retry_delay: 2
+
+auth:
+  # API Token（必填，部署后从管理界面获取）
+  token: ""
+  # Token 在 HTTP Header 中的字段名
+  header_name: "X-API-Token"
+
+mode:
+  # 运行模式："local"（本地）、"cloud"（云端）、"hybrid"（混合，本地训练+云端预测）
+  default: "local"
+  # 混合模式下，训练是否优先使用云端
+  prefer_cloud_train: false
+  # 混合模式下，预测是否优先使用云端
+  prefer_cloud_predict: true
+
+storage:
+  # 模型云存储配置
+  auto_upload_model: false
+  # 数据上传最大行数（0 表示无限制）
+  max_upload_rows: 0

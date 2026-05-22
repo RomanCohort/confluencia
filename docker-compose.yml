@@ -1,28 +1,46 @@
-version: '3.8'
+version: "3.8"
 
 services:
-  confluencia-drug:
-    build:
-      context: .
-      dockerfile: Dockerfile
+  confluencia-joint:
+    build: .
+    container_name: confluencia-joint
     ports:
       - "8501:8501"
     volumes:
       - ./data:/app/data
-      - ./models:/app/models
+      - ./output:/app/output
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8501/_stcore/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
     environment:
-      - PYTHONUNBUFFERED=1
-    command: streamlit run confluencia-2.0-drug/app.py --server.port=8501 --server.address=0.0.0.0
+      - PYTHONPATH=/app
+      - CUDA_VISIBLE_DEVICES=0
 
-  confluencia-epitope:
-    build:
-      context: .
-      dockerfile: Dockerfile
+  confluencia-drug:
+    build: .
+    container_name: confluencia-drug
+    command: ["streamlit", "run", "confluencia-2.0-drug/app.py", "--server.port=8502", "--server.address=0.0.0.0", "--server.headless=true"]
     ports:
       - "8502:8502"
     volumes:
       - ./data:/app/data
-      - ./models:/app/models
+      - ./output:/app/output
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
     environment:
-      - PYTHONUNBUFFERED=1
-    command: streamlit run confluencia-2.0-epitope/epitope_frontend.py --server.port=8502 --server.address=0.0.0.0
+      - PYTHONPATH=/app
+      - CUDA_VISIBLE_DEVICES=0
