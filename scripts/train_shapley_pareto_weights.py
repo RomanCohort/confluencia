@@ -967,13 +967,38 @@ def run_nsga2(
       Pareto_X: (n_pareto, N_VAR) variable matrix
       Pareto_F: (n_pareto, 4) objective matrix
     """
+    # Import pymoo — sampling class location varies by version
     from pymoo.algorithms.moo.nsga2 import NSGA2
     from pymoo.core.problem import ElementwiseProblem
     from pymoo.operators.crossover.sbx import SBX
     from pymoo.operators.mutation.pm import PM
-    from pymoo.operators.sampling.real import RandomSampling
     from pymoo.optimize import minimize as pymoo_minimize
     from pymoo.termination import get_termination
+
+    # Try multiple import paths for RandomSampling (pymoo versions differ)
+    _RandomSampling = None
+    for _mod_path in [
+        "pymoo.operators.sampling.rnd",     # pymoo >= 0.6
+        "pymoo.operators.sampling.real",    # older pymoo
+        "pymoo.operators.sampling.lhs",     # fallback
+    ]:
+        try:
+            _mod = __import__(_mod_path, fromlist=[""])
+            for _name in ["RandomSampling", "FloatRandomSampling"]:
+                if hasattr(_mod, _name):
+                    _RandomSampling = getattr(_mod, _name)
+                    break
+            if _RandomSampling is not None:
+                break
+        except (ImportError, ModuleNotFoundError):
+            continue
+
+    if _RandomSampling is None:
+        # Fallback: NSGA2 has default sampling, omit explicit parameter
+        print("[Phase3] Warning: Could not find RandomSampling class, using NSGA2 default")
+        sampling_arg = None
+    else:
+        sampling_arg = _RandomSampling()
 
     class WeightOptProblem(ElementwiseProblem):
         def __init__(self):
@@ -992,12 +1017,14 @@ def run_nsga2(
 
     problem = WeightOptProblem()
 
-    algorithm = NSGA2(
+    algorithm_kwargs = dict(
         pop_size=pop_size,
-        sampling=RandomSampling(),
         crossover=SBX(eta=20, prob=0.9),
         mutation=PM(eta=15, prob=1.0 / N_VAR),
     )
+    if sampling_arg is not None:
+        algorithm_kwargs["sampling"] = sampling_arg
+    algorithm = NSGA2(**algorithm_kwargs)
 
     termination = get_termination("n_gen", n_gen)
 
