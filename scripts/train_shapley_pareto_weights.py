@@ -36,6 +36,11 @@ from typing import Any, Dict, List, Optional, Tuple
 import numpy as np
 import pandas as pd
 
+# Block heavy/optional imports that __init__.py tries to load
+import sys
+sys.modules.setdefault("streamlit", type(sys)("streamlit"))  # stub streamlit
+sys.modules.setdefault("plotly", type(sys)("plotly"))         # stub plotly
+
 warnings.filterwarnings("ignore")
 
 # ---------------------------------------------------------------------------
