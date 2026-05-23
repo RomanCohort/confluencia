@@ -37,6 +37,12 @@ from typing import Any, Dict, List, Optional, Tuple
 import numpy as np
 import pandas as pd
 
+# Auto-detect project root and add to sys.path so confluencia_shared/joint are importable.
+# This eliminates the need for manually setting PYTHONPATH.
+_PROJECT_ROOT = Path(__file__).resolve().parent.parent
+if str(_PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(_PROJECT_ROOT))
+
 # Block heavy/optional imports that __init__.py tries to load.
 # Create stub modules so the import chain succeeds without streamlit/plotly.
 def _decorator(*a, **kw):
