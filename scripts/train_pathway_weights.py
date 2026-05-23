@@ -29,11 +29,11 @@ CACHE_DIR = Path("data/gene_signature/cache")
 OUTPUT_DIR = Path("output")
 OUTPUT_DIR.mkdir(exist_ok=True)
 
-# Pathway candidate genes (column names in combined_raw_with_survival.csv)
+# Four-gene pathway candidates (TMEM65 removed — DHE target, not prognostic)
 PATHWAY_CANDIDATES = {
-    "proliferation": ["TROP2", "NECTIN4", "TMEM65", "MKI67", "MYC"],
+    "proliferation": ["TROP2", "NECTIN4", "MKI67", "MYC"],
     "immune": ["B7-H4", "TROP2", "LIV-1", "CDH1", "ESR1"],
-    "mitochondria": ["TMEM65", "LIV-1", "NECTIN4", "BAX", "BCL2"],
+    "mitochondria": ["LIV-1", "NECTIN4", "BAX", "BCL2"],
 }
 
 # Display name mapping (internal column names → output keys)
@@ -203,9 +203,9 @@ def main():
 
     # Show old vs new
     OLD = {
-        "proliferation": {"TROP2": 0.4, "NECTIN4": 0.3, "TMEM65": 0.3},
+        "proliferation": {"TROP2": 0.4, "NECTIN4": 0.3, "MKI67": 0.15, "MYC": 0.15},
         "immune": {"B7-H4": 0.6, "TROP2": 0.2, "LIV-1": 0.2},
-        "mitochondria": {"TMEM65": 0.7, "LIV-1": 0.2, "NECTIN4": 0.1},
+        "mitochondria": {"LIV-1": 0.3, "NECTIN4": 0.1, "BAX": 0.3, "BCL2": 0.3},
     }
     print(f"\n--- Old (hardcoded) vs New (Cox fitted) ---")
     for pathway in results:

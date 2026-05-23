@@ -45,9 +45,9 @@ _DEFAULTS = {
         "tide_inverse": 0.10, "ips_fraction": 0.10,
     },
     "pathway": {
-        "proliferation": {"TROP2": 0.4, "NECTIN4": 0.3, "TMEM65": 0.3},
+        "proliferation": {"TROP2": 0.4, "NECTIN4": 0.3, "MKI67": 0.15, "MYC": 0.15},
         "immune": {"B7-H4": 0.6, "TROP2": 0.2, "LIV-1": 0.2},
-        "mitochondria": {"TMEM65": 0.7, "LIV-1": 0.2, "NECTIN4": 0.1},
+        "mitochondria": {"LIV-1": 0.3, "NECTIN4": 0.1, "BAX": 0.3, "BCL2": 0.3},
     },
     "tide_ips": {
         "tide_risk": 0.3, "tide_tmem65": 0.4, "tide_immune": -0.3,
