@@ -29,6 +29,7 @@ import argparse
 import copy
 import json
 import sys
+import types
 import warnings
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
@@ -36,10 +37,23 @@ from typing import Any, Dict, List, Optional, Tuple
 import numpy as np
 import pandas as pd
 
-# Block heavy/optional imports that __init__.py tries to load
-import sys
-sys.modules.setdefault("streamlit", type(sys)("streamlit"))  # stub streamlit
-sys.modules.setdefault("plotly", type(sys)("plotly"))         # stub plotly
+# Block heavy/optional imports that __init__.py tries to load.
+# Create stub modules so the import chain succeeds without streamlit/plotly.
+def _decorator(*a, **kw):
+    """No-op decorator: @foo, @foo(), @foo(x=1) all just return the function."""
+    if len(a) == 1 and callable(a[0]) and not kw:
+        return a[0]
+    return lambda f: f
+
+def _make_stub(name):
+    """Create a module stub where any attribute access returns a no-op decorator."""
+    mod = types.ModuleType(name)
+    mod.__path__ = []
+    mod.__getattr__ = lambda attr: _decorator
+    return mod
+
+for _mod_name in ["streamlit", "plotly", "plotly.graph_objects", "plotly.express"]:
+    sys.modules.setdefault(_mod_name, _make_stub(_mod_name))
 
 warnings.filterwarnings("ignore")
 
