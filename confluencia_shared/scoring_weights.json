@@ -1,0 +1,102 @@
+{
+  "version": 2,
+  "source": "Cox-trained pathway weights + default sub-scoring weights",
+  "description": "Centralized scoring weights for Confluencia 2.0 evaluation pipeline",
+
+  "fusion": {
+    "clinical": 0.30,
+    "binding": 0.20,
+    "kinetics": 0.15,
+    "gene_signature": 0.15,
+    "circ_rna": 0.20
+  },
+
+  "clinical_sub": {
+    "efficacy": 0.40,
+    "binding": 0.35,
+    "immune": 0.25
+  },
+
+  "clinical_safety": {
+    "toxicity": 0.6,
+    "inflammation": 0.4
+  },
+
+  "binding_uncertainty_penalty": 0.3,
+
+  "kinetics_sub": {
+    "half_life": 0.25,
+    "auc": 0.30,
+    "therapeutic_index": 0.30,
+    "cmax": 0.15
+  },
+
+  "gene_signature_sub": {
+    "efficacy": 0.30,
+    "immune": 0.15,
+    "proliferation": 0.15,
+    "mito": 0.15,
+    "risk_inverse": 0.15,
+    "tide_inverse": 0.10
+  },
+
+  "circ_rna_sub": {
+    "immunotherapy": 0.20,
+    "tumor_killing_index": 0.15,
+    "immunogenicity": 0.15,
+    "immune_cycle": 0.10,
+    "tme": 0.10,
+    "therapeutic_window": 0.10,
+    "tide_inverse": 0.10,
+    "ips_fraction": 0.10
+  },
+
+  "pathway": {
+    "proliferation": {
+      "MKI67": 0.38,
+      "MYC": 0.27,
+      "TROP2": 0.35,
+      "NECTIN4": 0.00,
+      "TMEM65": 0.00
+    },
+    "immune": {
+      "B7-H4": 0.50,
+      "ESR1": 0.23,
+      "CDH1": 0.17,
+      "TROP2": 0.10,
+      "LIV-1": 0.00
+    },
+    "mitochondria": {
+      "BCL2": 0.34,
+      "BAX": 0.32,
+      "TMEM65": 0.34,
+      "LIV-1": 0.00,
+      "NECTIN4": 0.00
+    }
+  },
+
+  "tide_ips": {
+    "tide_risk": 0.3,
+    "tide_tmem65": 0.4,
+    "tide_immune": -0.3,
+    "ips_risk_inverse": 0.5,
+    "ips_immune": 0.3
+  },
+
+  "risk_adjustment": {
+    "TROP2_high": 0.30,
+    "TROP2_low": 0.15,
+    "NECTIN4_high": 0.20,
+    "NECTIN4_low": 0.10,
+    "LIV-1_high": 0.15,
+    "LIV-1_low": 0.08,
+    "B7-H4_high": 0.10,
+    "B7-H4_low": 0.05,
+    "TMEM65_high": 0.25,
+    "TMEM65_low": 0.13
+  },
+
+  "go_threshold": 0.65,
+  "conditional_threshold": 0.40,
+  "safety_floor": 0.30
+}

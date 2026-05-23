@@ -448,16 +448,21 @@ class JointScoringEngine:
         # Safety penalty: weighted sum of risk signals (toxicity + inflammation)
         # Note: immune activation is NOT a safety penalty; it's scored separately.
         # Lower penalty = safer (higher safety)
-        safety_penalty = 0.6 * tox + 0.4 * infl
+        # Weights from scoring_weights.json
+        from confluencia_shared.weight_loader import get_sub_weights
+        cs_w = get_sub_weights("clinical_safety")
+        safety_penalty = cs_w.get("toxicity", 0.6) * tox + cs_w.get("inflammation", 0.4) * infl
         safety_penalty = max(0.0, min(1.0, safety_penalty))
 
         # Safety penalty used only as override in recommendation logic,
         # not in overall clinical score (avoids double-penalty).
         # Safety override: if safety_penalty > safety_floor → No-Go.
+        from confluencia_shared.weight_loader import get_sub_weights
+        c_w = get_sub_weights("clinical_sub")
         overall = (
-            0.40 * eff
-            + 0.35 * bind
-            + 0.25 * immune
+            c_w.get("efficacy", 0.40) * eff
+            + c_w.get("binding", 0.35) * bind
+            + c_w.get("immune", 0.25) * immune
         )
         overall = max(0.0, min(1.0, overall))
 
@@ -489,8 +494,10 @@ class JointScoringEngine:
         else:
             affinity = "non_binder"
 
-        # Adjusted score: penalize high uncertainty
-        overall = eff * (1 - 0.3 * unc)
+        # Adjusted score: penalize high uncertainty (penalty weight from config)
+        from confluencia_shared.weight_loader import get_weight
+        unc_penalty = get_weight("binding_uncertainty_penalty", 0.3)
+        overall = eff * (1 - unc_penalty * unc)
         overall = max(0.0, min(1.0, overall))
 
         interpretation = self._interpret_binding(eff, unc, affinity)
@@ -529,7 +536,15 @@ class JointScoringEngine:
         ti_score = self._score_therapeutic_index(ti)
         cmax_score = self._score_cmax(cmax)
 
-        overall = 0.25 * half_life_score + 0.30 * auc_score + 0.30 * ti_score + 0.15 * cmax_score
+        # Weighted sub-scores (weights from scoring_weights.json)
+        from confluencia_shared.weight_loader import get_sub_weights
+        k_w = get_sub_weights("kinetics_sub")
+        overall = (
+            k_w.get("half_life", 0.25) * half_life_score
+            + k_w.get("auc", 0.30) * auc_score
+            + k_w.get("therapeutic_index", 0.30) * ti_score
+            + k_w.get("cmax", 0.15) * cmax_score
+        )
         overall = max(0.0, min(1.0, overall))
 
         interpretation = self._interpret_kinetics(cmax, tmax, hl, ti)
@@ -575,16 +590,16 @@ class JointScoringEngine:
         response = str(gs.get("predicted_response", "SD"))
         dhe = bool(gs.get("dhe_recommended", False))
 
-        # Overall gene signature score:
-        # efficacy (primary) + immune + proliferation - TIDE penalty
-        # Weights: eff=0.30, immune=0.15, proliferation=0.15, (1-risk)=0.15, (1-tide)=0.15, mito=0.10
+        # Overall gene signature score (weights from scoring_weights.json)
+        from confluencia_shared.weight_loader import get_sub_weights
+        gs_w = get_sub_weights("gene_signature_sub")
         overall = (
-            0.30 * eff
-            + 0.15 * immune
-            + 0.15 * prolif
-            + 0.15 * (1.0 - risk)
-            + 0.15 * (1.0 - tide)
-            + 0.10 * mito
+            gs_w.get("efficacy", 0.30) * eff
+            + gs_w.get("immune", 0.15) * immune
+            + gs_w.get("proliferation", 0.15) * prolif
+            + gs_w.get("mito", 0.15) * mito
+            + gs_w.get("risk_inverse", 0.15) * (1.0 - risk)
+            + gs_w.get("tide_inverse", 0.10) * (1.0 - tide)
         )
         overall = max(0.0, min(1.0, overall))
 
@@ -642,17 +657,18 @@ class JointScoringEngine:
         tme = self._clamp(cr.get("tme_score", 0.5))
         trained_risk = self._clamp(cr.get("trained_model_risk", 0.5))
 
-        # Compute overall from sub-indicators (independent of upstream pipeline)
-        # Weights: imm=0.20, tki=0.15, immu=0.15, cycle=0.10, tme=0.10, tw=0.10, tide=0.10, ips=0.10
+        # Compute overall from sub-indicators (weights from scoring_weights.json)
+        from confluencia_shared.weight_loader import get_sub_weights
+        cr_w = get_sub_weights("circ_rna_sub")
         overall = (
-            0.20 * imm
-            + 0.15 * tki
-            + 0.15 * immu
-            + 0.10 * cycle
-            + 0.10 * tme
-            + 0.10 * tw
-            + 0.10 * (1.0 - tide)
-            + 0.10 * (ips / 10.0)
+            cr_w.get("immunotherapy", 0.20) * imm
+            + cr_w.get("tumor_killing_index", 0.15) * tki
+            + cr_w.get("immunogenicity", 0.15) * immu
+            + cr_w.get("immune_cycle", 0.10) * cycle
+            + cr_w.get("tme", 0.10) * tme
+            + cr_w.get("therapeutic_window", 0.10) * tw
+            + cr_w.get("tide_inverse", 0.10) * (1.0 - tide)
+            + cr_w.get("ips_fraction", 0.10) * (ips / 10.0)
         )
         overall = max(0.0, min(1.0, overall))
 
