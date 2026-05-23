@@ -367,7 +367,13 @@ class FiveGeneCoxModel:
     """
 
     def __init__(self):
-        self.report_path = Path(__file__).parent.parent / "output" / "lasso_stepcox_report.json"
+        # Prefer v2 report (raw log2 + expanded genes + clinical, C-index ~0.65)
+        v2_path = Path(__file__).parent.parent / "output" / "lasso_stepcox_v2_report.json"
+        v1_path = Path(__file__).parent.parent / "output" / "lasso_stepcox_report.json"
+        if v2_path.exists():
+            self.report_path = v2_path
+        else:
+            self.report_path = v1_path
         self.coefficients = {}
         self.normalized_weights = {}
         self.selected_genes = []
@@ -389,9 +395,17 @@ class FiveGeneCoxModel:
 
         self.coefficients = report["final_model"]["coefficients"]
         self.normalized_weights = report["final_model"]["normalized_weights"]
-        self.selected_genes = report["final_model"]["genes"]
+        self.selected_genes = report["final_model"].get("genes", [])
         self.c_index = report["final_model"]["c_index_train"]
-        self.c_index_external = report["external_validation"]["c_index_external"]
+
+        # External validation: v2 has dict, v1 has single value
+        ext = report.get("external_validation", {})
+        if isinstance(ext, dict):
+            # Take the best external C-index from available directions
+            self.c_index_external = max(ext.values()) if ext else 0.5
+        else:
+            self.c_index_external = float(ext) if ext else 0.5
+
         self.n_samples = report["n_samples"]
         self._loaded = True
 

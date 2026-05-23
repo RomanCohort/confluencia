@@ -90,20 +90,33 @@ ENHANCED_TARGETS = {
 def _load_fitted_weights() -> dict:
     """Load LASSO+StepCox fitted weights from training report.
 
-    Falls back to biologically-informed weights if report not found.
+    Prefers v2 report (raw log2 + expanded genes + clinical).
+    Falls back to v1, then biologically-informed weights.
     """
-    report_path = Path(__file__).parent.parent / "output" / "lasso_stepcox_report.json"
-    if report_path.exists():
-        with open(report_path) as f:
+    # Try v2 first (raw log2 values, 22 genes + clinical, C-index ~0.65)
+    v2_path = Path(__file__).parent.parent / "output" / "lasso_stepcox_v2_report.json"
+    if v2_path.exists():
+        with open(v2_path) as f:
             report = json.load(f)
         weights = report["final_model"]["normalized_weights"]
-        # Map hyphenated names for internal use
         mapped = {}
         for g in ["TROP2", "NECTIN4", "LIV-1", "B7-H4", "TMEM65"]:
             mapped[g] = weights.get(g, 0.0)
         return mapped
+
+    # Try v1 (normalized 0-1, 5 genes, C-index ~0.55)
+    v1_path = Path(__file__).parent.parent / "output" / "lasso_stepcox_report.json"
+    if v1_path.exists():
+        with open(v1_path) as f:
+            report = json.load(f)
+        weights = report["final_model"]["normalized_weights"]
+        mapped = {}
+        for g in ["TROP2", "NECTIN4", "LIV-1", "B7-H4", "TMEM65"]:
+            mapped[g] = weights.get(g, 0.0)
+        return mapped
+
     warnings.warn(
-        "LASSO+StepCox report not found at %s, using fallback weights" % report_path
+        "LASSO+StepCox report not found, using fallback weights"
     )
     return {"TROP2": 0.30, "NECTIN4": 0.20, "LIV-1": 0.15, "B7-H4": 0.10, "TMEM65": 0.25}
 

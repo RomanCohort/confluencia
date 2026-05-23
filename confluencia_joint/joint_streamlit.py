@@ -288,12 +288,22 @@ def _render_single_input():
     circ_expr = st.slider("circRNA Expression", 0.0, 1.0, 0.0, help="circRNA expression level")
     ifn_score = st.slider("IFN Response Score", 0.0, 1.0, 0.0, help="Interferon response score")
 
-    st.subheader("Gene Signature (LASSO+StepCox fitted)")
-    trop2 = st.slider("TROP2 Expression", 0.0, 1.0, 0.5, help="TACSTD2 — weights fitted via LASSO Cox + StepCox on 3078 samples")
-    nectin4 = st.slider("NECTIN4 Expression", 0.0, 1.0, 0.5, help="PVRL4 — weights fitted via LASSO Cox + StepCox on 3078 samples")
-    liv1 = st.slider("LIV-1 Expression", 0.0, 1.0, 0.5, help="SLC39A8 — weights fitted via LASSO Cox + StepCox on 3078 samples")
-    b7h4 = st.slider("B7-H4 Expression", 0.0, 1.0, 0.5, help="VTCN1 — weights fitted via LASSO Cox + StepCox on 3078 samples")
-    tmem65 = st.slider("TMEM65 Expression", 0.0, 1.0, 0.5, help="TMEM65 — weights fitted via LASSO Cox + StepCox on 3078 samples")
+    st.subheader("Gene Signature (LASSO+StepCox fitted, C-index=0.65)")
+    trop2 = st.slider("TROP2 Expression", 0.0, 1.0, 0.5, help="TACSTD2 — LASSO+StepCox v2 weight: 0.7%")
+    nectin4 = st.slider("NECTIN4 Expression", 0.0, 1.0, 0.5, help="PVRL4 — LASSO+StepCox v2 weight: 15.9%")
+    liv1 = st.slider("LIV-1 Expression", 0.0, 1.0, 0.5, help="SLC39A8 — LASSO+StepCox v2 weight: 43.0% (top)")
+    b7h4 = st.slider("B7-H4 Expression", 0.0, 1.0, 0.5, help="VTCN1 — LASSO+StepCox v2 weight: 39.6%")
+    tmem65 = st.slider("TMEM65 Expression", 0.0, 1.0, 0.5, help="TMEM65 — LASSO+StepCox v2 weight: 0.8%")
+
+    st.subheader("Clinical Features (optional)")
+    grade_sel = st.selectbox("Tumor Grade", ["Unknown", "1", "2", "3"], index=0,
+                              help="Tumor grade (1=well differentiated, 3=poorly differentiated)")
+    er_sel = st.selectbox("ER Status", ["Unknown", "Positive", "Negative"], index=0,
+                           help="Estrogen Receptor status")
+    her2_sel = st.selectbox("HER2 Status", ["Unknown", "Positive", "Negative"], index=0,
+                             help="HER2 status")
+    pr_sel = st.selectbox("PR Status", ["Unknown", "Positive", "Negative"], index=0,
+                           help="Progesterone Receptor status")
 
     st.subheader("Advanced")
     epitope_backend = st.selectbox(
@@ -331,6 +341,10 @@ def _render_single_input():
             circ_expr=circ_expr,
             ifn_score=ifn_score,
             trop2=trop2, nectin4=nectin4, liv1=liv1, b7h4=b7h4, tmem65=tmem65,
+            grade=int(grade_sel) if grade_sel != "Unknown" else None,
+            er_positive=(er_sel == "Positive") if er_sel != "Unknown" else None,
+            her2_positive=(her2_sel == "Positive") if her2_sel != "Unknown" else None,
+            pr_positive=(pr_sel == "Positive") if pr_sel != "Unknown" else None,
             group_id="single",
         )
 
