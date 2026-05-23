@@ -121,6 +121,16 @@ def _load_fitted_weights() -> dict:
     return {"TROP2": 0.30, "NECTIN4": 0.20, "LIV-1": 0.15, "B7-H4": 0.10, "TMEM65": 0.25}
 
 
+def _load_pathway_weights() -> dict:
+    """Load Cox-fitted pathway weights from scoring_weights.json or pathway_weights.json.
+
+    Returns {pathway_name: {gene: weight}} with all genes (including non-ADC).
+    Runtime code re-normalizes to only available genes.
+    """
+    from confluencia_shared.weight_loader import get_pathway_weights
+    return get_pathway_weights()
+
+
 def compute_five_gene_signature_scores(
     trop2: float,
     nectin4: float,
@@ -159,14 +169,21 @@ def compute_five_gene_signature_scores(
         # Protection score (inverse)
         protect_score = 1.0 - risk_score
 
-        # Proliferation score (Yang et al. focus on tumor progression)
-        prolif_score = 0.4 * t + 0.3 * n + 0.3 * m
+        # Pathway scores — weights from Cox regression (data-driven)
+        # See confluencia_shared/scoring_weights.json or output/pathway_weights.json
+        # Use 5 ADC genes only (runtime-available), re-normalize weights
+        pathway_w = _load_pathway_weights()
+        gene_vals = {"TROP2": t, "NECTIN4": n, "LIV-1": l, "B7-H4": b, "TMEM65": m}
 
-        # Immune score (B7-H4 dominant for immunotherapy response)
-        immune_score = 0.6 * b + 0.2 * t + 0.2 * l
+        def _pathway_score(pathway_name, candidate_genes):
+            pw = pathway_w.get(pathway_name, {})
+            avail = {g: pw.get(g, 0.0) for g in candidate_genes if pw.get(g, 0.0) > 0}
+            wsum = sum(avail.values()) or 1.0
+            return sum(w / wsum * gene_vals.get(g, 0.0) for g, w in avail.items())
 
-        # Mitochondrial/Metabolism score (TMEM65 focused)
-        mito_score = 0.7 * m + 0.2 * l + 0.1 * n
+        prolif_score = _pathway_score("proliferation", ["TROP2", "NECTIN4", "TMEM65"])
+        immune_score = _pathway_score("immune", ["B7-H4", "TROP2", "LIV-1"])
+        mito_score = _pathway_score("mitochondria", ["TMEM65", "LIV-1", "NECTIN4"])
 
     else:
         # Equal weights
@@ -228,6 +245,7 @@ def predict_immunotherapy_response(
     Predict immunotherapy response based on gene signature.
 
     Inspired by Yang et al. 2025 acRGBS + IMvigor210 validation.
+    Weights loaded from scoring_weights.json (tide_ips group).
 
     Args:
         risk_score: From compute_five_gene_signature_scores
@@ -237,14 +255,22 @@ def predict_immunotherapy_response(
     Returns:
         Dictionary with immunotherapy prediction.
     """
-    # High acRGBS (high risk) = worse immunotherapy response
-    # Based on: high-acRGBS had elevated TIDE scores, lower IPS
+    from confluencia_shared.weight_loader import get_sub_weights
+    ti_w = get_sub_weights("tide_ips")
 
-    tide_score = 0.3 * risk_score + 0.4 * tmem65 - 0.3 * immune_score
+    # TIDE score approximation (weights from config)
+    tide_score = (
+        ti_w.get("tide_risk", 0.3) * risk_score
+        + ti_w.get("tide_tmem65", 0.4) * tmem65
+        + ti_w.get("tide_immune", -0.3) * immune_score
+    )
     tidemax = np.clip(tide_score, 0.0, 1.0)
 
-    # Immunophenoscore approximation
-    ips_estimate = 0.5 * (1.0 - risk_score) + 0.3 * immune_score
+    # Immunophenoscore approximation (weights from config)
+    ips_estimate = (
+        ti_w.get("ips_risk_inverse", 0.5) * (1.0 - risk_score)
+        + ti_w.get("ips_immune", 0.3) * immune_score
+    )
 
     # Response prediction
     if tidemax < 0.4 and ips_estimate > 0.5:
@@ -287,8 +313,15 @@ def compute_ddr_features(risk_score: float, tmem65: float) -> Dict[str, float]:
     Approximate DDR pathway mutation scores based on risk score.
 
     Based on Yang et al. finding: high-acRGBS group had more DDR pathway mutations.
+    Weights loaded from scoring_weights.json (risk_adjustment group).
     """
-    base_mutation_rate = 0.2 + 0.4 * risk_score + 0.2 * tmem65
+    from confluencia_shared.weight_loader import get_sub_weights
+    ra = get_sub_weights("risk_adjustment")
+    base_mutation_rate = (
+        0.2
+        + 0.4 * risk_score
+        + ra.get("TMEM65_high", 0.25) * tmem65
+    )
 
     ddr_scores = {}
     for pathway in DDR_PATHWAYS:
@@ -371,11 +404,14 @@ class FiveGeneEncoder:
         scores = compute_five_gene_signature_scores(t, n, l, b, m, self.mode)
 
         # Risk-adjusted expressions (multiply by risk contribution)
-        t_risk = t * (0.30 if t > 0.5 else 0.15)
-        n_risk = n * (0.20 if n > 0.5 else 0.10)
-        l_risk = l * (0.15 if l > 0.5 else 0.08)
-        b_risk = b * (0.10 if b > 0.5 else 0.05)
-        m_risk = m * (0.25 if m > 0.5 else 0.13)
+        # Weights loaded from scoring_weights.json (risk_adjustment group)
+        from confluencia_shared.weight_loader import get_sub_weights
+        ra = get_sub_weights("risk_adjustment")
+        t_risk = t * (ra.get("TROP2_high", 0.30) if t > 0.5 else ra.get("TROP2_low", 0.15))
+        n_risk = n * (ra.get("NECTIN4_high", 0.20) if n > 0.5 else ra.get("NECTIN4_low", 0.10))
+        l_risk = l * (ra.get("LIV-1_high", 0.15) if l > 0.5 else ra.get("LIV-1_low", 0.08))
+        b_risk = b * (ra.get("B7-H4_high", 0.10) if b > 0.5 else ra.get("B7-H4_low", 0.05))
+        m_risk = m * (ra.get("TMEM65_high", 0.25) if m > 0.5 else ra.get("TMEM65_low", 0.13))
 
         return np.array([
             # 5 raw expressions

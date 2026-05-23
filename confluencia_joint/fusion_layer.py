@@ -26,15 +26,27 @@ class FusionStrategy(Enum):
 
 @dataclass
 class FusionWeights:
-    """Per-modality weights used by weighted-concat fusion."""
+    """Per-modality weights used by weighted-concat fusion.
 
-    clinical: float = 0.30       # Clinical/drug efficacy score
-    binding: float = 0.20        # MHC-epitope binding score
-    kinetics: float = 0.15       # PK/kinetics score
-    gene_signature: float = 0.15 # Five-target gene signature score
-    circrna: float = 0.20        # circRNA multi-omics score
+    Default values are loaded from scoring_weights.json (fusion group).
+    Falls back to hardcoded defaults if JSON not found.
+    """
+
+    clinical: float = None       # loaded from config
+    binding: float = None        # loaded from config
+    kinetics: float = None       # loaded from config
+    gene_signature: float = None # loaded from config
+    circrna: float = None        # loaded from config
 
     def __post_init__(self):
+        if self.clinical is None:
+            from confluencia_shared.weight_loader import get_sub_weights
+            fw = get_sub_weights("fusion")
+            self.clinical = fw.get("clinical", 0.30)
+            self.binding = fw.get("binding", 0.20)
+            self.kinetics = fw.get("kinetics", 0.15)
+            self.gene_signature = fw.get("gene_signature", 0.15)
+            self.circrna = fw.get("circ_rna", 0.20)
         total = (self.clinical + self.binding + self.kinetics +
                  self.gene_signature + self.circrna)
         if abs(total - 1.0) > 1e-6:

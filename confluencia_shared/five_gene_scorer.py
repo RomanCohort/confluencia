@@ -264,10 +264,20 @@ class FiveGeneMOEScorer:
         # The drug targets TROP2 and TMEM65, so higher expression = better efficacy
         dhe_efficacy = max(0.0, min(1.0, risk))  # high risk = high target = high benefit
 
-        # Pathway scores
-        prolif = 0.4*t + 0.3*n + 0.3*m
-        immune = 0.6*b + 0.2*t + 0.2*l
-        mito = 0.7*m + 0.2*l + 0.1*n
+        # Pathway scores (Cox-fitted weights from scoring_weights.json)
+        from confluencia_shared.weight_loader import get_pathway_weights
+        pathway_w = get_pathway_weights()
+        gene_vals = {"TROP2": t, "NECTIN4": n, "LIV-1": l, "B7-H4": b, "TMEM65": m}
+
+        def _pw(pathway_name, candidates):
+            pw = pathway_w.get(pathway_name, {})
+            avail = {g: pw.get(g, 0.0) for g in candidates if pw.get(g, 0.0) > 0}
+            wsum = sum(avail.values()) or 1.0
+            return sum(w / wsum * gene_vals.get(g, 0.0) for g, w in avail.items())
+
+        prolif = _pw("proliferation", ["TROP2", "NECTIN4", "TMEM65"])
+        immune = _pw("immune", ["B7-H4", "TROP2", "LIV-1"])
+        mito = _pw("mitochondria", ["TMEM65", "LIV-1", "NECTIN4"])
 
         # DHE recommendation: TMEM65 high + TROP2 moderate+ + low B7-H4 (immune-cold)
         dhe_rec = (m > 0.5 and t > 0.4)
