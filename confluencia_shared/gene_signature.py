@@ -12,12 +12,41 @@ Targets:
 """
 from __future__ import annotations
 
+import json
 import os
 import sys
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple, Union
 
 import numpy as np
+
+
+def _load_fitted_risk_weights() -> dict:
+    """Load LASSO+StepCox fitted risk weights from training report.
+
+    Prefers v2 report (22-gene + clinical). Falls back to v1, then defaults.
+    """
+    v2_path = Path(__file__).parent.parent / "output" / "lasso_stepcox_v2_report.json"
+    if v2_path.exists():
+        with open(v2_path) as f:
+            report = json.load(f)
+        return report["final_model"]["normalized_weights"]
+
+    v1_path = Path(__file__).parent.parent / "output" / "lasso_stepcox_report.json"
+    if v1_path.exists():
+        with open(v1_path) as f:
+            report = json.load(f)
+        return report["final_model"]["normalized_weights"]
+
+    # Fallback: load from scoring_weights.json gene_signature_4gene group
+    from confluencia_shared.weight_loader import get_sub_weights
+    gs_w = get_sub_weights("gene_signature_4gene")
+    return {
+        "TROP2": gs_w.get("trop2", 0.35),
+        "NECTIN4": gs_w.get("nectin4", 0.25),
+        "LIV-1": gs_w.get("liv1", 0.20),
+        "B7-H4": gs_w.get("b7h4", 0.20),
+    }
 import pandas as pd
 
 
@@ -184,18 +213,36 @@ def compute_combined_signature_score(
     # Combined signature score (equal weights)
     scores["combined_signature"] = (t + n + l + b) / 4.0
 
-    # Proliferation score (TROP2 dominant, NECTIN4辅助)
-    scores["proliferation_score"] = 0.6 * t + 0.4 * n
+    # Load pathway weights from scoring_weights.json (Cox-trained)
+    from confluencia_shared.weight_loader import get_pathway_weights, get_sub_weights
+    pw = get_pathway_weights()
+    gs_w = get_sub_weights("gene_signature_4gene")
 
-    # Immune score (B7-H4 dominant)
-    scores["immune_score"] = 0.7 * b + 0.3 * t
+    # Proliferation score (Cox-trained weights, re-normalized to available 4 genes)
+    _prolif = pw.get("proliferation", {})
+    _pw = {g: _prolif.get(g, 0.0) for g in ["TROP2", "NECTIN4"]}
+    _pws = sum(_pw.values()) or 1.0
+    scores["proliferation_score"] = (_pw.get("TROP2", 0) / _pws) * t + (_pw.get("NECTIN4", 0) / _pws) * n
 
-    # Metastasis score (NECTIN4 + LIV-1)
-    scores["metastasis_score"] = 0.5 * n + 0.5 * l
+    # Immune score (Cox-trained weights, re-normalized to available 4 genes)
+    _imm = pw.get("immune", {})
+    _iw = {g: _imm.get(g, 0.0) for g in ["B7-H4", "TROP2"]}
+    _iws = sum(_iw.values()) or 1.0
+    scores["immune_score"] = (_iw.get("B7-H4", 0) / _iws) * b + (_iw.get("TROP2", 0) / _iws) * t
 
-    # Efficacy prediction score (weighted by therapeutic relevance)
-    # TROP2 and B7-H4 are primary therapeutic targets
-    scores["efficacy_score"] = 0.35 * t + 0.25 * n + 0.2 * l + 0.2 * b
+    # Metastasis score (NECTIN4 + LIV-1, equal weights from config)
+    met_w = gs_w.get("metastasis_nectin4", 0.5)
+    met_l = gs_w.get("metastasis_liv1", 0.5)
+    met_total = met_w + met_l or 1.0
+    scores["metastasis_score"] = (met_w / met_total) * n + (met_l / met_total) * l
+
+    # Efficacy prediction score (weights from scoring_weights.json)
+    scores["efficacy_score"] = (
+        gs_w.get("trop2", 0.35) * t
+        + gs_w.get("nectin4", 0.25) * n
+        + gs_w.get("liv1", 0.20) * l
+        + gs_w.get("b7h4", 0.20) * b
+    )
 
     # Normalize efficacy to 0-1
     scores["efficacy_score"] = np.clip(scores["efficacy_score"], 0.0, 1.0)
@@ -233,10 +280,37 @@ def compute_expression_vector(
     tn, nn, ln, bn = _norm(t), _norm(n), _norm(l), _norm(b)
 
     combined = (tn + nn + ln + bn) / 4.0
-    prolif = 0.6 * tn + 0.4 * nn
-    immune = 0.7 * bn + 0.3 * tn
-    metasta = 0.5 * nn + 0.5 * ln
-    efficacy = 0.35 * tn + 0.25 * nn + 0.2 * ln + 0.2 * bn
+
+    # Pathway weights from scoring_weights.json (Cox-trained)
+    from confluencia_shared.weight_loader import get_pathway_weights, get_sub_weights
+    pw = get_pathway_weights()
+    gs_w = get_sub_weights("gene_signature_4gene")
+
+    # Proliferation (Cox-trained, re-normalized to TROP2 + NECTIN4)
+    _prolif = pw.get("proliferation", {})
+    _pw = {g: _prolif.get(g, 0.0) for g in ["TROP2", "NECTIN4"]}
+    _pws = sum(_pw.values()) or 1.0
+    prolif = (_pw.get("TROP2", 0) / _pws) * tn + (_pw.get("NECTIN4", 0) / _pws) * nn
+
+    # Immune (Cox-trained, re-normalized to B7-H4 + TROP2)
+    _imm = pw.get("immune", {})
+    _iw = {g: _imm.get(g, 0.0) for g in ["B7-H4", "TROP2"]}
+    _iws = sum(_iw.values()) or 1.0
+    immune = (_iw.get("B7-H4", 0) / _iws) * bn + (_iw.get("TROP2", 0) / _iws) * tn
+
+    # Metastasis (from config)
+    met_w = gs_w.get("metastasis_nectin4", 0.5)
+    met_l = gs_w.get("metastasis_liv1", 0.5)
+    met_total = met_w + met_l or 1.0
+    metasta = (met_w / met_total) * nn + (met_l / met_total) * ln
+
+    # Efficacy (from config)
+    efficacy = (
+        gs_w.get("trop2", 0.35) * tn
+        + gs_w.get("nectin4", 0.25) * nn
+        + gs_w.get("liv1", 0.20) * ln
+        + gs_w.get("b7h4", 0.20) * bn
+    )
 
     # Expression heterogeneity (std of log-expressions)
     log_exprs = [np.log1p(t), np.log1p(n), np.log1p(l), np.log1p(b)]

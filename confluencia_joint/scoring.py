@@ -309,23 +309,35 @@ class JointScoringEngine:
     >>> print(score.recommendation, score.composite)
     """
 
-    clinical_weight: float = 0.30
-    binding_weight: float = 0.20
-    kinetics_weight: float = 0.15
-    gene_signature_weight: float = 0.15
-    circrna_weight: float = 0.20
-    go_threshold: float = 0.65
-    conditional_threshold: float = 0.40
-    safety_floor: float = 0.30
+    clinical_weight: float = None
+    binding_weight: float = None
+    kinetics_weight: float = None
+    gene_signature_weight: float = None
+    circrna_weight: float = None
+    go_threshold: float = None
+    conditional_threshold: float = None
+    safety_floor: float = None
 
     def __post_init__(self):
-        total = (self.clinical_weight + self.binding_weight +
-                 self.kinetics_weight + self.gene_signature_weight +
-                 self.circrna_weight)
-        if abs(total - 1.0) > 1e-6:
-            raise ValueError(
-                f"Weights must sum to 1.0, got {total:.4f}"
-            )
+        from confluencia_shared.weight_loader import get_sub_weights, get_thresholds
+        fw = get_sub_weights("fusion")
+        th = get_thresholds()
+        if self.clinical_weight is None:
+            self.clinical_weight = fw.get("clinical", 0.30)
+        if self.binding_weight is None:
+            self.binding_weight = fw.get("binding", 0.20)
+        if self.kinetics_weight is None:
+            self.kinetics_weight = fw.get("kinetics", 0.15)
+        if self.gene_signature_weight is None:
+            self.gene_signature_weight = fw.get("gene_signature", 0.15)
+        if self.circrna_weight is None:
+            self.circrna_weight = fw.get("circ_rna", 0.20)
+        if self.go_threshold is None:
+            self.go_threshold = th["go"]
+        if self.conditional_threshold is None:
+            self.conditional_threshold = th["conditional"]
+        if self.safety_floor is None:
+            self.safety_floor = th["safety_floor"]
 
     # ------------------------------------------------------------------
     # Main entry point
@@ -788,7 +800,9 @@ class JointScoringEngine:
         # Risk signal uncertainty from inflammation and toxicity
         infl = self._clamp(drug.get("inflammation_risk_pred", 0.0))
         tox = self._clamp(drug.get("genotoxicity_risk_pred", 0.0))
-        risk_unc = 0.2 * infl + 0.2 * tox
+        from confluencia_shared.weight_loader import get_sub_weights
+        unc_w = get_sub_weights("clinical_uncertainty")
+        risk_unc = unc_w.get("inflammation", 0.2) * infl + unc_w.get("toxicity", 0.2) * tox
 
         # Combined uncertainty: missing dominates
         return min(1.0, missing_unc + risk_unc)
@@ -800,8 +814,10 @@ class JointScoringEngine:
         Falls back to 0.3 if unavailable.
         """
         unc = epitope.get("pred_uncertainty")
+        from confluencia_shared.weight_loader import get_weight
+        binding_default_unc = get_weight("binding_uncertainty", "default", 0.3)
         if unc is None or np.isnan(unc):
-            return 0.3  # moderate default
+            return binding_default_unc  # moderate default
         return float(unc)
 
     def _uncertainty_kinetics(self, pk: Dict[str, float]) -> float:
@@ -821,17 +837,19 @@ class JointScoringEngine:
 
         # Physiologically implausible half-life
         hl = pk.get("pkpd_half_life_h", np.nan)
+        from confluencia_shared.weight_loader import get_sub_weights
+        pk_unc = get_sub_weights("kinetics_uncertainty")
         phys_unc = 0.0
         if not np.isnan(hl):
-            if hl < 0.5 or hl > 72.0:
-                phys_unc = 0.3
+            if hl < pk_unc.get("hl_low", 0.5) or hl > pk_unc.get("hl_high", 72.0):
+                phys_unc = pk_unc.get("implausible_penalty", 0.3)
 
         # Extreme Cmax (potential numerical instability)
         cmax = pk.get("pkpd_cmax_mg_per_l", np.nan)
         conc_unc = 0.0
         if not np.isnan(cmax):
-            if cmax > 1000.0 or cmax <= 0.0:
-                conc_unc = 0.2
+            if cmax > pk_unc.get("cmax_high", 1000.0) or cmax <= 0.0:
+                conc_unc = pk_unc.get("extreme_cmax_penalty", 0.2)
 
         return min(1.0, missing_unc + phys_unc + conc_unc)
 
@@ -858,7 +876,13 @@ class JointScoringEngine:
         # Extreme risk or tide
         risk = self._clamp(gs.get("risk_score", 0.5))
         tide = self._clamp(gs.get("tide_score", 0.5))
-        extreme_unc = 0.15 if (risk > 0.8 or risk < 0.2 or tide > 0.8 or tide < 0.2) else 0.0
+        # Extreme risk or tide (thresholds and penalty from config)
+        from confluencia_shared.weight_loader import get_sub_weights
+        gs_unc = get_sub_weights("gene_signature_uncertainty")
+        extreme_high = gs_unc.get("extreme_high", 0.8)
+        extreme_low = gs_unc.get("extreme_low", 0.2)
+        extreme_penalty = gs_unc.get("extreme_penalty", 0.15)
+        extreme_unc = extreme_penalty if (risk > extreme_high or risk < extreme_low or tide > extreme_high or tide < extreme_low) else 0.0
 
         return min(1.0, missing_unc + extreme_unc)
 
@@ -890,7 +914,12 @@ class JointScoringEngine:
         # Conflicting signals: high TIDE but high IPS
         tide = self._clamp(cr.get("tide_score", 0.5))
         ips = self._clamp(cr.get("ips", 5.0), 0.0, 10.0) / 10.0
-        conflict_unc = 0.2 if (tide > 0.6 and ips > 0.6) else 0.0
+        # Conflicting signals: high TIDE but high IPS (thresholds from config)
+        from confluencia_shared.weight_loader import get_sub_weights
+        cr_unc = get_sub_weights("circ_rna_uncertainty")
+        conflict_high = cr_unc.get("conflict_high", 0.6)
+        conflict_penalty = cr_unc.get("conflict_penalty", 0.2)
+        conflict_unc = conflict_penalty if (tide > conflict_high and ips > conflict_high) else 0.0
 
         return min(1.0, missing_unc + conflict_unc)
 
