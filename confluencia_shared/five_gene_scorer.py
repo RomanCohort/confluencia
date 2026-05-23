@@ -6,7 +6,9 @@ the JointScoringEngine pipeline.
 """
 from __future__ import annotations
 
+import json
 import pickle
+import warnings
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
@@ -60,6 +62,22 @@ class FiveGeneMOEScorer:
         self.clinical_cols = None
 
         self._load_model()
+
+    @staticmethod
+    def _load_fitted_weights() -> dict:
+        """Load LASSO+StepCox fitted weights from training report.
+
+        Falls back to biologically-informed weights if report not found.
+        """
+        report_path = Path(__file__).parent.parent / "output" / "lasso_stepcox_report.json"
+        if report_path.exists():
+            with open(report_path) as f:
+                report = json.load(f)
+            return report["final_model"]["normalized_weights"]
+        warnings.warn(
+            "LASSO+StepCox report not found at %s, using fallback weights" % report_path
+        )
+        return {"TROP2": 0.30, "NECTIN4": 0.20, "LIV-1": 0.15, "B7-H4": 0.10, "TMEM65": 0.25}
 
     def _load_model(self):
         """Load model from disk."""
@@ -202,25 +220,22 @@ class FiveGeneMOEScorer:
         ]
 
     def get_acrgbs_score(self, gene_values: Dict[str, float]) -> float:
-        """Compute acRGBS risk score (Yang et al. 2025 formula).
+        """Compute acRGBS risk score (LASSO Cox + StepCox fitted weights).
 
-        acRGBS = 0.30×TROP2 + 0.20×NECTIN4 + 0.15×LIV-1 + 0.10×B7-H4 + 0.25×TMEM65
+        Weights are loaded from output/lasso_stepcox_report.json.
+        Fallback to biologically-informed weights if report not found.
         """
-        t = gene_values.get("TROP2", 0.5)
-        n = gene_values.get("NECTIN4", 0.5)
-        l = gene_values.get("LIV-1", 0.5)
-        b = gene_values.get("B7-H4", 0.5)
-        m = gene_values.get("TMEM65", 0.5)
-        return 0.30*t + 0.20*n + 0.15*l + 0.10*b + 0.25*m
+        weights = self._load_fitted_weights()
+        return sum(
+            weights.get(g, 0.0) * gene_values.get(g, 0.5)
+            for g in ["TROP2", "NECTIN4", "LIV-1", "B7-H4", "TMEM65"]
+        )
 
     def to_scoring_dict(self, gene_values: Dict[str, float]) -> Dict[str, float]:
         """Convert gene values to dict format expected by JointScoringEngine.
 
-        Uses the validated acRGBS formula (Yang et al. 2025, AUC=0.752)
-        as the primary efficacy predictor. The MOE model provides a
-        supplementary clinical efficacy estimate.
-
-        acRGBS = 0.30×TROP2 + 0.20×NECTIN4 + 0.15×LIV-1 + 0.10×B7-H4 + 0.25×TMEM65
+        Uses LASSO Cox + StepCox fitted weights for acRGBS risk score.
+        Weights loaded from output/lasso_stepcox_report.json.
 
         For DHE ADC: higher target expression (higher acRGBS) indicates
         better drug-target engagement → higher predicted drug benefit.

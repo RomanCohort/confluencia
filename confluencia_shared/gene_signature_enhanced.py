@@ -13,6 +13,10 @@ Key enhancements:
 from __future__ import annotations
 
 from typing import Any, Dict, List, Optional, Tuple
+import json
+import warnings
+from pathlib import Path
+
 import numpy as np
 import pandas as pd
 
@@ -83,6 +87,27 @@ ENHANCED_TARGETS = {
 # Five-Gene Signature Scores (Inspired by acRGBS)
 # =============================================================================
 
+def _load_fitted_weights() -> dict:
+    """Load LASSO+StepCox fitted weights from training report.
+
+    Falls back to biologically-informed weights if report not found.
+    """
+    report_path = Path(__file__).parent.parent / "output" / "lasso_stepcox_report.json"
+    if report_path.exists():
+        with open(report_path) as f:
+            report = json.load(f)
+        weights = report["final_model"]["normalized_weights"]
+        # Map hyphenated names for internal use
+        mapped = {}
+        for g in ["TROP2", "NECTIN4", "LIV-1", "B7-H4", "TMEM65"]:
+            mapped[g] = weights.get(g, 0.0)
+        return mapped
+    warnings.warn(
+        "LASSO+StepCox report not found at %s, using fallback weights" % report_path
+    )
+    return {"TROP2": 0.30, "NECTIN4": 0.20, "LIV-1": 0.15, "B7-H4": 0.10, "TMEM65": 0.25}
+
+
 def compute_five_gene_signature_scores(
     trop2: float,
     nectin4: float,
@@ -107,22 +132,15 @@ def compute_five_gene_signature_scores(
     t, n, l, b, m = _norm(trop2), _norm(nectin4), _norm(liv1), _norm(b7h4), _norm(tmem65)
 
     if mode == "yang2025":
-        # Weights derived from Yang et al. 2025 acRGBS methodology
-        # LASSO + StepCox combination for optimal model
-        # Note: Actual weights would be fitted from TCGA-BRCA data
-        # Here using biologically-informed weights
-
-        # TMEM65 high-risk, PSMD2/MTDH high-risk, NR1H3/LARP6 protective
-        # For our 5 targets: TROP2, NECTIN4, LIV-1 (risk), B7-H4 (mixed)
-        # TMEM65 is the strongest oncogenic driver
+        # Weights fitted via LASSO Cox + StepCox on TCGA-BRCA + METABRIC (3078 samples)
+        # See output/lasso_stepcox_report.json for full training details
+        # Fallback to biologically-informed weights if report not found
+        fitted_weights = _load_fitted_weights()
 
         # Risk score (higher = worse prognosis)
-        risk_score = (
-            0.30 * t +   # TROP2 risk
-            0.20 * n +   # NECTIN4 risk
-            0.15 * l +   # LIV-1 risk (EMT)
-            0.10 * b +   # B7-H4 (immune)
-            0.25 * m     # TMEM65 (mitochondrial, strongest)
+        risk_score = sum(
+            fitted_weights.get(g, 0.0) * v
+            for g, v in zip(["TROP2", "NECTIN4", "LIV-1", "B7-H4", "TMEM65"], [t, n, l, b, m])
         )
 
         # Protection score (inverse)

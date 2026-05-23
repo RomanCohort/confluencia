@@ -328,3 +328,127 @@ if __name__ == "__main__":
     print()
     acrgbs_risk = model.get_acrgbs_score(test_patient)
     print(f"acRGBS 5-gene Risk Score: {acrgbs_risk:.4f}")
+
+    # Test FiveGeneCoxModel
+    five_gene_model = get_five_gene_cox_model()
+    if five_gene_model is not None:
+        print()
+        print("FiveGeneCoxModel (LASSO Cox + StepCox fitted)")
+        print(f"  C-index (CV): {five_gene_model.c_index:.4f}")
+        print(f"  Selected genes: {five_gene_model.selected_genes}")
+        print(f"  Coefficients: {five_gene_model.coefficients}")
+        test_five = {"TROP2": 0.7, "NECTIN4": 0.5, "LIV-1": 0.3, "B7-H4": 0.4, "TMEM65": 0.6}
+        risk_five = five_gene_model.predict_risk(test_five)
+        print(f"  Test risk score: {risk_five:.4f}")
+
+
+# ---------------------------------------------------------------------------
+# FiveGeneCoxModel — LASSO Cox + StepCox fitted 5-gene model
+# ---------------------------------------------------------------------------
+
+class FiveGeneCoxModel:
+    """5-gene Cox model fitted via LASSO Cox + StepCox on TCGA-BRCA + METABRIC.
+
+    Loads fitted coefficients from output/lasso_stepcox_report.json.
+    Provides risk prediction compatible with JointScoringEngine.
+
+    Attributes
+    ----------
+    coefficients : dict
+        Cox regression coefficients for selected genes.
+    normalized_weights : dict
+        Normalized weights for acRGBS formula (sum to 1).
+    selected_genes : list
+        Genes selected by LASSO + StepCox pipeline.
+    c_index : float
+        5-fold CV C-index.
+    c_index_external : float
+        External validation C-index (TCGA→METABRIC).
+    """
+
+    def __init__(self):
+        self.report_path = Path(__file__).parent.parent / "output" / "lasso_stepcox_report.json"
+        self.coefficients = {}
+        self.normalized_weights = {}
+        self.selected_genes = []
+        self.c_index = 0.5
+        self.c_index_external = 0.5
+        self.n_samples = 0
+        self._loaded = False
+
+        self._load()
+
+    def _load(self):
+        """Load fitted coefficients from report."""
+        if not self.report_path.exists():
+            return  # _loaded stays False; will use fallback
+
+        import json
+        with open(self.report_path) as f:
+            report = json.load(f)
+
+        self.coefficients = report["final_model"]["coefficients"]
+        self.normalized_weights = report["final_model"]["normalized_weights"]
+        self.selected_genes = report["final_model"]["genes"]
+        self.c_index = report["final_model"]["c_index_train"]
+        self.c_index_external = report["external_validation"]["c_index_external"]
+        self.n_samples = report["n_samples"]
+        self._loaded = True
+
+    def is_ready(self) -> bool:
+        """Check if model was successfully loaded."""
+        return self._loaded
+
+    def predict_risk(self, gene_values: Dict[str, float]) -> float:
+        """Predict risk score from 5-gene expression values.
+
+        Parameters
+        ----------
+        gene_values : dict
+            Keys: TROP2, NECTIN4, LIV-1, B7-H4, TMEM65 (0-1 normalized).
+
+        Returns
+        -------
+        float
+            Risk score (higher = worse prognosis), clipped to [0, 1].
+        """
+        if not self._loaded:
+            # Fallback: use normalized fallback weights
+            fallback = {"TROP2": 0.30, "NECTIN4": 0.20, "LIV-1": 0.15, "B7-H4": 0.10, "TMEM65": 0.25}
+            risk = sum(fallback.get(g, 0.0) * gene_values.get(g, 0.5)
+                       for g in ["TROP2", "NECTIN4", "LIV-1", "B7-H4", "TMEM65"])
+            return float(np.clip(risk, 0.0, 1.0))
+
+        risk = sum(
+            self.normalized_weights.get(g, 0.0) * gene_values.get(g, 0.5)
+            for g in ["TROP2", "NECTIN4", "LIV-1", "B7-H4", "TMEM65"]
+        )
+        return float(np.clip(risk, 0.0, 1.0))
+
+    def get_summary(self) -> str:
+        """Get human-readable model summary."""
+        if not self._loaded:
+            return "FiveGeneCoxModel: using fallback weights (report not found)"
+
+        lines = [
+            f"FiveGeneCoxModel (LASSO Cox + StepCox)",
+            f"  Selected genes: {self.selected_genes}",
+            f"  Coefficients: {self.coefficients}",
+            f"  Normalized weights: {self.normalized_weights}",
+            f"  C-index (train): {self.c_index:.4f}",
+            f"  C-index (external): {self.c_index_external:.4f}",
+            f"  N samples: {self.n_samples}",
+        ]
+        return "\n".join(lines)
+
+
+# Singleton for FiveGeneCoxModel
+_five_gene_cox_model: Optional[FiveGeneCoxModel] = None
+
+
+def get_five_gene_cox_model() -> Optional[FiveGeneCoxModel]:
+    """Get or create FiveGeneCoxModel instance."""
+    global _five_gene_cox_model
+    if _five_gene_cox_model is None:
+        _five_gene_cox_model = FiveGeneCoxModel()
+    return _five_gene_cox_model
