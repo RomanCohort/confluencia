@@ -32,6 +32,11 @@ from typing import Dict, Optional
 
 import numpy as np
 
+# Auto-detect project root so confluencia_shared/joint are importable.
+_PROJECT_ROOT = Path(__file__).resolve().parent.parent
+if str(_PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(_PROJECT_ROOT))
+
 # --- Stub streamlit/plotly ---
 def _decorator(*a, **kw):
     if len(a) == 1 and callable(a[0]) and not kw:
