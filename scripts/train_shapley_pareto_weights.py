@@ -971,7 +971,7 @@ def run_nsga2(
     from pymoo.core.problem import ElementwiseProblem
     from pymoo.operators.crossover.sbx import SBX
     from pymoo.operators.mutation.pm import PM
-    from pymoo.operators.sampling.rlk import RandomLinKnotSampling
+    from pymoo.operators.sampling.real import RandomSampling
     from pymoo.optimize import minimize as pymoo_minimize
     from pymoo.termination import get_termination
 
@@ -994,7 +994,7 @@ def run_nsga2(
 
     algorithm = NSGA2(
         pop_size=pop_size,
-        sampling=RandomLinKnotSampling(),
+        sampling=RandomSampling(),
         crossover=SBX(eta=20, prob=0.9),
         mutation=PM(eta=15, prob=1.0 / N_VAR),
     )
