@@ -59,6 +59,31 @@ _DEFAULTS = {
         "LIV-1_high": 0.15, "LIV-1_low": 0.08,
         "B7-H4_high": 0.10, "B7-H4_low": 0.05,
         "TMEM65_high": 0.25, "TMEM65_low": 0.13,
+        "ddr_base": 0.2, "ddr_risk_weight": 0.4,
+    },
+    "gene_signature_4gene": {
+        "trop2": 0.35, "nectin4": 0.25, "liv1": 0.20, "b7h4": 0.20,
+        "metastasis_nectin4": 0.5, "metastasis_liv1": 0.5,
+    },
+    "combined_4gene": {
+        "proliferation": 0.30, "immune": 0.25,
+        "metastasis": 0.15, "efficacy": 0.30,
+    },
+    "clinical_uncertainty": {
+        "inflammation": 0.2, "toxicity": 0.2,
+    },
+    "binding_uncertainty": {
+        "default": 0.3,
+    },
+    "kinetics_uncertainty": {
+        "hl_low": 0.5, "hl_high": 72.0, "implausible_penalty": 0.3,
+        "cmax_high": 1000.0, "extreme_cmax_penalty": 0.2,
+    },
+    "gene_signature_uncertainty": {
+        "extreme_high": 0.8, "extreme_low": 0.2, "extreme_penalty": 0.15,
+    },
+    "circ_rna_uncertainty": {
+        "conflict_high": 0.6, "conflict_penalty": 0.2,
     },
     "go_threshold": 0.65,
     "conditional_threshold": 0.40,
@@ -109,7 +134,13 @@ def get_weight(group: str, key: str, default: float = 0.0) -> float:
     float
     """
     w = _load_json()
-    return w.get(group, {}).get(key, default)
+    group_val = w.get(group)
+    if group_val is None:
+        return default
+    # If group is a scalar (not a dict), return it directly
+    if not isinstance(group_val, dict):
+        return float(group_val)
+    return group_val.get(key, default)
 
 
 def get_sub_weights(group: str) -> Dict[str, float]:
@@ -126,7 +157,13 @@ def get_sub_weights(group: str) -> Dict[str, float]:
         {key: weight} mapping.
     """
     w = _load_json()
-    return w.get(group, {}).copy()
+    val = w.get(group)
+    if val is None:
+        return {}
+    # If group is a scalar, wrap it in a dict
+    if not isinstance(val, dict):
+        return {"value": float(val)}
+    return val.copy()
 
 
 def get_pathway_weights() -> Dict[str, Dict[str, float]]:

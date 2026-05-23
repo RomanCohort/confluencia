@@ -93,7 +93,53 @@
     "B7-H4_high": 0.10,
     "B7-H4_low": 0.05,
     "TMEM65_high": 0.25,
-    "TMEM65_low": 0.13
+    "TMEM65_low": 0.13,
+    "ddr_base": 0.2,
+    "ddr_risk_weight": 0.4
+  },
+
+  "gene_signature_4gene": {
+    "trop2": 0.35,
+    "nectin4": 0.25,
+    "liv1": 0.20,
+    "b7h4": 0.20,
+    "metastasis_nectin4": 0.5,
+    "metastasis_liv1": 0.5
+  },
+
+  "combined_4gene": {
+    "proliferation": 0.30,
+    "immune": 0.25,
+    "metastasis": 0.15,
+    "efficacy": 0.30
+  },
+
+  "clinical_uncertainty": {
+    "inflammation": 0.2,
+    "toxicity": 0.2
+  },
+
+  "binding_uncertainty": {
+    "default": 0.3
+  },
+
+  "kinetics_uncertainty": {
+    "hl_low": 0.5,
+    "hl_high": 72.0,
+    "implausible_penalty": 0.3,
+    "cmax_high": 1000.0,
+    "extreme_cmax_penalty": 0.2
+  },
+
+  "gene_signature_uncertainty": {
+    "extreme_high": 0.8,
+    "extreme_low": 0.2,
+    "extreme_penalty": 0.15
+  },
+
+  "circ_rna_uncertainty": {
+    "conflict_high": 0.6,
+    "conflict_penalty": 0.2
   },
 
   "go_threshold": 0.65,

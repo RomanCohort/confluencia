@@ -318,8 +318,8 @@ def compute_ddr_features(risk_score: float, tmem65: float) -> Dict[str, float]:
     from confluencia_shared.weight_loader import get_sub_weights
     ra = get_sub_weights("risk_adjustment")
     base_mutation_rate = (
-        0.2
-        + 0.4 * risk_score
+        ra.get("ddr_base", 0.2)
+        + ra.get("ddr_risk_weight", 0.4) * risk_score
         + ra.get("TMEM65_high", 0.25) * tmem65
     )
 
