@@ -50,23 +50,29 @@ except ImportError:
 class PretrainConfig:
     """Pretraining configuration."""
 
-    # Data
-    fasta_path: str = "data/circrna/circbase_seqs.fa.gz"
-    max_sequences: int = 140000
-    max_seq_length: int = 512
-
-    # Model
-    backbone_model: str = "esm2_t33_650M_UR50D"
-    backbone_dim: int = 1280
-
-    # Training
-    pretrain_epochs: int = 10
-    batch_size: int = 4
-    lr: float = 1e-4
-    mask_ratio: float = 0.15
-
-    # Output
-    output_dir: str = "confluencia-circrna-encoder/data/models"
+    def __init__(
+        self,
+        fasta_path: str = "data/circrna/circbase_seqs.fa.gz",
+        max_sequences: int = 140000,
+        max_seq_length: int = 512,
+        backbone_model: str = "esm2_t33_650M_UR50D",
+        backbone_dim: int = 1280,
+        pretrain_epochs: int = 10,
+        batch_size: int = 4,
+        lr: float = 1e-4,
+        mask_ratio: float = 0.15,
+        output_dir: str = "confluencia-circrna-encoder/data/models",
+    ):
+        self.fasta_path = fasta_path
+        self.max_sequences = max_sequences
+        self.max_seq_length = max_seq_length
+        self.backbone_model = backbone_model
+        self.backbone_dim = backbone_dim
+        self.pretrain_epochs = pretrain_epochs
+        self.batch_size = batch_size
+        self.lr = lr
+        self.mask_ratio = mask_ratio
+        self.output_dir = output_dir
 
     def to_dict(self):
         return {
@@ -81,13 +87,17 @@ class PretrainConfig:
 class FineTuneConfig:
     """Fine-tuning configuration."""
 
-    # Data (if available)
-    labeled_data: str = "data/circrna/unified_training_data.csv"
-
-    # Training
-    finetune_epochs: int = 20
-    batch_size: int = 8
-    lr: float = 1e-3
+    def __init__(
+        self,
+        labeled_data: str = "data/circrna/unified_training_data.csv",
+        finetune_epochs: int = 20,
+        batch_size: int = 8,
+        lr: float = 1e-3,
+    ):
+        self.labeled_data = labeled_data
+        self.finetune_epochs = finetune_epochs
+        self.batch_size = batch_size
+        self.lr = lr
 
     def to_dict(self):
         return {
