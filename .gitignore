@@ -113,9 +113,11 @@ confluencia_2_0_epitope/data/raw/
 confluencia_2_0_epitope/data/iedb_mhc_i_binding.csv
 confluencia_2_0_epitope/data/epitope_table_export*.csv
 confluencia_circrna/data/
+confluencia-circrna-encoder/data/
 
-# Scripts and tools
+# Scripts and tools (but allow circrna encoder scripts)
 scripts/
+!confluencia-circrna-encoder/scripts/
 src/
 
 # Confluencia v1.0 (legacy)
