@@ -67,15 +67,26 @@ class FiveGeneMOEScorer:
     def _load_fitted_weights() -> dict:
         """Load LASSO+StepCox fitted weights from training report.
 
-        Falls back to biologically-informed weights if report not found.
+        Prefers v2 report (raw log2 + expanded genes + clinical, C-index ~0.65).
+        Falls back to v1, then biologically-informed weights.
         """
-        report_path = Path(__file__).parent.parent / "output" / "lasso_stepcox_report.json"
-        if report_path.exists():
-            with open(report_path) as f:
+        # Try v2 first
+        v2_path = Path(__file__).parent.parent / "output" / "lasso_stepcox_v2_report.json"
+        if v2_path.exists():
+            with open(v2_path) as f:
                 report = json.load(f)
             return report["final_model"]["normalized_weights"]
+
+        # Try v1
+        v1_path = Path(__file__).parent.parent / "output" / "lasso_stepcox_report.json"
+        if v1_path.exists():
+            with open(v1_path) as f:
+                report = json.load(f)
+            return report["final_model"]["normalized_weights"]
+
         warnings.warn(
-            "LASSO+StepCox report not found at %s, using fallback weights" % report_path
+            "LASSO+StepCox report not found at %s, using fallback weights"
+            % str(Path(__file__).parent.parent / "output")
         )
         return {"TROP2": 0.30, "NECTIN4": 0.20, "LIV-1": 0.15, "B7-H4": 0.10, "TMEM65": 0.25}
 

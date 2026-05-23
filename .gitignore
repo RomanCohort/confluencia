@@ -137,8 +137,15 @@ confluencia-1.0/
 
 # But preserve runtime-required files
 !output/five_gene_hybrid.joblib
+!output/lasso_stepcox_report.json
+!output/lasso_stepcox_v2_report.json
+!output/lasso_stepcox_v2_coefficients.csv
 !data/gene_signature/combined_five_gene.csv
 !data/gene_signature/tcga_brca_five_gene.csv
 !data/gene_signature/metabric_five_gene.csv
 !data/gene_signature/combined_with_survival.csv
 !data/gene_signature/cache/
+!scripts/build_raw_expression.py
+!scripts/fetch_extra_genes.py
+!scripts/fetch_tcga_clinical.py
+!scripts/train_five_gene_lasso_v2.py

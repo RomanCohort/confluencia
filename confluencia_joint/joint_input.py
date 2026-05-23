@@ -155,6 +155,12 @@ class JointInput:
     liv1: float = 0.5
     b7h4: float = 0.5
     tmem65: float = 0.5
+    # Clinical features (optional, for improved risk scoring)
+    grade: Optional[int] = None       # Tumor grade 1-3
+    er_positive: Optional[bool] = None   # ER status
+    her2_positive: Optional[bool] = None  # HER2 status
+    pr_positive: Optional[bool] = None    # PR status
+    tumor_stage: Optional[int] = None   # AJCC tumor stage
     circ_sequence: Optional[str] = None
     circ_expression_matrix: Optional[pd.DataFrame] = None
     mutation_data: Optional[pd.DataFrame] = None
