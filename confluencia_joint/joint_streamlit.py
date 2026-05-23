@@ -288,12 +288,12 @@ def _render_single_input():
     circ_expr = st.slider("circRNA Expression", 0.0, 1.0, 0.0, help="circRNA expression level")
     ifn_score = st.slider("IFN Response Score", 0.0, 1.0, 0.0, help="Interferon response score")
 
-    st.subheader("Gene Signature")
-    trop2 = st.slider("TROP2 Expression", 0.0, 1.0, 0.5, help="Tumor-associated calcium signal transducer 2 (TACSTD2)")
-    nectin4 = st.slider("NECTIN4 Expression", 0.0, 1.0, 0.5, help="Nectin cell adhesion molecule 4 (PVRL4)")
-    liv1 = st.slider("LIV-1 Expression", 0.0, 1.0, 0.5, help="Zinc transporter / EMT marker (SLC39A8)")
-    b7h4 = st.slider("B7-H4 Expression", 0.0, 1.0, 0.5, help="T-cell activation inhibitor (VTCN1)")
-    tmem65 = st.slider("TMEM65 Expression", 0.0, 1.0, 0.5, help="Mitochondrial transmembrane protein 65 — druggable (DHE)")
+    st.subheader("Gene Signature (LASSO+StepCox fitted)")
+    trop2 = st.slider("TROP2 Expression", 0.0, 1.0, 0.5, help="TACSTD2 — weights fitted via LASSO Cox + StepCox on 3078 samples")
+    nectin4 = st.slider("NECTIN4 Expression", 0.0, 1.0, 0.5, help="PVRL4 — weights fitted via LASSO Cox + StepCox on 3078 samples")
+    liv1 = st.slider("LIV-1 Expression", 0.0, 1.0, 0.5, help="SLC39A8 — weights fitted via LASSO Cox + StepCox on 3078 samples")
+    b7h4 = st.slider("B7-H4 Expression", 0.0, 1.0, 0.5, help="VTCN1 — weights fitted via LASSO Cox + StepCox on 3078 samples")
+    tmem65 = st.slider("TMEM65 Expression", 0.0, 1.0, 0.5, help="TMEM65 — weights fitted via LASSO Cox + StepCox on 3078 samples")
 
     st.subheader("Advanced")
     epitope_backend = st.selectbox(
