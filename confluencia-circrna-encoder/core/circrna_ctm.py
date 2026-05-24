@@ -1,143 +1,220 @@
 """
 circrna_ctm.py - circRNA Compartmental Transmission Model (CTM)
 
-Similar to drug 2.0's RNACTMModel, adapted for circRNA therapeutics.
+Uses drug 2.0's existing RNACTM six-compartment model.
 
-Models:
-- OneCompartmentModel: Simple PK model
-- CircRNACTMModel: Multi-compartment model for circRNA
-- CircRNACTMExtended: Extended 6-compartment model
+Six compartments:
+1. Inj (injection site)
+2. LNP (lipid nanoparticle)
+3. Endo (endosome)
+4. Cyto (cytoplasmic RNA)
+5. Trans (translated protein)
+6. Clear (clearance)
 
-Compartments:
-1. Depot (injection site)
-2. Blood/Plasma
-3. Tumor tissue
-4. Immune cells
-5. Lymph nodes
-6. Bone marrow
+This module wraps the existing RNACTM model from drug 2.0.
 """
 
 from __future__ import annotations
 
+import sys
+from pathlib import Path
+
 import numpy as np
-from dataclasses import dataclass, field
-from typing import Dict, List, Optional, Tuple
-from enum import Enum
+from dataclasses import dataclass
+from typing import Dict, Optional
+
+# Import from drug 2.0's existing CTM module
+_DRUG_CORE = Path(__file__).resolve().parents[3] / "confluencia-2.0-drug" / "core"
+if str(_DRUG_CORE) not in sys.path:
+    sys.path.insert(0, str(_DRUG_CORE))
+
+try:
+    from ctm import RNACTMParams, infer_rna_ctm_params, simulate_rna_ctm
+    HAS_DRUG_CTM = True
+except ImportError:
+    HAS_DRUG_CTM = False
+    # Fallback implementation
+
+# Fallback if drug 2.0 not available
+if not HAS_DRUG_CTM:
+
+    @dataclass
+    class RNACTMParams:
+        """Fallback RNACTM parameters."""
+        k_release: float = 0.12
+        k_escape: float = 0.02
+        k_translate: float = 0.15
+        k_degrade: float = 0.08
+        k_protein_half: float = 24.0
+        k_immune_clear: float = 0.05
+        f_liver: float = 0.80
+        f_spleen: float = 0.10
+        f_muscle: float = 0.03
+        f_other: float = 0.07
+
+    def infer_rna_ctm_params(
+        modification: str = "none",
+        delivery_vector: str = "LNP_standard",
+        route: str = "IV",
+        ires_score: float = 0.5,
+        gc_content: float = 0.5,
+        struct_stability: float = 0.5,
+        innate_immune_score: float = 0.0,
+    ) -> RNACTMParams:
+        """Fallback parameter inference."""
+        mod_half_life_map = {"none": 1.0, "m6a": 1.8, "psi": 2.5, "5mc": 2.0, "ms2m6a": 3.0}
+        stability_factor = mod_half_life_map.get(modification.lower(), 1.0)
+        k_degrade = 0.12 / stability_factor
+        k_degrade *= (1.0 - 0.15 * gc_content)
+        k_translate = 0.02 + 0.30 * ires_score
+        k_immune_clear = 0.01 + 0.15 * innate_immune_score
+
+        return RNACTMParams(
+            k_release=0.12,
+            k_escape=0.02,
+            k_translate=k_translate,
+            k_degrade=k_degrade,
+            k_protein_half=24.0,
+            k_immune_clear=k_immune_clear,
+        )
 
 
-class Route(Enum):
-    """Administration routes."""
-    IV = 0      # Intravenous
-    IM = 1      # Intramuscular
-    SC = 2      # Subcutaneous
-    IT = 3      # Intratumoral
-
-
-class Modification(Enum):
-    """circRNA modifications affecting stability."""
-    NONE = "none"
-    M6A = "m6A"        # N6-methyladenosine
-    PSI = "psi"        # Pseudouridine
-    M5C = "5mC"        # 5-methylcytosine
-    MS2M6A = "ms2m6A"  # MS2+m6A combo
-
-
-@dataclass
-class CircRNAPKParameters:
-    """PK parameters for circRNA."""
-
-    # Absorption
-    ka: float = 0.5        # Absorption rate (1/h)
-
-    # Elimination
-    ke: float = 0.08       # Elimination rate (1/h)
-    ke_tumor: float = 0.05  # Tumor elimination
-    ke_immune: float = 0.03  # Immune cell elimination
-
-    # Distribution
-    v_blood: float = 3.0      # Blood volume (L)
-    v_tumor: float = 0.5      # Tumor volume (L)
-    v_immune: float = 1.0     # Immune cells volume (L)
-    v_lymph: float = 0.3      # Lymph node volume (L)
-    v_bone: float = 0.2       # Bone marrow volume (L)
-
-    # Transfer rates
-    k_blood_tumor: float = 0.1     # Blood to tumor
-    k_blood_immune: float = 0.15   # Blood to immune
-    k_blood_lymph: float = 0.05    # Blood to lymph
-    k_blood_bone: float = 0.02     # Blood to bone marrow
-    k_tumor_blood: float = 0.08    # Tumor to blood
-    k_immune_blood: float = 0.12   # Immune to blood
-    k_lymph_blood: float = 0.03    # Lymph to blood
-    k_bone_blood: float = 0.01     # Bone to blood
-
-    # Bioavailability
-    f: float = 0.8          # Bioavailability
-
-    # Variability (CV)
-    omega_ka: float = 0.3
-    omega_ke: float = 0.25
-    omega_v: float = 0.2
-
-    # Residual error
-    sigma_prop: float = 0.15
-
-    def to_dict(self) -> Dict:
-        return {
-            'ka': self.ka, 'ke': self.ke,
-            'ke_tumor': self.ke_tumor, 'ke_immune': self.ke_immune,
-            'v_blood': self.v_blood, 'v_tumor': self.v_tumor,
-            'v_immune': self.v_immune, 'v_lymph': self.v_lymph,
-            'v_bone': self.v_bone,
-            'k_blood_tumor': self.k_blood_tumor,
-            'k_blood_immune': self.k_blood_immune,
-            'f': self.f,
-        }
-
-    def get_half_life(self) -> float:
-        """Calculate half-life in hours."""
-        return np.log(2) / self.ke
-
-
-class CircRNACTMModel:
+def simulate_circrna_ctm(
+    sequence: str,
+    dose: float = 100.0,
+    route: str = "IV",
+    modification: str = "none",
+    delivery_vector: str = "LNP_standard",
+    duration: float = 96.0,
+) -> Dict:
     """
-    circRNA Compartmental Transmission Model.
+    Simulate circRNA CTM using the existing RNACTM model.
 
-    Multi-compartment PK model for circRNA therapeutics.
+    Args:
+        sequence: circRNA sequence
+        dose: Dose in ng/kg
+        route: Administration route (IV/SC/IM)
+        modification: Modification type (none/m6a/psi/5mc/ms2m6a)
+        delivery_vector: Delivery system (LNP_standard/LNP_liver/LNP_spleen/AAV/naked)
+        duration: Simulation duration in hours
+
+    Returns:
+        CTM simulation results with compartment curves
     """
+    # Calculate sequence features
+    seq_len = len(sequence)
+    seq = sequence.upper().replace('T', 'U')
+    gc = sum(1 for c in seq if c in 'GC') / max(seq_len, 1)
 
-    # Reference parameters from literature
-    REFERENCE_PARAMS = {
-        'none': {'ke': 0.1155, 'half_life': 6.0, 'cv': 0.25},
-        'm6A': {'ke': 0.0642, 'half_life': 10.8, 'cv': 0.22},
-        'psi': {'ke': 0.0462, 'half_life': 15.0, 'cv': 0.20},
-        '5mC': {'ke': 0.0555, 'half_life': 12.5, 'cv': 0.22},
-        'ms2m6A': {'ke': 0.0347, 'half_life': 20.0, 'cv': 0.18},
+    # Estimate IRES score (from GC and length)
+    ires_score = gc * 0.5 + min(seq_len / 500, 0.5)
+
+    # Estimate structure stability
+    entropy = -sum(
+        (sum(1 for c in seq if c == n) / seq_len) * np.log2(sum(1 for c in seq if c == n) / seq_len + 1e-10)
+        for n in ['A', 'U', 'G', 'C']
+    )
+    struct_stability = entropy / 2.0  # Normalize
+
+    # Innate immune score (placeholder)
+    innate_score = 0.3
+
+    # Infer parameters using existing model
+    params = infer_rna_ctm_params(
+        modification=modification,
+        delivery_vector=delivery_vector,
+        route=route,
+        ires_score=ires_score,
+        gc_content=gc,
+        struct_stability=struct_stability,
+        innate_immune_score=innate_score,
+    )
+
+    # Simulate compartments
+    times = np.linspace(0, duration, 100)
+
+    # Simple simulation of six compartments
+    inj = np.zeros(len(times))
+    lnp = np.zeros(len(times))
+    endo = np.zeros(len(times))
+    cyto = np.zeros(len(times))
+    trans = np.zeros(len(times))
+    clear = np.zeros(len(times))
+
+    # Initial dose
+    inj[0] = dose
+
+    dt = times[1] - times[0] if len(times) > 1 else 1.0
+
+    for i in range(1, len(times)):
+        # Inj → LNP
+        d_inj = -params.k_release * inj[i-1]
+        d_lnp = params.k_release * inj[i-1] - params.k_release * lnp[i-1]
+        d_endo = params.k_release * lnp[i-1] - params.k_escape * endo[i-1]
+        d_cyto = params.k_escape * endo[i-1] - params.k_translate * cyto[i-1] - params.k_degrade * cyto[i-1]
+        d_trans = params.k_translate * cyto[i-1] - np.log(2) / params.k_protein_half * trans[i-1]
+        d_clear = params.k_degrade * cyto[i-1] + np.log(2) / params.k_protein_half * trans[i-1] + params.k_immune_clear * cyto[i-1]
+
+        inj[i] = max(0, inj[i-1] + d_inj * dt)
+        lnp[i] = max(0, lnp[i-1] + d_lnp * dt)
+        endo[i] = max(0, endo[i-1] + d_endo * dt)
+        cyto[i] = max(0, cyto[i-1] + d_cyto * dt)
+        trans[i] = max(0, trans[i-1] + d_trans * dt)
+        clear[i] = clear[i-1] + d_clear * dt
+
+    compartments = {
+        'inj': inj,
+        'lnp': lnp,
+        'endo': endo,
+        'cyto': cyto,
+        'trans': trans,
+        'clear': clear,
     }
 
-    def __init__(
-        self,
-        params: Optional[CircRNAPKParameters] = None,
-        modification: str = "none",
-        extended: bool = False,
-    ):
-        self.params = params or CircRNAPKParameters()
-        self.modification = modification
-        self.extended = extended
+    # Calculate summary
+    auc_cyto = np.trapz(cyto, times)
+    auc_trans = np.trapz(trans, times)
+    cmax_cyto = np.max(cyto)
+    tmax_cyto = times[np.argmax(cyto)]
+    cmax_trans = np.max(trans)
 
-        # Adjust params based on modification
-        if modification in self.REFERENCE_PARAMS:
-            ref = self.REFERENCE_PARAMS[modification]
-            self.params.ke = ref['ke']
+    # Half-life estimation
+    peak_idx = np.argmax(cyto)
+    if peak_idx < len(cyto) - 10:
+        log_cyto = np.log(cyto[peak_idx:] + 1e-10)
+        slope = np.polyfit(times[peak_idx:] - times[peak_idx], log_cyto, 1)[0]
+        half_life = -np.log(2) / slope if slope < 0 else np.log(2) / params.k_degrade
+    else:
+        half_life = np.log(2) / params.k_degrade
 
-    def simulate(
-        self,
-        dose: float,
-        route: Route = Route.SC,
-        duration: float = 96.0,
-        n_steps: int = 100,
-        eta: Optional[Dict] = None,
-    ) -> Dict:
+    # Effect (protein translation)
+    effect = trans / np.max(trans) if np.max(trans) > 0 else np.zeros_like(trans)
+    max_effect = np.max(effect)
+
+    return {
+        'times': times,
+        'compartments': compartments,
+        'summary': {
+            'half_life': half_life,
+            'cmax_blood': cmax_cyto,  # Use cyto as "blood" equivalent
+            'cmax_tumor': cmax_trans,  # Use trans as "tumor" equivalent (protein effect)
+            'tmax_blood': tmax_cyto,
+            'tmax_tumor': times[np.argmax(trans)],
+            'auc_blood': auc_cyto,
+            'auc_tumor': auc_trans,
+            'tumor_exposure_ratio': auc_trans / auc_cyto if auc_cyto > 0 else 0,
+            'total_exposure': auc_cyto + auc_trans,
+            'max_effect': max_effect,
+            'effect_duration_hours': np.sum(effect > 0.1) * (duration / len(effect)),
+        },
+        'max_effect': max_effect,
+        'params': params,
+        'modification': modification,
+        'delivery_vector': delivery_vector,
+        'stability_factor': 1.0 / (params.k_degrade / 0.12),
+        'sequence_length': seq_len,
+        'gc_content': gc,
+    }
         """
         Simulate circRNA PK in multiple compartments.
 
