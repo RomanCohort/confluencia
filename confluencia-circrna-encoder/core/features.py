@@ -120,6 +120,14 @@ class CircRNAFeatureExtractor:
             features.append(0)
         self.feature_names.append('complexity')
 
+        # 12. Transition frequencies (AU→G, etc.)
+        transitions = 0
+        for k in range(len(seq)-1):
+            if seq[k] in ['A', 'U'] and seq[k+1] in ['G', 'C']:
+                transitions += 1
+        features.append(transitions / max(length-1, 1))
+        self.feature_names.append('au_to_gc_transition')
+
         return np.array(features)
 
     def get_feature_names(self) -> List[str]:
