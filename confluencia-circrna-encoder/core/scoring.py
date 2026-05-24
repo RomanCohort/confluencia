@@ -11,6 +11,49 @@ import pandas as pd
 from typing import Dict, List
 
 
+class CircRNAScorer:
+    """
+    Main scorer for circRNA immunogenicity predictions.
+    """
+
+    def score(self, predictions: Dict) -> Dict:
+        """Calculate overall immunogenicity score."""
+        # Base score from innate immune
+        innate_score = predictions.get('innate_activation', 0)
+
+        # Therapeutic potential
+        therapeutic = predictions.get('therapeutic_window', 0)
+
+        # Composite
+        overall = innate_score * 0.5 + therapeutic * 0.3 + predictions.get('confidence', 0.5) * 0.2
+
+        predictions['overall_score'] = overall
+        predictions['tier'] = self._tier(overall)
+
+        return predictions
+
+    def _tier(self, score: float) -> str:
+        """Classify into tier."""
+        if score >= 0.7:
+            return "Tier1_High"
+        elif score >= 0.5:
+            return "Tier2_Medium"
+        elif score >= 0.3:
+            return "Tier3_Low"
+        else:
+            return "Tier4_VeryLow"
+
+    def batch_score(self, df: pd.DataFrame) -> pd.DataFrame:
+        """Batch scoring."""
+        df['overall_score'] = (
+            df.get('innate_activation', 0) * 0.5 +
+            df.get('therapeutic_window', 0) * 0.3 +
+            df.get('confidence', 0.5) * 0.2
+        )
+        df['tier'] = df['overall_score'].apply(self._tier)
+        return df
+
+
 class CompositeScorer:
     """
     Composite score calculator (mirrors drug scoring).
