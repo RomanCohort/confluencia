@@ -32,17 +32,36 @@ if str(_PROJECT_ROOT) not in sys.path:
 class MultiModalConfig:
     """Configuration for multi-modal prediction."""
 
-    # Modality weights
+    # Modality weights (can be fitted or default)
     sequence_weight: float = 0.35
     innate_weight: float = 0.25
     dose_weight: float = 0.15
-    pkpd_weight: float = 0.10
+    ctm_weight: float = 0.10
     admet_weight: float = 0.10
     gene_weight: float = 0.05
 
     # Default parameters
     default_dose: float = 100.0
     gene_threshold: float = 0.5
+
+    # Path to fitted weights (optional)
+    fitted_weights_path: Optional[str] = None
+
+    def load_fitted_weights(self) -> 'MultiModalConfig':
+        """Load fitted weights from file."""
+        if self.fitted_weights_path:
+            try:
+                from .multimodal_weight_fitting import load_weights
+                weights = load_weights(self.fitted_weights_path)
+                self.sequence_weight = weights.sequence
+                self.innate_weight = weights.innate
+                self.dose_weight = weights.dose
+                self.ctm_weight = weights.ctm
+                self.admet_weight = weights.admet
+                self.gene_weight = weights.gene
+            except Exception as e:
+                print(f"Warning: Could not load fitted weights: {e}")
+        return self
 
 
 class MultiModalCircRNAPredictor:
