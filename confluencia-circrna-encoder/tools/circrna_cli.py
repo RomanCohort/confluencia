@@ -21,16 +21,39 @@ from __future__ import annotations
 import argparse
 import json
 import sys
+import os
 from pathlib import Path
 from typing import Dict, List, Optional
 
 import numpy as np
 import joblib
 
-# Add project paths
-_PROJECT_ROOT = Path(__file__).resolve().parents[3]
-if str(_PROJECT_ROOT) not in sys.path:
-    sys.path.insert(0, str(_PROJECT_ROOT))
+# Add project paths - handle both module and direct script execution
+_SCRIPT_DIR = Path(__file__).resolve().parent
+_PROJECT_ROOT = _SCRIPT_DIR.parents[2]
+
+# Add both possible paths
+for p in [_PROJECT_ROOT, _SCRIPT_DIR.parent, _SCRIPT_DIR.parent / "core"]:
+    if str(p) not in sys.path:
+        sys.path.insert(0, str(p))
+
+# Try relative imports first, fall back to absolute
+try:
+    from core.moe import train_moe_model
+    from core.features import CircRNAFeatureExtractor
+    from core.innate_immune import quick_predict
+    from core.dose_tox import quick_dose_predict
+    from core.admet import quick_admet
+    from core.generative import generate_optimized_sequence
+    from core.immune_abm import simulate_circrna_response
+except ImportError:
+    from confluencia_circrna_encoder.core.moe import train_moe_model
+    from confluencia_circrna_encoder.core.features import CircRNAFeatureExtractor
+    from confluencia_circrna_encoder.core.innate_immune import quick_predict
+    from confluencia_circrna_encoder.core.dose_tox import quick_dose_predict
+    from confluencia_circrna_encoder.core.admet import quick_admet
+    from confluencia_circrna_encoder.core.generative import generate_optimized_sequence
+    from confluencia_circrna_encoder.core.immune_abm import simulate_circrna_response
 
 
 def predict_single(
@@ -40,7 +63,6 @@ def predict_single(
     detailed: bool = False,
 ) -> Dict:
     """Predict immunogenicity for single sequence."""
-    from confluencia_circrna_encoder.core.features import CircRNAFeatureExtractor
 
     # Load model
     model = joblib.load(model_path)
@@ -81,10 +103,6 @@ def predict_single(
 
     # Add detailed analysis
     if detailed:
-        from confluencia_circrna_encoder.core.innate_immune import quick_predict
-        from confluencia_circrna_encoder.core.dose_tox import quick_dose_predict
-        from confluencia_circrna_encoder.core.admet import quick_admet
-
         immune = quick_predict(sequence)
         dose = quick_dose_predict(sequence, dose=100)
         admet = quick_admet(sequence)
@@ -141,7 +159,6 @@ def predict_batch(
             sequences.append((current_id, current_seq))
 
     # Batch predict
-    from confluencia_circrna_encoder.core.features import CircRNAFeatureExtractor
     extractor = CircRNAFeatureExtractor()
 
     results = []
@@ -172,7 +189,6 @@ def optimize_sequence(
     iterations: int = 50,
 ) -> Dict:
     """Optimize sequence for target immunogenicity."""
-    from confluencia_circrna_encoder.core.generative import generate_optimized_sequence
 
     opt_seq, score = generate_optimized_sequence(sequence, target, iterations)
 
@@ -194,7 +210,6 @@ def train_moe(
 ) -> Dict:
     """Train MOE (Mixture of Experts) model."""
     import pandas as pd
-    from confluencia_circrna_encoder.core.moe import train_moe_model
 
     output_path = Path(output_dir)
     output_path.mkdir(parents=True, exist_ok=True)
@@ -251,12 +266,11 @@ def train_model(
 ) -> Dict:
     """Train circRNA prediction model."""
     import pandas as pd
-    from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier
+    import gzip
+    from sklearn.ensemble import RandomForestClassifier
     from sklearn.model_selection import train_test_split
     from sklearn.metrics import roc_auc_score, accuracy_score, f1_score
     from sklearn.preprocessing import StandardScaler
-    from confluencia_circrna_encoder.core.features import CircRNAFeatureExtractor
-    import gzip
 
     output_path = Path(output_dir)
     output_path.mkdir(parents=True, exist_ok=True)
@@ -403,7 +417,6 @@ def simulate_response(
     steps: int = 100,
 ) -> Dict:
     """Simulate immune response."""
-    from confluencia_circrna_encoder.core.immune_abm import simulate_circrna_response
 
     result = simulate_circrna_response(sequence, n_steps=steps)
 
