@@ -89,7 +89,6 @@ class CircRNADoseResponse:
             'therapeutic_window': therapeutic_window,
             'innate_activation': innate['overall_score'],
             'safe': toxicity_score < self.config.toxicity_threshold,
-            'recommended_dose': self._find_optimal_dose(sequence),
         }
 
     def _hill_equation(self, dose: float, max_response: float, ec50: float, hill_coeff: float) -> float:
