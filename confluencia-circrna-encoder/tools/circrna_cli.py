@@ -187,6 +187,61 @@ def optimize_sequence(
     }
 
 
+def train_moe(
+    labels_path: str,
+    output_dir: str = "confluencia-circrna-encoder/data/models",
+    n_sequences: int = 10000,
+) -> Dict:
+    """Train MOE (Mixture of Experts) model."""
+    import pandas as pd
+    from confluencia_circrna_encoder.core.moe import train_moe_model
+
+    output_path = Path(output_dir)
+    output_path.mkdir(parents=True, exist_ok=True)
+
+    print("=" * 60)
+    print("MOE Model Training")
+    print("=" * 60)
+
+    # Load data
+    print(f"\n[1] Loading data from {labels_path}...")
+    df = pd.read_csv(labels_path)
+    print(f"    Loaded {len(df)} samples")
+
+    # Get sequences and labels
+    sequences = df['sequence'].tolist()
+    labels = df['orig_immunogenicity'].values
+
+    if len(sequences) > n_sequences:
+        import random
+        random.seed(42)
+        indices = random.sample(range(len(sequences)), n_sequences)
+        sequences = [sequences[i] for i in indices]
+        labels = labels[indices]
+        print(f"    Sampled {len(sequences)} sequences")
+
+    # Train MOE
+    print(f"\n[2] Training MOE on {len(sequences)} sequences...")
+    model = train_moe_model(sequences, labels)
+
+    # Save model
+    model_path = output_path / "moe_model.joblib"
+    joblib.dump(model, model_path)
+
+    print(f"\n✓ MOE model saved to: {model_path}")
+
+    # Test prediction
+    test_seq = sequences[0]
+    pred = model.predict([test_seq])
+    print(f"    Test prediction: {pred[0]:.4f}")
+
+    return {
+        'n_sequences': len(sequences),
+        'model_path': str(model_path),
+        'test_prediction': float(pred[0]),
+    }
+
+
 def train_model(
     fasta_path: str,
     labels_path: Optional[str] = None,
@@ -370,11 +425,17 @@ def main():
     subparsers = parser.add_subparsers(dest="command", help="Commands")
 
     # Train command
-    train_parser = subparsers.add_parser("train", help="Train model")
+    train_parser = subparsers.add_parser("train", help="Train XGBoost/RF model")
     train_parser.add_argument("--fasta", required=True, help="FASTA file with sequences")
     train_parser.add_argument("--labels", help="Labels CSV file (optional)")
     train_parser.add_argument("--output-dir", default="confluencia-circrna-encoder/data/models")
     train_parser.add_argument("--max-sequences", type=int, default=50000)
+
+    # Train MOE command
+    moe_parser = subparsers.add_parser("train-moe", help="Train MOE model")
+    moe_parser.add_argument("--labels", required=True, help="Labels CSV file")
+    moe_parser.add_argument("--output-dir", default="confluencia-circrna-encoder/data/models")
+    moe_parser.add_argument("--n-sequences", type=int, default=10000, help="Number of sequences to use")
 
     # Predict command
     predict_parser = subparsers.add_parser("predict", help="Predict immunogenicity")
@@ -409,6 +470,14 @@ def main():
             args.labels,
             args.output_dir,
             args.max_sequences,
+        )
+        print(json.dumps(result, indent=2))
+
+    elif args.command == "train-moe":
+        result = train_moe(
+            args.labels,
+            args.output_dir,
+            args.n_sequences,
         )
         print(json.dumps(result, indent=2))
 
