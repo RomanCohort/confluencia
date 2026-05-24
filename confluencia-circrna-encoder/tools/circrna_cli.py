@@ -510,6 +510,22 @@ def main():
 
     elif args.command == "predict":
         result = predict_single(args.sequence, args.model, args.output, args.detailed)
+        # Convert numpy types to Python native types for JSON serialization
+        def convert_types(obj):
+            if isinstance(obj, dict):
+                return {k: convert_types(v) for k, v in obj.items()}
+            elif isinstance(obj, list):
+                return [convert_types(v) for v in obj]
+            elif isinstance(obj, np.ndarray):
+                return obj.tolist()
+            elif isinstance(obj, (np.integer, np.floating)):
+                return float(obj)
+            elif isinstance(obj, np.bool_):
+                return bool(obj)
+            else:
+                return obj
+
+        result = convert_types(result)
         if args.output == "json":
             print(json.dumps(result, indent=2))
         else:
