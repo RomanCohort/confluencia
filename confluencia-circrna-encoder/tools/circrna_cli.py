@@ -9,6 +9,7 @@ Usage:
         --output json
 
 Commands:
+    train        Train model on circRNA data
     predict      Predict immunogenicity for circRNA sequence
     batch        Batch prediction from FASTA file
     optimize     Optimize sequence for target immunogenicity
@@ -186,6 +187,161 @@ def optimize_sequence(
     }
 
 
+def train_model(
+    fasta_path: str,
+    labels_path: Optional[str] = None,
+    output_dir: str = "confluencia-circrna-encoder/data/models",
+    mode: str = "full",
+    max_sequences: int = 50000,
+) -> Dict:
+    """Train circRNA prediction model."""
+    import pandas as pd
+    from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier
+    from sklearn.model_selection import train_test_split
+    from sklearn.metrics import roc_auc_score, accuracy_score, f1_score
+    from sklearn.preprocessing import StandardScaler
+    from confluencia_circrna_encoder.core.features import CircRNAFeatureExtractor
+    import gzip
+
+    output_path = Path(output_dir)
+    output_path.mkdir(parents=True, exist_ok=True)
+
+    print("=" * 60)
+    print("circRNA Model Training")
+    print("=" * 60)
+
+    # Load sequences
+    print(f"\n[1] Loading sequences from {fasta_path}...")
+    sequences = []
+    opener = gzip.open if fasta_path.endswith('.gz') else open
+    with opener(fasta_path, 'rt') as f:
+        current_id = None
+        current_seq = ""
+        for line in f:
+            line = line.strip()
+            if line.startswith('>'):
+                if current_id and current_seq:
+                    sequences.append((current_id, current_seq))
+                current_id = line[1:].split('|')[0]
+                current_seq = ""
+            else:
+                current_seq += line.upper()
+        if current_id and current_seq:
+            sequences.append((current_id, current_seq))
+
+    print(f"    Loaded {len(sequences)} sequences")
+
+    if len(sequences) > max_sequences:
+        import random
+        random.seed(42)
+        sequences = random.sample(sequences, max_sequences)
+        print(f"    Sampled {len(sequences)} sequences")
+
+    # Extract features
+    print("\n[2] Extracting features...")
+    extractor = CircRNAFeatureExtractor()
+
+    features_list = []
+    for i, (seq_id, seq) in enumerate(sequences):
+        if i % 5000 == 0:
+            print(f"    Progress: {i}/{len(sequences)}")
+        features_list.append(extractor.extract(seq))
+
+    features = np.array(features_list)
+    print(f"    Feature matrix: {features.shape}")
+
+    # Get labels
+    if labels_path and Path(labels_path).exists():
+        print(f"\n[3] Loading labels from {labels_path}...")
+        df = pd.read_csv(labels_path)
+        labels = df['orig_immunogenicity'].values[:len(features)]
+        print(f"    Labels: 0={int((labels==0).sum())}, 1={int((labels==1).sum())}")
+    else:
+        print("\n[3] Generating pseudo-labels...")
+        gc = features[:, 4]  # GC column
+        entropy = features[:, 8]  # Entropy
+        scores = gc * 0.4 + (entropy / 2) * 0.3 + np.random.uniform(-0.1, 0.1, len(features))
+        labels = (scores > 0.45).astype(int)
+        print(f"    Pseudo-labels: 0={int((labels==0).sum())}, 1={int((labels==1).sum())}")
+
+    # Split data
+    X_train, X_test, y_train, y_test = train_test_split(
+        features, labels, test_size=0.2, random_state=42
+    )
+
+    # Scale features
+    scaler = StandardScaler()
+    X_train_scaled = scaler.fit_transform(X_train)
+    X_test_scaled = scaler.transform(X_test)
+
+    # Train XGBoost
+    print("\n[4] Training XGBoost...")
+    try:
+        from xgboost import XGBClassifier
+        xgb_model = XGBClassifier(
+            n_estimators=200,
+            max_depth=6,
+            learning_rate=0.1,
+            use_label_encoder=False,
+            eval_metric='logloss',
+            random_state=42,
+            n_jobs=-1,
+        )
+        xgb_model.fit(X_train_scaled, y_train)
+
+        y_pred = xgb_model.predict(X_test_scaled)
+        y_prob = xgb_model.predict_proba(X_test_scaled)[:, 1]
+
+        xgb_metrics = {
+            'accuracy': accuracy_score(y_test, y_pred),
+            'f1': f1_score(y_test, y_pred),
+            'auc': roc_auc_score(y_test, y_prob),
+        }
+        print(f"    Accuracy: {xgb_metrics['accuracy']:.4f}")
+        print(f"    F1: {xgb_metrics['f1']:.4f}")
+        print(f"    AUC: {xgb_metrics['auc']:.4f}")
+
+        joblib.dump(xgb_model, output_path / "circrna_xgb.joblib")
+    except ImportError:
+        print("    XGBoost not available")
+        xgb_metrics = {}
+
+    # Train Random Forest
+    print("\n[5] Training Random Forest...")
+    rf_model = RandomForestClassifier(
+        n_estimators=200,
+        max_depth=12,
+        random_state=42,
+        n_jobs=-1,
+    )
+    rf_model.fit(X_train_scaled, y_train)
+
+    y_pred_rf = rf_model.predict(X_test_scaled)
+    y_prob_rf = rf_model.predict_proba(X_test_scaled)[:, 1]
+
+    rf_metrics = {
+        'accuracy': accuracy_score(y_test, y_pred_rf),
+        'f1': f1_score(y_test, y_pred_rf),
+        'auc': roc_auc_score(y_test, y_prob_rf),
+    }
+    print(f"    Accuracy: {rf_metrics['accuracy']:.4f}")
+    print(f"    F1: {rf_metrics['f1']:.4f}")
+    print(f"    AUC: {rf_metrics['auc']:.4f}")
+
+    joblib.dump(rf_model, output_path / "circrna_rf.joblib")
+    joblib.dump(scaler, output_path / "scaler.joblib")
+
+    print(f"\n✓ Training complete!")
+    print(f"  Models saved to: {output_path}")
+
+    return {
+        'n_sequences': len(sequences),
+        'xgb_metrics': xgb_metrics,
+        'rf_metrics': rf_metrics,
+        'output_dir': str(output_path),
+    }
+
+
 def simulate_response(
     sequence: str,
     dose: float = 100.0,
@@ -212,6 +368,13 @@ def main():
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     subparsers = parser.add_subparsers(dest="command", help="Commands")
+
+    # Train command
+    train_parser = subparsers.add_parser("train", help="Train model")
+    train_parser.add_argument("--fasta", required=True, help="FASTA file with sequences")
+    train_parser.add_argument("--labels", help="Labels CSV file (optional)")
+    train_parser.add_argument("--output-dir", default="confluencia-circrna-encoder/data/models")
+    train_parser.add_argument("--max-sequences", type=int, default=50000)
 
     # Predict command
     predict_parser = subparsers.add_parser("predict", help="Predict immunogenicity")
@@ -240,7 +403,16 @@ def main():
 
     args = parser.parse_args()
 
-    if args.command == "predict":
+    if args.command == "train":
+        result = train_model(
+            args.fasta,
+            args.labels,
+            args.output_dir,
+            args.max_sequences,
+        )
+        print(json.dumps(result, indent=2))
+
+    elif args.command == "predict":
         result = predict_single(args.sequence, args.model, args.output, args.detailed)
         if args.output == "json":
             print(json.dumps(result, indent=2))
