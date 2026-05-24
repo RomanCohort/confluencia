@@ -46,6 +46,7 @@ try:
     from core.admet import quick_admet
     from core.generative import generate_optimized_sequence
     from core.immune_abm import simulate_circrna_response
+    from core.multimodal_predictor import predict_multimodal
 except ImportError:
     from confluencia_circrna_encoder.core.moe import train_moe_model
     from confluencia_circrna_encoder.core.features import CircRNAFeatureExtractor
@@ -54,6 +55,7 @@ except ImportError:
     from confluencia_circrna_encoder.core.admet import quick_admet
     from confluencia_circrna_encoder.core.generative import generate_optimized_sequence
     from confluencia_circrna_encoder.core.immune_abm import simulate_circrna_response
+    from confluencia_circrna_encoder.core.multimodal_predictor import predict_multimodal
 
 
 def predict_single(
@@ -64,66 +66,72 @@ def predict_single(
 ) -> Dict:
     """Predict immunogenicity for single sequence."""
 
-    # Load model
-    model = joblib.load(model_path)
-
-    # Extract features (use consistent extractor)
-    extractor = CircRNAFeatureExtractor()
-    features = extractor.extract(sequence)
-    features = features.reshape(1, -1)
-
-    # Load scaler if available and compatible
-    scaler_path = Path(model_path).parent / "finetune_scaler.joblib"
-    if scaler_path.exists():
-        try:
-            scaler = joblib.load(scaler_path)
-            if scaler.n_features_in_ == features.shape[1]:
-                features = scaler.transform(features)
-        except:
-            pass  # Use unscaled features
-
-    # Predict
-    prediction = model.predict(features)[0]
-
-    # Probability if available
-    if hasattr(model, 'predict_proba'):
-        proba = model.predict_proba(features)[0]
-        confidence = max(proba)
-    else:
-        confidence = 0.8  # Default
-
-    result = {
-        'sequence': sequence[:50] + '...' if len(sequence) > 50 else sequence,
-        'length': len(sequence),
-        'immunogenicity': float(prediction),
-        'confidence': float(confidence),
-        'level': "High" if prediction > 0.6 else ("Medium" if prediction > 0.4 else "Low"),
-    }
-
-    # Add detailed analysis
     if detailed:
-        immune = quick_predict(sequence)
-        dose = quick_dose_predict(sequence, dose=100)
-        admet = quick_admet(sequence)
+        # Multi-modal prediction
+        result = predict_multimodal(sequence, model_path)
 
-        result['detailed'] = {
+        # Simplify for output
+        return {
+            'sequence': sequence[:50] + '...' if len(sequence) > 50 else sequence,
+            'length': len(sequence),
+            'immunogenicity': result['immunogenicity'],
+            'confidence': result['confidence'],
+            'level': result['level'],
+            'composite_score': result['composite_score'],
+            'tier': result['modalities']['multiscale']['tier'],
+
+            # Modality scores
             'innate_immune': {
-                'rig_i': immune['rig_i']['score'],
-                'tlr': immune['tlr']['score'],
-                'pkr': immune['pkr']['score'],
+                'rig_i': result['innate_details']['rig_i']['score'],
+                'tlr': result['innate_details']['tlr']['score'],
+                'pkr': result['innate_details']['pkr']['score'],
+                'overall': result['innate_details']['overall'],
             },
-            'dose_response': {
-                'efficacy': dose['efficacy_score'],
-                'toxicity': dose['toxicity_score'],
-                'therapeutic_window': dose['therapeutic_window'],
-            },
-            'admet': {
-                'pass': admet['pass'],
-                'recommendation': admet['recommendation'],
-            },
-        }
 
-    return result
+            'dose_response': result['dose_optimization'],
+            'pkpd': result['pkpd_summary'],
+            'admet': result['admet'],
+            'clinical_outcome': result['clinical_outcome'],
+            'reliability': result['reliability'],
+            'recommendation': result['recommendation'],
+        }
+    else:
+        # Simple prediction (ML model only)
+        model = joblib.load(model_path)
+
+        extractor = CircRNAFeatureExtractor()
+        features = extractor.extract(sequence)
+        features = features.reshape(1, -1)
+
+        # Load scaler if available and compatible
+        scaler_path = Path(model_path).parent / "finetune_scaler.joblib"
+        if scaler_path.exists():
+            try:
+                scaler = joblib.load(scaler_path)
+                if scaler.n_features_in_ == features.shape[1]:
+                    features = scaler.transform(features)
+            except:
+                pass
+
+        # Predict
+        prediction = model.predict(features)[0]
+
+        # Probability if available
+        if hasattr(model, 'predict_proba'):
+            proba = model.predict_proba(features)[0]
+            confidence = max(proba)
+        else:
+            confidence = 0.8
+
+        level = "High" if prediction > 0.6 else ("Medium" if prediction > 0.4 else "Low")
+
+        return {
+            'sequence': sequence[:50] + '...' if len(sequence) > 50 else sequence,
+            'length': len(sequence),
+            'immunogenicity': float(prediction),
+            'confidence': float(confidence),
+            'level': level,
+        }
 
 
 def predict_batch(
