@@ -71,6 +71,8 @@ def predict_single(
         result = predict_multimodal(sequence, model_path)
 
         # Simplify for output
+        tier = result['clinical_outcome'].get('tier', 'N/A')
+
         return {
             'sequence': sequence[:50] + '...' if len(sequence) > 50 else sequence,
             'length': len(sequence),
@@ -78,7 +80,7 @@ def predict_single(
             'confidence': result['confidence'],
             'level': result['level'],
             'composite_score': result['composite_score'],
-            'tier': result['modalities']['multiscale']['tier'],
+            'tier': tier,
 
             # Modality scores
             'innate_immune': {
