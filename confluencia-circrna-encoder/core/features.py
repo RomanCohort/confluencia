@@ -9,11 +9,129 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
+from collections import Counter
 
 import numpy as np
 import pandas as pd
 
 _PROJECT_ROOT = Path(__file__).resolve().parents[2]
+
+
+class CircRNAFeatureExtractor:
+    """
+    Feature extractor for circRNA sequences.
+
+    Extracts sequence-based features for immunogenicity prediction.
+    """
+
+    NUCS = ['A', 'U', 'G', 'C']
+
+    def __init__(self):
+        self.feature_names = []
+
+    def extract(self, sequence: str) -> np.ndarray:
+        """
+        Extract all features from a circRNA sequence.
+
+        Args:
+            sequence: circRNA sequence string
+
+        Returns:
+            Feature vector (numpy array)
+        """
+        seq = sequence.upper().replace('T', 'U')
+        length = len(seq)
+
+        features = []
+        self.feature_names = []
+
+        counts = Counter(seq)
+
+        # 1. Nucleotide frequencies (4)
+        for nuc in self.NUCS:
+            features.append(counts.get(nuc, 0) / max(length, 1))
+            self.feature_names.append(f'{nuc}_freq')
+
+        # 2. GC content
+        gc = (counts.get('G', 0) + counts.get('C', 0)) / max(length, 1)
+        features.append(gc)
+        self.feature_names.append('gc_content')
+
+        # 3. AU content
+        au = (counts.get('A', 0) + counts.get('U', 0)) / max(length, 1)
+        features.append(au)
+        self.feature_names.append('au_content')
+
+        # 4. Purine (AG) content
+        purine = (counts.get('A', 0) + counts.get('G', 0)) / max(length, 1)
+        features.append(purine)
+        self.feature_names.append('purine_content')
+
+        # 5. Entropy
+        probs = [counts.get(n, 0) / max(length, 1) for n in self.NUCS]
+        entropy = -sum(p * np.log2(p + 1e-10) for p in probs)
+        features.append(entropy)
+        self.feature_names.append('entropy')
+
+        # 6. Length normalized
+        features.append(min(length / 1000.0, 2.0))
+        self.feature_names.append('length_normalized')
+
+        # 7. Log length
+        features.append(np.log1p(length))
+        self.feature_names.append('log_length')
+
+        # 8. Di-nucleotide frequencies (16)
+        dinucs = ['AA', 'AU', 'AG', 'AC', 'UA', 'UU', 'UG', 'UC',
+                  'GA', 'GU', 'GG', 'GC', 'CA', 'CU', 'CG', 'CC']
+        for dinuc in dinucs:
+            count = sum(1 for k in range(len(seq)-1) if seq[k:k+2] == dinuc)
+            features.append(count / max(length-1, 1))
+            self.feature_names.append(f'dinuc_{dinuc}')
+
+        # 9. Important tri-nucleotides (16)
+        trinucs = ['AUU', 'AGU', 'ACU', 'UAU', 'UGU', 'UCU', 'GAU', 'GUU',
+                   'UUU', 'AAA', 'GGG', 'CCC', 'AUG', 'UAG', 'GAC', 'CAG']
+        for trinuc in trinucs:
+            count = sum(1 for k in range(len(seq)-2) if seq[k:k+3] == trinuc)
+            features.append(count / max(length-2, 1))
+            self.feature_names.append(f'trinuc_{trinuc}')
+
+        # 10. Repeat content
+        max_repeat = 0
+        for nuc in self.NUCS:
+            count = 0
+            max_c = 0
+            for c in seq:
+                if c == nuc:
+                    count += 1
+                    max_c = max(max_c, count)
+                else:
+                    count = 0
+            max_repeat = max(max_repeat, max_c)
+        features.append(max_repeat / max(length, 1))
+        self.feature_names.append('max_repeat_ratio')
+
+        # 11. Complexity (unique 4-mers)
+        if length >= 4:
+            unique_4mers = len(set(seq[i:i+4] for i in range(length-3)))
+            features.append(unique_4mers / max(length-3, 1))
+        else:
+            features.append(0)
+        self.feature_names.append('complexity')
+
+        return np.array(features)
+
+    def get_feature_names(self) -> List[str]:
+        """Get feature names."""
+        return self.feature_names
+
+    def batch_extract(self, sequences: List[str]) -> np.ndarray:
+        """Batch feature extraction."""
+        features = []
+        for seq in sequences:
+            features.append(self.extract(seq))
+        return np.array(features)
 
 
 # Default gene columns
