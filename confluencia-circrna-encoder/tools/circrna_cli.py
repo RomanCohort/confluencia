@@ -1,0 +1,270 @@
+"""
+circrna_cli.py — Command-line interface for circRNA prediction.
+
+Usage:
+    PYTHONPATH=/root/autodl-tmp/confluencia:$PYTHONPATH \
+      python -m confluencia_circrna_encoder.tools.circrna_cli predict \
+        --model confluencia-circrna-encoder/data/models/finetune_xgb.joblib \
+        --sequence "AUCCAAAAGCGGGGUAUUUG" \
+        --output json
+
+Commands:
+    predict      Predict immunogenicity for circRNA sequence
+    batch        Batch prediction from FASTA file
+    optimize     Optimize sequence for target immunogenicity
+    simulate     Run immune response simulation
+"""
+
+from __future__ import annotations
+
+import argparse
+import json
+import sys
+from pathlib import Path
+from typing import Dict, List, Optional
+
+import numpy as np
+import joblib
+
+# Add project paths
+_PROJECT_ROOT = Path(__file__).resolve().parents[3]
+if str(_PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(_PROJECT_ROOT))
+
+
+def predict_single(
+    sequence: str,
+    model_path: str,
+    output_format: str = "json",
+    detailed: bool = False,
+) -> Dict:
+    """Predict immunogenicity for single sequence."""
+    from confluencia_circrna_encoder.core.features import CircRNAFeatureExtractor
+
+    # Load model
+    model = joblib.load(model_path)
+
+    # Load scaler if available
+    scaler_path = Path(model_path).parent / "finetune_scaler.joblib"
+    if scaler_path.exists():
+        scaler = joblib.load(scaler_path)
+    else:
+        scaler = None
+
+    # Extract features
+    extractor = CircRNAFeatureExtractor()
+    features = extractor.extract(sequence)
+
+    if scaler:
+        features = scaler.transform(features.reshape(1, -1))
+    else:
+        features = features.reshape(1, -1)
+
+    # Predict
+    prediction = model.predict(features)[0]
+
+    # Probability if available
+    if hasattr(model, 'predict_proba'):
+        proba = model.predict_proba(features)[0]
+        confidence = max(proba)
+    else:
+        confidence = 0.8  # Default
+
+    result = {
+        'sequence': sequence[:50] + '...' if len(sequence) > 50 else sequence,
+        'length': len(sequence),
+        'immunogenicity': float(prediction),
+        'confidence': float(confidence),
+        'level': "High" if prediction > 0.6 else ("Medium" if prediction > 0.4 else "Low"),
+    }
+
+    # Add detailed analysis
+    if detailed:
+        from confluencia_circrna_encoder.core.innate_immune import quick_predict
+        from confluencia_circrna_encoder.core.dose_tox import quick_dose_predict
+        from confluencia_circrna_encoder.core.admet import quick_admet
+
+        immune = quick_predict(sequence)
+        dose = quick_dose_predict(sequence, dose=100)
+        admet = quick_admet(sequence)
+
+        result['detailed'] = {
+            'innate_immune': {
+                'rig_i': immune['rig_i']['score'],
+                'tlr': immune['tlr']['score'],
+                'pkr': immune['pkr']['score'],
+            },
+            'dose_response': {
+                'efficacy': dose['efficacy_score'],
+                'toxicity': dose['toxicity_score'],
+                'therapeutic_window': dose['therapeutic_window'],
+            },
+            'admet': {
+                'pass': admet['pass'],
+                'recommendation': admet['recommendation'],
+            },
+        }
+
+    return result
+
+
+def predict_batch(
+    fasta_path: str,
+    model_path: str,
+    output_path: Optional[str] = None,
+) -> List[Dict]:
+    """Batch prediction from FASTA file."""
+    import gzip
+
+    # Load model and scaler
+    model = joblib.load(model_path)
+    scaler_path = Path(model_path).parent / "finetune_scaler.joblib"
+    scaler = joblib.load(scaler_path) if scaler_path.exists() else None
+
+    # Parse FASTA
+    sequences = []
+    opener = gzip.open if fasta_path.endswith('.gz') else open
+    with opener(fasta_path, 'rt') as f:
+        current_id = None
+        current_seq = ""
+        for line in f:
+            line = line.strip()
+            if line.startswith('>'):
+                if current_id and current_seq:
+                    sequences.append((current_id, current_seq))
+                current_id = line[1:].split('|')[0]
+                current_seq = ""
+            else:
+                current_seq += line.upper()
+        if current_id and current_seq:
+            sequences.append((current_id, current_seq))
+
+    # Batch predict
+    from confluencia_circrna_encoder.core.features import CircRNAFeatureExtractor
+    extractor = CircRNAFeatureExtractor()
+
+    results = []
+    for seq_id, seq in sequences:
+        features = extractor.extract(seq).reshape(1, -1)
+        if scaler:
+            features = scaler.transform(features)
+        pred = model.predict(features)[0]
+        results.append({
+            'circrna_id': seq_id,
+            'length': len(seq),
+            'immunogenicity': float(pred),
+            'level': "High" if pred > 0.6 else ("Medium" if pred > 0.4 else "Low"),
+        })
+
+    # Save output
+    if output_path:
+        import pandas as pd
+        pd.DataFrame(results).to_csv(output_path, index=False)
+        print(f"Saved {len(results)} predictions to {output_path}")
+
+    return results
+
+
+def optimize_sequence(
+    sequence: str,
+    target: float = 0.6,
+    iterations: int = 50,
+) -> Dict:
+    """Optimize sequence for target immunogenicity."""
+    from confluencia_circrna_encoder.core.generative import generate_optimized_sequence
+
+    opt_seq, score = generate_optimized_sequence(sequence, target, iterations)
+
+    return {
+        'original_sequence': sequence[:50] + '...',
+        'optimized_sequence': opt_seq[:50] + '...',
+        'original_length': len(sequence),
+        'optimized_length': len(opt_seq),
+        'target_score': target,
+        'achieved_score': score,
+        'improvement': score - target,
+    }
+
+
+def simulate_response(
+    sequence: str,
+    dose: float = 100.0,
+    steps: int = 100,
+) -> Dict:
+    """Simulate immune response."""
+    from confluencia_circrna_encoder.core.immune_abm import simulate_circrna_response
+
+    result = simulate_circrna_response(sequence, n_steps=steps)
+
+    return {
+        'sequence_length': len(sequence),
+        'dose': dose,
+        'simulation_steps': result['total_steps'],
+        'final_tumor_count': result['final_tumor_count'],
+        'tumor_kill_rate': result['tumor_kill_rate'],
+        'peak_cytokines': result['peak_cytokines'],
+    }
+
+
+def main():
+    parser = argparse.ArgumentParser(
+        description="circRNA prediction CLI",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    subparsers = parser.add_subparsers(dest="command", help="Commands")
+
+    # Predict command
+    predict_parser = subparsers.add_parser("predict", help="Predict immunogenicity")
+    predict_parser.add_argument("--model", required=True, help="Model path")
+    predict_parser.add_argument("--sequence", required=True, help="circRNA sequence")
+    predict_parser.add_argument("--output", choices=["json", "text"], default="json")
+    predict_parser.add_argument("--detailed", action="store_true", help="Show detailed analysis")
+
+    # Batch command
+    batch_parser = subparsers.add_parser("batch", help="Batch prediction")
+    batch_parser.add_argument("--model", required=True, help="Model path")
+    batch_parser.add_argument("--fasta", required=True, help="FASTA file")
+    batch_parser.add_argument("--output", help="Output CSV path")
+
+    # Optimize command
+    optimize_parser = subparsers.add_parser("optimize", help="Optimize sequence")
+    optimize_parser.add_argument("--sequence", required=True, help="Starting sequence")
+    optimize_parser.add_argument("--target", type=float, default=0.6, help="Target score")
+    optimize_parser.add_argument("--iterations", type=int, default=50)
+
+    # Simulate command
+    simulate_parser = subparsers.add_parser("simulate", help="Simulate immune response")
+    simulate_parser.add_argument("--sequence", required=True)
+    simulate_parser.add_argument("--dose", type=float, default=100.0)
+    simulate_parser.add_argument("--steps", type=int, default=100)
+
+    args = parser.parse_args()
+
+    if args.command == "predict":
+        result = predict_single(args.sequence, args.model, args.output, args.detailed)
+        if args.output == "json":
+            print(json.dumps(result, indent=2))
+        else:
+            print(f"Immunogenicity: {result['immunogenicity']:.4f}")
+            print(f"Level: {result['level']}")
+
+    elif args.command == "batch":
+        results = predict_batch(args.fasta, args.model, args.output)
+        if not args.output:
+            print(json.dumps(results[:10], indent=2))
+            print(f"... {len(results)} total predictions")
+
+    elif args.command == "optimize":
+        result = optimize_sequence(args.sequence, args.target, args.iterations)
+        print(json.dumps(result, indent=2))
+
+    elif args.command == "simulate":
+        result = simulate_response(args.sequence, args.dose, args.steps)
+        print(json.dumps(result, indent=2))
+
+    else:
+        parser.print_help()
+
+
+if __name__ == "__main__":
+    main()
