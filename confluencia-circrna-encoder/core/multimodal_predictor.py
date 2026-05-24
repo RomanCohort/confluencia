@@ -93,10 +93,10 @@ class MultiModalCircRNAPredictor:
         from .features import CircRNAFeatureExtractor
         from .innate_immune import quick_predict
         from .dose_tox import quick_dose_predict
-        from .pkpd import simulate_pkpd
         from .admet import quick_admet
         from .multiscale import multiscale_simulation
         from .reliability import assess_prediction_reliability
+        from .circrna_ctm import simulate_circrna_ctm
 
         # 1. Sequence-based prediction (ML model)
         seq_prediction = self._predict_sequence(sequence)
@@ -107,8 +107,8 @@ class MultiModalCircRNAPredictor:
         # 3. Dose-response
         dose_response = quick_dose_predict(sequence, dose)
 
-        # 4. PK/PD simulation
-        pkpd = simulate_pkpd(sequence, dose)
+        # 4. CTM simulation (replaces simple PK/PD)
+        ctm = simulate_circrna_ctm(sequence, dose, extended=True)
 
         # 5. ADMET properties
         admet = quick_admet(sequence)
@@ -124,7 +124,7 @@ class MultiModalCircRNAPredictor:
 
         # Composite score (multi-modal fusion)
         composite = self._calculate_composite(
-            seq_prediction, innate, dose_response, pkpd, admet, gene_score
+            seq_prediction, innate, dose_response, ctm, admet, gene_score
         )
 
         # Generate report
@@ -140,7 +140,7 @@ class MultiModalCircRNAPredictor:
                 'sequence': seq_prediction,
                 'innate_immune': innate,
                 'dose_response': dose_response,
-                'pkpd': pkpd['summary'],
+                'ctm': ctm['summary'],
                 'admet': admet,
                 'multiscale': multiscale['final_outcome'],
             },
@@ -162,8 +162,24 @@ class MultiModalCircRNAPredictor:
                 'safe': dose_response['safe'],
             },
 
-            # PK/PD summary
-            'pkpd_summary': pkpd['summary'],
+            # PK/PD summary (now from CTM)
+            'pkpd_summary': {
+                'half_life_hours': ctm['summary']['half_life'],
+                'max_effect': ctm['max_effect'],
+                'peak_concentration': ctm['summary']['cmax_blood'],
+                'peak_time_hours': ctm['summary']['tmax_blood'],
+                'auc': ctm['summary']['auc_blood'],
+                'tumor_exposure': ctm['summary']['auc_tumor'],
+                'tumor_ratio': ctm['summary']['tumor_exposure_ratio'],
+                'effect_duration_hours': ctm['summary']['effect_duration_hours'],
+            },
+
+            # CTM compartments (new)
+            'ctm_details': {
+                'compartments': list(ctm['compartments'].keys()),
+                'modification': ctm['modification'],
+                'stability_factor': ctm['stability_factor'],
+            },
 
             # ADMET assessment
             'admet': {
@@ -249,7 +265,7 @@ class MultiModalCircRNAPredictor:
         seq_pred: Dict,
         innate: Dict,
         dose: Dict,
-        pkpd: Dict,
+        ctm: Dict,
         admet: Dict,
         gene_score: float,
     ) -> Dict:
@@ -260,7 +276,7 @@ class MultiModalCircRNAPredictor:
             seq_pred['immunogenicity'] * self.config.sequence_weight +
             innate['overall_score'] * self.config.innate_weight +
             dose['therapeutic_window'] * self.config.dose_weight +
-            pkpd['summary']['max_effect'] * self.config.pkpd_weight +
+            ctm['max_effect'] * self.config.pkpd_weight +
             (1 if admet['pass'] else 0) * self.config.admet_weight +
             gene_score * self.config.gene_weight
         )
@@ -282,7 +298,7 @@ class MultiModalCircRNAPredictor:
                 'sequence_contribution': seq_pred['immunogenicity'] * self.config.sequence_weight,
                 'innate_contribution': innate['overall_score'] * self.config.innate_weight,
                 'dose_contribution': dose['therapeutic_window'] * self.config.dose_weight,
-                'pkpd_contribution': pkpd['summary']['max_effect'] * self.config.pkpd_weight,
+                'ctm_contribution': ctm['max_effect'] * self.config.pkpd_weight,
                 'admet_contribution': (1 if admet['pass'] else 0) * self.config.admet_weight,
                 'gene_contribution': gene_score * self.config.gene_weight,
             },
