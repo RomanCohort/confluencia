@@ -67,21 +67,20 @@ def predict_single(
     # Load model
     model = joblib.load(model_path)
 
-    # Load scaler if available
-    scaler_path = Path(model_path).parent / "finetune_scaler.joblib"
-    if scaler_path.exists():
-        scaler = joblib.load(scaler_path)
-    else:
-        scaler = None
-
-    # Extract features
+    # Extract features (use consistent extractor)
     extractor = CircRNAFeatureExtractor()
     features = extractor.extract(sequence)
+    features = features.reshape(1, -1)
 
-    if scaler:
-        features = scaler.transform(features.reshape(1, -1))
-    else:
-        features = features.reshape(1, -1)
+    # Load scaler if available and compatible
+    scaler_path = Path(model_path).parent / "finetune_scaler.joblib"
+    if scaler_path.exists():
+        try:
+            scaler = joblib.load(scaler_path)
+            if scaler.n_features_in_ == features.shape[1]:
+                features = scaler.transform(features)
+        except:
+            pass  # Use unscaled features
 
     # Predict
     prediction = model.predict(features)[0]
@@ -138,7 +137,12 @@ def predict_batch(
     # Load model and scaler
     model = joblib.load(model_path)
     scaler_path = Path(model_path).parent / "finetune_scaler.joblib"
-    scaler = joblib.load(scaler_path) if scaler_path.exists() else None
+    scaler = None
+    if scaler_path.exists():
+        try:
+            scaler = joblib.load(scaler_path)
+        except:
+            pass
 
     # Parse FASTA
     sequences = []
@@ -164,7 +168,7 @@ def predict_batch(
     results = []
     for seq_id, seq in sequences:
         features = extractor.extract(seq).reshape(1, -1)
-        if scaler:
+        if scaler and scaler.n_features_in_ == features.shape[1]:
             features = scaler.transform(features)
         pred = model.predict(features)[0]
         results.append({
