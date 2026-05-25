@@ -284,9 +284,15 @@ for name, data in sequences.items():
 
     if 'predicted_immune' in data:
         print(f"预测免疫评分: {data['predicted_immune']:.3f}")
-        print(f"  - RIG-I: {data.get('predicted_rig_i', '-'):.3f}")
-        print(f"  - PKR: {data.get('predicted_pkr', '-'):.3f}")
-        print(f"  - TLR: {data.get('predicted_tlr', '-'):.3f}")
+        rig_i = data.get('predicted_rig_i')
+        pkr = data.get('predicted_pkr')
+        tlr = data.get('predicted_tlr')
+        if rig_i is not None:
+            print(f"  - RIG-I: {rig_i:.3f}")
+        if pkr is not None:
+            print(f"  - PKR: {pkr:.3f}")
+        if tlr is not None:
+            print(f"  - TLR: {tlr:.3f}")
 
     if 'expected_IFN_alpha' in data:
         print(f"预期IFN-α: {data['expected_IFN_alpha']}")
