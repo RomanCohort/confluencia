@@ -348,10 +348,12 @@ class CircRNAPipeline:
 
         # RIG-I recommendations
         rig_i = immune_scores.get("rig_i_score", 0.5)
-        if rig_i > 0.6:
-            recommendations.append("High RIG-I activation potential - strong innate immune response")
-        elif rig_i < 0.3:
-            recommendations.append("Low RIG-I score - consider adding GU-rich motifs at 5' end")
+        if rig_i > 0.5:
+            recommendations.append(f"RIG-I score: {rig_i:.2f} - moderate to high innate immune activation")
+        elif rig_i > 0.3:
+            recommendations.append(f"RIG-I score: {rig_i:.2f} - moderate activation potential")
+        else:
+            recommendations.append(f"RIG-I score: {rig_i:.2f} - low activation, consider adding GU-rich motifs")
 
         # TLR recommendations
         tlr = immune_scores.get("tlr_score", 0.5)

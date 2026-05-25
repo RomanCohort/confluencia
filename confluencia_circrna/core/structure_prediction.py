@@ -294,11 +294,15 @@ class StructurePredictor:
         More negative = more stable = higher score
         """
         # Map MFE normalized to stability score
-        # -0.3 kcal/mol/nt -> score ~0.5
-        # -0.8 kcal/mol/nt -> score ~1.0
-        # -0.1 kcal/mol/nt -> score ~0.0
+        # -0.8 kcal/mol/nt -> score ~1.0 (more stable)
+        # -0.1 kcal/mol/nt -> score ~0.0 (less stable)
+        # Linear mapping: score = -mfe_normalized / 0.8 (normalized to [0,1])
 
-        score = 0.5 + (mfe_normalized + 0.4) * 1.0
+        # mfe_normalized is negative, so negate to get positive score
+        # Scale: divide by 0.8 to map [-0.8, 0] to [1.0, 0.0]
+        score = -mfe_normalized / 0.8
+
+        # Clamp to [0, 1]
         return max(0.0, min(1.0, score))
 
     def _count_structures(self, dot_bracket: str) -> Tuple[int, int]:

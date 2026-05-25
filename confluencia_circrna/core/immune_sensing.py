@@ -151,7 +151,9 @@ def predict_circrna_immunogenicity(
     if config is None:
         config = ImmuneSensingConfig()
 
-    seq_upper = seq.upper()
+    # Convert T to U for RNA format
+    seq = seq.upper().replace("T", "U")
+    seq_upper = seq
     seq_len = len(seq)
 
     # Validate length
