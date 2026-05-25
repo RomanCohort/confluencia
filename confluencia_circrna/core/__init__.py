@@ -9,6 +9,8 @@ Modules:
 - folding_pathways: Folding pathway analysis and landscape
 - drug_response: Drug response and treatment prediction
 - rna_docking: RNA-small molecule docking prediction
+- rna_modifications: m6A, IRES, miRNA, RBP modification prediction
+- clinical_prediction: Clinical outcome and survival prediction
 - features: FeatureSpec configuration dataclass
 """
 
@@ -68,6 +70,28 @@ from confluencia_circrna.core.rna_docking import (
     compute_docking_score,
     design_rna_targeting_drug,
 )
+from confluencia_circrna.core.rna_modifications import (
+    ModificationPredictor,
+    ModificationFeatures,
+    ModificationSite,
+    IRESSite,
+    MiRNABindingSite,
+    RBPBindingSite,
+    ModificationType,
+    predict_modifications,
+    compute_modification_score,
+)
+from confluencia_circrna.core.clinical_prediction import (
+    ClinicalOutcomePredictor,
+    ClinicalFeatures,
+    SurvivalPrediction,
+    BiomarkerScore,
+    AdverseEventRisk,
+    Endpoint,
+    predict_clinical_outcome,
+    compute_clinical_score,
+    generate_clinical_report,
+)
 
 __all__ = [
     # immune_sensing
@@ -119,4 +143,24 @@ __all__ = [
     "predict_rna_docking",
     "compute_docking_score",
     "design_rna_targeting_drug",
+    # rna_modifications
+    "ModificationPredictor",
+    "ModificationFeatures",
+    "ModificationSite",
+    "IRESSite",
+    "MiRNABindingSite",
+    "RBPBindingSite",
+    "ModificationType",
+    "predict_modifications",
+    "compute_modification_score",
+    # clinical_prediction
+    "ClinicalOutcomePredictor",
+    "ClinicalFeatures",
+    "SurvivalPrediction",
+    "BiomarkerScore",
+    "AdverseEventRisk",
+    "Endpoint",
+    "predict_clinical_outcome",
+    "compute_clinical_score",
+    "generate_clinical_report",
 ]
