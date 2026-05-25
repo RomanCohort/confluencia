@@ -1,7 +1,7 @@
 {
   "name": "confluencia-studio",
-  "version": "1.0.0",
-  "description": "RStudio-style desktop IDE for circRNA drug discovery",
+  "version": "2.5.0",
+  "description": "Desktop IDE for drug discovery and circRNA vaccine development",
   "main": "dist-electron/main.js",
   "scripts": {
     "dev": "vite",
@@ -16,7 +16,9 @@
     "electron",
     "bioinformatics",
     "drug-discovery",
-    "circrna"
+    "circrna",
+    "vaccine",
+    "small-molecules"
   ],
   "author": "IGEM-FBH",
   "license": "MIT",

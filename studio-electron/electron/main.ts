@@ -138,10 +138,23 @@ function setupMenu() {
     {
       label: 'Apps',
       submenu: [
-        { label: 'Drug Discovery App', click: async () => { if (mainWindow) await launchStreamlitApp('drug'); } },
-        { label: 'Epitope Prediction App', click: async () => { if (mainWindow) await launchStreamlitApp('epitope'); } },
-        { label: 'circRNA Analysis App', click: async () => { if (mainWindow) await launchStreamlitApp('circrna'); } },
-        { label: 'Joint Evaluation App', click: async () => { if (mainWindow) await launchStreamlitApp('joint'); } },
+        {
+          label: '💊 Drug Discovery (Small Molecules)',
+          click: async () => { if (mainWindow) await launchStreamlitApp('drug'); }
+        },
+        {
+          label: '🧬 circRNA Vaccine Designer',
+          click: async () => { if (mainWindow) await launchStreamlitApp('circrna'); }
+        },
+        { type: 'separator' },
+        {
+          label: 'Epitope Prediction',
+          click: async () => { if (mainWindow) await launchStreamlitApp('epitope'); }
+        },
+        {
+          label: 'Joint Evaluation',
+          click: async () => { if (mainWindow) await launchStreamlitApp('joint'); }
+        },
       ],
     },
     {
@@ -314,15 +327,14 @@ function sendToPython(method: string, params: Record<string, unknown> = {}) {
 }
 
 // ---------------------------------------------------------------------------
-// Streamlit App Management
+// Streamlit App Management (v2.5 Module Separation)
 // ---------------------------------------------------------------------------
 
-const STREAMLIT_APPS: Record<string, { file: string; port: number }> = {
-  main: { file: 'src/frontend.py', port: 8500 },  // Confluencia 1.0 main app
-  drug: { file: 'confluencia-2.0-drug/app.py', port: 8501 },
-  epitope: { file: 'confluencia-2.0-epitope/epitope_frontend.py', port: 8502 },
-  circrna: { file: 'confluencia_circrna/circrna_streamlit.py', port: 8503 },
-  joint: { file: 'confluencia_joint/joint_streamlit.py', port: 8504 },
+const STREAMLIT_APPS: Record<string, { file: string; port: number; displayName: string }> = {
+  drug: { file: 'confluencia-2.0-drug/app_drug.py', port: 8501, displayName: 'Drug Discovery (Small Molecules)' },
+  circrna: { file: 'confluencia_circrna/app.py', port: 8502, displayName: 'circRNA Vaccine Designer' },
+  epitope: { file: 'confluencia-2.0-epitope/epitope_frontend.py', port: 8503, displayName: 'Epitope Prediction' },
+  joint: { file: 'confluencia_joint/joint_streamlit.py', port: 8504, displayName: 'Joint Evaluation' },
 };
 
 function resolveStreamlitApp(appName: string): string | null {
