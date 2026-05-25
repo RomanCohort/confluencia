@@ -11,10 +11,7 @@ Modules:
 - rna_docking: RNA-small molecule docking prediction
 - rna_modifications: m6A, IRES, miRNA, RBP modification prediction
 - clinical_prediction: Clinical outcome and survival prediction
-- ed2mol_adapter: ED2Mol molecule generation adapter
-- ed2mol_templates: ED2Mol configuration templates
-- rna_evolution: circRNA and molecule evolutionary optimization
-- features: FeatureSpec configuration dataclass
+- cirrna_evolution: circRNA sequence evolutionary optimization
 """
 
 from confluencia_circrna.core.immune_sensing import (
@@ -95,22 +92,18 @@ from confluencia_circrna.core.clinical_prediction import (
     compute_clinical_score,
     generate_clinical_report,
 )
-from confluencia_circrna.core.ed2mol_adapter import (
-    ED2MolAdapter,
-    ED2MolRunResult,
-)
-from confluencia_circrna.core.ed2mol_templates import (
-    build_ed2mol_config_text,
-    write_ed2mol_config,
-)
-from confluencia_circrna.core.rna_evolution import (
-    EvolutionConfig,
+from confluencia_circrna.core.cirrna_evolution import (
     CircRNAEvolutionConfig,
-    EvolutionArtifacts,
-    evolve_molecules,
+    CircRNAEvolutionArtifacts,
     evolve_cirrna,
     run_cirrna_evolution,
-    run_molecule_evolution,
+    optimize_for_translation,
+    optimize_for_stability,
+    optimize_for_immune_safety,
+    compute_cirrna_objectives,
+    mutate_backbone,
+    optimize_ires,
+    shuffle_utr,
 )
 
 __all__ = [
@@ -145,7 +138,7 @@ __all__ = [
     "analyze_folding_pathways",
     "compute_pathway_immunogenicity",
     "find_optimal_folding_conditions",
-    # drug_response
+    # drug_response (circRNA vaccine focused)
     "DrugResponsePredictor",
     "DrugResponseFeatures",
     "SynergyScore",
@@ -153,7 +146,7 @@ __all__ = [
     "predict_drug_response",
     "compute_drug_response_score",
     "recommend_treatment",
-    # rna_docking
+    # rna_docking (RNA-targeting drugs)
     "RNADockingPredictor",
     "DockingFeatures",
     "BindingSite",
@@ -183,17 +176,16 @@ __all__ = [
     "predict_clinical_outcome",
     "compute_clinical_score",
     "generate_clinical_report",
-    # ed2mol
-    "ED2MolAdapter",
-    "ED2MolRunResult",
-    "build_ed2mol_config_text",
-    "write_ed2mol_config",
-    # rna_evolution
-    "EvolutionConfig",
+    # cirrna_evolution
     "CircRNAEvolutionConfig",
-    "EvolutionArtifacts",
-    "evolve_molecules",
+    "CircRNAEvolutionArtifacts",
     "evolve_cirrna",
     "run_cirrna_evolution",
-    "run_molecule_evolution",
+    "optimize_for_translation",
+    "optimize_for_stability",
+    "optimize_for_immune_safety",
+    "compute_cirrna_objectives",
+    "mutate_backbone",
+    "optimize_ires",
+    "shuffle_utr",
 ]
