@@ -164,6 +164,7 @@ def predict_circrna_immunogenicity(
         }
     if seq_len > config.max_length:
         seq_upper = seq_upper[:config.max_length]
+        seq_len = len(seq_upper)  # Update length after truncation
 
     # === RIG-I scoring (0.4 weight) ===
     # RIG-I recognizes 5'-triphosphate blunt-ended RNA with panhandle structure
