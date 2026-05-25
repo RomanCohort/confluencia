@@ -1,0 +1,202 @@
+{
+  "version": "circrna-scoring-v3",
+  "description": "Literature-based scoring weights for circRNA immunogenicity prediction",
+
+  "literature_sources": [
+    {
+      "key": "rig_i_pathway",
+      "reference": "Schlee et al., 2009; Kato et al., Nat Rev Microbiol 2008",
+      "doi": "10.1038/nrmicro2103",
+      "description": "RIG-I recognizes 5'-triphosphate blunt-ended RNA"
+    },
+    {
+      "key": "tlr7_8_pathway",
+      "reference": "Diebold et al., 2006; Heil et al., 2004",
+      "doi": "10.1126/science.1130780",
+      "description": "TLR7/8 recognizes ssRNA with uridine-rich motifs"
+    },
+    {
+      "key": "pkr_pathway",
+      "reference": "Nallagatla et al., 2007; Lemaire et al., 2008",
+      "doi": "10.1073/pnas.0700546104",
+      "description": "PKR requires >33bp dsRNA for activation"
+    },
+    {
+      "key": "immune_cycle",
+      "reference": "Chen & Mellman, Immunity 2013",
+      "doi": "10.1016/j.immuni.2013.07.012",
+      "description": "Cancer immunity cycle framework"
+    },
+    {
+      "key": "tide_score",
+      "reference": "Jiang et al., 2018 (TIDE)",
+      "doi": "10.1038/s41586-018-0185-8",
+      "description": "Tumor immune dysfunction and exclusion"
+    }
+  ],
+
+  "rig_i_sub_weights": {
+    "blunt_end_potential": 0.35,
+    "motif_match": 0.40,
+    "gc_content": 0.20,
+    "length_factor": 0.05,
+    "note": "Schlee et al., 2009: blunt end is key RIG-I determinant; Kato et al.: CCUCC motifs"
+  },
+
+  "tlr_sub_weights": {
+    "uridine_content": 0.45,
+    "au_rich_elements": 0.30,
+    "tlr_motif": 0.20,
+    "length_factor": 0.05,
+    "note": "Diebold et al., 2006: uridine is key TLR7/8 ligand; Heil et al.: GUUG motifs"
+  },
+
+  "pkr_sub_weights": {
+    "dsrna_fraction": 0.50,
+    "dsrna_length": 0.25,
+    "gc_rich_regions": 0.20,
+    "modification_penalty": 0.05,
+    "min_dsrna_length": 33,
+    "note": "Nallagatla et al., 2007: PKR threshold is 33bp dsRNA"
+  },
+
+  "overall_pathway_weights": {
+    "rig_i": 0.40,
+    "tlr": 0.35,
+    "pkr": 0.25,
+    "note": "Chen & Mellman, 2013: RIG-I and TLR pathways contribute most to innate immune activation"
+  },
+
+  "composite_score_weights": {
+    "immunotherapy_score": {
+      "immunogenicity": 0.30,
+      "tide_inverse": 0.25,
+      "ips_fraction": 0.25,
+      "immune_cycle": 0.20,
+      "note": "Combination of innate activation and tumor immune context"
+    },
+    "tumor_killing_index": {
+      "immune_cycle": 0.35,
+      "mki67_inverse": 0.25,
+      "immunogenicity": 0.25,
+      "therapeutic_window": 0.15,
+      "note": "Higher immune activation + lower proliferation = better killing"
+    },
+    "therapeutic_window": {
+      "tide_inverse": 0.35,
+      "ips_fraction": 0.30,
+      "immunogenicity": 0.20,
+      "tme_score": 0.15,
+      "note": "Balance between efficacy and toxicity"
+    },
+    "immune_cycle_score": {
+      "rig_i": 0.30,
+      "tlr": 0.25,
+      "pkr": 0.20,
+      "gene_expression": 0.25,
+      "note": "Based on Chen & Mellman cancer immunity cycle"
+    }
+  },
+
+  "gene_normalization_ranges": {
+    "TROP2": {
+      "low": 2.0,
+      "high": 12.0,
+      "median": 7.0,
+      "reference": "TCGA-BRCA expression distribution",
+      "description": "Trophoblast cell surface antigen 2"
+    },
+    "NECTIN4": {
+      "low": 2.0,
+      "high": 10.0,
+      "median": 5.0,
+      "reference": "TCGA-BRCA expression distribution",
+      "description": "Nectin-4, ADC target"
+    },
+    "LIV-1": {
+      "low": 1.0,
+      "high": 8.0,
+      "median": 3.5,
+      "reference": "TCGA-BRCA expression distribution",
+      "description": "Zinc transporter SLC39A6"
+    },
+    "B7-H4": {
+      "low": 2.0,
+      "high": 10.0,
+      "median": 6.0,
+      "reference": "TCGA-BRCA expression distribution",
+      "description": "Immune checkpoint molecule"
+    },
+    "MKI67": {
+      "low": 4.0,
+      "high": 14.0,
+      "median": 8.0,
+      "reference": "TCGA-BRCA proliferation range",
+      "description": "Ki-67 proliferation marker"
+    },
+    "MYC": {
+      "low": 3.0,
+      "high": 12.0,
+      "median": 4.5,
+      "reference": "TCGA-BRCA expression distribution",
+      "description": "MYC oncogene"
+    }
+  },
+
+  "motif_definitions": {
+    "rig_i_motifs": {
+      "patterns": ["CCUCC", "UCUCC", "ACUCC", "GCUCC"],
+      "source": "Kato et al., 2008",
+      "description": "RIG-I recognition motifs"
+    },
+    "tlr_motifs": {
+      "patterns": ["GUUG", "UUGU", "UGUU", "GUUU", "GUU"],
+      "source": "Heil et al., 2004",
+      "description": "TLR7/8 recognition motifs"
+    },
+    "au_rich_patterns": {
+      "regex_patterns": ["AUUUA", "UUAUUUAU", "UAUUUAU", "UUAUUUAUU"],
+      "source": "Linehan et al., 2018",
+      "description": "AU-rich elements reducing RIG-I activation"
+    }
+  },
+
+  "mfe_stability_thresholds": {
+    "highly_stable": {
+      "mfe_threshold": -300,
+      "stability_score": 0.9,
+      "note": "kcal/mol - highly stable structure"
+    },
+    "moderately_stable": {
+      "mfe_threshold": -200,
+      "stability_score": 0.6,
+      "note": "kcal/mol - moderate stability"
+    },
+    "less_stable": {
+      "mfe_threshold": -100,
+      "stability_score": 0.3,
+      "note": "kcal/mol - less stable structure"
+    },
+    "unstable": {
+      "mfe_threshold": -50,
+      "stability_score": 0.1,
+      "note": "kcal/mol - unstable structure"
+    }
+  },
+
+  "response_classification_thresholds": {
+    "likely_responder": {
+      "ips_min": 7.0,
+      "tide_max": 0.3,
+      "immunogenicity_min": 0.6
+    },
+    "likely_non_responder": {
+      "ips_max": 3.0,
+      "tide_min": 0.6,
+      "immunogenicity_max": 0.3
+    },
+    "intermediate": {
+      "note": "All other cases between responder and non-responder thresholds"
+    }
+  }
+}
