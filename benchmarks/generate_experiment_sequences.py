@@ -8,11 +8,18 @@
 4. 高IRES评分序列
 
 AutoDL运行命令：
-cd /root && python generate_experiment_sequences.py
+cd /root/autodl-tmp/confluencia && git pull && python benchmarks/generate_experiment_sequences.py
 """
 
+import os
 import sys
-sys.path.insert(0, '/root/confluencia_circrna')
+
+# 自动检测路径
+current_dir = os.path.dirname(os.path.abspath(__file__))
+root_dir = os.path.dirname(current_dir)
+
+# 添加正确的路径
+sys.path.insert(0, root_dir)
 
 from confluencia_circrna.core import (
     predict_circrna_immunogenicity,
