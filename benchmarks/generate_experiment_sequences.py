@@ -142,10 +142,10 @@ obj_high = compute_cirrna_objectives(high_gc_seq, "none")
 
 sequences['high_immune_1'] = {
     'sequence': high_gc_seq,
-    'predicted_immune': immune_high.overall_immunogenicity,
-    'predicted_rig_i': immune_high.rig_i_score,
-    'predicted_pkr': immune_high.pkr_score,
-    'predicted_tlr': immune_high.tlr7_score + immune_high.tlr8_score,
+    'predicted_immune': immune_high['overall_immunogenicity'],
+    'predicted_rig_i': immune_high['rig_i_score'],
+    'predicted_pkr': immune_high['pkr_score'],
+    'predicted_tlr': immune_high['tlr_score'],
     'modification': 'none',
     'gc_content': sum(1 for c in high_gc_seq if c in 'GC') / len(high_gc_seq),
     'purpose': 'PBMC验证 - 高免疫激活预期',
@@ -160,10 +160,10 @@ immune_high2 = predict_circrna_immunogenicity(high_gc_seq2, config)
 
 sequences['high_immune_2'] = {
     'sequence': high_gc_seq2,
-    'predicted_immune': immune_high2.overall_immunogenicity,
-    'predicted_rig_i': immune_high2.rig_i_score,
-    'predicted_pkr': immune_high2.pkr_score,
-    'predicted_tlr': immune_high2.tlr7_score + immune_high2.tlr8_score,
+    'predicted_immune': immune_high2['overall_immunogenicity'],
+    'predicted_rig_i': immune_high2['rig_i_score'],
+    'predicted_pkr': immune_high2['pkr_score'],
+    'predicted_tlr': immune_high2['tlr_score'],
     'modification': 'none',
     'gc_content': sum(1 for c in high_gc_seq2 if c in 'GC') / len(high_gc_seq2),
     'purpose': 'RIG-I/PKR验证 - 高激活预期',
@@ -179,10 +179,10 @@ obj_low = compute_cirrna_objectives(low_gc_seq, "m6A")
 
 sequences['low_immune_1'] = {
     'sequence': low_gc_seq,
-    'predicted_immune': immune_low.overall_immunogenicity,
-    'predicted_rig_i': immune_low.rig_i_score,
-    'predicted_pkr': immune_low.pkr_score,
-    'predicted_tlr': immune_low.tlr7_score + immune_low.tlr8_score,
+    'predicted_immune': immune_low['overall_immunogenicity'],
+    'predicted_rig_i': immune_low['rig_i_score'],
+    'predicted_pkr': immune_low['pkr_score'],
+    'predicted_tlr': immune_low['tlr_score'],
     'modification': 'm6A',
     'gc_content': sum(1 for c in low_gc_seq if c in 'GC') / len(low_gc_seq),
     'purpose': 'PBMC验证 - 低免疫激活预期',
@@ -198,10 +198,10 @@ immune_low2 = predict_circrna_immunogenicity(low_gc_seq2, config)
 
 sequences['low_immune_2'] = {
     'sequence': low_gc_seq2,
-    'predicted_immune': immune_low2.overall_immunogenicity,
-    'predicted_rig_i': immune_low2.rig_i_score,
-    'predicted_pkr': immune_low2.pkr_score,
-    'predicted_tlr': immune_low2.tlr7_score + immune_low2.tlr8_score,
+    'predicted_immune': immune_low2['overall_immunogenicity'],
+    'predicted_rig_i': immune_low2['rig_i_score'],
+    'predicted_pkr': immune_low2['pkr_score'],
+    'predicted_tlr': immune_low2['tlr_score'],
     'modification': 'm6A',
     'gc_content': sum(1 for c in low_gc_seq2 if c in 'GC') / len(low_gc_seq2),
     'purpose': '对照 - 极低免疫激活预期',
@@ -219,14 +219,14 @@ immune_m6a = predict_circrna_immunogenicity(seq_with_m6a, config)
 
 sequences['m6a_comparison_none'] = {
     'sequence': base_seq,
-    'predicted_immune': immune_none.overall_immunogenicity,
+    'predicted_immune': immune_none['overall_immunogenicity'],
     'modification': 'none',
     'purpose': 'm6A效果验证 - 无修饰对照',
 }
 
 sequences['m6a_comparison_m6a'] = {
     'sequence': seq_with_m6a,
-    'predicted_immune': immune_m6a.overall_immunogenicity,
+    'predicted_immune': immune_m6a['overall_immunogenicity'],
     'modification': 'm6A',
     'purpose': 'm6A效果验证 - 有修饰',
     'expected': '免疫激活低于无修饰版',
