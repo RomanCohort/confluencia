@@ -7,6 +7,8 @@ Modules:
 - folding_kinetics: Folding rate, barrier, suboptimal structures
 - cotrans_folding: Cotranscriptional folding simulation
 - folding_pathways: Folding pathway analysis and landscape
+- drug_response: Drug response and treatment prediction
+- rna_docking: RNA-small molecule docking prediction
 - features: FeatureSpec configuration dataclass
 """
 
@@ -46,6 +48,26 @@ from confluencia_circrna.core.folding_pathways import (
     compute_pathway_immunogenicity,
     find_optimal_folding_conditions,
 )
+from confluencia_circrna.core.drug_response import (
+    DrugResponsePredictor,
+    DrugResponseFeatures,
+    SynergyScore,
+    DrugClass,
+    predict_drug_response,
+    compute_drug_response_score,
+    recommend_treatment,
+)
+from confluencia_circrna.core.rna_docking import (
+    RNADockingPredictor,
+    DockingFeatures,
+    BindingSite,
+    DockingResult,
+    DrugCandidate,
+    RNAMotifType,
+    predict_rna_docking,
+    compute_docking_score,
+    design_rna_targeting_drug,
+)
 
 __all__ = [
     # immune_sensing
@@ -79,4 +101,22 @@ __all__ = [
     "analyze_folding_pathways",
     "compute_pathway_immunogenicity",
     "find_optimal_folding_conditions",
+    # drug_response
+    "DrugResponsePredictor",
+    "DrugResponseFeatures",
+    "SynergyScore",
+    "DrugClass",
+    "predict_drug_response",
+    "compute_drug_response_score",
+    "recommend_treatment",
+    # rna_docking
+    "RNADockingPredictor",
+    "DockingFeatures",
+    "BindingSite",
+    "DockingResult",
+    "DrugCandidate",
+    "RNAMotifType",
+    "predict_rna_docking",
+    "compute_docking_score",
+    "design_rna_targeting_drug",
 ]
