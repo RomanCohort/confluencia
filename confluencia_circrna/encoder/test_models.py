@@ -15,7 +15,24 @@ def main():
     print("Testing circRNA Prediction Models")
     print("=" * 60)
 
-    model_dir = Path(__file__).resolve().parents[2] / "data" / "models"
+    # 尝试多个可能的路径
+    possible_paths = [
+        Path(__file__).resolve().parents[2] / "data" / "models",  # confluencia_circrna/data/models
+        Path(__file__).resolve().parents[3] / "confluencia_circrna" / "data" / "models",  # 项目根/confluencia_circrna/data/models
+        Path("/root/autodl-tmp/confluencia_circrna/data/models"),  # AutoDL绝对路径
+        Path.cwd() / "confluencia_circrna" / "data" / "models",
+    ]
+
+    model_dir = None
+    for p in possible_paths:
+        if p.exists() and (p / "ips_predictor.pkl").exists():
+            model_dir = p
+            break
+
+    if model_dir is None:
+        print("ERROR: Model files not found. Please train models first:")
+        print("  python confluencia_circrna/encoder/train.py")
+        return
 
     # 测试IPS模型
     model = joblib.load(model_dir / "ips_predictor.pkl")
