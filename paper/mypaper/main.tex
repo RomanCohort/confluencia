@@ -1,0 +1,121 @@
+%% main.tex — Confluencia Bioinformatics Application Note v3
+%% 2026-05-30 | All metrics verified against benchmarks/results/*.json
+%% v3: reframed as integration tool, not algorithm innovation
+%% Format: Bioinformatics Application Note (≤100 word abstract, ~800-1000 word body, ≤15 refs)
+
+\documentclass{article}
+\usepackage{bioinformatics}
+\usepackage{natbib}
+\usepackage{graphicx}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{url}
+\usepackage{hyperref}
+\usepackage{booktabs}
+\usepackage{array}
+
+\title{Confluencia: An Integrated circRNA Drug Discovery Platform\\
+with Six-Compartment Pharmacokinetic Modeling}
+
+\author{
+IGEM-FBH Team\thanks{The First Bethune Hospital of Jilin University
+and College of Computer Science and Technology, Jilin University,
+Changchun, China}%
+}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+\textbf{Summary:} Confluencia integrates circRNA-specific pharmacokinetic simulation, small-sample ensemble prediction, and ADMET evaluation into a single platform---addressing the fragmentation of existing specialized tools. RNACTM simulates circRNA delivery dynamics over 72\,h across six compartments using literature-derived parameters for five nucleotide modifications ($\Psi$, m6A, 5mC, ms2m6A, unmodified; half-life validated within 4.1\% for three modifications). A sample-size-adaptive Mixture-of-Experts ensemble achieves 39.2\% MAE reduction versus Ridge on epitope prediction ($N{=}300$), and ADMET covers 8 endpoint categories with 84 structural alerts (100\% PAINS recall).\\
+\textbf{Availability and implementation:} \url{https://github.com/RomanCohort/confluencia}, MIT license. Python 3.8+, Linux/macOS/Windows. Docker and Confluencia Studio IDE available.\\
+\textbf{Contact:} \email{18806370529@163.com}
+\end{abstract}
+
+\input{sections/introduction}
+\input{sections/methods}
+\input{sections/results}
+\input{sections/discussion}
+\input{sections/availability}
+
+\bibliographystyle{natbib}
+\begin{thebibliography}{15}
+
+\bibitem[Wesselhoeft et al.(2018)]{wesselhoeft2018}
+Wesselhoeft, R.A., Kowalski, P.S. and Anderson, D.G. (2018)
+Engineering circular RNA for potent and stable translation in eukaryotic cells.
+\textit{Nat. Commun.}, \textbf{9}, 2629.
+
+\bibitem[Chen et al.(2019)]{chen2019}
+Chen, Y.G., Kim, M. and Chen, X. (2019)
+N6-methyladenosine modification controls circular RNA immune evasion.
+\textit{Nature}, \textbf{586}, 556--560.
+
+\bibitem[Liu et al.(2023)]{liu2023}
+Liu, X., Linn, M., Bhagat, S. et al. (2023)
+Mechanistic compartmental pharmacokinetic modeling of oligonucleotides.
+\textit{CPT Pharmacometrics Syst. Pharmacol.}, \textbf{12}, 391--404.
+
+\bibitem[Hassett et al.(2019)]{hassett2019}
+Hassett, K.J., Benenato, K.E., Jacquinet, E. et al. (2019)
+Optimization of lipid nanoparticles for intramuscular administration of mRNA vaccines.
+\textit{Mol. Ther.}, \textbf{27}, 773--784.
+
+\bibitem[Jacobs et al.(1991)]{jacobs1991}
+Jacobs, R.A., Jordan, M.I., Barto, A.G. et al. (1991)
+Adaptive mixtures of local experts.
+\textit{Neural Comput.}, \textbf{3}, 79--87.
+
+\bibitem[Gu and Dao(2023)]{gu2023}
+Gu, A. and Dao, T. (2023)
+Mamba: Linear-time sequence modeling with selective state spaces.
+\textit{arXiv}, 2312.00752.
+
+\bibitem[Reynisson et al.(2020)]{reynisson2020}
+Reynisson, B., Barra, C., Kaabinejadian, S. et al. (2020)
+NetMHCpan-4.1: improved peptide-MHC class I interaction predictions.
+\textit{J. Immunol. Methods}, \textbf{480}, 112761.
+
+\bibitem[Xiong et al.(2024)]{xiong2024}
+Xiong, J., Pan, P., Guo, Q. et al. (2024)
+ADMETlab 3.0: an updated comprehensive webserver for ADMET prediction.
+\textit{Brief. Bioinform.}, \textbf{25}, bbae536.
+
+\bibitem[Baell and Holloway(2010)]{baell2010}
+Baell, J.B. and Holloway, G.A. (2010)
+New substructure filters for removal of pan assay interference compounds (PAINS).
+\textit{J. Med. Chem.}, \textbf{53}, 2719--2740.
+
+\bibitem[Lin et al.(2023)]{lin2023}
+Lin, Z., Akin, H., Rao, R. et al. (2023)
+Evolutionary-scale prediction of atomic-level protein structure with a language model.
+\textit{Science}, \textbf{379}, 1123--1130.
+
+\bibitem[Vita et al.(2019)]{vita2019}
+Vita, R., Mahmutovic, M. and Sette, A. (2019)
+The Immune Epitope Database (IEDB): 2018 update.
+\textit{Nucleic Acids Res.}, \textbf{47}, D339--D343.
+
+\bibitem[Yang et al.(2013)]{yang2013}
+Yang, W., Soares, J., Greninger, P. et al. (2013)
+Genomics of Drug Sensitivity in Cancer (GDSC).
+\textit{Nucleic Acids Res.}, \textbf{41}, D983--D989.
+
+\bibitem[Gilleron et al.(2013)]{gilleron2013}
+Gilleron, J., Querbes, W., Zeigerer, A. et al. (2013)
+Image-based analysis of lipid nanoparticle-mediated siRNA delivery, intracellular trafficking and endosomal escape.
+\textit{Nat. Biotechnol.}, \textbf{31}, 638--646.
+
+\bibitem[Brenk et al.(2008)]{brenk2008}
+Brenk, R., Schipani, A. and James, D. (2008)
+Lessons learned from molecular scaffold design.
+\textit{ChemMedChem}, \textbf{3}, 435--444.
+
+\bibitem[Pedregosa et al.(2011)]{pedregosa2011}
+Pedregosa, F., Varoquaux, G. and Gramfort, A. (2011)
+Scikit-learn: Machine learning in Python.
+\textit{JMLR}, \textbf{12}, 2825--2830.
+
+\end{thebibliography}
+
+\end{document}

@@ -1,0 +1,8 @@
+%% sections/discussion.tex — v3 REVISED (reframed: integration value, honest limitations)
+%% Added: honest MOE limitations, Ridge vs MOE context, integration value emphasis
+
+\section{Discussion}
+
+Confluencia provides the first integrated platform for circRNA drug discovery, combining circRNA-specific PK simulation, small-sample ensemble learning, and ADMET evaluation in a single workflow---functions unavailable in specialized tools (NetMHCpan for binding \citep{reynisson2020}, ADMETlab for toxicity \citep{xiong2024}, ESM-2 for sequence encoding \citep{lin2023}). Rather than competing with specialized predictors on individual tasks (MHC-I AUC 0.65--0.74 vs NetMHCpan AUC ${>}0.92$), Confluencia's value lies in unified functionality: PK trajectory simulation enables nucleotide modification comparison, dose optimization, and delivery route selection that no single specialized tool provides.
+
+Limitations require honest acknowledgment: (1) RNACTM parameters derive from literature rather than fitted PK data, and protein expression duration is overestimated (97\,h vs 48\,h), suggesting the clearance model needs refinement; (2) ADMET QSAR weights are literature-derived, not trained on circRNA-specific toxicity data; (3) only MHC-I alleles are supported (no class II); (4) MOE's adaptive gating adds complexity without benefit when Ridge suffices for low-dimensional drug efficacy prediction ($R^2$ 0.984 vs 0.982); (5) the 5D evaluation shows weak Spearman $r=0.135$ with IFN responses, indicating insufficient immunogenicity features. Future work should incorporate wet-lab PK data for RNACTM fitting, class II MHC support, and additional immune response predictors.

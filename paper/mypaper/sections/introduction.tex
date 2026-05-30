@@ -1,0 +1,8 @@
+%% sections/introduction.tex — v3 REVISED (reframed: integration platform, not algorithm innovation)
+%% Added: specific gap analysis, sample-size context
+
+\section{Introduction}
+
+Therapeutic circular RNA (circRNA) offers advantages over linear mRNA in structural stability, prolonged expression duration, and controlled immunogenicity \citep{wesselhoeft2018,chen2019}, yet computational tools for circRNA drug discovery remain fragmented. Researchers must switch between specialized predictors---NetMHCpan for MHC binding \citep{reynisson2020}, ADMETlab for toxicity \citep{xiong2024}, and generic PK packages---while lacking any circRNA-specific pharmacokinetic simulation. Moreover, circRNA wet-lab studies typically yield fewer than 300 labeled samples, a regime where standard deep learning approaches fail, yet no existing tool adapts model complexity to this constraint.
+
+Confluencia addresses this gap by integrating circRNA-specific functionality into a single platform: RNACTM, a six-compartment pharmacokinetic (PK) model with literature-derived rate constants for five nucleotide modifications ($\Psi$, m6A, 5mC, ms2m6A, unmodified), enabling 72\,h trajectory simulation without requiring patient PK data; a sample-size-adaptive Mixture-of-Experts (MOE) ensemble \citep{jacobs1991} that scales model complexity to available data, critical for the $N<300$ regime; Mamba3Lite sequence encoding \citep{gu2023}; ADMET toxicity prediction \citep{baell2010,brenk2008}; and a five-dimension clinical evaluation system.
