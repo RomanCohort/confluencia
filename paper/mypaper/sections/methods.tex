@@ -16,6 +16,10 @@ Following the mixture-of-experts framework \citep{jacobs1991}, Confluencia selec
 
 Drug candidates are evaluated for PAINS patterns, reactive functional groups, and rule-based ADMET flags from the 2083-dimension feature set (Morgan fingerprints + physicochemical descriptors). When data is insufficient for learned prediction, heuristic safety constraints enforce physiological floors: toxicity $\geq 0.06 + 0.16 \times \text{efficacy}$ and inflammation $\geq 0.05 + 0.12 \times \text{efficacy} \times \text{binding}$, preventing the system from reporting implausibly low risk for high-efficacy compounds.
 
+\subsection{circRNA structure and immunogenicity}
+
+Circular RNA secondary structure is predicted using ViennaRNA \citep{lorenz2011}, computing minimum free energy (MFE) folding and identifying double-stranded regions exceeding 33\,bp---the threshold for PKR activation \citep{nallagatla2007}. The structural immunogenicity score integrates dsRNA content, MFE stability, and nucleotide modification effects into an immunotherapy suitability index. This connects ViennaRNA's well-validated structure prediction to immunogenicity assessment---a mapping that ViennaRNA alone does not provide, but which is critical for circRNA therapeutic design.
+
 \subsection{Uncertainty-adaptive five-dimension evaluation}
 
 The joint score aggregates five dimensions (Clinical, Binding, Kinetics, Gene Signature, circRNA) with base weights $(0.30, 0.20, 0.15, 0.15, 0.20)$. Critically, each weight is modulated by a quadratic uncertainty penalty: $w_i' = w_i \times (1 - u_i)^2$, where $u_i$ is the per-dimension prediction uncertainty. This ensures that under-constrained dimensions (e.g., clinical outcomes with no training data) contribute near-zero weight rather than injecting noise. The composite score yields Go ($\geq0.65$), Conditional ($\geq0.40$), or No-Go recommendations, with a safety override that forces No-Go when safety penalty exceeds 0.30.
