@@ -24,8 +24,32 @@ from datetime import datetime
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, PROJECT_ROOT)
 
-# ── Lazy import: let JointEvaluationEngine handle all sub-module imports ──
-# Only import from confluencia_joint (which has __init__.py and proper package structure)
+# ── Diagnostic: verify weight_loader import works ──
+print(f"[DIAG] PROJECT_ROOT = {PROJECT_ROOT}")
+print(f"[DIAG] sys.path[0] = {sys.path[0]}")
+try:
+    from confluencia_shared.weight_loader import get_sub_weights, get_thresholds
+    print("[DIAG] weight_loader import: SUCCESS")
+except ImportError as e:
+    print(f"[DIAG] weight_loader import: FAILED — {e}")
+    # Fallback: try adding confluencia_shared directly
+    shared_dir = os.path.join(PROJECT_ROOT, "confluencia_shared")
+    if os.path.isdir(shared_dir):
+        # Create a namespace package by ensuring __init__.py exists
+        init_path = os.path.join(shared_dir, "__init__.py")
+        if not os.path.exists(init_path):
+            print(f"[DIAG] Creating missing __init__.py in {shared_dir}")
+            with open(init_path, "w") as f:
+                f.write("")
+    print(f"[DIAG] Retrying with explicit path...")
+    sys.path.insert(0, PROJECT_ROOT)  # Re-insert at position 0
+    try:
+        from confluencia_shared.weight_loader import get_sub_weights, get_thresholds
+        print("[DIAG] weight_loader import retry: SUCCESS")
+    except ImportError as e2:
+        print(f"[DIAG] weight_loader import retry: STILL FAILED — {e2}")
+        print(f"[DIAG] Files in confluencia_shared: {os.listdir(shared_dir) if os.path.isdir(shared_dir) else 'DIR NOT FOUND'}")
+
 from confluencia_joint.joint_input import JointInput
 from confluencia_joint.joint_evaluator import JointEvaluationEngine
 
