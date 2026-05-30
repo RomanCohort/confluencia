@@ -1,10 +1,10 @@
-%% sections/discussion.tex — v5: compressed for Application Note
-%% Core: limitations are domain-inherent, not architecture-specific
+%% sections/discussion.tex — v6: dual-modality cross reasoning as contribution
+%% Core: Confluencia's innovation is cross-modality reasoning, not beating siloed tools
 
 \section{Discussion}
 
-Confluencia provides the first integrated platform for circRNA drug evaluation---not because it outperforms specialized tools on individual tasks (NetMHCpan achieves AUC $>0.92$ \citep{reynisson2020}; ADMETlab covers $>50$ endpoints \citep{xiong2024}), but because no specialized tool exists for circRNA-specific PK, immunogenicity, or cross-module decision-making. The circRNA field lacks the public PK datasets and clinical endpoint standards that enabled tools like ADMETlab. In this data vacuum, Confluencia's literature-constrained ODE parameters, uncertainty-adaptive weighting, and physiological consistency floors represent a principled approach where data-driven alternatives are impossible.
+Confluencia's contribution is not outperforming specialized tools on individual tasks (NetMHCpan achieves AUC $>0.92$ \citep{reynisson2020}; ADMETlab covers $>50$ endpoints \citep{xiong2024}), but producing cross-modality reasoning that no siloed tool can. The case study illustrates this: a $\Psi$-circRNA + Rhodanine pair receives No-Go because circRNA immunogenicity compounds Rhodanine's PAINS profile---a conclusion that requires evaluating both modalities together. NetMHCpan alone would report binding affinity; ADMETlab alone would flag PAINS; neither would connect these to circRNA half-life or immune activation. This cross-modality integration is the architectural innovation, not any single module's performance.
 
-The uncertainty-adaptive 5D evaluation is particularly suited: dimensions without training data auto-downweight via $(1-u)^2$, communicating limitations rather than hiding them.
+The uncertainty-adaptive 5D evaluation reinforces this: dimensions without training data auto-downweight via $(1-u)^2$, communicating limitations rather than hiding them.
 
-Three limitations remain: (1) RNACTM overestimates protein expression duration (97\,h vs 48\,h); (2) ADMET QSAR lacks circRNA-specific toxicity data; (3) only MHC-I alleles are supported. These are inherent to the domain's data scarcity. As clinical circRNA PK datasets emerge, ODE parameters can transition from heuristic to data-fitted---the architecture supports this evolution without redesign.
+Three limitations remain: (1) RNACTM overestimates protein expression duration (97\,h vs 48\,h); (2) ADMET QSAR lacks circRNA-specific toxicity data; (3) only MHC-I alleles are supported. As clinical circRNA PK datasets emerge, ODE parameters can transition from heuristic to data-fitted---the architecture supports this evolution without redesign.

@@ -1,5 +1,5 @@
-%% main.tex — Confluencia Bioinformatics Application Note v4
-%% 2026-05-30 | Reframed: circRNA has no data → no tools → Confluencia is the only option
+%% main.tex — Confluencia Bioinformatics Application Note v6
+%% 2026-05-30 | Reframed: dual-modality cross reasoning is the innovation
 %% Format: Bioinformatics Application Note (≤100 word abstract, ~800-1000 word body, ≤15 refs)
 
 \documentclass{article}
@@ -13,8 +13,8 @@
 \usepackage{booktabs}
 \usepackage{array}
 
-\title{Confluencia: Cross-Module Evaluation for circRNA Drug Candidates\\
-under Data Scarcity}
+\title{Confluencia: Cross-Modality Evaluation of circRNA--Drug\\
+Candidate Pairs}
 
 \author{
 IGEM-FBH Team\thanks{The First Bethune Hospital of Jilin University
@@ -26,7 +26,7 @@ Changchun, China}%
 \maketitle
 
 \begin{abstract}
-\textbf{Summary:} No specialized tool exists for circRNA drug evaluation because the field lacks public PK datasets and clinical endpoint standards. Confluencia addresses this gap with literature-constrained pharmacokinetic modeling (RNACTM, half-life validated within 4.1\%), sample-size-adaptive MOE ensemble (39.2\% MAE reduction at $N{=}300$), and uncertainty-adaptive five-dimension scoring that downweights under-constrained dimensions via $(1-u)^2$ penalty. Cross-module reasoning produces Go/Conditional/No-Go recommendations that individual tools cannot---e.g., $\Psi$ extends half-life but raises immunogenicity risk.\\
+\textbf{Summary:} Evaluating circRNA--drug pairs requires reasoning across two therapeutic modalities---small-molecule pharmacology and circRNA-specific dynamics---yet existing tools operate in single-modality silos. Confluencia bridges this gap with an integrated architecture: RNACTM for circRNA PK (half-life validated within 4.1\%), sample-size-adaptive MOE for drug binding (39.2\% MAE reduction at $N{=}300$), and uncertainty-adaptive five-dimension scoring via $(1-u)^2$ penalty. Cross-modality reasoning produces Go/Conditional/No-Go recommendations that siloed tools cannot---e.g., $\Psi$ extends half-life but raises immunogenicity risk for the co-administered drug.\\
 \textbf{Availability and implementation:} \url{https://github.com/RomanCohort/confluencia}, MIT license. Python 3.8+, Linux/macOS/Windows.\\
 \textbf{Contact:} \email{18806370529@163.com}
 \end{abstract}
