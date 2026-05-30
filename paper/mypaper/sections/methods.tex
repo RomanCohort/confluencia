@@ -1,20 +1,21 @@
-%% sections/methods.tex — v3 REVISED (reframed: literature-derived, adaptive implementation)
-%% Added: RNACTM compartment descriptions, MOE learning curve context,
-%% Mamba3Lite detail, ADMET endpoints, ESM-2 comparison rationale
+%% sections/methods.tex — v4: honest about heuristic + uncertainty handling
+%% Key: CTM params are heuristic from literature ranges, not data-fitted.
+%% 5D uses uncertainty-adaptive weights with quadratic penalty.
 
-\section{Implementation}
+\section{Methods}
 
-\textbf{RNACTM Pharmacokinetic Model.}
-RNACTM implements a six-compartment ordinary differential equation (ODE) system tracing circRNA dynamics from subcutaneous injection through LNP encapsulation and circulation, endosomal uptake via clathrin-mediated pathways, cytoplasmic release, protein translation, and systemic clearance (Fig.\,1A). All rate constants are derived from published studies \citep{wesselhoeft2018,hassett2019,liu2023} rather than fitted from patient data: degradation rate $k_{\mathrm{deg}}=0.111/\mathrm{h}$ (half-life 6.24\,h for unmodified circRNA), endosomal escape fraction 4.43\%, and modification-specific half-life extensions ($\Psi$: ${\sim}15$\,h; m6A: ${\sim}10.8$\,h; 5mC: ${\sim}7.8$\,h). The model produces 72\,h compartment concentration trajectories, protein expression time-courses (Fig.\,1B), dose-response curves, and enables comparison of delivery routes (IV/SC/IM) and modification strategies without requiring patient PK data.
+\subsection{RNACTM pharmacokinetic model}
 
-\textbf{MOE Ensemble.}
-Following the mixture-of-experts framework \citep{jacobs1991}, a sample-size-adaptive ensemble selects experts based on data availability: $N<80$ activates Ridge regression and Histogram Gradient Boosting (HGB); $80\leq N<300$ adds Random Forest; $N\geq300$ adds MLP. Expert weights derive from inverse out-of-fold RMSE across 5-fold stratified cross-validation: $w_e = {1/\mathrm{RMSE}_{\mathrm{OOF},e}}/{\sum_{e'} 1/\mathrm{RMSE}_{\mathrm{OOF},e'}}$. Learning curve analysis reveals that predictions fail when $N<24$ ($R^2<0$), become feasible at $N\geq48$ ($R^2>0.45$), and saturate at $N\geq200$ ($R^2>0.75$), guiding sample size requirements for circRNA studies.
+RNACTM models circRNA drug concentration through six compartments (subcutaneous depot, endosomal, cytosol, ER, extracellular vesicle, blood) via a linear ODE system $\dot{\mathbf{x}} = A\mathbf{x}$ with 14 rate constants. Because no circRNA drug PK dataset exists for parameter fitting, all rate constants are derived from literature-reported PK parameter ranges \citep{wesselhoeft2018,chen2019} via heuristic formulas that map micro-predictions (binding affinity, immune activation, inflammation) to biophysically plausible values: e.g., $k_a = 0.14 + 0.26 \times \text{binding}$, $k_d = 0.11 + 0.24 \times \text{immune}$. A 70/30 blend with a learned Random Forest residual corrects systematic bias where training data is available. The model outputs 72\,h concentration--time curves for five nucleotide modifications ($\Psi$, m6A, 5mC, I, unmodified) with endosomal escape efficiency of 1--5\% \citep{gilleron2013}.
 
-\textbf{Mamba3Lite Encoder.}
-Mamba3Lite \citep{gu2023} encodes 8--11 amino acid peptides via three parallel selective state-space recurrences with distinct decay rates (fast/medium/slow) and four-scale pooling (residue/local/meso/global), producing 96-dimensional embeddings. Optional lightweight self-attention ($d=16$) achieves MAE\,=\,0.395, $R^2$\,=\,0.802. ESM-2 protein language model embeddings \citep{lin2023} were also evaluated; however, mean pooling of 8--11 AA sequences destroys position-specific MHC binding motifs, yielding AUC\,$<$0.60 on binding prediction---confirming that pretrained language models are suboptimal for short peptide tasks where position information is critical.
+\subsection{Sample-size-adaptive MOE ensemble}
 
-\textbf{ADMET and Toxicophore.}
-QSAR-based multi-endpoint prediction covers 8 ADMET endpoint categories: hERG channel blockade, AMES mutagenicity, CYP450 isoform inhibition (1A2, 2C9, 2C19, 2D6, 3A4), BBB permeability, and hepatotoxicity. Eighty-four SMARTS structural alerts include 25 PAINS patterns \citep{baell2010}, Brenk filters \citep{brenk2008}, circRNA-specific alerts, and general toxicity patterns. Dose-dependent modeling estimates therapeutic index via Hill equation dose-response curves.
+Following the mixture-of-experts framework \citep{jacobs1991}, Confluencia selects expert architectures based on sample size: Ridge + HistogramGradientBoosting for $N<80$; adding RandomForest for $N<300$; adding MLP for $N\geq300$. Gating weights are computed as inverse-RMSE with biological constraints (membrane potential decay, lateral inhibition) that prevent expert collapse on small datasets. Epitope sequences are encoded by Mamba3Lite, a lightweight state-space model that captures long-range dependencies without quadratic attention cost.
 
-\textbf{Joint Evaluation.}
-A five-dimension (5D) hybrid evaluation system integrates outputs from Drug, Epitope, RNACTM PK, and Five-Gene modules using confidence-adaptive weights (Clinical 0.30, Binding 0.20, Kinetics 0.15, Gene Signature 0.15, CircRNA 0.20), producing Go/Conditional/No-Go recommendations with a safety override mechanism.
+\subsection{ADMET evaluation}
+
+Drug candidates are evaluated for PAINS patterns, reactive functional groups, and rule-based ADMET flags from the 2083-dimension feature set (Morgan fingerprints + physicochemical descriptors). When data is insufficient for learned prediction, heuristic safety constraints enforce physiological floors: toxicity $\geq 0.06 + 0.16 \times \text{efficacy}$ and inflammation $\geq 0.05 + 0.12 \times \text{efficacy} \times \text{binding}$, preventing the system from reporting implausibly low risk for high-efficacy compounds.
+
+\subsection{Uncertainty-adaptive five-dimension evaluation}
+
+The joint score aggregates five dimensions (Clinical, Binding, Kinetics, Gene Signature, circRNA) with base weights $(0.30, 0.20, 0.15, 0.15, 0.20)$. Critically, each weight is modulated by a quadratic uncertainty penalty: $w_i' = w_i \times (1 - u_i)^2$, where $u_i$ is the per-dimension prediction uncertainty. This ensures that under-constrained dimensions (e.g., clinical outcomes with no training data) contribute near-zero weight rather than injecting noise. The composite score yields Go ($\geq0.65$), Conditional ($\geq0.40$), or No-Go recommendations, with a safety override that forces No-Go when safety penalty exceeds 0.30.
