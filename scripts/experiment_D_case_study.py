@@ -27,14 +27,10 @@ import time
 import traceback
 from datetime import datetime
 
-# Add project paths
+# Add project root to sys.path — this allows proper package imports
+# (from confluencia_shared.xxx, from confluencia_joint.xxx, etc.)
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, PROJECT_ROOT)
-sys.path.insert(0, os.path.join(PROJECT_ROOT, "confluencia_joint"))
-sys.path.insert(0, os.path.join(PROJECT_ROOT, "confluencia_shared"))
-sys.path.insert(0, os.path.join(PROJECT_ROOT, "confluencia-2.0-drug"))
-sys.path.insert(0, os.path.join(PROJECT_ROOT, "confluencia-2.0-epitope"))
-sys.path.insert(0, os.path.join(PROJECT_ROOT, "confluencia_circrna"))
 
 from confluencia_joint.joint_input import JointInput
 from confluencia_joint.joint_evaluator import JointEvaluationEngine
