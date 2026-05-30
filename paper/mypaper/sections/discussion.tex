@@ -1,9 +1,9 @@
-%% sections/discussion.tex — v7: dual-modality cross reasoning, compressed
+%% sections/discussion.tex — v8: wet-lab guidance as value proposition
 
 \section{Discussion}
 
-Confluencia's contribution is cross-modality reasoning, not outperforming siloed tools (NetMHCpan: AUC $>0.92$ \citep{reynisson2020}; ADMETlab: $>50$ endpoints \citep{xiong2024}). The case study illustrates: $\Psi$-circRNA + Rhodanine receives No-Go because circRNA immunogenicity compounds Rhodanine's PAINS profile---a conclusion requiring both modalities. NetMHCpan reports binding; ADMETlab flags PAINS; neither connects these to circRNA half-life or immune activation. This cross-modality integration is the architectural innovation.
+Confluencia's contribution is providing the first computational platform for circRNA therapeutic evaluation---a domain where no specialized tool exists because public PK datasets and clinical endpoint standards have not yet been established. Unlike NetMHCpan (AUC $>0.92$ on MHC binding \citep{reynisson2020}) or ADMETlab ($>50$ endpoints \citep{xiong2024}), Confluencia evaluates circRNA-specific dimensions (modification-dependent half-life, immunogenicity, translation potential) that these tools do not address. The modification prioritization case study demonstrates practical value: $\Psi$ and m6A are identified as Go candidates for synthesis, while unmodified circRNA is deprioritized---guidance that directly informs wet-lab resource allocation.
 
 The uncertainty-adaptive 5D evaluation reinforces this: under-constrained dimensions auto-downweight via $(1-u)^2$, communicating limitations rather than hiding them.
 
-Limitations: (1) RNACTM overestimates expression duration (97 vs 48\,h); (2) ADMET QSAR lacks circRNA toxicity data; (3) only MHC-I alleles. As circRNA PK datasets emerge, ODE parameters can transition from heuristic to data-fitted without architectural redesign.
+Limitations: (1) RNACTM overestimates expression duration (97 vs 48\,h); (2) ADMET QSAR lacks circRNA toxicity data; (3) only MHC-I alleles. As circRNA PK datasets emerge, ODE parameters can transition from heuristic to data-fitted without architectural redesign. Wet-lab validation of modification prioritization predictions is underway and will be reported separately.

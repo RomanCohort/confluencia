@@ -1,5 +1,5 @@
-%% main.tex — Confluencia Bioinformatics Application Note v6
-%% 2026-05-30 | Reframed: dual-modality cross reasoning is the innovation
+%% main.tex — Confluencia Bioinformatics Application Note v8
+%% 2026-05-30 | Reframed: circRNA therapeutic evaluation platform
 %% Format: Bioinformatics Application Note (≤100 word abstract, ~800-1000 word body, ≤15 refs)
 
 \documentclass{article}
@@ -13,8 +13,8 @@
 \usepackage{booktabs}
 \usepackage{array}
 
-\title{Confluencia: Cross-Modality Evaluation of circRNA--Drug\\
-Candidate Pairs}
+\title{Confluencia: Integrated Evaluation of circRNA Therapeutic\\
+Candidates}
 
 \author{
 IGEM-FBH Team\thanks{The First Bethune Hospital of Jilin University
@@ -26,7 +26,7 @@ Changchun, China}%
 \maketitle
 
 \begin{abstract}
-\textbf{Summary:} Evaluating circRNA--drug pairs requires reasoning across two therapeutic modalities---small-molecule pharmacology and circRNA-specific dynamics---yet existing tools operate in single-modality silos. Confluencia bridges this gap with an integrated architecture: RNACTM for circRNA PK (half-life validated within 4.1\%), sample-size-adaptive MOE for drug binding (39.2\% MAE reduction at $N{=}300$), and uncertainty-adaptive five-dimension scoring via $(1-u)^2$ penalty. Cross-modality reasoning produces Go/Conditional/No-Go recommendations that siloed tools cannot---e.g., $\Psi$ extends half-life but raises immunogenicity risk for the co-administered drug.\\
+\textbf{Summary:} CircRNA therapeutics require evaluation of nucleotide modification effects on half-life, immunogenicity, and translation---dimensions absent from existing drug evaluation tools. Confluencia integrates RNACTM, a six-compartment circRNA pharmacokinetic model (half-life validated within 4.1\% against published data), sample-size-adaptive mixture-of-experts for binding prediction (39.2\% MAE reduction at $N{=}300$), and uncertainty-adaptive five-dimension scoring that auto-downweights under-constrained dimensions. The platform evaluates circRNA functional interactions (miRNA/RBP binding, translation potential, RNA modification sites) alongside small-molecule ADMET, producing Go/Conditional/No-Go recommendations that guide wet-lab prioritization---e.g., $\Psi$ and m6A modifications are prioritized for synthesis while unmodified circRNA is deprioritized due to short half-life and high immune activation.\\
 \textbf{Availability and implementation:} \url{https://github.com/RomanCohort/confluencia}, MIT license. Python 3.8+, Linux/macOS/Windows.\\
 \textbf{Contact:} \email{18806370529@163.com}
 \end{abstract}
