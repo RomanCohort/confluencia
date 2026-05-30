@@ -26,9 +26,11 @@ _EPITOPE_DIR = _PROJECT / "confluencia-2.0-epitope"
 _SHARED_DIR = _PROJECT / "confluencia_shared"
 _CIRCRNA_DIR = _PROJECT / "confluencia_circrna"
 
-for _dir in [_DRUG_DIR, _EPITOPE_DIR, _SHARED_DIR]:
-    if str(_dir) not in sys.path:
-        sys.path.insert(0, str(_dir))
+# NOTE: We no longer add drug/epitope dirs to sys.path because they have
+# hyphens in directory names which makes them invalid as Python package names.
+# Instead, we use namespace package registration via _register_hyphenated_package().
+# The project root is already on sys.path (added by experiment scripts), which
+# enables absolute imports like "from confluencia_shared.xxx import yyy".
 
 # ---------------------------------------------------------------------------
 # Imports — use absolute import after path setup
