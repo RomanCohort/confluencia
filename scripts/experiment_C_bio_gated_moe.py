@@ -21,8 +21,6 @@ from datetime import datetime
 
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, PROJECT_ROOT)
-sys.path.insert(0, os.path.join(PROJECT_ROOT, "confluencia_shared"))
-sys.path.insert(0, os.path.join(PROJECT_ROOT, "confluencia-2.0-epitope"))
 
 from confluencia_shared.moe import MOERegressor, BioGatedMOERegressor, ExpertConfig
 
