@@ -1,6 +1,5 @@
-%% main.tex — Confluencia Bioinformatics Application Note v3
-%% 2026-05-30 | All metrics verified against benchmarks/results/*.json
-%% v3: reframed as integration tool, not algorithm innovation
+%% main.tex — Confluencia Bioinformatics Application Note v4
+%% 2026-05-30 | Reframed: circRNA has no data → no tools → Confluencia is the only option
 %% Format: Bioinformatics Application Note (≤100 word abstract, ~800-1000 word body, ≤15 refs)
 
 \documentclass{article}
@@ -14,8 +13,8 @@
 \usepackage{booktabs}
 \usepackage{array}
 
-\title{Confluencia: An Integrated circRNA Drug Discovery Platform\\
-with Six-Compartment Pharmacokinetic Modeling}
+\title{Confluencia: Cross-Module Evaluation for circRNA Drug Candidates\\
+under Data Scarcity}
 
 \author{
 IGEM-FBH Team\thanks{The First Bethune Hospital of Jilin University
@@ -27,8 +26,8 @@ Changchun, China}%
 \maketitle
 
 \begin{abstract}
-\textbf{Summary:} Confluencia integrates circRNA-specific pharmacokinetic simulation, small-sample ensemble prediction, and ADMET evaluation into a single platform---addressing the fragmentation of existing specialized tools. RNACTM simulates circRNA delivery dynamics over 72\,h across six compartments using literature-derived parameters for five nucleotide modifications ($\Psi$, m6A, 5mC, ms2m6A, unmodified; half-life validated within 4.1\% for three modifications). A sample-size-adaptive Mixture-of-Experts ensemble achieves 39.2\% MAE reduction versus Ridge on epitope prediction ($N{=}300$), and ADMET covers 8 endpoint categories with 84 structural alerts (100\% PAINS recall).\\
-\textbf{Availability and implementation:} \url{https://github.com/RomanCohort/confluencia}, MIT license. Python 3.8+, Linux/macOS/Windows. Docker and Confluencia Studio IDE available.\\
+\textbf{Summary:} No specialized tool exists for circRNA drug evaluation because the field lacks public PK datasets and clinical endpoint standards. Confluencia addresses this gap with literature-constrained pharmacokinetic modeling (RNACTM, half-life validated within 4.1\%), sample-size-adaptive MOE ensemble (39.2\% MAE reduction at $N{=}300$), and uncertainty-adaptive five-dimension scoring that downweights under-constrained dimensions via $(1-u)^2$ penalty. Cross-module reasoning produces Go/Conditional/No-Go recommendations that individual tools cannot---e.g., $\Psi$ extends half-life but raises immunogenicity risk.\\
+\textbf{Availability and implementation:} \url{https://github.com/RomanCohort/confluencia}, MIT license. Python 3.8+, Linux/macOS/Windows.\\
 \textbf{Contact:} \email{18806370529@163.com}
 \end{abstract}
 
