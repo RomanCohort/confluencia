@@ -62,37 +62,214 @@ except ImportError:
 # Lazy imports to avoid drug/epitope "core" package name conflict
 # ---------------------------------------------------------------------------
 
-def _import_drug_pipeline():
-    """Import drug pipeline module (lazy)."""
-    spec = importlib.util.spec_from_file_location(
-        "drug_pipeline",
-        _DRUG_DIR / "core" / "pipeline.py",
-    )
+def _register_hyphenated_package(hyphen_dir: Path, pkg_name: str):
+    """Register a hyphenated directory as a Python package in sys.modules.
+
+    This allows relative imports (from .xxx import yyy) within the package's
+    modules to work correctly, even though the directory name contains hyphens
+    which are not valid in Python identifiers.
+
+    We create a minimal namespace package (no __init__.py execution) to avoid
+    issues with relative imports in the original __init__.py files.
+
+    Parameters
+    ----------
+    hyphen_dir : Path
+        The directory containing the package (e.g., confluencia-2.0-drug).
+    pkg_name : str
+        A valid Python identifier to use as the package name (e.g., confluencia_drug).
+    """
+    import types
+
+    if pkg_name in sys.modules:
+        return sys.modules[pkg_name]
+
+    # Create a namespace package (no __init__.py execution)
+    mod = types.ModuleType(pkg_name)
+    mod.__path__ = [str(hyphen_dir)]
+    mod.__package__ = pkg_name
+    mod.__file__ = None  # Namespace packages have no __file__
+    sys.modules[pkg_name] = mod
+    return mod
+
+
+def _register_submodule(parent_pkg_name: str, sub_name: str, sub_path: Path):
+    """Register a submodule under a parent package in sys.modules.
+
+    Creates a namespace subpackage (no __init__.py execution) to avoid
+    relative import issues.
+
+    Parameters
+    ----------
+    parent_pkg_name : str
+        The parent package name (e.g., "confluencia_drug").
+    sub_name : str
+        The submodule name (e.g., "core").
+    sub_path : Path
+        Path to the submodule directory.
+    """
+    import types
+
+    full_name = f"{parent_pkg_name}.{sub_name}"
+
+    if full_name in sys.modules:
+        return sys.modules[full_name]
+
+    # Create a namespace subpackage
+    mod = types.ModuleType(full_name)
+    mod.__path__ = [str(sub_path)]
+    mod.__package__ = full_name
+    mod.__file__ = None
+    sys.modules[full_name] = mod
+    # Register in parent's attributes
+    parent = sys.modules.get(parent_pkg_name)
+    if parent is not None:
+        setattr(parent, sub_name, mod)
+    return mod
+
+
+def _register_leaf_module(parent_pkg_name: str, module_name: str, module_path: Path):
+    """Register a leaf .py module under a parent package in sys.modules.
+
+    Parameters
+    ----------
+    parent_pkg_name : str
+        The parent package name (e.g., "confluencia_drug.core").
+    module_name : str
+        The module name without .py (e.g., "pipeline").
+    module_path : Path
+        Full path to the .py file.
+    """
+    import importlib.util
+
+    full_name = f"{parent_pkg_name}.{module_name}"
+
+    if full_name in sys.modules:
+        return sys.modules[full_name]
+
+    spec = importlib.util.spec_from_file_location(full_name, module_path)
     mod = importlib.util.module_from_spec(spec)
+    mod.__package__ = parent_pkg_name
+    sys.modules[full_name] = mod
+    # Register in parent's attributes
+    parent = sys.modules.get(parent_pkg_name)
+    if parent is not None:
+        setattr(parent, module_name, mod)
     spec.loader.exec_module(mod)
     return mod
+
+
+def _setup_drug_package():
+    """Set up the confluencia-2.0-drug package hierarchy in sys.modules.
+
+    Registers: confluencia_drug → confluencia_drug.core → confluencia_drug.core.xxx
+    Only loads modules that pipeline.py transitively depends on, in dependency order.
+
+    Dependency chain for pipeline.py (from line 9-18 of pipeline.py):
+      from .ctm import simulate_ctm, summarize_curve
+      from .ctm_param_model import CTMParamModel, heuristic_param_targets
+      from .features import MixedFeatureSpec, build_feature_matrix, ...
+      from .legacy_algorithms import LegacyAlgorithmConfig, train_predict_legacy_backend
+      from .micro_predictors import MICRO_TARGETS, MicroPredictor, proxy_micro_labels
+      from .moe import MOERegressor, choose_compute_profile
+      from .ndp4pd import ndp4pd_from_ctm_like, simulate_ndp4pd
+      from .immune_abm import simulate_single_epitope_response
+      from .pkpd import infer_pkpd_params, simulate_pkpd, summarize_pkpd_curve
+
+    ctm_param_model.py depends on: from .ctm import CTMParams
+    All other modules have only absolute imports (confluencia_shared.xxx).
+    """
+    # Step 1: Register top-level namespace package
+    _register_hyphenated_package(_DRUG_DIR, "confluencia_drug")
+    # Step 2: Register core namespace subpackage
+    _register_submodule("confluencia_drug", "core", _DRUG_DIR / "core")
+
+    core_dir = _DRUG_DIR / "core"
+
+    # Step 3: Load Tier 0 modules (no relative imports within core)
+    # Order matters: ctm must be loaded before ctm_param_model
+    tier0_no_deps = [
+        "ctm", "pkpd", "ndp4pd", "immune_abm", "micro_predictors",
+        "features", "legacy_algorithms",
+    ]
+    for mod_name in tier0_no_deps:
+        mod_path = core_dir / f"{mod_name}.py"
+        if mod_path.exists():
+            _register_leaf_module("confluencia_drug.core", mod_name, mod_path)
+
+    # Step 4: Load ctm_param_model (depends on .ctm which is now loaded)
+    _register_leaf_module("confluencia_drug.core", "ctm_param_model", core_dir / "ctm_param_model.py")
+
+    # Step 5: Load moe (depends on confluencia_shared.moe, absolute import)
+    _register_leaf_module("confluencia_drug.core", "moe", core_dir / "moe.py")
+
+    # Step 6: Load pipeline.py (depends on all above)
+    _register_leaf_module("confluencia_drug.core", "pipeline", core_dir / "pipeline.py")
+
+
+def _setup_epitope_package():
+    """Set up the confluencia-2.0-epitope package hierarchy in sys.modules.
+
+    Dependency chain for epitope pipeline.py:
+      from .features import FeatureSpec, build_feature_matrix, ensure_columns
+      from .moe import MOERegressor, choose_compute_profile
+      from .sensitivity import neighborhood_importance, numerical_input_gradient, top_features
+      from .torch_mamba import TorchMambaConfig, predict_torch_mamba, ...
+
+    features.py depends on: from .mamba3 import Mamba3Config, Mamba3LiteEncoder
+    moe.py, sensitivity.py: no relative imports
+    torch_mamba.py: no relative imports (has optional torch/mamba_ssm)
+    mamba3.py: no relative imports
+    """
+    _register_hyphenated_package(_EPITOPE_DIR, "confluencia_epitope")
+    _register_submodule("confluencia_epitope", "core", _EPITOPE_DIR / "core")
+
+    core_dir = _EPITOPE_DIR / "core"
+
+    # Tier 0: no relative imports
+    tier0 = ["mamba3", "moe", "sensitivity"]
+    for mod_name in tier0:
+        mod_path = core_dir / f"{mod_name}.py"
+        if mod_path.exists():
+            _register_leaf_module("confluencia_epitope.core", mod_name, mod_path)
+
+    # Tier 1: features depends on .mamba3
+    _register_leaf_module("confluencia_epitope.core", "features", core_dir / "features.py")
+
+    # torch_mamba: optional, may fail if torch not available
+    torch_mamba_path = core_dir / "torch_mamba.py"
+    if torch_mamba_path.exists():
+        try:
+            _register_leaf_module("confluencia_epitope.core", "torch_mamba", torch_mamba_path)
+        except Exception:
+            pass
+
+    # Tier 2: pipeline depends on all above
+    _register_leaf_module("confluencia_epitope.core", "pipeline", core_dir / "pipeline.py")
+
+
+def _import_drug_pipeline():
+    """Import drug pipeline module (lazy).
+
+    Sets up the full package hierarchy so relative imports work.
+    """
+    _setup_drug_package()
+    return sys.modules["confluencia_drug.core.pipeline"]
 
 
 def _import_pkpd():
     """Import pkpd module (lazy)."""
-    spec = importlib.util.spec_from_file_location(
-        "pkpd",
-        _DRUG_DIR / "core" / "pkpd.py",
-    )
-    mod = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(mod)
-    return mod
+    _setup_drug_package()
+    return sys.modules["confluencia_drug.core.pkpd"]
 
 
 def _import_epitope_pipeline():
-    """Import epitope pipeline module (lazy)."""
-    spec = importlib.util.spec_from_file_location(
-        "epitope_pipeline",
-        _EPITOPE_DIR / "core" / "pipeline.py",
-    )
-    mod = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(mod)
-    return mod
+    """Import epitope pipeline module (lazy).
+
+    Sets up the full package hierarchy so relative imports work.
+    """
+    _setup_epitope_package()
+    return sys.modules["confluencia_epitope.core.pipeline"]
 
 
 def _import_circrna_pipeline():
@@ -366,6 +543,8 @@ class JointEvaluationEngine:
         self.drug_compute_profile = drug_compute_profile
         self.use_mhc = use_mhc
         self.use_circrna = use_circrna
+        # Optional: circRNA neural encoder for automatic sequence→scoring
+        self._circrna_encoder = None
         # Modules loaded lazily at first use
         self._drug_pipeline = None
         self._pkpd = None
@@ -375,6 +554,31 @@ class JointEvaluationEngine:
     # ------------------------------------------------------------------
     # Public API
     # ------------------------------------------------------------------
+
+    def set_circrna_encoder(self, checkpoint_path: str, device: str = "cpu"):
+        """Load a trained circRNA sequence encoder for automatic scoring.
+
+        When set, _run_circrna_pipeline will use the encoder to produce
+        the 13-key scoring dict from raw sequence + gene expression,
+        instead of the rule-based pipeline. This does NOT modify
+        JointScoringEngine or _score_circrna() in any way.
+
+        Parameters
+        ----------
+        checkpoint_path : str
+            Path to the .pt checkpoint saved by train_circrna_encoder.py.
+        device : str
+            Device for inference ("cpu" or "cuda").
+        """
+        try:
+            from confluencia_circrna.encoder.adapter import CircRNAEncoderAdapter
+            self._circrna_encoder = CircRNAEncoderAdapter.from_pretrained(
+                checkpoint_path, device=device,
+            )
+            print(f"[JointEval] circRNA encoder loaded from {checkpoint_path}")
+        except Exception as e:
+            print(f"[JointEval] Failed to load circRNA encoder: {e}")
+            self._circrna_encoder = None
 
     def _ensure_modules(self):
         """Lazily load drug/epitope/pkpd/circrna modules."""
