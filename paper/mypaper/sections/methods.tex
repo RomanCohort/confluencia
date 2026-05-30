@@ -1,0 +1,20 @@
+%% sections/methods.tex — v3 REVISED (reframed: literature-derived, adaptive implementation)
+%% Added: RNACTM compartment descriptions, MOE learning curve context,
+%% Mamba3Lite detail, ADMET endpoints, ESM-2 comparison rationale
+
+\section{Implementation}
+
+\textbf{RNACTM Pharmacokinetic Model.}
+RNACTM implements a six-compartment ordinary differential equation (ODE) system tracing circRNA dynamics from subcutaneous injection through LNP encapsulation and circulation, endosomal uptake via clathrin-mediated pathways, cytoplasmic release, protein translation, and systemic clearance (Fig.\,1A). All rate constants are derived from published studies \citep{wesselhoeft2018,hassett2019,liu2023} rather than fitted from patient data: degradation rate $k_{\mathrm{deg}}=0.111/\mathrm{h}$ (half-life 6.24\,h for unmodified circRNA), endosomal escape fraction 4.43\%, and modification-specific half-life extensions ($\Psi$: ${\sim}15$\,h; m6A: ${\sim}10.8$\,h; 5mC: ${\sim}7.8$\,h). The model produces 72\,h compartment concentration trajectories, protein expression time-courses (Fig.\,1B), dose-response curves, and enables comparison of delivery routes (IV/SC/IM) and modification strategies without requiring patient PK data.
+
+\textbf{MOE Ensemble.}
+Following the mixture-of-experts framework \citep{jacobs1991}, a sample-size-adaptive ensemble selects experts based on data availability: $N<80$ activates Ridge regression and Histogram Gradient Boosting (HGB); $80\leq N<300$ adds Random Forest; $N\geq300$ adds MLP. Expert weights derive from inverse out-of-fold RMSE across 5-fold stratified cross-validation: $w_e = {1/\mathrm{RMSE}_{\mathrm{OOF},e}}/{\sum_{e'} 1/\mathrm{RMSE}_{\mathrm{OOF},e'}}$. Learning curve analysis reveals that predictions fail when $N<24$ ($R^2<0$), become feasible at $N\geq48$ ($R^2>0.45$), and saturate at $N\geq200$ ($R^2>0.75$), guiding sample size requirements for circRNA studies.
+
+\textbf{Mamba3Lite Encoder.}
+Mamba3Lite \citep{gu2023} encodes 8--11 amino acid peptides via three parallel selective state-space recurrences with distinct decay rates (fast/medium/slow) and four-scale pooling (residue/local/meso/global), producing 96-dimensional embeddings. Optional lightweight self-attention ($d=16$) achieves MAE\,=\,0.395, $R^2$\,=\,0.802. ESM-2 protein language model embeddings \citep{lin2023} were also evaluated; however, mean pooling of 8--11 AA sequences destroys position-specific MHC binding motifs, yielding AUC\,$<$0.60 on binding prediction---confirming that pretrained language models are suboptimal for short peptide tasks where position information is critical.
+
+\textbf{ADMET and Toxicophore.}
+QSAR-based multi-endpoint prediction covers 8 ADMET endpoint categories: hERG channel blockade, AMES mutagenicity, CYP450 isoform inhibition (1A2, 2C9, 2C19, 2D6, 3A4), BBB permeability, and hepatotoxicity. Eighty-four SMARTS structural alerts include 25 PAINS patterns \citep{baell2010}, Brenk filters \citep{brenk2008}, circRNA-specific alerts, and general toxicity patterns. Dose-dependent modeling estimates therapeutic index via Hill equation dose-response curves.
+
+\textbf{Joint Evaluation.}
+A five-dimension (5D) hybrid evaluation system integrates outputs from Drug, Epitope, RNACTM PK, and Five-Gene modules using confidence-adaptive weights (Clinical 0.30, Binding 0.20, Kinetics 0.15, Gene Signature 0.15, CircRNA 0.20), producing Go/Conditional/No-Go recommendations with a safety override mechanism.
