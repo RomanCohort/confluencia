@@ -5,31 +5,38 @@
 
 \subsection{Functional coverage}
 
-Table~\ref{tab:coverage} shows that no existing tool covers circRNA PK, immunogenicity, or cross-module decision-making---dimensions Confluencia uniquely integrates.
+Table~\ref{tab:coverage} shows that Confluencia uniquely covers circRNA-specific functional dimensions and provides the only cross-modality evaluation---no existing tool operates across both small-molecule and circRNA modalities.
 
 \begin{table}[t]
 \centering
-\caption{Functional coverage. Confluencia uniquely covers circRNA-specific PK and immunogenicity dimensions.}
+\caption{Functional coverage across small-molecule and circRNA modalities.}
 \label{tab:coverage}
 \begin{tabular}{lcccc}
 \toprule
 \textbf{Function} & \textbf{NetMHCpan} & \textbf{ADMETlab} & \textbf{Monolix} & \textbf{Confluencia} \\
 \midrule
-MHC-I binding prediction & \checkmark & & & \checkmark \\
-ADMET evaluation & & \checkmark & & \checkmark \\
+\multicolumn{5}{l}{\textit{Small-molecule modality}} \\
+MHC-I binding & \checkmark & & & \checkmark \\
+ADMET screening & & \checkmark & & \checkmark \\
 PK simulation & & & \checkmark$^\dagger$ & \checkmark \\
+\multicolumn{5}{l}{\textit{circRNA modality}} \\
 circRNA half-life (mod-specific) & & & & \checkmark \\
-circRNA immunogenicity (RIG-I/TLR/PKR) & & & & \checkmark \\
-RNA structure$\rightarrow$immune mapping & & & & \checkmark \\
-Cross-module Go/No-Go & & & & \checkmark \\
+circRNA immunogenicity & & & & \checkmark \\
+miRNA sponge / RBP binding & & & & \checkmark \\
+Translation potential (ORF/IRES) & & & & \checkmark \\
+RNA modification site prediction & & & & \checkmark \\
+RNA--ligand docking & & & & \checkmark \\
+\multicolumn{5}{l}{\textit{Cross-modality}} \\
+Drug response from circRNA & & & & \checkmark \\
+Cross-modality Go/No-Go & & & & \checkmark \\
 \bottomrule
-\multicolumn{5}{l}{\small $^\dagger$Small-molecule PK only; no circRNA support.}
+\multicolumn{5}{l}{\small $^\dagger$Small-molecule PK only.}
 \end{tabular}
 \end{table}
 
 \subsection{RNACTM validation}
 
-Half-life predictions match published values within 4.1\%: unmodified (6.24 vs 6.0\,h), $\Psi$ (15.61 vs 15.0\,h), m6A (11.24 vs 10.8\,h) \citep{wesselhoeft2018,chen2019}. 5mC and I lack published data. Endosomal escape (4.43\%) falls within 1--5\% \citep{gilleron2013}. Protein expression duration is overestimated (97 vs ${\sim}48$\,h).
+Half-life predictions match published values within 4.1\% \citep{wesselhoeft2018,chen2019}: unmodified (6.24 vs 6.0\,h), $\Psi$ (15.61 vs 15.0\,h), m6A (11.24 vs 10.8\,h). Endosomal escape (4.43\%) falls within 1--5\% \citep{gilleron2013}. Expression duration is overestimated (97 vs ${\sim}48$\,h).
 
 \subsection{Small-sample ensemble}
 
@@ -37,7 +44,7 @@ On epitope efficacy ($N{=}300$, 5-fold CV), the adaptive MOE achieves 39.2\% MAE
 
 \subsection{Cross-module case study}
 
-Three circRNA--drug pairs illustrate cross-module reasoning (Table~\ref{tab:casestudy}): $\Psi$-circRNA + Aspirin yields Go/Conditional; unmodified circRNA + Rhodanine yields No-Go (PAINS + safety override); 5mC-circRNA + Ibuprofen yields Conditional. These emerge from cross-module reasoning no single tool can produce.
+Three circRNA--drug pairs illustrate cross-modality reasoning (Table~\ref{tab:casestudy}): $\Psi$-circRNA + Aspirin yields Go/Conditional; unmodified + Rhodanine yields No-Go (PAINS + safety override); 5mC + Ibuprofen yields Conditional.
 
 \begin{table}[t]
 \centering

@@ -1,10 +1,9 @@
-%% sections/discussion.tex — v6: dual-modality cross reasoning as contribution
-%% Core: Confluencia's innovation is cross-modality reasoning, not beating siloed tools
+%% sections/discussion.tex — v7: dual-modality cross reasoning, compressed
 
 \section{Discussion}
 
-Confluencia's contribution is not outperforming specialized tools on individual tasks (NetMHCpan achieves AUC $>0.92$ \citep{reynisson2020}; ADMETlab covers $>50$ endpoints \citep{xiong2024}), but producing cross-modality reasoning that no siloed tool can. The case study illustrates this: a $\Psi$-circRNA + Rhodanine pair receives No-Go because circRNA immunogenicity compounds Rhodanine's PAINS profile---a conclusion that requires evaluating both modalities together. NetMHCpan alone would report binding affinity; ADMETlab alone would flag PAINS; neither would connect these to circRNA half-life or immune activation. This cross-modality integration is the architectural innovation, not any single module's performance.
+Confluencia's contribution is cross-modality reasoning, not outperforming siloed tools (NetMHCpan: AUC $>0.92$ \citep{reynisson2020}; ADMETlab: $>50$ endpoints \citep{xiong2024}). The case study illustrates: $\Psi$-circRNA + Rhodanine receives No-Go because circRNA immunogenicity compounds Rhodanine's PAINS profile---a conclusion requiring both modalities. NetMHCpan reports binding; ADMETlab flags PAINS; neither connects these to circRNA half-life or immune activation. This cross-modality integration is the architectural innovation.
 
-The uncertainty-adaptive 5D evaluation reinforces this: dimensions without training data auto-downweight via $(1-u)^2$, communicating limitations rather than hiding them.
+The uncertainty-adaptive 5D evaluation reinforces this: under-constrained dimensions auto-downweight via $(1-u)^2$, communicating limitations rather than hiding them.
 
-Three limitations remain: (1) RNACTM overestimates protein expression duration (97\,h vs 48\,h); (2) ADMET QSAR lacks circRNA-specific toxicity data; (3) only MHC-I alleles are supported. As clinical circRNA PK datasets emerge, ODE parameters can transition from heuristic to data-fitted---the architecture supports this evolution without redesign.
+Limitations: (1) RNACTM overestimates expression duration (97 vs 48\,h); (2) ADMET QSAR lacks circRNA toxicity data; (3) only MHC-I alleles. As circRNA PK datasets emerge, ODE parameters can transition from heuristic to data-fitted without architectural redesign.
