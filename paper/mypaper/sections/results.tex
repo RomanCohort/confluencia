@@ -1,15 +1,15 @@
-%% sections/results.tex — v4: functional coverage table (not comparison)
-%% No "we beat SOTA" claims. Instead: "no other tool covers these dimensions"
+%% sections/results.tex — v5: compressed for Application Note
+%% Functional coverage table + validation + case study
 
 \section{Results}
 
 \subsection{Functional coverage}
 
-Table~\ref{tab:coverage} summarizes the functional scope of Confluencia versus existing specialized tools. No single tool covers circRNA pharmacokinetics, immunogenicity, and cross-module decision-making---dimensions essential for circRNA drug evaluation that Confluencia uniquely integrates.
+Table~\ref{tab:coverage} shows that no existing tool covers circRNA PK, immunogenicity, or cross-module decision-making---dimensions Confluencia uniquely integrates.
 
 \begin{table}[t]
 \centering
-\caption{Functional coverage comparison. Confluencia uniquely covers circRNA-specific PK and immunogenicity dimensions that existing tools do not address.}
+\caption{Functional coverage. Confluencia uniquely covers circRNA-specific PK and immunogenicity dimensions.}
 \label{tab:coverage}
 \begin{tabular}{lcccc}
 \toprule
@@ -20,31 +20,24 @@ ADMET evaluation & & \checkmark & & \checkmark \\
 PK simulation & & & \checkmark$^\dagger$ & \checkmark \\
 circRNA half-life (mod-specific) & & & & \checkmark \\
 circRNA immunogenicity (RIG-I/TLR/PKR) & & & & \checkmark \\
-RNA structure→immune mapping & & & & \checkmark \\
+RNA structure$\rightarrow$immune mapping & & & & \checkmark \\
 Cross-module Go/No-Go & & & & \checkmark \\
 \bottomrule
-\multicolumn{5}{l}{\small $^\dagger$Monolix handles small-molecule PK only; no circRNA support.}
+\multicolumn{5}{l}{\small $^\dagger$Small-molecule PK only; no circRNA support.}
 \end{tabular}
 \end{table}
 
 \subsection{RNACTM validation}
 
-Half-life predictions match published values within 4.1\% for three modifications with available data: unmodified (6.24\,h vs 6.0\,h), $\Psi$ (15.61\,h vs 15.0\,h), and m6A (11.24\,h vs 10.8\,h) \citep{wesselhoeft2018,chen2019}. 5mC and I modifications lack published circRNA half-life data for validation. Endosomal escape fraction (4.43\%) falls within the 1--5\% range \citep{gilleron2013}. Protein expression duration is overestimated (97\,h vs ${\sim}48$\,h), indicating clearance needs refinement.
+Half-life predictions match published values within 4.1\%: unmodified (6.24 vs 6.0\,h), $\Psi$ (15.61 vs 15.0\,h), m6A (11.24 vs 10.8\,h) \citep{wesselhoeft2018,chen2019}. 5mC and I lack published data. Endosomal escape (4.43\%) falls within 1--5\% \citep{gilleron2013}. Protein expression duration is overestimated (97 vs ${\sim}48$\,h).
 
 \subsection{Small-sample ensemble}
 
-On epitope efficacy ($N{=}300$, 5-fold CV), the sample-size-adaptive MOE achieves 39.2\% MAE reduction over Ridge ($p<0.001$), confirming that adaptive gating benefits the small-sample regime characteristic of circRNA wet-lab studies.
+On epitope efficacy ($N{=}300$, 5-fold CV), the adaptive MOE achieves 39.2\% MAE reduction over Ridge ($p<0.001$).
 
 \subsection{Cross-module case study}
 
-Three circRNA--drug pairs were evaluated through the full pipeline (Table~\ref{tab:casestudy}):
-\begin{itemize}
-\item \textbf{$\Psi$-circRNA + Aspirin}: Extended half-life (${\sim}15$\,h) with low ADMET risk yields Go/Conditional---consistent with $\Psi$'s known stability advantage.
-\item \textbf{Unmodified circRNA + Rhodanine}: Short half-life (6.24\,h), high immune activation, PAINS scaffold → No-Go with safety override---consistent with Rhodanine's known interference.
-\item \textbf{5mC-circRNA + Ibuprofen}: Intermediate half-life (${\sim}8$\,h), moderate ADMET → Conditional reflecting the 5D trade-off.
-\end{itemize}
-
-These recommendations emerge from cross-module reasoning that no single specialized tool can produce, as existing tools lack circRNA-specific dimensions entirely.
+Three circRNA--drug pairs illustrate cross-module reasoning (Table~\ref{tab:casestudy}): $\Psi$-circRNA + Aspirin yields Go/Conditional; unmodified circRNA + Rhodanine yields No-Go (PAINS + safety override); 5mC-circRNA + Ibuprofen yields Conditional. These emerge from cross-module reasoning no single tool can produce.
 
 \begin{table}[t]
 \centering
@@ -60,5 +53,3 @@ Ibuprofen + circRNA & 5mC & --- & Conditional & 5D mixed signals \\
 \bottomrule
 \end{tabular}
 \end{table}
-
-%% Numeric values (---) will be filled after experiment D results.
