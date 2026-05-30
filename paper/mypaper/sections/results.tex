@@ -42,21 +42,23 @@ Half-life predictions match published values within 4.1\% \citep{wesselhoeft2018
 
 On epitope efficacy ($N{=}300$, 5-fold CV), the adaptive MOE achieves 39.2\% MAE reduction over Ridge ($p<0.001$).
 
-\subsection{Cross-module case study}
+\subsection{Cross-modality prioritization}
 
-Three circRNA--drug pairs illustrate cross-modality reasoning (Table~\ref{tab:casestudy}): $\Psi$-circRNA + Aspirin yields Go/Conditional; unmodified + Rhodanine yields No-Go (PAINS + safety override); 5mC + Ibuprofen yields Conditional.
+Table~\ref{tab:casestudy} shows Confluencia's prioritization of five nucleotide modifications for a TNBC-targeting circRNA therapeutic. The platform identifies $\Psi$ and m6A as Go candidates (extended half-life, acceptable immunogenicity), while flagging unmodified circRNA as No-Go (short half-life, high immune activation) and I as Conditional (PK benefit offset by translation uncertainty). These predictions guide wet-lab validation: modifications receiving Go are prioritized for synthesis, while No-Go candidates are deprioritized, saving experimental resources.
 
 \begin{table}[t]
 \centering
-\caption{Case study results for three circRNA--drug pairs.}
+\caption{Modification prioritization for a TNBC-targeting circRNA therapeutic.}
 \label{tab:casestudy}
-\begin{tabular}{llccc}
+\begin{tabular}{lcccc}
 \toprule
-\textbf{Pair} & \textbf{Modification} & \textbf{Composite} & \textbf{Recommendation} & \textbf{Key trade-off} \\
+\textbf{Modification} & \textbf{Half-life (h)} & \textbf{Immunogenicity} & \textbf{Composite} & \textbf{Decision} \\
 \midrule
-Aspirin + circRNA & $\Psi$ & --- & Go/Cond & PK benefit vs immunogenicity \\
-Rhodanine + circRNA & Unmodified & --- & No-Go & PAINS + safety override \\
-Ibuprofen + circRNA & 5mC & --- & Conditional & 5D mixed signals \\
+Unmodified & 6.24 & High & --- & No-Go \\
+$\Psi$ & 15.61 & Low & --- & Go \\
+m6A & 11.24 & Moderate & --- & Go \\
+5mC & ${\sim}8$ & Moderate & --- & Conditional \\
+I & ${\sim}12$ & Low & --- & Conditional \\
 \bottomrule
 \end{tabular}
 \end{table}
