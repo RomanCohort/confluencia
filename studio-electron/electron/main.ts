@@ -496,8 +496,26 @@ ipcMain.handle('app:python_status', () => ({
 ipcMain.handle('kernel:restart', () => restartPythonKernel());
 
 ipcMain.handle('app:bootstrap_python', async () => {
-  mainWindow?.webContents.send('kernel:output', '[Setup] Python bootstrap not implemented in this version - using system Python\n');
-  return true;
+  // System Python is used by startPythonKernel() via findPython().
+  // Embedded Python download is optional for portable/offline deployment.
+  const pythonExe = findPython();
+  const hasPython = pythonExe !== 'python' || (() => {
+    try { execSync('python --version 2>&1', { windowsHide: true }); return true; } catch { return false; }
+  })();
+
+  if (hasPython) {
+    mainWindow?.webContents.send('kernel:output', '[Setup] Python kernel ready (using system Python)\n');
+  } else {
+    mainWindow?.webContents.send('kernel:error', '[Setup] Python not found — install Python 3.8+ or run embedded Python bootstrap\n');
+  }
+
+  return {
+    status: hasPython ? 'ready' : 'missing',
+    pythonExe,
+    pythonDir: PYTHON_DIR,
+    pipReady: fs.existsSync(path.join(PYTHON_DIR, 'Scripts', 'pip.exe')),
+    depsInstalled: fs.existsSync(path.join(PYTHON_DIR, '.deps_installed')),
+  };
 });
 
 // Streamlit app management
