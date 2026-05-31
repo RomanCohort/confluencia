@@ -490,22 +490,22 @@ def run_benchmark():
     # 1. Basic statistics
     print("--- Predicted Score Statistics ---")
     for col in ["rig_i_score", "tlr_score", "pkr_score", "overall_immunogenicity"]:
-        vals = df[col]
-        print(f"  {col}: mean={vals.mean():.4f}, std={vals.std():.4f}, "
-              f"min={vals.min():.4f}, max={vals.max():.4f}")
-        summary[f"{col}_mean"] = round(vals.mean(), 4)
-        summary[f"{col}_std"]  = round(vals.std(), 4)
-        summary[f"{col}_min"]  = round(vals.min(), 4)
-        summary[f"{col}_max"]  = round(vals.max(), 4)
+        vals = df[col].astype(float)
+        print(f"  {col}: mean={float(vals.mean()):.4f}, std={float(vals.std()):.4f}, "
+              f"min={float(vals.min()):.4f}, max={float(vals.max()):.4f}")
+        summary[f"{col}_mean"] = round(float(vals.mean()), 4)
+        summary[f"{col}_std"]  = round(float(vals.std()), 4)
+        summary[f"{col}_min"]  = round(float(vals.min()), 4)
+        summary[f"{col}_max"]  = round(float(vals.max()), 4)
 
     print()
     print("--- Sequence Feature Statistics ---")
     for col in ["gc_content", "uridine_fraction", "m6a_site_count",
                 "dsrna_estimated_length", "au_rich_count"]:
-        vals = df[col]
-        print(f"  {col}: mean={vals.mean():.4f}, std={vals.std():.4f}")
-        summary[f"feat_{col}_mean"] = round(vals.mean(), 4)
-        summary[f"feat_{col}_std"]  = round(vals.std(), 4)
+        vals = df[col].astype(float)
+        print(f"  {col}: mean={float(vals.mean()):.4f}, std={float(vals.std()):.4f}")
+        summary[f"feat_{col}_mean"] = round(float(vals.mean()), 4)
+        summary[f"feat_{col}_std"]  = round(float(vals.std()), 4)
 
     print()
 
