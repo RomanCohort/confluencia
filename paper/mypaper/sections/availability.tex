@@ -1,9 +1,9 @@
-%% sections/availability.tex — v3: needs-driven narrative
+%% sections/availability.tex — v5: compressed
 
 \section*{Availability and Implementation}
 
-Confluencia v2.6.0 is freely available at \url{https://github.com/IGEM-FBH/confluencia} under MIT license. Python 3.8+, no GPU required, full evaluation $<$5\,min on a standard laptop. Three interfaces are provided for different user communities: (1)~Streamlit web and desktop IDE (Confluencia Studio, Electron+React) for graphical access without programming; (2)~an R package (\texttt{confluencia}) installable via \texttt{devtools::install\_github()}, exposing 27 functions including model training, plugin registration for custom models/encoders/solvers/dimensions, and community sharing via Confluencia Hub; (3)~a VS~Code extension providing 11 command-palette entries with interactive PK-curve webviews and a 5D score tree sidebar. All interfaces share a single Python backend (\texttt{ConfluenciaBridge}) and support English/Chinese. The R package requires only one line to install and one function call to reproduce the paper's PK simulations: \texttt{cf\_ctm\_simulate(dose=200, freq=2, binding=0.72)}. Confluencia Hub operates in offline-first mode: model sharing works without a central server---users push a trained bundle locally, pull it on another machine, and predict immediately. A server deployment extends reach but is not required for core functionality. Runs on Linux, macOS, and Windows with optional Docker. Confluencia is actively used in our circRNA therapeutic development pipeline at the First Bethune Hospital of Jilin University. Benchmark datasets are in the repository.
+Confluencia v2.6.0: \url{https://github.com/IGEM-FBH/confluencia}, MIT license. Python 3.8+; no GPU for core evaluation (compartment simulation, immunogenicity, 5D, MOE); GPU optional for sequence embeddings. Three interfaces: GUI IDE, R package (27 functions via \texttt{devtools::install\_github()}), VS Code extension (11 commands with PK webviews and 5D score tree). Python discovery: \texttt{cf\_use\_python()} / \texttt{cf\_find\_python()}. Core evaluation $<$5\,min on laptop. Hub: offline-first model sharing. Linux/macOS/Windows.
 
 \section*{Acknowledgements}
 
-IGEM-FBH Team, Jilin University. We thank IEDB, ChEMBL, and open-source communities. Funding: The First Bethune Hospital and College of Computer Science and Technology, Jilin University.
+IGEM-FBH Team, Jilin University. IEDB, ChEMBL, open-source communities.

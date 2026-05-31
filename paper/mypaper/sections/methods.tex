@@ -1,23 +1,19 @@
-%% sections/methods.tex — v8: define abbreviations, clarify blending
+%% sections/methods.tex — v10: compressed to ~250 words
 
 \section{Methods}
 
-\subsection{RNACTM pharmacokinetic model}
+\subsection{RNACTM compartment simulation}
 
-RNACTM simulates circRNA concentration through six compartments (Injection $\rightarrow$ lipid nanoparticle (LNP) $\rightarrow$ Endosome $\rightarrow$ Cytoplasmic RNA $\rightarrow$ Translated Protein $\rightarrow$ Clearance) via $\dot{\mathbf{x}} = A\mathbf{x}$ with six rate constants and late-phase accelerated clearance \citep{liu2023}. Rate constants are computed from literature ranges \citep{wesselhoeft2018,chen2019,hassett2019,gilleron2013} with modification-specific adjustments; late-phase accelerated clearance models proteasomal upregulation after ${\sim}48$\,h (Supplementary Table~S1).
+RNACTM simulates circRNA through six compartments (Injection $\rightarrow$ LNP $\rightarrow$ Endosome $\rightarrow$ Cytoplasmic RNA $\rightarrow$ Protein $\rightarrow$ Clearance) via $\dot{\mathbf{x}} = A\mathbf{x}$ with literature-derived rate constants \citep{wesselhoeft2018,chen2019,gilleron2013,paunovska2018} and late-phase accelerated clearance after ${\sim}48$\,h. This is a deterministic simulation, not a population PK model fitted to concentration--time data; it provides compartment dynamics without inter-individual variability. $\pm$20\% rate constant variation changes half-life by $\leq$8.2\%.
 
 \subsection{Small-molecule evaluation}
 
-Expert architectures are selected by sample size \citep{jacobs1991}: Ridge + HGB ($N<80$); adding RF ($N<300$); adding MLP ($N\geq300$), with inverse-RMSE gating. ESM-2 \citep{lin2023} produced severe overfitting at $N<300$; sklearn models provide stable predictions without GPU dependency. Epitope sequences use Mamba3Lite encoding \citep{gu2023}; MHC features cover 153 class-I and 37 class-II alleles with allele-specific pseudo-sequence encoding; 56 additional alleles use allele-agnostic features due to insufficient per-allele samples (total 246 alleles). ADMET screening covers PAINS \citep{baell2010}, reactive groups, and safety floors preventing unsafe candidates.
+Expert architectures are selected by sample size \citep{jacobs1991}: Ridge+HGB ($N{<}80$); adding RF ($N{<}300$); adding MLP ($N{\geq}300$), with inverse-RMSE gating. ESM-2 \citep{lin2023} overfits at $N{<}300$; sklearn models provide stable predictions without GPU. Epitope sequences use Mamba3Lite encoding \citep{gu2023}; MHC features cover 153 class-I and 37 class-II alleles with allele-specific pseudo-sequence encoding; 56 additional alleles use allele-agnostic features (total 246). ADMET screening covers PAINS \citep{baell2010} and safety floors.
 
 \subsection{circRNA functional assessment}
 
-The circRNA module covers structure, immunogenicity, and functional interactions (Table~\ref{tab:coverage}). ViennaRNA \citep{lorenz2011} predicts secondary structure; dsRNA $>$33\,bp flags protein kinase R (PKR) activation. Five innate immune pathways (RIG-I, TLR3, TLR7, PKR, OAS) receive modification-specific scoring. Functional axes cover miRNA sponge, RBP binding, translation potential, modification site prediction, and RNA--ligand docking. TNBC subtype signatures and immune deconvolution characterize the tumor microenvironment.
+ViennaRNA \citep{lorenz2011} predicts secondary structure; five innate immune pathways (RIG-I, TLR3, TLR7, PKR, OAS) receive modification-specific heuristic scoring (author-informed weights, not empirically calibrated). Per-dimension uncertainty: half-life and immunogenicity $u{=}0.15$ (direction-consistency verified); miRNA sponge, RBP binding, translation potential $u{=}0.8$ (no independent validation), yielding effective weights $(1{-}0.8)^2{=}0.04$ of nominal.
 
-\subsection{Uncertainty-adaptive five-dimension evaluation}
+\subsection{Uncertainty-adaptive 5D evaluation}
 
-Five dimensions (Clinical, Binding, Kinetics, Gene Signature, circRNA) are aggregated with base weights $(0.30, 0.20, 0.15, 0.15, 0.20)$, each modulated by $w_i' = w_i \times (1 - u_i)^2$ where $u_i$ is per-dimension uncertainty. Under-constrained dimensions auto-downweight. The composite yields Go ($\geq0.65$), Conditional ($\geq0.40$), or No-Go, with safety override at penalty $>0.30$.
-
-\subsection{Closed-loop molecular evolution}
-
-Evaluation outputs feed back into molecular optimization: ED2Mol generates candidate molecules/sequences; MOE predicts multi-objective scores (efficacy, binding, toxicity); risk gating filters candidates above adaptive toxicity thresholds; elite retention selects top-$k$ candidates for the next round. circRNA-specific operations preserve the back-splice junction (BSJ), optimize IRES motifs, rearrange UTRs, and switch nucleotide modifications---each directly affecting RNACTM rate constants (Supplementary Table~S5).
+Five dimensions (Clinical 0.30, Binding 0.20, Kinetics 0.15, Gene Signature 0.15, circRNA 0.20) are aggregated with $w_i' = w_i \times (1 - u_i)^2$. Gene Signature (C-index 0.52) is flagged as exploratory. Composite yields Go ($\geq0.65$), Conditional ($\geq0.40$), or No-Go, with safety override at penalty $>0.30$.

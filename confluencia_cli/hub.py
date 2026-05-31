@@ -297,7 +297,8 @@ class ConfluenciaHub:
 
     def _save_data_local(self, csv_path: Path, meta: DataMeta) -> None:
         """Save data to local cache (offline mode)."""
-        target = self.cache_dir / "data" / meta.task / meta.uploader / f"{meta.version}.csv"
+        version_hash = meta.dataset_id.split(":")[-1]
+        target = self.cache_dir / "data" / meta.task / meta.uploader / f"{version_hash}.csv"
         target.parent.mkdir(parents=True, exist_ok=True)
         target.write_bytes(csv_path.read_bytes())
 

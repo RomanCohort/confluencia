@@ -1,56 +1,22 @@
-%% sections/results.tex — v7: honest reporting, consistent decisions
-%% Functional coverage + validation + case study + robustness
+%% sections/results.tex — v9: compressed to ~300 words
 
 \section{Results}
 
 \subsection{Functional coverage}
 
-Table~\ref{tab:coverage} shows that Confluencia covers circRNA-specific functional dimensions that no other listed tool addresses, and provides the only cross-modality evaluation---no existing tool operates across both small-molecule and circRNA modalities.
+Confluencia covers circRNA-specific dimensions absent from existing tools and provides the only cross-modality evaluation (Table~\ref{tab:coverage}).
 
-\begin{table}[t]
-\centering
-\caption{Functional coverage across small-molecule and circRNA modalities.}
-\label{tab:coverage}
-\begin{tabular}{lcccc}
-\toprule
-\textbf{Function} & \textbf{NetMHCpan} & \textbf{ADMETlab} & \textbf{Monolix} & \textbf{Confluencia} \\
-\midrule
-\multicolumn{5}{l}{\textit{Small-molecule modality}} \\
-MHC-I binding & \checkmark & & & \checkmark \\
-MHC-II binding & & & & \checkmark \\
-ADMET screening & & \checkmark & & \checkmark \\
-PK simulation (CTM + PKPD) & & & \checkmark$^\dagger$ & \checkmark \\
-Molecular property prediction (GNN-PINN multiscale) & & & & \checkmark \\
-Protein-ligand docking (cross-attention) & & & & \checkmark \\
-Multi-task prediction (6 targets) & & & & \checkmark \\
-Virtual clinical trial simulation & & & & \checkmark \\
-\multicolumn{5}{l}{\textit{circRNA modality}} \\
-circRNA half-life (mod-specific) & & & & \checkmark \\
-circRNA immunogenicity (5 pathways) & & & & \checkmark \\
-miRNA sponge / RBP binding & & & & \checkmark \\
-Translation potential (ORF/IRES) & & & & \checkmark \\
-RNA modification site prediction & & & & \checkmark \\
-RNA--ligand docking & & & & \checkmark \\
-Closed-loop molecular evolution & & & & \checkmark \\
-\multicolumn{5}{l}{\textit{Cross-modality}} \\
-Drug response from circRNA & & & & \checkmark \\
-Cross-modality Go/Conditional/No-Go & & & & \checkmark \\
-\bottomrule
-\multicolumn{5}{l}{\small $^\dagger$Small-molecule PK only.}
-\end{tabular}
-\end{table}
+\subsection{RNACTM dynamics}
 
-\subsection{RNACTM pharmacokinetics}
-
-Half-life predictions match published values within 4.0--4.1\% (Supplementary Table~S1). Endosomal escape (5.2\%) is at the upper bound of the 1--5\% literature range \citep{gilleron2013}; the productive expression window (40\,h) is within 17\% of the published ${\sim}48$\,h range \citep{wesselhoeft2018}.
+Half-life consistency with parametrization sources is by design within numerical precision ($<$4.1\%); this constitutes consistency verification, not independent validation. The informative deviation is the expression window (40\,h vs ${\sim}48$\,h, 17\%). Endosomal escape (5.2\%) slightly exceeds the 1--5\% range \citep{gilleron2013}, reflecting range uncertainty.
 
 \subsection{Small-sample ensemble}
 
-On epitope efficacy ($N{=}300$, 5-fold CV), adaptive MOE achieves R$^2{=}0.82$ (MAE${=}0.39$, $p{<}0.001$), reducing MAE 39\% over Ridge and 5--50\% over non-linear baselines (5--26\% over tree-based baselines; ${\sim}50\%$ over MLP, though MLP is unstable at $N{<}300$). On drug efficacy ($N{=}200$, 35 features), MOE achieves R$^2{=}0.982$, comparable to Ridge while improving MAE 7.5--52.7\% over non-linear baselines (Supplementary Table~S2).
+On epitope efficacy ($N{=}300$, 5-fold CV), MOE achieves R$^2{=}0.82$, MAE${=}0.39$ ($p{<}0.001$), 39\% MAE reduction over Ridge. On 91\,K drug data (6 targets), MOE achieves R$^2{=}0.60$ for efficacy and R$^2{=}0.95$ for target binding; the high binding R$^2$ reflects that molecular binding is well-captured by physicochemical features, while efficacy is inherently harder. Removing 2048-dim Morgan fingerprints improves binding R$^2$ from 0.67 to 0.95 (Supplementary Table~S2).
 
-\subsection{MHC binding prediction}
+\subsection{MHC binding}
 
-On 288\,K IEDB peptides (regression task), MHC-aware training with allele-specific features achieves AUC${=}0.80$, a ${+}0.06$ improvement over the allele-agnostic baseline (AUC${=}0.74$, 317 features). On a 52\,K IEDB binary binding subset (classification task, 246 alleles), overall AUC${=}0.83$. Table~\ref{tab:allele_auc} shows per-allele AUC on this binary dataset. Of 246 alleles evaluated, 153 MHC-I and 37 MHC-II receive allele-specific pseudo-sequence encoding; the remaining 56 alleles (insufficient per-allele samples) use allele-agnostic features. Performance varies substantially: well-characterized alleles with focused peptide repertoires (HLA-A*33:01, A*33:03) reach AUC${>}0.92$, matching NetMHCpan-level accuracy, whereas common alleles with broad peptide diversity (HLA-A*02:01, A*11:01) remain challenging (AUC${<}0.70$). This heterogeneity reflects within-allele peptide diversity rather than training volume---HLA-A*02:01 binds peptides from diverse protein sources, making its binding groove harder to model from generic features alone. MHC-I and MHC-II encoding are applied conditionally based on allele class (auto-detect via \texttt{cf\_mhc\_detect\_class()}): HLA-A/B/C use 1018-dim MHC-I encoding; HLA-DR/DQ/DP use 947-dim MHC-II encoding. FeatureSpec auto-detects the MHC class from allele names and activates allele-specific encoding when an \texttt{mhc\_allele} column is present---no manual configuration required. Allele-aware mode is recommended for $N{\geq}5000$ datasets; the 317-dim allele-agnostic mode remains preferable for small-sample ($N{<}300$) settings where high-dimensional features risk overfitting (Supplementary Table~S6).
+On 288\,K IEDB peptides, allele-specific features achieve AUC${=}0.80$ ($+$0.06 over allele-agnostic). On 52\,K binary data (246 alleles), overall AUC${=}0.83$. Per-allele performance varies: focused-repertoire alleles reach AUC${>}0.92$ (NetMHCpan-level); common alleles with broad peptide diversity remain challenging (A*02:01: 0.67) (Table~\ref{tab:allele_auc}).
 
 \begin{table}[t]
 \centering
@@ -60,19 +26,10 @@ On 288\,K IEDB peptides (regression task), MHC-aware training with allele-specif
 \toprule
 \textbf{Allele} & \textbf{AUC} & \textbf{$n$} & \textbf{NetMHCpan range} \\
 \midrule
-\multicolumn{4}{l}{\textit{High-performing alleles (AUC $\geq$ 0.85)}} \\
 HLA-A*33:03 & 0.9495 & 315 & 0.92--0.96 \\
-HLA-A*33:01 & 0.9242 & 318 & 0.92--0.96 \\
 HLA-A*68:01 & 0.8556 & 312 & 0.85--0.90 \\
-\midrule
-\multicolumn{4}{l}{\textit{Moderate alleles (AUC 0.60--0.85)}} \\
 HLA-A*24:02 & 0.7047 & 604 & 0.85--0.90 \\
-HLA-B*07:02 & 0.6404 & 571 & 0.85--0.90 \\
-HLA-A*01:01 & 0.6225 & 429 & 0.85--0.90 \\
-\midrule
-\multicolumn{4}{l}{\textit{Challenging alleles (AUC $<$ 0.60)}} \\
 HLA-A*02:01 & 0.6720 & 2144 & 0.92--0.96 \\
-HLA-A*11:01 & 0.6127 & 673 & 0.85--0.90 \\
 HLA-A*03:01 & 0.5882 & 540 & 0.85--0.90 \\
 \bottomrule
 \multicolumn{4}{l}{\small Overall: AUC 0.83, 246 alleles, 52\,942 samples.}
@@ -81,23 +38,19 @@ HLA-A*03:01 & 0.5882 & 540 & 0.85--0.90 \\
 
 \subsection{Evaluation stability}
 
-Under 1\,000 $\pm$50\% weight perturbations, decisions remain stable: $\Psi$ 100\% Go, unmodified 100\% Conditional, m6A 99.9\% (Supplementary Table~S4). Kinetics is the most critical dimension---removing it shifts $\Psi$ from Go to Conditional ($\Delta{-4.6\%}$). Immunogenicity scoring is consistent with literature IFN data ($\rho{=}0.93$, $p{=}0.003$): $\Psi$ lowest, unmodified highest \citep{chen2019}.
+Under $\pm$50\% weight perturbations, decisions remain stable: $\Psi$ 100\% Go, unmodified 100\% Conditional. Kinetics is most critical---removing it shifts $\Psi$ from Go to Conditional ($\Delta{-4.6\%}$). Immunogenicity rankings agree with literature IFN data ($\rho{=}0.93$, direction consistency over 5 conditions; not quantitative validation).
 
-\subsection{Gene signature stratification}
+\subsection{Gene signature}
 
-The five-gene target availability scorer stratifies 3\,064 TCGA-BRCA \citep{weinstein2013} + METABRIC \citep{curtis2012} patients by tertiles: log-rank $p{<}0.001$, high-target vs low-target death rate 57\% vs 20\% (Supplementary Table~S3).
-
-\subsection{Closed-loop molecular evolution}
-
-ED2Mol+RL evolution over 5 rounds improves candidate quality: best reward 0.71$\rightarrow$0.95, average toxicity 0.42$\rightarrow$0.20, Pareto front 8$\rightarrow$27 solutions. Adaptive risk gating reduces high-toxicity candidates from 23\% to 3\% while maintaining efficacy (Supplementary Table~S5).
+Five-gene scorer stratifies 3\,064 patients: log-rank $p{<}0.001$, high-target vs low-target death rate 57\% vs 20\% (C-index 0.52, exploratory).
 
 \subsection{Cross-modality prioritization}
 
-Table~\ref{tab:casestudy} shows modification prioritization for a TNBC-targeting circRNA. $\Psi$ is a Go candidate (extended half-life, low immunogenicity); m6A and 5mC are Conditional (moderate immunogenicity limits confidence); unmodified is Conditional (short half-life, high immune activation, but usable with dosing adjustment).
+$\Psi$ is a Go candidate; m6A, 5mC, and unmodified are Conditional (Table~\ref{tab:casestudy}).
 
 \begin{table}[t]
 \centering
-\caption{Modification prioritization for a TNBC-targeting circRNA therapeutic.}
+\caption{Modification prioritization for a TNBC-targeting circRNA.}
 \label{tab:casestudy}
 \begin{tabular}{lcccc}
 \toprule
@@ -105,9 +58,8 @@ Table~\ref{tab:casestudy} shows modification prioritization for a TNBC-targeting
 \midrule
 Unmodified & 6.24 & High & 0.525 & Conditional \\
 $\Psi$ & 15.61 & Low & 0.670 & Go \\
-m6A & 11.24 & Moderate & 0.610 & Conditional \\
+m6A & 11.24 & Moderate & 0.548 & Conditional \\
 5mC & ${\sim}8$ & Moderate & 0.548 & Conditional \\
-I & ${\sim}12$ & Low & 0.584 & Conditional \\
 \bottomrule
 \end{tabular}
 \end{table}
