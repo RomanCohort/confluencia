@@ -41,7 +41,7 @@ Half-life predictions match published values within 4.1\% \citep{wesselhoeft2018
 
 \subsection{Small-sample ensemble}
 
-On epitope efficacy ($N{=}300$, 5-fold cross-validation (CV)), adaptive MOE achieves R$^2{=}0.82$ (MAE${=}0.39$), reducing MAE 39\% over Ridge and 5--24\% over non-linear baselines \citep{pedregosa2011}. On drug efficacy ($N{=}200$, 154 features), MOE achieves R$^2{=}0.982$, comparable to Ridge (R$^2{=}0.984$) while improving MAE 7.5--52.7\% over non-linear baselines \citep{pedregosa2011}.
+On epitope efficacy ($N{=}300$, 5-fold cross-validation (CV)), adaptive MOE achieves R$^2{=}0.82$ (MAE${=}0.39$), reducing MAE 39\% over Ridge and 5--26\% over non-linear baselines (HGB, RF, GBR; excluded MLP at R$^2{=}0.34$) \citep{pedregosa2011}. On drug efficacy ($N{=}200$, 154 features), MOE achieves R$^2{=}0.982$, comparable to Ridge (R$^2{=}0.984$) while improving MAE 7.5--52.7\% over non-linear baselines \citep{pedregosa2011}.
 
 \subsection{5D scoring robustness}
 
