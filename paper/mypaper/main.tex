@@ -22,6 +22,8 @@ and College of Computer Science and Technology, Jilin University,
 Changchun, China}%
 }
 
+\keywords{circRNA; pharmacokinetics; drug discovery; mixture-of-experts; therapeutic evaluation}
+
 \begin{document}
 \maketitle
 
@@ -30,6 +32,14 @@ Changchun, China}%
 \textbf{Availability and implementation:} \url{https://github.com/RomanCohort/confluencia}, MIT license. Python 3.8+, Linux/macOS/Windows.\\
 \textbf{Contact:} \email{18806370529@163.com}
 \end{abstract}
+\printkeywords
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=\textwidth]{figures/fig1_composite.pdf}
+\caption{(A) Confluencia architecture: unified inputs processed through Drug Pipeline (sample-size-adaptive MOE ensemble, ADMET screening), Epitope Pipeline (Mamba3Lite encoding, MHC features), RNACTM six-compartment PK, and circRNA Functional Assessment (structure, immunogenicity, miRNA/RBP/translation/modification axes) converge to uncertainty-adaptive five-dimension evaluation producing Go/Conditional/No-Go recommendations. (B) RNACTM simulated protein expression trajectories: $\Psi$-modified circRNA achieves sustained expression (half-life ${\sim}15$\,h) compared to unmodified (6.24\,h), m6A (${\sim}10.8$\,h), and 5mC (${\sim}8$\,h).}
+\label{fig:overview}
+\end{figure}
 
 \input{sections/introduction}
 \input{sections/methods}

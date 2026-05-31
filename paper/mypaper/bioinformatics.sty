@@ -1,0 +1,82 @@
+%% bioinformatics.sty — minimal style for Bioinformatics Application Note
+%% Adapted from OUP authoring template for Bioinformatics journal
+%% This is a minimal working version; for full submission, use the official OUP template
+
+\NeedsTeXFormat{LaTeX2e}
+\ProvidesPackage{bioinformatics}[2024/01/01 Bioinformatics Application Note style]
+
+% Required packages
+\RequirePackage{amsmath}
+\RequirePackage{amssymb}
+\RequirePackage{graphicx}
+\RequirePackage{natbib}
+\RequirePackage{url}
+\RequirePackage{hyperref}
+\RequirePackage{xcolor}
+
+% Page layout
+\setlength{\textheight}{240mm}
+\setlength{\textwidth}{165mm}
+\setlength{\topmargin}{0mm}
+\setlength\oddsidemargin{0mm}
+\setlength\evensidemargin{0mm}
+
+% Font settings
+\renewcommand{\familydefault}{\sfdefault}
+
+% Section formatting
+\renewcommand{\section}{\@startsection{section}{1}{\z@}%
+  {-3.5ex \@plus -1ex \@minus -.2ex}%
+  {2.3ex \@plus .2ex}%
+  {\normalfont\Large\sffamily\bfseries}}
+\renewcommand{\subsection}{\@startsection{subsection}{2}{\z@}%
+  {-3.25ex\@plus -1ex \@minus -.2ex}%
+  {1.5ex \@plus .2ex}%
+  {\normalfont\large\sffamily\bfseries}}
+
+% Title formatting
+\def\@maketitle{%
+  \newpage
+  \vbox{%
+    \hsize\textwidth
+    \linewidth\hsize
+    \vskip 1em
+    {\Large\bfseries\sf \@title\par}%
+    \vskip 1em
+    {\normalsize\sf \@author\par}%
+    \vskip 1em
+    {\small\sf \@address\par}%
+    \vskip 1em
+  }%
+}
+
+% Abstract formatting
+\renewenvironment{abstract}{%
+  \vskip 1em
+  \small
+  \begin{list}{}{%
+    \setlength{\leftmargin}{0mm}%
+    \setlength{\rightmargin}{\leftmargin}%
+  }%
+  \item\textbf{Summary:}%
+}{%
+  \end{list}%
+  \vskip 1em
+}
+
+% Email command
+\newcommand{\email}[1]{\href{mailto:#1}{#1}}
+
+% Keywords formatting
+\def\@keywords{}
+\newcommand{\keywords}[1]{\def\@keywords{#1}}
+
+% Print keywords after abstract
+\def\printkeywords{%
+  \ifx\@keywords\empty\else
+    \vskip 0.5em
+    {\small\sf \textbf{Keywords:} \@keywords\par}%
+    \vskip 0.5em
+  \fi
+}
+
