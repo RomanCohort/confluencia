@@ -1,0 +1,104 @@
+%% supplementary.tex — Confluencia Supplementary Materials
+
+\section*{Supplementary Materials}
+
+\subsection*{Table S1: RNACTM pharmacokinetic validation}
+
+\begin{tabular}{llllll}
+\toprule
+\textbf{Parameter} & \textbf{Literature} & \textbf{Simulated} & \textbf{Error} & \textbf{Source} & \textbf{Pass} \\
+\midrule
+RNA half-life (unmodified) & 6.0 h & 6.24 h & 4.1\% & Wesselhoeft 2018 & Yes \\
+RNA half-life (m6A) & 10.8 h & 11.24 h & 4.1\% & Chen 2019 & Yes \\
+RNA half-life ($\Psi$) & 15.0 h & 15.61 h & 4.1\% & Liu 2023 & Yes \\
+Endosomal escape & 1--5\% & 5.2\% & upper bound & Gilleron 2013 & Yes \\
+Tissue (liver) & 80\% & 80\% & 0\% & Paunovska 2018 & Yes \\
+Tissue (spleen) & 10\% & 10\% & 0\% & Paunovska 2018 & Yes \\
+Expression window & $\sim$48 h & 40 h & 17\% & Wesselhoeft 2018 & Yes \\
+\bottomrule
+\end{tabular}
+
+\subsection*{Table S2: MOE baseline comparison}
+
+\begin{tabular}{llllll}
+\toprule
+\textbf{Epitope ($N$=300, 5-fold CV)} & \textbf{R$^2$} & \textbf{MAE} & \textbf{Drug ($N$=200, 154 feat)} & \textbf{R$^2$} & \textbf{MAE} \\
+\midrule
+Ridge & 0.533 & 0.639 & Ridge & 0.984 & 0.0365 \\
+HGB & 0.794 & 0.409 & HGB & 0.967 & 0.0473 \\
+RF & 0.704 & 0.498 & RF & 0.979 & 0.0421 \\
+GBR & 0.664 & 0.527 & GBR & 0.974 & 0.0462 \\
+MLP & 0.338 & 0.771 & MLP & 0.900 & 0.0824 \\
+MOE & 0.819 & 0.389 & MOE & 0.982 & 0.0389 \\
+\bottomrule
+\end{tabular}
+
+MAE improvement over Ridge: epitope 39\%, drug $-6.5\%$ (worse).
+MAE improvement over non-linear baselines: epitope 5--26\% (HGB/RF/GBR), drug 7.5--52.7\%.
+
+\subsection*{Table S3: Gene signature detailed results}
+
+\begin{tabular}{ll}
+\toprule
+\textbf{Metric} & \textbf{Value} \\
+\midrule
+Overall C-index & 0.524 \\
+C-index (TCGA-BRCA, $N$=1086) & 0.566 \\
+C-index (METABRIC, $N$=1978) & 0.537 \\
+Spearman $r$ (target availability vs OS) & 0.472, $p{=}9.04{\times}10^{-170}$ \\
+Log-rank chi2 & 175.96, $p{<}0.001$ \\
+High-target death rate & 0.568 \\
+Low-target death rate & 0.202 \\
+High-target median survival & 122.8 mo \\
+Low-target median survival & 32.9 mo \\
+Per-gene C-index: TROP2 & 0.499 \\
+Per-gene C-index: NECTIN4 & 0.550 \\
+Per-gene C-index: LIV-1 & 0.518 \\
+Per-gene C-index: B7-H4 & 0.519 \\
+Per-gene C-index: TMEM65 & 0.496 \\
+Cox regression & Failed (collinearity) \\
+\bottomrule
+\end{tabular}
+
+\subsection*{Table S4: 5D weight sensitivity}
+
+Under 1\,000 $\pm$50\% weight perturbations:
+\begin{tabular}{llll}
+\toprule
+\textbf{Modification} & \textbf{Go rate} & \textbf{Conditional rate} & \textbf{No-Go rate} \\
+\midrule
+$\Psi$ & 100\% & 0\% & 0\% \\
+m6A & 0\% & 99.9\% & 0.1\% \\
+Unmodified & 0\% & 100\% & 0\% \\
+\bottomrule
+\end{tabular}
+
+Most critical dimension: Kinetics (removing shifts $\Psi$ from Go to Conditional, $\Delta{-4.6\%}$).
+
+\subsection*{Table S5: Evolution round-by-round results}
+
+\begin{tabular}{llllllll}
+\toprule
+\textbf{Round} & \textbf{Candidates} & \textbf{Top-k} & \textbf{Best reward} & \textbf{Avg toxicity} & \textbf{Avg QED} & \textbf{Pareto front} & \textbf{Gated out} \\
+\midrule
+1 & 48 & --- & 0.712 & 0.423 & 0.645 & 8 & 0 \\
+2 & 48 & 12 & 0.823 & 0.356 & 0.712 & 14 & 6 \\
+3 & 48 & 12 & 0.891 & 0.289 & 0.756 & 19 & 8 \\
+4 & 48 & 12 & 0.934 & 0.234 & 0.778 & 23 & 5 \\
+5 & 48 & 12 & 0.947 & 0.198 & 0.782 & 27 & 4 \\
+\bottomrule
+\end{tabular}
+
+Reflective RL diagnostics (policy shift L1): 0.156 (round 2--3), 0.089 (3--4), 0.034 (4--5).
+
+circRNA-specific operations: IRES optimization +0.067 (highest), modification switching +0.056 ($\Psi$ most beneficial), backbone mutation +0.045, BRICS crossover +0.034, UTR rearrangement +0.023.
+
+Risk gating: adaptive quantile (q=0.75) reduces high-tox-high-efficacy candidates from 23.4\% to 3.1\%, maintains efficacy 0.702, toxicity-efficacy correlation shifts from +0.34 to $-0.18$.
+
+\subsection*{Table S6: MHC-II allele coverage}
+
+37 MHC-II alleles (DRB1/DQ/DP), encoded via NetMHCIIpan-4.0 34-position pseudo sequences (680 dims) + allele one-hot (37 dims) + binding position encoder (230 dims, anchors P1/P4/P6/P7/P9) = 947 total dims. Auto-detect routes HLA-A/B/C to MHC-I (979 dims) and HLA-DR/DQ/DP to MHC-II (947 dims).
+
+\subsection*{ESM-2 overfitting experiment}
+
+Initial experiments used ESM-2 (650M parameter protein language model; Lin et al. 2023, Science 379:1121) for epitope binding prediction. On $N{=}300$ training samples, ESM-2 embeddings produced severe overfitting: training R$^2{>}0.95$ but validation R$^2{<}0.3$ across all 5 folds, with MAE increasing 2--3$\times$ from training to validation. This motivated the sample-size-adaptive MOE design using well-regularized sklearn models.

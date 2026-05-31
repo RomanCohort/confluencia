@@ -42,7 +42,7 @@ Half-life predictions match published values within 4.1\% \citep{wesselhoeft2018
 
 \subsection{Small-sample ensemble}
 
-On epitope efficacy ($N{=}300$, 5-fold cross-validation (CV)), adaptive MOE achieves R$^2{=}0.82$ (MAE${=}0.39$), reducing MAE 39\% over Ridge and 5--26\% over non-linear baselines (HGB, RF, GBR; excluded MLP at R$^2{=}0.34$) \citep{pedregosa2011}. On drug efficacy ($N{=}200$, 154 features), MOE achieves R$^2{=}0.982$, comparable to Ridge (R$^2{=}0.984$) while improving MAE 7.5--52.7\% over non-linear baselines \citep{pedregosa2011}.
+On epitope efficacy ($N{=}300$, 5-fold CV), adaptive MOE achieves R$^2{=}0.82$ (MAE${=}0.39$), reducing MAE 39\% over Ridge and 5--26\% over non-linear baselines \citep{pedregosa2011}. On drug efficacy ($N{=}200$, 154 features), MOE achieves R$^2{=}0.982$, comparable to Ridge while improving MAE 7.5--52.7\% over non-linear baselines (Supplementary Table~S2).
 
 \subsection{5D scoring robustness}
 
@@ -50,7 +50,7 @@ Under 1\,000 $\pm$50\% weight perturbations, decisions remain stable: $\Psi$ ret
 
 \subsection{circRNA immunogenicity consistency}
 
-Pathway scoring based on RIG-I/TLR/PKR activation rules shows consistent ranking with literature interferon (IFN) data ($\rho{=}0.93$, $p{=}0.003$, $n{=}7$): $\Psi$ shows lowest immunogenicity (IFN${=}0.15$), unmodified highest (IFN${=}0.85$), m6A intermediate (IFN${=}0.4$)---consistent with known modification effects \citep{chen2019}. Note that scoring rules were informed by these literature patterns, making this a consistency check rather than independent validation.
+Pathway scoring shows consistent ranking with literature IFN data ($\rho{=}0.93$, $p{=}0.003$, $n{=}7$): $\Psi$ lowest immunogenicity, unmodified highest, m6A intermediate \citep{chen2019}. Scoring rules were informed by these patterns, making this a consistency check rather than independent validation.
 
 \subsection{Gene signature stratification}
 
@@ -58,7 +58,7 @@ The five-gene target availability scorer (TROP2, NECTIN4, LIV-1, B7-H4, TMEM65) 
 
 \subsection{Closed-loop molecular evolution}
 
-ED2Mol+RL evolution over 5 rounds improves candidate quality: best reward increases from 0.712 to 0.947, average toxicity decreases from 0.423 to 0.198, Pareto front grows from 8 to 27 solutions. Adaptive risk gating reduces high-toxicity-high-efficacy candidates from 23.4\% to 3.1\% while maintaining efficacy at 0.702. Among circRNA-specific operations, IRES optimization yields the highest per-operation reward gain (+0.067), followed by modification switching (+0.056, $\Psi$ most beneficial). Reflective RL diagnostics show policy shift magnitude decreasing from 0.156 to 0.034, indicating convergence.
+ED2Mol+RL evolution over 5 rounds improves candidate quality: best reward from 0.71 to 0.95, average toxicity from 0.42 to 0.20, Pareto front from 8 to 27 solutions. Adaptive risk gating reduces high-toxicity candidates from 23\% to 3\% while maintaining efficacy. circRNA-specific operations (IRES optimization +0.067, $\Psi$ modification switching +0.056) directly affect RNACTM rate constants (Table~\ref{tab:coverage}, Supplementary Table~S5).
 
 \subsection{Cross-modality prioritization}
 
