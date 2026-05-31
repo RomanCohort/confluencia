@@ -1,11 +1,9 @@
-%% sections/discussion.tex — v9: wet-lab guidance + circRNA validation
+%% sections/discussion.tex — v10: focus on strong validations, honest limitations
 
 \section{Discussion}
 
 Confluencia provides the first computational platform for circRNA therapeutic evaluation. Unlike NetMHCpan (AUC $>0.92$ \citep{reynisson2020}) or ADMETlab ($>50$ endpoints \citep{xiong2024}), it evaluates circRNA-specific dimensions absent from these tools.
 
-The immunogenicity scoring is validated against literature IFN data ($\rho{=}0.93$, $p{=}0.003$). On 5\,000 circBase sequences, motif counts correlate with predicted immunogenicity ($\rho{=}0.52$--$0.55$), though pseudo-label comparison yields $\rho{=}0.03$---reflecting synthetic ground-truth limitation rather than model deficiency. SHAPE validation using ViennaRNA \citep{lorenz2011} shows short RNAs predicted well (tRNA$^{\text{Phe}}$: 65\% accuracy, MCC 0.26) but circRNA ($>$200\,nt) remain challenging (${\sim}50\%$), validating our immunogenicity-rule design over full structure prediction.
+Three validations support the platform: (1) circRNA immunogenicity scoring matches literature IFN data ($\rho{=}0.93$, $p{=}0.003$); (2) 5D decisions remain stable under $\pm$50\% weight perturbation ($\Psi$: 100\% Go), with kinetics as the most critical dimension; (3) gene signature stratification on 3\,064 patients ($p{<}0.001$, high-risk 57.3\% vs low-risk 27.3\% mortality) provides clinical grounding. Under-constrained dimensions auto-downweight via $(1-u)^2$, communicating limitations rather than hiding them.
 
-The 5D scoring demonstrates decision stability ($\Psi$: 100\% Go under $\pm$50\% perturbation) and auto-downweights under-constrained dimensions via $(1-u)^2$. Gene signature stratification on 3\,064 patients ($p{<}0.001$) provides clinical grounding.
-
-Limitations: (1) RNACTM overestimates expression duration; (2) ADMET QSAR lacks circRNA toxicity data; (3) only MHC-I alleles; (4) circBase pseudo-labels are synthetic. As circRNA PK datasets emerge, ODE parameters can transition from heuristic to data-fitted. Wet-lab validation is underway.
+Limitations: (1) RNACTM overestimates expression duration (97 vs 48\,h); (2) ADMET QSAR lacks circRNA toxicity data; (3) only MHC-I alleles; (4) large-scale circBase comparison yields $\rho{=}0.03$---reflecting synthetic pseudo-label limitations, as no experimental ground truth exists for circRNA immunogenicity; (5) ViennaRNA predicts short RNAs well but circRNA structures ($>$200\,nt) remain challenging. As circRNA PK datasets emerge, parameters can transition from heuristic to data-fitted. Wet-lab validation is underway.
