@@ -35,13 +35,13 @@ Cross-modality Go/No-Go & & & & \checkmark \\
 \end{tabular}
 \end{table}
 
-\subsection{RNACTM validation}
+\subsection{RNACTM pharmacokinetics}
 
-Half-life predictions match published values within 4.1\% \citep{wesselhoeft2018,chen2019}: unmodified (6.24 vs 6.0\,h), $\Psi$ (15.61 vs 15.0\,h), m6A (11.24 vs 10.8\,h). Endosomal escape (4.43\%) falls within 1--5\% \citep{gilleron2013}. The productive expression window (time with cytoplasmic RNA $\geq$10\% peak and protein $\geq$5\% peak) matches the published ${\sim}48$\,h range.
+Half-life predictions match published values within 4.1\% \citep{wesselhoeft2018,chen2019}: unmodified (6.24 vs 6.0\,h), $\Psi$ (15.61 vs 15.0\,h) \citep{liu2023}, m6A (11.24 vs 10.8\,h). Endosomal escape (4.43\%) falls within the literature range of 1--5\% \citep{gilleron2013}, though it exceeds the point estimate of 2\% by a factor of two. The productive expression window (time with cytoplasmic RNA $\geq$10\% peak and protein $\geq$5\% peak) matches the published ${\sim}48$\,h range.
 
 \subsection{Small-sample ensemble}
 
-On epitope efficacy ($N{=}300$, 5-fold CV), adaptive MOE achieves 39.2\% mean absolute error (MAE) reduction over Ridge ($p<0.001$). On drug efficacy ($N{=}200$, 154 features), MOE achieves R$^2{=}0.982$, comparable to Ridge (R$^2{=}0.984$) while improving MAE 7.5--52.7\% over non-linear baselines \citep{pedregosa2011}.
+On epitope efficacy ($N{=}300$, 5-fold cross-validation (CV)), adaptive MOE achieves 39.2\% mean absolute error (MAE) reduction over Ridge ($p<0.001$). On drug efficacy ($N{=}200$, 154 features), MOE achieves R$^2{=}0.982$, comparable to Ridge (R$^2{=}0.984$) while improving MAE 7.5--52.7\% over non-linear baselines \citep{pedregosa2011}.
 
 \subsection{5D scoring robustness}
 
@@ -49,11 +49,11 @@ Under 1\,000 $\pm$50\% weight perturbations, decisions remain stable: $\Psi$ ret
 
 \subsection{circRNA immunogenicity consistency}
 
-Pathway scoring based on RIG-I/TLR/PKR activation rules shows consistent ranking with literature IFN data ($\rho{=}0.93$, $p{=}0.003$, $n{=}7$): $\Psi$ shows lowest immunogenicity (IFN${=}0.15$), unmodified highest (IFN${=}0.85$), m6A intermediate (IFN${=}0.4$)---consistent with known modification effects \citep{chen2019}. Note that scoring rules were informed by these literature patterns, making this a consistency check rather than independent validation.
+Pathway scoring based on RIG-I/TLR/PKR activation rules shows consistent ranking with literature interferon (IFN) data ($\rho{=}0.93$, $p{=}0.003$, $n{=}7$): $\Psi$ shows lowest immunogenicity (IFN${=}0.15$), unmodified highest (IFN${=}0.85$), m6A intermediate (IFN${=}0.4$)---consistent with known modification effects \citep{chen2019}. Note that scoring rules were informed by these literature patterns, making this a consistency check rather than independent validation.
 
 \subsection{Gene signature stratification}
 
-The five-gene target availability scorer (TROP2, NECTIN4, LIV-1, B7-H4, TMEM65) stratifies 3\,064 TCGA-BRCA \citep{weinstein2013} + METABRIC \citep{curtis2012} patients: log-rank $p{<}0.001$, high-target median survival 118 vs low-target 40 months. High target availability predicts longer survival, consistent with these genes being ADC/immune checkpoint targets in TNBC. C-index is modest (0.52), reflecting that target availability captures therapeutic response potential rather than intrinsic disease risk.
+The five-gene target availability scorer (TROP2, NECTIN4, LIV-1, B7-H4, TMEM65) stratifies 3\,064 TCGA-BRCA \citep{weinstein2013} + METABRIC \citep{curtis2012} patients: log-rank $p{<}0.001$, high-target median survival 118 vs low-target 40 months. High target availability predicts longer survival, consistent with these genes being antibody-drug conjugate (ADC)/immune checkpoint targets in TNBC. C-index is modest (0.52), reflecting that target availability captures therapeutic response potential rather than intrinsic disease risk.
 
 \subsection{Cross-modality prioritization}
 
