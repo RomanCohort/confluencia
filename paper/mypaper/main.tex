@@ -1,5 +1,5 @@
-%% main.tex — Confluencia Bioinformatics Application Note v8
-%% 2026-05-30 | Reframed: circRNA therapeutic evaluation platform
+%% main.tex — Confluencia Bioinformatics Application Note v9
+%% 2026-05-31 | Expert review fixes: circularity honesty, terminology, compression
 %% Format: Bioinformatics Application Note (≤100 word abstract, ~800-1000 word body, ≤15 refs)
 
 \documentclass{article}
@@ -22,14 +22,14 @@ and College of Computer Science and Technology, Jilin University,
 Changchun, China}%
 }
 
-\keywords{circRNA; pharmacokinetics; drug discovery; mixture-of-experts; therapeutic evaluation}
+\keywords{circRNA; compartment simulation; drug discovery; mixture-of-experts; therapeutic evaluation}
 
 \begin{document}
 \maketitle
 
 \begin{abstract}
-\textbf{Summary:} No existing platform evaluates circRNA-specific therapeutic dimensions. We developed Confluencia for our own circRNA program, integrating six-compartment pharmacokinetic modeling (half-life matching literature within 4.0--4.1\%), uncertainty-adaptive five-dimension evaluation, and cross-modality Go/Conditional/No-Go recommendations. Immunogenicity scores are consistent with literature IFN data ($\rho{=}0.93$, $p{=}0.003$); 5D decisions remain stable under $\pm$50\% weight perturbation; gene signature target availability stratifies 3\,064 patients (log-rank $p{<}0.001$).\\
-\textbf{Availability and implementation:} \url{https://github.com/IGEM-FBH/confluencia}, MIT license. Python 3.8+, no GPU required, GUI available.\\
+\textbf{Summary:} No existing platform evaluates circRNA-specific therapeutic dimensions. We developed Confluencia for our own circRNA program, integrating a six-compartment literature-parameterized simulation, uncertainty-adaptive five-dimension evaluation, and cross-modality Go/Conditional/No-Go recommendations. Immunogenicity rankings agree with literature IFN data ($\rho{=}0.93$, direction consistency); 5D decisions remain stable under $\pm$50\% weight perturbation; gene signature target availability stratifies 3\,064 patients (log-rank $p{<}0.001$).\\
+\textbf{Availability and implementation:} \url{https://github.com/IGEM-FBH/confluencia}, MIT license. Python 3.8+, no GPU required for core evaluation (GPU optional for sequence embeddings), GUI available.\\
 \textbf{Contact:} \email{18806370529@163.com}
 \end{abstract}
 \printkeywords
@@ -37,7 +37,7 @@ Changchun, China}%
 \begin{figure}[t]
 \centering
 \includegraphics[width=\textwidth]{figures/fig1_composite.pdf}
-\caption{(A) Confluencia architecture: unified inputs processed through Drug Pipeline (sample-size-adaptive MOE ensemble, ADMET screening), Epitope Pipeline (Mamba3Lite encoding, MHC features), RNACTM six-compartment PK, and circRNA Functional Assessment (structure, immunogenicity, miRNA/RBP/translation/modification axes) converge to uncertainty-adaptive five-dimension evaluation producing Go/Conditional/No-Go recommendations. Under-constrained dimensions auto-downweight via $(1-u)^2$. (B) RNACTM simulated protein expression trajectories: $\Psi$-modified circRNA achieves sustained expression (half-life ${\sim}15$\,h) compared to unmodified (6.24\,h), m6A (${\sim}10.8$\,h), and 5mC (${\sim}8$\,h).}
+\caption{(A) Confluencia architecture: unified inputs processed through Drug Pipeline (sample-size-adaptive MOE ensemble, ADMET screening), Epitope Pipeline (Mamba3Lite encoding, MHC features), RNACTM six-compartment simulation, and circRNA Functional Assessment (structure, immunogenicity, miRNA/RBP/translation/modification axes) converge to uncertainty-adaptive five-dimension evaluation producing Go/Conditional/No-Go recommendations. Under-constrained dimensions auto-downweight via $(1-u)^2$. (B) RNACTM simulated protein expression trajectories: $\Psi$-modified circRNA achieves sustained expression (half-life ${\sim}15$\,h) compared to unmodified (6.24\,h), m6A (${\sim}10.8$\,h), and 5mC (${\sim}8$\,h).}
 \label{fig:overview}
 \end{figure}
 
@@ -67,11 +67,6 @@ N6-methyladenosine modification controls circular RNA immune evasion.
 Liu, X., Linn, M., Bhagat, S. et al. (2023)
 Mechanistic compartmental pharmacokinetic modeling of oligonucleotides.
 \textit{CPT Pharmacometrics Syst. Pharmacol.}, \textbf{12}, 391--404.
-
-\bibitem[Hassett et~al.(2019)]{hassett2019}
-Hassett, K.J., Benenato, K.E., Jacquinet, E. et al. (2019)
-Optimization of lipid nanoparticles for intramuscular administration of mRNA vaccines.
-\textit{Mol. Ther.}, \textbf{27}, 773--784.
 
 \bibitem[Jacobs et~al.(1991)]{jacobs1991}
 Jacobs, R.A., Jordan, M.I., Barto, A.G. et al. (1991)
