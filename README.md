@@ -121,6 +121,10 @@ MOE 对比基线：比 MLP MAE 降低 52.7%，比 HGB 降低 17.7%。
 
 **差距原因分析：** (1) 训练量差距 (300 vs 180K) (2) Confluencia 多任务而非专门做 MHC binding (3) 特征工程未针对 MHC 结合位点优化。**价值定位：** Confluencia 提供 RNACTM 药代动力学仿真、剂量优化、免疫原性预测等多任务能力，专业工具无法覆盖。
 
+## 版本架构说明
+
+Confluencia v1.0（`src/`目录）和 v2.0 共享同一套计算后端。v1.0 提供统一的 Streamlit 前端（`src/frontend.py`），通过 `sys.path` 导入 v2.0 核心模块（PINN、GNN、multiscale、docking 等），作为单页面多标签应用运行。v2.0 将各模块拆分为独立前端（Drug `app.py`、Epitope `epitope_frontend.py`、circRNA `app.py`），保留所有 v1.0 计算能力并新增 circRNA 评估维度（RNACTM、5D评分、跨模态决策）。推荐使用 v2.0 前端；v1.0 统一前端仍可运行但不再主动维护。
+
 ## 架构概览
 
 ```
@@ -201,7 +205,7 @@ cd confluencia-2.0-epitope && PYTHONPATH=.. streamlit run epitope_frontend.py
 # 药物模块
 cd confluencia-2.0-drug && PYTHONPATH=.. streamlit run app.py
 
-# 统一前端
+# 统一前端 (v1.0, 不再主动维护)
 PYTHONPATH=. streamlit run src/frontend.py
 ```
 
