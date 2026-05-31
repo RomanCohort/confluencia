@@ -68,6 +68,47 @@ def check_viennarna_available() -> bool:
         return False
 
 
+def _parse_rnafold_output(stdout: str) -> Optional[Tuple[float, str]]:
+    """Parse RNAfold stdout output to extract MFE and dot-bracket structure.
+
+    RNAfold output format:
+      Line 0: FASTA header (>benchmark_seq)
+      Line 1: Sequence echoed back
+      Line 2: Dot-bracket structure + MFE e.g. ".(((...)))  (-34.50)"
+
+    Returns (mfe, dot_bracket) or None on failure.
+    """
+    lines = stdout.strip().split("\n")
+    # Find the structure line (contains dot-bracket chars and MFE in parentheses)
+    structure_line = None
+    for line in lines:
+        if "(" in line and ")" in line and any(c in line for c in ".{}[]"):
+            structure_line = line
+            break
+    # Fallback: try last line or line index 2
+    if structure_line is None and len(lines) >= 3:
+        structure_line = lines[2]
+    elif structure_line is None and len(lines) >= 2:
+        structure_line = lines[-1]
+    if structure_line is None:
+        return None
+
+    parts = structure_line.split()
+    if len(parts) < 1:
+        return None
+    dot_bracket = parts[0]
+    # MFE is typically in format (-34.50)
+    if len(parts) >= 2:
+        mfe_str = parts[1].strip("()")
+        try:
+            mfe = float(mfe_str)
+        except ValueError:
+            mfe = 0.0
+    else:
+        mfe = 0.0
+    return (mfe, dot_bracket)
+
+
 def run_rnafold(sequence: str) -> Optional[Tuple[float, str]]:
     """
     Run ViennaRNA RNAfold on a single sequence.
@@ -88,18 +129,9 @@ def run_rnafold(sequence: str) -> Optional[Tuple[float, str]]:
             text=True,
             timeout=120,
         )
-        lines = result.stdout.strip().split("\n")
-        if len(lines) >= 2:
-            structure_line = lines[1]
-            parts = structure_line.split()
-            if len(parts) >= 2:
-                dot_bracket = parts[0]
-                mfe_str = parts[1].strip("()")
-                try:
-                    mfe = float(mfe_str)
-                except ValueError:
-                    mfe = 0.0
-                return (mfe, dot_bracket)
+        parsed = _parse_rnafold_output(result.stdout)
+        if parsed is not None:
+            return parsed
     except subprocess.TimeoutExpired:
         warnings.warn("RNAfold timeout for sequence (len={})".format(len(seq)))
     except Exception as e:
@@ -146,18 +178,9 @@ def run_rnafold_with_shape(sequence: str, shape_values: List[float]) -> Optional
         except OSError:
             pass
 
-        lines = result.stdout.strip().split("\n")
-        if len(lines) >= 2:
-            structure_line = lines[1]
-            parts = structure_line.split()
-            if len(parts) >= 2:
-                dot_bracket = parts[0]
-                mfe_str = parts[1].strip("()")
-                try:
-                    mfe = float(mfe_str)
-                except ValueError:
-                    mfe = 0.0
-                return (mfe, dot_bracket)
+        parsed = _parse_rnafold_output(result.stdout)
+        if parsed is not None:
+            return parsed
     except subprocess.TimeoutExpired:
         warnings.warn("RNAfold+SHAPE timeout")
     except Exception as e:
