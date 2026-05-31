@@ -4,7 +4,7 @@
 
 \subsection{RNACTM pharmacokinetic model}
 
-RNACTM simulates circRNA concentration through six compartments (Injection $\rightarrow$ lipid nanoparticle (LNP) $\rightarrow$ Endosome $\rightarrow$ Cytoplasmic RNA $\rightarrow$ Translated Protein $\rightarrow$ Clearance) via $\dot{\mathbf{x}} = A\mathbf{x}$ with 14 rate constants \citep{liu2023}. Rate constants are computed from literature ranges \citep{wesselhoeft2018,chen2019,hassett2019,gilleron2013} with modification-specific adjustments (e.g., $\Psi$ reduces $k_{\text{degrade}}$ by 2.5$\times$). Late-phase accelerated clearance models proteasomal upregulation after ${\sim}48$\,h. Outputs: 72\,h trajectories for five modifications with endosomal escape 1--5\%.
+RNACTM simulates circRNA concentration through six compartments (Injection $\rightarrow$ lipid nanoparticle (LNP) $\rightarrow$ Endosome $\rightarrow$ Cytoplasmic RNA $\rightarrow$ Translated Protein $\rightarrow$ Clearance) via $\dot{\mathbf{x}} = A\mathbf{x}$ with six rate constants and late-phase accelerated clearance \citep{liu2023}. Rate constants are computed from literature ranges \citep{wesselhoeft2018,chen2019,hassett2019,gilleron2013} with modification-specific adjustments (e.g., $\Psi$ reduces $k_{\text{degrade}}$ by 2.5$\times$). Late-phase accelerated clearance models proteasomal upregulation after ${\sim}48$\,h. Outputs: 168\,h trajectories for five modifications with endosomal escape 1--5\%.
 
 \subsection{Small-molecule evaluation}
 

@@ -35,10 +35,10 @@
       "literature_value": 0.02,
       "literature_unit": "fraction",
       "literature_source": "Gilleron et al. (2013)",
-      "simulated_value": 0.0443,
-      "error_pct": 121.3,
+      "simulated_value": 0.0516,
+      "error_pct": 158.0,
       "passed": true,
-      "notes": "k_escape=0.0200/h, peak_cyto/dose=4.43%"
+      "notes": "k_escape=0.0250/h, peak_cyto/dose=5.16%"
     },
     {
       "parameter": "Tissue distribution (liver)",
@@ -65,8 +65,8 @@
       "literature_value": 48.0,
       "literature_unit": "hours",
       "literature_source": "Wesselhoeft et al. (2018)",
-      "simulated_value": 48.0,
-      "error_pct": 0.0,
+      "simulated_value": 40.0,
+      "error_pct": 16.7,
       "passed": true,
       "notes": "Time when Cyto RNA >= 10% peak AND protein >= 5% peak (active production)"
     }

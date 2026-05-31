@@ -173,7 +173,7 @@ def km_stratification(df, risk_col, time_col="OS_months", event_col="OS_status")
         "low_risk_death_rate": float(low_death_rate),
         "log_rank_chi2": float(chi2),
         "log_rank_p": float(p_value),
-        "risk_median": float(median),
+        "risk_median": float(df[risk_col].median()),
     }
 
 

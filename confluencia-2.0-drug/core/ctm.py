@@ -190,7 +190,9 @@ def infer_rna_ctm_params(
 
     # --- Endosomal escape: depends on delivery system and structure ---
     # Values from Gilleron et al. (2013) Nat Biotechnol (1-5% escape for LNP)
-    base_escape = {"LNP_standard": 0.02, "LNP_liver": 0.03, "LNP_spleen": 0.02,
+    # k_escape is the rate constant; cumulative escape fraction depends on competition
+    # with endosomal degradation. Lower rate = slower but more efficient escape.
+    base_escape = {"LNP_standard": 0.025, "LNP_liver": 0.03, "LNP_spleen": 0.025,
                    "AAV": 0.95, "naked": 0.01}
     k_escape = base_escape.get(vec, 0.02)
     # Higher structure stability → slightly better escape (more rigid RNA resists endosomal degradation)
@@ -209,8 +211,10 @@ def infer_rna_ctm_params(
     # Higher GC → slightly slower degradation
     k_degrade *= (1.0 - 0.15 * float(np.clip(gc_content, 0.0, 1.0)))
 
-    # --- Protein half-life: depends on product type (default 24h) ---
-    k_protein_half = 24.0
+    # --- Protein half-life: depends on product type ---
+    # In vitro: ~24h; in vivo effective pharmacological half-life: 14-18h
+    # (clearance includes proteasomal degradation, renal filtration, immune opsonization)
+    k_protein_half = 16.0
 
     # --- Immune-mediated clearance: depends on innate immune activation ---
     k_immune_clear = float(np.clip(0.01 + 0.15 * innate_immune_score, 0.005, 0.30))
