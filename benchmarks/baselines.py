@@ -41,6 +41,11 @@ _DRUG_DIR = _PROJECT_ROOT / "confluencia-2.0-drug"
 def _ensure_path(p: str):
     if p not in sys.path:
         sys.path.insert(0, p)
+        # For drug path, remove epitope to avoid core.features collision
+        if "confluencia-2.0-drug" in p:
+            ep = str(_EPITOPE_DIR)
+            if ep in sys.path:
+                sys.path.remove(ep)
 
 
 _EPITOPE_COL_MAP = {

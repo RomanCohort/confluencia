@@ -1,0 +1,177 @@
+{
+  "n_cases": 7,
+  "spearman_r_composite_vs_ifn": -0.03571428571428572,
+  "spearman_p_composite_vs_ifn": 0.9394082054712856,
+  "pearson_r_composite_vs_ifn": 0.11625081397759546,
+  "pearson_p_composite_vs_ifn": 0.8039773235916696,
+  "spearman_r_immunogenicity_vs_ifn": 0.9285714285714288,
+  "spearman_p_immunogenicity_vs_ifn": 0.0025194724037946874,
+  "case_details": [
+    {
+      "name": "Unmodified circRNA (Wesselhoeft 2018)",
+      "composite": 0.5252,
+      "recommendation": "Conditional",
+      "ifn_response": 0.85,
+      "source": "Wesselhoeft et al 2018, Nat Commun",
+      "effective_weights": {
+        "clinical": 0.3231,
+        "binding": 0.0852,
+        "kinetics": 0.1775,
+        "gene_signature": 0.1775,
+        "circrna": 0.2367
+      },
+      "uncertainties": {
+        "clinical": 0.046,
+        "binding": 0.4,
+        "kinetics": 0.0,
+        "gene_signature": 0.0,
+        "circrna": 0.0
+      }
+    },
+    {
+      "name": "Psi-modified circRNA (Chen 2019)",
+      "composite": 0.6698,
+      "recommendation": "Go",
+      "ifn_response": 0.15,
+      "source": "Chen et al 2019, Nature",
+      "effective_weights": {
+        "clinical": 0.3107,
+        "binding": 0.1545,
+        "kinetics": 0.1604,
+        "gene_signature": 0.1604,
+        "circrna": 0.2139
+      },
+      "uncertainties": {
+        "clinical": 0.016,
+        "binding": 0.15,
+        "kinetics": 0.0,
+        "gene_signature": 0.0,
+        "circrna": 0.0
+      }
+    },
+    {
+      "name": "m6A-modified circRNA (Chen 2019)",
+      "composite": 0.6096,
+      "recommendation": "Conditional",
+      "ifn_response": 0.4,
+      "source": "Chen et al 2019, Nature",
+      "effective_weights": {
+        "clinical": 0.3155,
+        "binding": 0.1257,
+        "kinetics": 0.1676,
+        "gene_signature": 0.1676,
+        "circrna": 0.2235
+      },
+      "uncertainties": {
+        "clinical": 0.03,
+        "binding": 0.25,
+        "kinetics": 0.0,
+        "gene_signature": 0.0,
+        "circrna": 0.0
+      }
+    },
+    {
+      "name": "5mC-modified circRNA",
+      "composite": 0.5481,
+      "recommendation": "Conditional",
+      "ifn_response": 0.55,
+      "source": "Estimated from Liu et al 2023 pattern",
+      "effective_weights": {
+        "clinical": 0.3229,
+        "binding": 0.0979,
+        "kinetics": 0.1738,
+        "gene_signature": 0.1738,
+        "circrna": 0.2317
+      },
+      "uncertainties": {
+        "clinical": 0.036,
+        "binding": 0.35,
+        "kinetics": 0.0,
+        "gene_signature": 0.0,
+        "circrna": 0.0
+      }
+    },
+    {
+      "name": "I-modified circRNA",
+      "composite": 0.5844,
+      "recommendation": "Conditional",
+      "ifn_response": 0.45,
+      "source": "Estimated from inosine deamination literature",
+      "effective_weights": {
+        "clinical": 0.3234,
+        "binding": 0.1109,
+        "kinetics": 0.1697,
+        "gene_signature": 0.1697,
+        "circrna": 0.2263
+      },
+      "uncertainties": {
+        "clinical": 0.024,
+        "binding": 0.3,
+        "kinetics": 0.0,
+        "gene_signature": 0.0,
+        "circrna": 0.0
+      }
+    },
+    {
+      "name": "Doxorubicin (high toxicity drug)",
+      "composite": 0.6276,
+      "recommendation": "No-Go",
+      "ifn_response": 0.7,
+      "source": "Clinical pharmacology profile",
+      "effective_weights": {
+        "clinical": 0.2341,
+        "binding": 0.1561,
+        "kinetics": 0.1829,
+        "gene_signature": 0.1829,
+        "circrna": 0.2439
+      },
+      "uncertainties": {
+        "clinical": 0.2,
+        "binding": 0.2,
+        "kinetics": 0.0,
+        "gene_signature": 0.0,
+        "circrna": 0.0
+      }
+    },
+    {
+      "name": "Aspirin (low toxicity drug)",
+      "composite": 0.4382,
+      "recommendation": "Conditional",
+      "ifn_response": 0.05,
+      "source": "Clinical pharmacology profile",
+      "effective_weights": {
+        "clinical": 0.3459,
+        "binding": 0.0706,
+        "kinetics": 0.175,
+        "gene_signature": 0.175,
+        "circrna": 0.2334
+      },
+      "uncertainties": {
+        "clinical": 0.006,
+        "binding": 0.45,
+        "kinetics": 0.0,
+        "gene_signature": 0.0,
+        "circrna": 0.0
+      }
+    }
+  ],
+  "ifn_by_decision": {
+    "Go": [
+      0.15
+    ],
+    "Conditional": [
+      0.85,
+      0.4,
+      0.55,
+      0.45,
+      0.05
+    ],
+    "No-Go": [
+      0.7
+    ]
+  },
+  "interpretation": {
+    "composite_ifn_expected": "negative (higher score \u2192 lower IFN = safer)",
+    "immunogenicity_ifn_expected": "positive (higher immunogenicity \u2192 higher IFN activation)"
+  }
+}

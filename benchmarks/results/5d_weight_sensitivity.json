@@ -1,0 +1,948 @@
+{
+  "weight_perturbation": {
+    "Psi": {
+      "decision_counts": {
+        "Go": 1000,
+        "Conditional": 0,
+        "No-Go": 0
+      },
+      "decision_pcts": {
+        "Go": 100.0,
+        "Conditional": 0.0,
+        "No-Go": 0.0
+      },
+      "score_mean": 0.669777179381012,
+      "score_std": 0.009340966436130608,
+      "score_min": 0.6505339906515402,
+      "score_max": 0.7010066327557651,
+      "score_ci_95": [
+        0.6539287051869599,
+        0.6884616461773365
+      ]
+    },
+    "Unmodified": {
+      "decision_counts": {
+        "Go": 0,
+        "Conditional": 1000,
+        "No-Go": 0
+      },
+      "decision_pcts": {
+        "Go": 0.0,
+        "Conditional": 100.0,
+        "No-Go": 0.0
+      },
+      "score_mean": 0.5248022180235726,
+      "score_std": 0.01519608300897372,
+      "score_min": 0.48718607486562604,
+      "score_max": 0.5654567755281923,
+      "score_ci_95": [
+        0.49818363032684476,
+        0.5558210875955628
+      ]
+    },
+    "m6A": {
+      "decision_counts": {
+        "Go": 1,
+        "Conditional": 999,
+        "No-Go": 0
+      },
+      "decision_pcts": {
+        "Go": 0.1,
+        "Conditional": 99.9,
+        "No-Go": 0.0
+      },
+      "score_mean": 0.6095698719076237,
+      "score_std": 0.013190224250278042,
+      "score_min": 0.5820359132219444,
+      "score_max": 0.6503225856529469,
+      "score_ci_95": [
+        0.5877328902358193,
+        0.6368139797316089
+      ]
+    }
+  },
+  "threshold_scan": {
+    "Psi": {
+      "default_composite": 0.6698,
+      "default_decision": "Go",
+      "grid": [
+        {
+          "go_threshold": 0.5,
+          "conditional_threshold": 0.3,
+          "composite": 0.6698,
+          "decision": "Go"
+        },
+        {
+          "go_threshold": 0.5,
+          "conditional_threshold": 0.35,
+          "composite": 0.6698,
+          "decision": "Go"
+        },
+        {
+          "go_threshold": 0.5,
+          "conditional_threshold": 0.4,
+          "composite": 0.6698,
+          "decision": "Go"
+        },
+        {
+          "go_threshold": 0.5,
+          "conditional_threshold": 0.45,
+          "composite": 0.6698,
+          "decision": "Go"
+        },
+        {
+          "go_threshold": 0.5,
+          "conditional_threshold": 0.5,
+          "composite": 0.6698,
+          "decision": "Go"
+        },
+        {
+          "go_threshold": 0.55,
+          "conditional_threshold": 0.3,
+          "composite": 0.6698,
+          "decision": "Go"
+        },
+        {
+          "go_threshold": 0.55,
+          "conditional_threshold": 0.35,
+          "composite": 0.6698,
+          "decision": "Go"
+        },
+        {
+          "go_threshold": 0.55,
+          "conditional_threshold": 0.4,
+          "composite": 0.6698,
+          "decision": "Go"
+        },
+        {
+          "go_threshold": 0.55,
+          "conditional_threshold": 0.45,
+          "composite": 0.6698,
+          "decision": "Go"
+        },
+        {
+          "go_threshold": 0.55,
+          "conditional_threshold": 0.5,
+          "composite": 0.6698,
+          "decision": "Go"
+        },
+        {
+          "go_threshold": 0.55,
+          "conditional_threshold": 0.55,
+          "composite": 0.6698,
+          "decision": "Go"
+        },
+        {
+          "go_threshold": 0.6,
+          "conditional_threshold": 0.3,
+          "composite": 0.6698,
+          "decision": "Go"
+        },
+        {
+          "go_threshold": 0.6,
+          "conditional_threshold": 0.35,
+          "composite": 0.6698,
+          "decision": "Go"
+        },
+        {
+          "go_threshold": 0.6,
+          "conditional_threshold": 0.4,
+          "composite": 0.6698,
+          "decision": "Go"
+        },
+        {
+          "go_threshold": 0.6,
+          "conditional_threshold": 0.45,
+          "composite": 0.6698,
+          "decision": "Go"
+        },
+        {
+          "go_threshold": 0.6,
+          "conditional_threshold": 0.5,
+          "composite": 0.6698,
+          "decision": "Go"
+        },
+        {
+          "go_threshold": 0.6,
+          "conditional_threshold": 0.55,
+          "composite": 0.6698,
+          "decision": "Go"
+        },
+        {
+          "go_threshold": 0.65,
+          "conditional_threshold": 0.3,
+          "composite": 0.6698,
+          "decision": "Go"
+        },
+        {
+          "go_threshold": 0.65,
+          "conditional_threshold": 0.35,
+          "composite": 0.6698,
+          "decision": "Go"
+        },
+        {
+          "go_threshold": 0.65,
+          "conditional_threshold": 0.4,
+          "composite": 0.6698,
+          "decision": "Go"
+        },
+        {
+          "go_threshold": 0.65,
+          "conditional_threshold": 0.45,
+          "composite": 0.6698,
+          "decision": "Go"
+        },
+        {
+          "go_threshold": 0.65,
+          "conditional_threshold": 0.5,
+          "composite": 0.6698,
+          "decision": "Go"
+        },
+        {
+          "go_threshold": 0.65,
+          "conditional_threshold": 0.55,
+          "composite": 0.6698,
+          "decision": "Go"
+        },
+        {
+          "go_threshold": 0.7,
+          "conditional_threshold": 0.3,
+          "composite": 0.6698,
+          "decision": "Conditional"
+        },
+        {
+          "go_threshold": 0.7,
+          "conditional_threshold": 0.35,
+          "composite": 0.6698,
+          "decision": "Conditional"
+        },
+        {
+          "go_threshold": 0.7,
+          "conditional_threshold": 0.4,
+          "composite": 0.6698,
+          "decision": "Conditional"
+        },
+        {
+          "go_threshold": 0.7,
+          "conditional_threshold": 0.45,
+          "composite": 0.6698,
+          "decision": "Conditional"
+        },
+        {
+          "go_threshold": 0.7,
+          "conditional_threshold": 0.5,
+          "composite": 0.6698,
+          "decision": "Conditional"
+        },
+        {
+          "go_threshold": 0.7,
+          "conditional_threshold": 0.55,
+          "composite": 0.6698,
+          "decision": "Conditional"
+        },
+        {
+          "go_threshold": 0.75,
+          "conditional_threshold": 0.3,
+          "composite": 0.6698,
+          "decision": "Conditional"
+        },
+        {
+          "go_threshold": 0.75,
+          "conditional_threshold": 0.35,
+          "composite": 0.6698,
+          "decision": "Conditional"
+        },
+        {
+          "go_threshold": 0.75,
+          "conditional_threshold": 0.4,
+          "composite": 0.6698,
+          "decision": "Conditional"
+        },
+        {
+          "go_threshold": 0.75,
+          "conditional_threshold": 0.45,
+          "composite": 0.6698,
+          "decision": "Conditional"
+        },
+        {
+          "go_threshold": 0.75,
+          "conditional_threshold": 0.5,
+          "composite": 0.6698,
+          "decision": "Conditional"
+        },
+        {
+          "go_threshold": 0.75,
+          "conditional_threshold": 0.55,
+          "composite": 0.6698,
+          "decision": "Conditional"
+        },
+        {
+          "go_threshold": 0.8,
+          "conditional_threshold": 0.3,
+          "composite": 0.6698,
+          "decision": "Conditional"
+        },
+        {
+          "go_threshold": 0.8,
+          "conditional_threshold": 0.35,
+          "composite": 0.6698,
+          "decision": "Conditional"
+        },
+        {
+          "go_threshold": 0.8,
+          "conditional_threshold": 0.4,
+          "composite": 0.6698,
+          "decision": "Conditional"
+        },
+        {
+          "go_threshold": 0.8,
+          "conditional_threshold": 0.45,
+          "composite": 0.6698,
+          "decision": "Conditional"
+        },
+        {
+          "go_threshold": 0.8,
+          "conditional_threshold": 0.5,
+          "composite": 0.6698,
+          "decision": "Conditional"
+        },
+        {
+          "go_threshold": 0.8,
+          "conditional_threshold": 0.55,
+          "composite": 0.6698,
+          "decision": "Conditional"
+        }
+      ]
+    },
+    "Unmodified": {
+      "default_composite": 0.5252,
+      "default_decision": "Conditional",
+      "grid": [
+        {
+          "go_threshold": 0.5,
+          "conditional_threshold": 0.3,
+          "composite": 0.5252,
+          "decision": "Go"
+        },
+        {
+          "go_threshold": 0.5,
+          "conditional_threshold": 0.35,
+          "composite": 0.5252,
+          "decision": "Go"
+        },
+        {
+          "go_threshold": 0.5,
+          "conditional_threshold": 0.4,
+          "composite": 0.5252,
+          "decision": "Go"
+        },
+        {
+          "go_threshold": 0.5,
+          "conditional_threshold": 0.45,
+          "composite": 0.5252,
+          "decision": "Go"
+        },
+        {
+          "go_threshold": 0.5,
+          "conditional_threshold": 0.5,
+          "composite": 0.5252,
+          "decision": "Go"
+        },
+        {
+          "go_threshold": 0.55,
+          "conditional_threshold": 0.3,
+          "composite": 0.5252,
+          "decision": "Conditional"
+        },
+        {
+          "go_threshold": 0.55,
+          "conditional_threshold": 0.35,
+          "composite": 0.5252,
+          "decision": "Conditional"
+        },
+        {
+          "go_threshold": 0.55,
+          "conditional_threshold": 0.4,
+          "composite": 0.5252,
+          "decision": "Conditional"
+        },
+        {
+          "go_threshold": 0.55,
+          "conditional_threshold": 0.45,
+          "composite": 0.5252,
+          "decision": "Conditional"
+        },
+        {
+          "go_threshold": 0.55,
+          "conditional_threshold": 0.5,
+          "composite": 0.5252,
+          "decision": "Conditional"
+        },
+        {
+          "go_threshold": 0.55,
+          "conditional_threshold": 0.55,
+          "composite": 0.5252,
+          "decision": "No-Go"
+        },
+        {
+          "go_threshold": 0.6,
+          "conditional_threshold": 0.3,
+          "composite": 0.5252,
+          "decision": "Conditional"
+        },
+        {
+          "go_threshold": 0.6,
+          "conditional_threshold": 0.35,
+          "composite": 0.5252,
+          "decision": "Conditional"
+        },
+        {
+          "go_threshold": 0.6,
+          "conditional_threshold": 0.4,
+          "composite": 0.5252,
+          "decision": "Conditional"
+        },
+        {
+          "go_threshold": 0.6,
+          "conditional_threshold": 0.45,
+          "composite": 0.5252,
+          "decision": "Conditional"
+        },
+        {
+          "go_threshold": 0.6,
+          "conditional_threshold": 0.5,
+          "composite": 0.5252,
+          "decision": "Conditional"
+        },
+        {
+          "go_threshold": 0.6,
+          "conditional_threshold": 0.55,
+          "composite": 0.5252,
+          "decision": "No-Go"
+        },
+        {
+          "go_threshold": 0.65,
+          "conditional_threshold": 0.3,
+          "composite": 0.5252,
+          "decision": "Conditional"
+        },
+        {
+          "go_threshold": 0.65,
+          "conditional_threshold": 0.35,
+          "composite": 0.5252,
+          "decision": "Conditional"
+        },
+        {
+          "go_threshold": 0.65,
+          "conditional_threshold": 0.4,
+          "composite": 0.5252,
+          "decision": "Conditional"
+        },
+        {
+          "go_threshold": 0.65,
+          "conditional_threshold": 0.45,
+          "composite": 0.5252,
+          "decision": "Conditional"
+        },
+        {
+          "go_threshold": 0.65,
+          "conditional_threshold": 0.5,
+          "composite": 0.5252,
+          "decision": "Conditional"
+        },
+        {
+          "go_threshold": 0.65,
+          "conditional_threshold": 0.55,
+          "composite": 0.5252,
+          "decision": "No-Go"
+        },
+        {
+          "go_threshold": 0.7,
+          "conditional_threshold": 0.3,
+          "composite": 0.5252,
+          "decision": "Conditional"
+        },
+        {
+          "go_threshold": 0.7,
+          "conditional_threshold": 0.35,
+          "composite": 0.5252,
+          "decision": "Conditional"
+        },
+        {
+          "go_threshold": 0.7,
+          "conditional_threshold": 0.4,
+          "composite": 0.5252,
+          "decision": "Conditional"
+        },
+        {
+          "go_threshold": 0.7,
+          "conditional_threshold": 0.45,
+          "composite": 0.5252,
+          "decision": "Conditional"
+        },
+        {
+          "go_threshold": 0.7,
+          "conditional_threshold": 0.5,
+          "composite": 0.5252,
+          "decision": "Conditional"
+        },
+        {
+          "go_threshold": 0.7,
+          "conditional_threshold": 0.55,
+          "composite": 0.5252,
+          "decision": "No-Go"
+        },
+        {
+          "go_threshold": 0.75,
+          "conditional_threshold": 0.3,
+          "composite": 0.5252,
+          "decision": "Conditional"
+        },
+        {
+          "go_threshold": 0.75,
+          "conditional_threshold": 0.35,
+          "composite": 0.5252,
+          "decision": "Conditional"
+        },
+        {
+          "go_threshold": 0.75,
+          "conditional_threshold": 0.4,
+          "composite": 0.5252,
+          "decision": "Conditional"
+        },
+        {
+          "go_threshold": 0.75,
+          "conditional_threshold": 0.45,
+          "composite": 0.5252,
+          "decision": "Conditional"
+        },
+        {
+          "go_threshold": 0.75,
+          "conditional_threshold": 0.5,
+          "composite": 0.5252,
+          "decision": "Conditional"
+        },
+        {
+          "go_threshold": 0.75,
+          "conditional_threshold": 0.55,
+          "composite": 0.5252,
+          "decision": "No-Go"
+        },
+        {
+          "go_threshold": 0.8,
+          "conditional_threshold": 0.3,
+          "composite": 0.5252,
+          "decision": "Conditional"
+        },
+        {
+          "go_threshold": 0.8,
+          "conditional_threshold": 0.35,
+          "composite": 0.5252,
+          "decision": "Conditional"
+        },
+        {
+          "go_threshold": 0.8,
+          "conditional_threshold": 0.4,
+          "composite": 0.5252,
+          "decision": "Conditional"
+        },
+        {
+          "go_threshold": 0.8,
+          "conditional_threshold": 0.45,
+          "composite": 0.5252,
+          "decision": "Conditional"
+        },
+        {
+          "go_threshold": 0.8,
+          "conditional_threshold": 0.5,
+          "composite": 0.5252,
+          "decision": "Conditional"
+        },
+        {
+          "go_threshold": 0.8,
+          "conditional_threshold": 0.55,
+          "composite": 0.5252,
+          "decision": "No-Go"
+        }
+      ]
+    },
+    "m6A": {
+      "default_composite": 0.6096,
+      "default_decision": "Conditional",
+      "grid": [
+        {
+          "go_threshold": 0.5,
+          "conditional_threshold": 0.3,
+          "composite": 0.6096,
+          "decision": "Go"
+        },
+        {
+          "go_threshold": 0.5,
+          "conditional_threshold": 0.35,
+          "composite": 0.6096,
+          "decision": "Go"
+        },
+        {
+          "go_threshold": 0.5,
+          "conditional_threshold": 0.4,
+          "composite": 0.6096,
+          "decision": "Go"
+        },
+        {
+          "go_threshold": 0.5,
+          "conditional_threshold": 0.45,
+          "composite": 0.6096,
+          "decision": "Go"
+        },
+        {
+          "go_threshold": 0.5,
+          "conditional_threshold": 0.5,
+          "composite": 0.6096,
+          "decision": "Go"
+        },
+        {
+          "go_threshold": 0.55,
+          "conditional_threshold": 0.3,
+          "composite": 0.6096,
+          "decision": "Go"
+        },
+        {
+          "go_threshold": 0.55,
+          "conditional_threshold": 0.35,
+          "composite": 0.6096,
+          "decision": "Go"
+        },
+        {
+          "go_threshold": 0.55,
+          "conditional_threshold": 0.4,
+          "composite": 0.6096,
+          "decision": "Go"
+        },
+        {
+          "go_threshold": 0.55,
+          "conditional_threshold": 0.45,
+          "composite": 0.6096,
+          "decision": "Go"
+        },
+        {
+          "go_threshold": 0.55,
+          "conditional_threshold": 0.5,
+          "composite": 0.6096,
+          "decision": "Go"
+        },
+        {
+          "go_threshold": 0.55,
+          "conditional_threshold": 0.55,
+          "composite": 0.6096,
+          "decision": "Go"
+        },
+        {
+          "go_threshold": 0.6,
+          "conditional_threshold": 0.3,
+          "composite": 0.6096,
+          "decision": "Go"
+        },
+        {
+          "go_threshold": 0.6,
+          "conditional_threshold": 0.35,
+          "composite": 0.6096,
+          "decision": "Go"
+        },
+        {
+          "go_threshold": 0.6,
+          "conditional_threshold": 0.4,
+          "composite": 0.6096,
+          "decision": "Go"
+        },
+        {
+          "go_threshold": 0.6,
+          "conditional_threshold": 0.45,
+          "composite": 0.6096,
+          "decision": "Go"
+        },
+        {
+          "go_threshold": 0.6,
+          "conditional_threshold": 0.5,
+          "composite": 0.6096,
+          "decision": "Go"
+        },
+        {
+          "go_threshold": 0.6,
+          "conditional_threshold": 0.55,
+          "composite": 0.6096,
+          "decision": "Go"
+        },
+        {
+          "go_threshold": 0.65,
+          "conditional_threshold": 0.3,
+          "composite": 0.6096,
+          "decision": "Conditional"
+        },
+        {
+          "go_threshold": 0.65,
+          "conditional_threshold": 0.35,
+          "composite": 0.6096,
+          "decision": "Conditional"
+        },
+        {
+          "go_threshold": 0.65,
+          "conditional_threshold": 0.4,
+          "composite": 0.6096,
+          "decision": "Conditional"
+        },
+        {
+          "go_threshold": 0.65,
+          "conditional_threshold": 0.45,
+          "composite": 0.6096,
+          "decision": "Conditional"
+        },
+        {
+          "go_threshold": 0.65,
+          "conditional_threshold": 0.5,
+          "composite": 0.6096,
+          "decision": "Conditional"
+        },
+        {
+          "go_threshold": 0.65,
+          "conditional_threshold": 0.55,
+          "composite": 0.6096,
+          "decision": "Conditional"
+        },
+        {
+          "go_threshold": 0.7,
+          "conditional_threshold": 0.3,
+          "composite": 0.6096,
+          "decision": "Conditional"
+        },
+        {
+          "go_threshold": 0.7,
+          "conditional_threshold": 0.35,
+          "composite": 0.6096,
+          "decision": "Conditional"
+        },
+        {
+          "go_threshold": 0.7,
+          "conditional_threshold": 0.4,
+          "composite": 0.6096,
+          "decision": "Conditional"
+        },
+        {
+          "go_threshold": 0.7,
+          "conditional_threshold": 0.45,
+          "composite": 0.6096,
+          "decision": "Conditional"
+        },
+        {
+          "go_threshold": 0.7,
+          "conditional_threshold": 0.5,
+          "composite": 0.6096,
+          "decision": "Conditional"
+        },
+        {
+          "go_threshold": 0.7,
+          "conditional_threshold": 0.55,
+          "composite": 0.6096,
+          "decision": "Conditional"
+        },
+        {
+          "go_threshold": 0.75,
+          "conditional_threshold": 0.3,
+          "composite": 0.6096,
+          "decision": "Conditional"
+        },
+        {
+          "go_threshold": 0.75,
+          "conditional_threshold": 0.35,
+          "composite": 0.6096,
+          "decision": "Conditional"
+        },
+        {
+          "go_threshold": 0.75,
+          "conditional_threshold": 0.4,
+          "composite": 0.6096,
+          "decision": "Conditional"
+        },
+        {
+          "go_threshold": 0.75,
+          "conditional_threshold": 0.45,
+          "composite": 0.6096,
+          "decision": "Conditional"
+        },
+        {
+          "go_threshold": 0.75,
+          "conditional_threshold": 0.5,
+          "composite": 0.6096,
+          "decision": "Conditional"
+        },
+        {
+          "go_threshold": 0.75,
+          "conditional_threshold": 0.55,
+          "composite": 0.6096,
+          "decision": "Conditional"
+        },
+        {
+          "go_threshold": 0.8,
+          "conditional_threshold": 0.3,
+          "composite": 0.6096,
+          "decision": "Conditional"
+        },
+        {
+          "go_threshold": 0.8,
+          "conditional_threshold": 0.35,
+          "composite": 0.6096,
+          "decision": "Conditional"
+        },
+        {
+          "go_threshold": 0.8,
+          "conditional_threshold": 0.4,
+          "composite": 0.6096,
+          "decision": "Conditional"
+        },
+        {
+          "go_threshold": 0.8,
+          "conditional_threshold": 0.45,
+          "composite": 0.6096,
+          "decision": "Conditional"
+        },
+        {
+          "go_threshold": 0.8,
+          "conditional_threshold": 0.5,
+          "composite": 0.6096,
+          "decision": "Conditional"
+        },
+        {
+          "go_threshold": 0.8,
+          "conditional_threshold": 0.55,
+          "composite": 0.6096,
+          "decision": "Conditional"
+        }
+      ]
+    }
+  },
+  "dimension_drop": {
+    "Psi": {
+      "baseline_composite": 0.6698,
+      "baseline_decision": "Go",
+      "dimension_drops": {
+        "clinical": {
+          "composite": 0.6773,
+          "decision": "Go",
+          "delta": 0.0076,
+          "delta_pct": 1.13
+        },
+        "binding": {
+          "composite": 0.67,
+          "decision": "Go",
+          "delta": 0.0002,
+          "delta_pct": 0.03
+        },
+        "kinetics": {
+          "composite": 0.6389,
+          "decision": "Conditional",
+          "delta": -0.0309,
+          "delta_pct": -4.61
+        },
+        "gene_signature": {
+          "composite": 0.6783,
+          "decision": "Go",
+          "delta": 0.0086,
+          "delta_pct": 1.28
+        },
+        "circrna": {
+          "composite": 0.6867,
+          "decision": "Go",
+          "delta": 0.0169,
+          "delta_pct": 2.53
+        }
+      }
+    },
+    "Unmodified": {
+      "baseline_composite": 0.5252,
+      "baseline_decision": "Conditional",
+      "dimension_drops": {
+        "clinical": {
+          "composite": 0.5277,
+          "decision": "Conditional",
+          "delta": 0.0025,
+          "delta_pct": 0.48
+        },
+        "binding": {
+          "composite": 0.5455,
+          "decision": "Conditional",
+          "delta": 0.0202,
+          "delta_pct": 3.85
+        },
+        "kinetics": {
+          "composite": 0.4756,
+          "decision": "Conditional",
+          "delta": -0.0497,
+          "delta_pct": -9.46
+        },
+        "gene_signature": {
+          "composite": 0.5215,
+          "decision": "Conditional",
+          "delta": -0.0037,
+          "delta_pct": -0.71
+        },
+        "circrna": {
+          "composite": 0.5563,
+          "decision": "Conditional",
+          "delta": 0.0311,
+          "delta_pct": 5.92
+        }
+      }
+    },
+    "m6A": {
+      "baseline_composite": 0.6096,
+      "baseline_decision": "Conditional",
+      "dimension_drops": {
+        "clinical": {
+          "composite": 0.6185,
+          "decision": "Conditional",
+          "delta": 0.0088,
+          "delta_pct": 1.45
+        },
+        "binding": {
+          "composite": 0.6175,
+          "decision": "Conditional",
+          "delta": 0.0079,
+          "delta_pct": 1.29
+        },
+        "kinetics": {
+          "composite": 0.5646,
+          "decision": "Conditional",
+          "delta": -0.0451,
+          "delta_pct": -7.39
+        },
+        "gene_signature": {
+          "composite": 0.6163,
+          "decision": "Conditional",
+          "delta": 0.0067,
+          "delta_pct": 1.1
+        },
+        "circrna": {
+          "composite": 0.6342,
+          "decision": "Conditional",
+          "delta": 0.0245,
+          "delta_pct": 4.02
+        }
+      }
+    }
+  },
+  "metadata": {
+    "n_iterations": 1000,
+    "perturbation_range": 0.5,
+    "base_weights": [
+      0.3,
+      0.2,
+      0.15,
+      0.15,
+      0.2
+    ],
+    "default_thresholds": {
+      "go": 0.65,
+      "conditional": 0.4,
+      "safety_floor": 0.3
+    }
+  }
+}

@@ -41,7 +41,12 @@ def _ensure_epitope_path():
 def _ensure_drug_path():
     p = str(_DRUG_DIR)
     if p not in sys.path:
+        # Insert at position 0 to ensure drug module's core.features is found first
         sys.path.insert(0, p)
+        # Remove epitope path if present, to avoid core.features namespace collision
+        ep = str(_EPITOPE_DIR)
+        if ep in sys.path:
+            sys.path.remove(ep)
 
 
 # Column name mapping: raw CSV -> internal names
