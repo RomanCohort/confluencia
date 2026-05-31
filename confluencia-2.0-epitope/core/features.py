@@ -97,6 +97,8 @@ class FeatureSpec:
     esm2_pca_dim: int = 0  # PCA降维维度，0表示不做PCA
     use_mhc: bool = False
     mhc_allele_col: str = "mhc_allele"
+    use_mhc_ii: bool = False  # Enable MHC-II encoding (947 dims)
+    mhc_auto_detect: bool = False  # Auto-detect MHC class from allele name
 
 
 # ESM-2 嵌入维度映射 (用于 feature names 生成)
@@ -118,7 +120,9 @@ def feature_schema_id(spec: FeatureSpec | None = None) -> str:
         f"env={env};"
         f"kmer_hash={KMER_HASH_VERSION};"
         f"esm2={spec.use_esm2}:{spec.esm2_model_size};"
-        f"mhc={spec.use_mhc}"
+        f"mhc_i={spec.use_mhc};"
+        f"mhc_ii={spec.use_mhc_ii};"
+        f"mhc_auto={spec.mhc_auto_detect}"
     )
 
 
@@ -222,12 +226,14 @@ def build_feature_matrix(df: pd.DataFrame, spec: FeatureSpec | None = None) -> T
     特征顺序:
         1. Mamba3Lite 编码 (~168维)
         2. ESM-2 嵌入 (320/640/1280维，当 use_esm2=True)
-        3. MHC 特征 (979维，当 use_mhc=True)
-        4. k-mer hash (64*2=128维)
-        5. 生化统计 (16维)
-        6. 环境变量 (0-5维)
+        3. MHC-I 特征 (979维，当 use_mhc=True)
+        4. MHC-II 特征 (945维，当 use_mhc_ii=True 或 mhc_auto_detect=True)
+        5. k-mer hash (64*2=128维)
+        6. 生化统计 (16维)
+        7. 环境变量 (0-5维)
 
-    总维度 (use_esm2=True, use_mhc=True, 650M): ~2604维
+    总维度 (use_esm2=True, use_mhc=True, use_mhc_ii=True, 650M): ~3551维
+    总维度 (use_mhc=True, mhc_auto_detect=True): ~2219维 (979+947+etc)
     总维度 (use_mhc=True): ~1272维
     总维度 (use_esm2=False, use_mhc=False): ~317维
     """
@@ -279,23 +285,56 @@ def build_feature_matrix(df: pd.DataFrame, spec: FeatureSpec | None = None) -> T
                 mhc_allele_col=spec.mhc_allele_col,
             )
 
-    # MHC 特征 (可选)
+    # MHC 特征 (可选, supports MHC-I, MHC-II, and auto-detect)
     mhc_features = None
     mhc_dim = 0
-    if spec.use_mhc:
+    mhc_i_dim = 0
+    mhc_ii_dim = 0
+    use_mhc_i = spec.use_mhc
+    use_mhc_ii = spec.use_mhc_ii
+    if spec.use_mhc or spec.use_mhc_ii or spec.mhc_auto_detect:
         try:
-            from .mhc_features import MHCFeatureEncoder
-            mhc_encoder = MHCFeatureEncoder()
-            mhc_dim = mhc_encoder.feature_dim  # 979
+            from .mhc_features import MHCFeatureEncoder, MHCIIFeatureEncoder, detect_mhc_class
 
-            # 获取 alleles
+            # Get alleles
             if spec.mhc_allele_col in work.columns:
                 alleles = work[spec.mhc_allele_col].fillna("HLA-A*02:01").astype(str).tolist()
             else:
-                # 无 allele 信息时使用默认值
                 alleles = ["HLA-A*02:01"] * len(work)
 
-            mhc_features = mhc_encoder.encode_batch(sequences, alleles)
+            # Auto-detect: determine MHC class per allele
+            if spec.mhc_auto_detect:
+                mhc_i_mask = [detect_mhc_class(a) == 'I' for a in alleles]
+                mhc_ii_mask = [detect_mhc_class(a) == 'II' for a in alleles]
+                use_mhc_i = any(mhc_i_mask)
+                use_mhc_ii = any(mhc_ii_mask)
+
+            mhc_i_features = None
+            mhc_ii_features = None
+
+            # MHC-I encoding
+            if use_mhc_i:
+                mhc_i_encoder = MHCFeatureEncoder()
+                mhc_i_dim = mhc_i_encoder.feature_dim  # 979
+                i_alleles = [a if detect_mhc_class(a) == 'I' else "HLA-A*02:01" for a in alleles]
+                mhc_i_features = mhc_i_encoder.encode_batch(sequences, i_alleles)
+
+            # MHC-II encoding
+            if use_mhc_ii:
+                mhc_ii_encoder = MHCIIFeatureEncoder()
+                mhc_ii_dim = mhc_ii_encoder.feature_dim  # 947
+                ii_alleles = [a if detect_mhc_class(a) == 'II' else "HLA-DRB1*01:01" for a in alleles]
+                mhc_ii_features = mhc_ii_encoder.encode_batch(sequences, ii_alleles)
+
+            # Concatenate MHC-I + MHC-II features per row
+            mhc_dim = mhc_i_dim + mhc_ii_dim
+            if mhc_i_features is not None and mhc_ii_features is not None:
+                mhc_features = np.concatenate([mhc_i_features, mhc_ii_features], axis=1)
+            elif mhc_i_features is not None:
+                mhc_features = mhc_i_features
+            elif mhc_ii_features is not None:
+                mhc_features = mhc_ii_features
+
         except Exception as e:
             print(f"[Warning] MHC 特征编码失败，跳过: {e}")
             spec = FeatureSpec(
@@ -307,6 +346,8 @@ def build_feature_matrix(df: pd.DataFrame, spec: FeatureSpec | None = None) -> T
                 esm2_cache_dir=spec.esm2_cache_dir,
                 esm2_pca_dim=spec.esm2_pca_dim,
                 use_mhc=False,
+                use_mhc_ii=False,
+                mhc_auto_detect=False,
             )
 
     xs: List[np.ndarray] = []
@@ -336,8 +377,10 @@ def build_feature_matrix(df: pd.DataFrame, spec: FeatureSpec | None = None) -> T
         names += [f"esm2_{i}" for i in range(esm2_dim)]
 
     # MHC feature names
-    if spec.use_mhc and mhc_dim > 0:
-        names += [f"mhc_{i}" for i in range(mhc_dim)]
+    if (spec.use_mhc or use_mhc_i) and mhc_i_dim > 0:
+        names += [f"mhc_i_{i}" for i in range(mhc_i_dim)]
+    if (spec.use_mhc_ii or use_mhc_ii) and mhc_ii_dim > 0:
+        names += [f"mhc_ii_{i}" for i in range(mhc_ii_dim)]
 
     names += [f"kmer2_{i}" for i in range(spec.kmer_hash_dim)]
     names += [f"kmer3_{i}" for i in range(spec.kmer_hash_dim)]
