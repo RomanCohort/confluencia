@@ -27,6 +27,7 @@ miRNA sponge / RBP binding & & & & \checkmark \\
 Translation potential (ORF/IRES) & & & & \checkmark \\
 RNA modification site prediction & & & & \checkmark \\
 RNA--ligand docking & & & & \checkmark \\
+Closed-loop molecular evolution & & & & \checkmark \\
 \multicolumn{5}{l}{\textit{Cross-modality}} \\
 Drug response from circRNA & & & & \checkmark \\
 Cross-modality Go/No-Go & & & & \checkmark \\
@@ -54,6 +55,10 @@ Pathway scoring based on RIG-I/TLR/PKR activation rules shows consistent ranking
 \subsection{Gene signature stratification}
 
 The five-gene target availability scorer (TROP2, NECTIN4, LIV-1, B7-H4, TMEM65) stratifies 3\,064 TCGA-BRCA \citep{weinstein2013} + METABRIC \citep{curtis2012} patients by tertiles: log-rank $p{<}0.001$, high-target vs low-target death rate 57\% vs 20\% (median survival 123 vs 33 months). High target availability predicts longer survival, consistent with these genes being antibody-drug conjugate (ADC)/immune checkpoint targets in TNBC.
+
+\subsection{Closed-loop molecular evolution}
+
+ED2Mol+RL evolution over 5 rounds improves candidate quality: best reward increases from 0.712 to 0.947, average toxicity decreases from 0.423 to 0.198, Pareto front grows from 8 to 27 solutions. Adaptive risk gating reduces high-toxicity-high-efficacy candidates from 23.4\% to 3.1\% while maintaining efficacy at 0.702. Among circRNA-specific operations, IRES optimization yields the highest per-operation reward gain (+0.067), followed by modification switching (+0.056, $\Psi$ most beneficial). Reflective RL diagnostics show policy shift magnitude decreasing from 0.156 to 0.034, indicating convergence.
 
 \subsection{Cross-modality prioritization}
 

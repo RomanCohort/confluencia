@@ -17,3 +17,7 @@ The circRNA module covers structure, immunogenicity, and functional interactions
 \subsection{Uncertainty-adaptive five-dimension evaluation}
 
 Five dimensions (Clinical, Binding, Kinetics, Gene Signature, circRNA) are aggregated with base weights $(0.30, 0.20, 0.15, 0.15, 0.20)$, each modulated by $w_i' = w_i \times (1 - u_i)^2$ where $u_i$ is per-dimension uncertainty. Under-constrained dimensions auto-downweight. The composite yields Go ($\geq0.65$), Conditional ($\geq0.40$), or No-Go, with safety override at penalty $>0.30$.
+
+\subsection{Closed-loop molecular evolution}
+
+Evaluation outputs feed back into molecular optimization: ED2Mol generates candidate molecules/sequences; MOE predicts multi-objective scores (efficacy, binding, toxicity); risk gating filters candidates above adaptive toxicity thresholds; elite retention selects top-$k$ candidates for the next round. circRNA-specific operations preserve the back-splice junction (BSJ) during backbone mutation, optimize IRES motifs, rearrange UTRs, and switch nucleotide modifications---each directly affecting RNACTM rate constants. A reflective RL diagnostic monitors policy shift magnitude per round, signaling convergence when shift $<$0.05.
