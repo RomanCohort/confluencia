@@ -24,9 +24,9 @@ import numpy as np
 import pandas as pd
 
 # ---------------------------------------------------------------------------
-# Paths
+# Paths — use relative path from script location for cross-platform compatibility
 # ---------------------------------------------------------------------------
-PROJECT_ROOT = Path(r"D:/IGEM集成方案")
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
 DATA_DIR = PROJECT_ROOT / "data" / "circrna"
 RESULTS_DIR = PROJECT_ROOT / "benchmarks" / "results"
 RESULTS_DIR.mkdir(parents=True, exist_ok=True)

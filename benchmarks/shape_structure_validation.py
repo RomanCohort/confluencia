@@ -36,9 +36,9 @@ from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
 # ---------------------------------------------------------------------------
-# Paths
+# Paths — use relative path from script location for cross-platform compatibility
 # ---------------------------------------------------------------------------
-PROJECT_ROOT = Path(r"D:/IGEM集成方案")
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
 SHAPE_CSV = PROJECT_ROOT / "data" / "structure" / "shape_cache.csv"
 RESULTS_DIR = PROJECT_ROOT / "benchmarks" / "results"
 RESULTS_FILE = RESULTS_DIR / "shape_structure_validation.json"
