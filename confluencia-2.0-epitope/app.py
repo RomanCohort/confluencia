@@ -33,10 +33,15 @@ from core.torch_mamba import (
 from core.cloud_client import CloudEpitopeClient, CloudHealthStatus
 from core.cloud_config import CloudConfig, load_cloud_config, save_cloud_config
 
-st.set_page_config(page_title="Confluencia 2.0 表位模块", layout="wide")
+# i18n support
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "confluencia_shared"))
+from lang import t, lang_toggle
 
-st.title("Confluencia 2.0 表位预测与训练")
-st.caption("面向 circRNA 的微观疗效预测，支持 PyTorch Mamba 训练与多邻域敏感性分析")
+st.set_page_config(page_title=t("page_title_epitope"), layout="wide")
+
+lang_toggle()
+st.title(t("title_epitope"))
+st.caption(t("caption_epitope"))
 
 
 def _ssm_unavailable_reason() -> str:

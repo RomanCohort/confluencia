@@ -77,13 +77,19 @@ from confluencia_circrna.core import (
     compute_cirrna_objectives,
 )
 
+# i18n support (UI already English, adds toggle for Chinese)
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "confluencia_shared"))
+from lang import t, lang_toggle
+
 # Page config
 st.set_page_config(
-    page_title="Confluencia circRNA Module",
+    page_title=t("page_title_circrna"),
     layout="wide",
     page_icon="🧬",
     initial_sidebar_state="expanded",
 )
+
+lang_toggle()
 
 # Custom CSS
 st.markdown("""
