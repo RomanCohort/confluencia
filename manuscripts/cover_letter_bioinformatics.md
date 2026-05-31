@@ -1,52 +1,24 @@
-# Cover Letter for Bioinformatics Application Note
+# Cover Letter — Bioinformatics Application Note
 
-Dear Editor,
+**Manuscript title:** Confluencia: An uncertainty-adaptive cross-modality evaluation platform for circRNA therapeutic development
 
-We submit "Confluencia circRNA: A Comprehensive Platform for circRNA Vaccine Design and Immunogenicity Prediction" for consideration as an Application Note.
-
-**Scientific Significance**
-
-Circular RNAs (circRNAs) are emerging vaccine candidates due to their inherent stability and potential for controlled immunogenicity. However, predicting how circRNAs activate innate immune sensors (RIG-I, TLR7/8, PKR) and optimizing sequences for vaccine applications remain challenging. No existing tool addresses this gap.
-
-**Our Contribution**
-
-Confluencia circRNA provides the first integrated platform for:
-1. **Literature-backed immunogenicity scoring** - Weights derived from seminal Nature/RNA papers (Schlee et al., 2009; Nallagatla et al., 2007; Forsbach et al., 2008)
-2. **circRNA-specific analysis** - Structure prediction, m6A/IRES/miRNA mapping, clinical outcome prediction
-3. **Evolutionary sequence optimization** - Pareto multi-objective selection for stability, translation, immune evasion, and delivery
-
-**Validation Plan**
-
-This work is conducted in collaboration with [医学院名称]. Experimental validation using primary human PBMC cytokine assays and RIG-I/PKR activation measurements is planned for predicted high/low immunogenicity constructs.
-
-**Availability**
-
-The platform is open-source (MIT license) with comprehensive documentation at https://github.com/RomanCohort/confluencia. A Streamlit web interface enables immediate use without installation.
-
-We believe this tool will accelerate circRNA vaccine development and request consideration for publication.
-
-Best regards,
-
-[作者姓名]
-[单位]
+**Manuscript type:** Application Note
 
 ---
 
-## Conflict of Interest Statement
+Dear Editor,
 
-The authors declare no conflict of interest.
+We submit Confluencia, the first computational platform that evaluates circRNA-specific therapeutic dimensions across both small-molecule and circRNA modalities in a unified framework.
 
-## Data Availability
+**Novelty.** Existing tools address individual modalities—NetMHCpan for MHC binding, ADMETlab for ADMET screening, Monolix for population PK—but none evaluates circRNA-specific dimensions: nucleotide modification effects on half-life, circRNA immunogenicity pathways, IRES-mediated translation, or miRNA sponge activity. Confluencia integrates these evaluations with uncertainty-adaptive five-dimension assessment, producing cross-modality Go/Conditional/No-Go recommendations.
 
-Source code available at https://github.com/RomanCohort/confluencia under MIT license. No proprietary data used.
+**Honesty.** We proactively acknowledge that our validations are computational rather than experimental: (1) RNACTM compartment simulation is a deterministic, literature-parameterized system (not a population PK model fitted to concentration–time data); (2) immunogenicity scoring achieves direction consistency with literature IFN data but pathway weights are heuristic; (3) three of five circRNA functional dimensions lack independent evaluation and are auto-downweighted via $(1-u)^2$. Wet-lab validation in our laboratory is underway and will be reported separately.
 
-## Funding
+**Reproducibility.** Confluencia is freely available under MIT license at https://github.com/IGEM-FBH/confluencia with three interfaces (GUI, R package with 27 functions, VS Code extension with 11 commands), offline-first Hub sharing, and plugin extensibility. Core evaluation runs in under 5 minutes on a standard laptop without GPU.
 
-[基金信息，如有]
+We believe Confluencia addresses an unmet need in the rapidly growing circRNA therapeutics field and is suitable as a Bioinformatics Application Note.
 
-## Author Contributions
+Sincerely,
 
-[作者分工]
-- XX: Conceptualization, Methodology, Software
-- XX: Validation, Collaboration coordination
-- XX: Writing, Visualization
+IGEM-FBH Team
+First Bethune Hospital of Jilin University
