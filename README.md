@@ -38,7 +38,7 @@ Confluencia 通过以下创新解决这些问题：
 | 指标 | 数值 | 说明 |
 |------|------|------|
 | **288K IEDB AUC (allele-aware)** | **0.80** | HGB，MHC 等位基因特征编码 |
-| 288K IEDB AUC (allele-agnostic) | 0.73 | HGB/RF，序列感知分割 |
+| 288K IEDB AUC (allele-agnostic) | 0.74 | HGB/RF，序列感知分割 |
 | **Drug Ridge R²** | **0.984** | 小样本药物预测最优 |
 | MOE MAE (表位) | 0.389 | 比 Ridge 降低 39.2% (p<0.001) |
 | MOE R² (表位) | 0.819 | 5折交叉验证 |
@@ -280,7 +280,7 @@ cf_mamba3_encode("ACGUACGUACGU")                  # 多尺度序列编码
 cf_reg_metrics(c(1,2,3), c(1.1,2,2.9))            # MAE/RMSE/R²
 ```
 
-**完整函数列表 (22个)：**
+**完整函数列表 (27个)：**
 
 | 函数 | 功能 | 返回类型 |
 |------|------|----------|

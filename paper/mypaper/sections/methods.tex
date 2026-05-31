@@ -8,7 +8,7 @@ RNACTM simulates circRNA concentration through six compartments (Injection $\rig
 
 \subsection{Small-molecule evaluation}
 
-Expert architectures are selected by sample size \citep{jacobs1991}: Ridge + HGB ($N<80$); adding RF ($N<300$); adding MLP ($N\geq300$), with inverse-RMSE gating. ESM-2 \citep{lin2023} produced severe overfitting at $N<300$; sklearn models provide stable predictions without GPU dependency. Epitope sequences use Mamba3Lite encoding \citep{gu2023}; MHC features cover 153 class-I and 37 class-II alleles. ADMET screening covers PAINS \citep{baell2010}, reactive groups, and safety floors preventing unsafe candidates.
+Expert architectures are selected by sample size \citep{jacobs1991}: Ridge + HGB ($N<80$); adding RF ($N<300$); adding MLP ($N\geq300$), with inverse-RMSE gating. ESM-2 \citep{lin2023} produced severe overfitting at $N<300$; sklearn models provide stable predictions without GPU dependency. Epitope sequences use Mamba3Lite encoding \citep{gu2023}; MHC features cover 153 class-I and 37 class-II alleles with allele-specific pseudo-sequence encoding; 56 additional alleles use allele-agnostic features due to insufficient per-allele samples (total 246 alleles). ADMET screening covers PAINS \citep{baell2010}, reactive groups, and safety floors preventing unsafe candidates.
 
 \subsection{circRNA functional assessment}
 
