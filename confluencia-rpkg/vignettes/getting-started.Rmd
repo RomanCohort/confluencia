@@ -1,0 +1,168 @@
+---
+title: "Getting Started with Confluencia"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Getting Started with Confluencia}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+# Overview
+
+Confluencia provides R bindings to a Python backend for circRNA therapeutic
+evaluation. Before using any `cf_*` function, you need a Python environment
+with the Confluencia dependencies installed (pandas, numpy, scikit-learn,
+scipy, joblib, rdkit).
+
+```r
+library(confluencia)
+
+# Point to your Python (only needed once per session)
+cf_use_python("/path/to/python")
+```
+
+# PK Simulation
+
+## Small-molecule CTM model
+
+```r
+# Derive parameters from micro scores
+params <- cf_ctm_params(binding = 0.72, immune = 0.65, inflammation = 0.12)
+
+# Simulate 72-hour PK profile
+pk <- cf_ctm_simulate(dose = 200, freq = 2, binding = 0.72, horizon = 72)
+head(pk)
+
+# Plot efficacy signal
+plot(pk$time_h, pk$efficacy_signal, type = "l",
+     xlab = "Time (h)", ylab = "Efficacy Signal",
+     main = "CTM 6-Compartment PK")
+```
+
+## circRNA RNA-CTM model
+
+```r
+# Pseudouridine-modified circRNA via LNP
+rna_pk <- cf_rna_ctm_simulate(dose = 5, freq = 1,
+                               modification = "pseudouridine",
+                               horizon = 168)
+head(rna_pk)
+```
+
+Supported modifications: `"none"`, `"m6A"`, `"pseudouridine"`, `"5mC"`, `"ms2m6A"`.
+
+# Immunogenicity Prediction
+
+```r
+scores <- cf_circrna_immunogenicity("ACGUACGUACGUACGUACGUACGUACGUACGU")
+print(scores)
+```
+
+# MHC Encoding
+
+```r
+# MHC-I features (1018 dimensions)
+enc <- cf_mhc_encode("SLYNTVATL", "HLA-A*02:01")
+length(enc)  # 1018
+
+# Detect MHC class
+cf_mhc_detect_class("HLA-A*02:01")  # "I"
+cf_mhc_detect_class("HLA-DRB1*04:01")  # "II"
+```
+
+# 5D Joint Evaluation
+
+```r
+result <- cf_joint_evaluate(
+  smiles = "CC(=O)Oc1ccccc1C(=O)O",
+  epitope_seq = "SLYNTVATL",
+  mhc_allele = "HLA-A*02:01",
+  dose_mg = 200,
+  freq_per_day = 2,
+  treatment_time = 72
+)
+cat("Composite:", result$composite, "\n")
+cat("Recommendation:", result$recommendation, "\n")
+```
+
+# Model Training (DBTL Learn Stage)
+
+When new experimental data become available, you can retrain models to close
+the DBTL loop:
+
+```r
+# Train drug model from your CSV
+drug_result <- cf_drug_train("my_drug_data.csv", model_name = "ridge")
+cat("Drug R2:", drug_result$r2, "\n")
+cat("Bundle saved to:", drug_result$bundle_path, "\n")
+
+# Use the trained model for prediction
+pred <- cf_drug_predict(drug_result$bundle_path, "CC(=O)Oc1ccccc1C(=O)O")
+
+# Train epitope model
+epitope_result <- cf_epitope_train("my_epitope_data.csv",
+                                    target_col = "efficacy",
+                                    model_name = "hgb")
+pred <- cf_epitope_predict(epitope_result$bundle_path, "SLYNTVATL")
+```
+
+Supported model types for training:
+
+| Module | Models | Default |
+|--------|--------|---------|
+| Drug | ridge, rf, gbr, hgb, mlp | gbr |
+| Epitope | ridge, rf, hgb, mlp | hgb |
+
+# Regression Metrics
+
+```r
+metrics <- cf_reg_metrics(c(1, 2, 3, 4, 5), c(1.1, 1.9, 3.1, 3.8, 5.2))
+print(metrics)
+```
+
+# Plugin System (Extensible Platform)
+
+Confluencia is an extensible platform -- you can register custom models,
+encoders, PK solvers, and evaluation dimensions.
+
+```r
+# Register XGBoost as a new model type (requires xgboost Python package)
+cf_register_model("xgboost", "xgboost", "XGBRegressor")
+
+# Train with the registered model
+result <- cf_drug_train("data.csv", model_name = "xgboost")
+
+# Add a new evaluation dimension
+cf_register_dimension("manufacturability", weight = 0.10,
+                      description = "Ease of large-scale production")
+
+# Customize scoring weights
+cf_set_weights(c(clinical = 0.25, binding = 0.20, kinetics = 0.15,
+                 gene_signature = 0.15, circrna = 0.15, manufacturability = 0.10))
+
+# View all registered components
+cf_list_plugins()
+```
+
+# Community Sharing (Confluencia Hub)
+
+```r
+# Share your trained model (federated -- no raw data exposed)
+cf_hub_push_model(result$bundle_path, strip_env_medians = TRUE)
+
+# Download and use community models
+models <- cf_hub_list_models(task = "drug")
+community <- cf_hub_pull_model("hub:drug:anonymous:abc123")
+pred <- cf_drug_predict(community$bundle_path, "CC(=O)Oc1ccccc1C(=O)O")
+
+# Optionally contribute data (anonymous, with license)
+cf_hub_push_data("my_data.csv", license = "CC-BY-4.0", anonymous = TRUE)
+cf_hub_data_stats()
+```

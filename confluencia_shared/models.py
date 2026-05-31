@@ -160,8 +160,10 @@ class ModelFactory:
     def build(self, model_name: str, random_state: int = 42) -> Any:
         """Build a regressor by name.
 
+        Checks the plugin registry first, then built-in models.
+
         Args:
-            model_name: One of "rf", "mlp", "ridge", "sgd", "gbr", "hgb".
+            model_name: Model type name (built-in or plugin-registered).
             random_state: Random seed for reproducibility.
 
         Returns:
@@ -171,10 +173,19 @@ class ModelFactory:
             ValueError: If model_name is not supported.
         """
         model_name = model_name.lower()
+
+        # Check plugin registry first
+        from confluencia_cli.plugins import _get_registry
+        plugin_creator = _get_registry().get_model(model_name)
+        if plugin_creator is not None:
+            return plugin_creator(random_state=random_state)
+
+        # Fall back to built-in models
         if model_name not in self.SUPPORTED_MODELS:
             raise ValueError(
                 f"Unsupported model: {model_name}. "
-                f"Supported: {self.SUPPORTED_MODELS}"
+                f"Built-in: {self.SUPPORTED_MODELS}. "
+                f"Plugins: {_get_registry().list_models()}"
             )
 
         builder = {

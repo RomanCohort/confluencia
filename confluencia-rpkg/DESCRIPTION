@@ -1,0 +1,26 @@
+Package: confluencia
+Title: R Bridge to Confluencia circRNA Drug Discovery Platform
+Version: 0.1.0
+Authors@R: person("IGEM-FBH", role = c("aut", "cre"), email = "igem@fbh-china.org")
+Description: Provides R bindings to the Confluencia platform for circRNA
+    therapeutic evaluation. Includes PK simulation (CTM/RNA-CTM),
+    immunogenicity prediction, MHC encoding, and 5D joint evaluation
+    via reticulate bridge to the Python backend.
+License: MIT + file LICENSE
+Encoding: UTF-8
+LazyData: true
+Roxygen: list(markdown = TRUE)
+RoxygenNote: 7.3.3
+Depends: R (>= 4.1.0)
+Imports:
+    reticulate,
+    jsonlite,
+    methods
+Suggests:
+    testthat (>= 3.0.0),
+    knitr,
+    rmarkdown,
+    covr
+VignetteBuilder: knitr
+Config/testthat/edition: 3
+

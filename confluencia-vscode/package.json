@@ -1,0 +1,64 @@
+{
+  "name": "confluencia-vscode",
+  "displayName": "Confluencia - circRNA Drug Discovery",
+  "description": "PK simulation, immunogenicity prediction, MHC encoding, and 5D joint evaluation for circRNA therapeutics",
+  "version": "0.1.0",
+  "publisher": "igem-fbh",
+  "license": "MIT",
+  "engines": { "vscode": "^1.85.0" },
+  "categories": ["Science", "Machine Learning", "Other"],
+  "keywords": ["circRNA", "pharmacokinetics", "immunogenicity", "drug-discovery", "bioinformatics"],
+  "activationEvents": ["onCommand:confluencia.simulateCTM"],
+  "main": "./dist/extension.js",
+  "contributes": {
+    "commands": [
+      { "command": "confluencia.simulateCTM", "title": "Simulate PK (CTM)", "category": "Confluencia" },
+      { "command": "confluencia.simulateRNACTM", "title": "Simulate circRNA PK", "category": "Confluencia" },
+      { "command": "confluencia.predictImmunogenicity", "title": "Predict Immunogenicity", "category": "Confluencia" },
+      { "command": "confluencia.jointEvaluate", "title": "Joint Evaluate (5D)", "category": "Confluencia" },
+      { "command": "confluencia.predictDrug", "title": "Predict Drug Efficacy", "category": "Confluencia" },
+      { "command": "confluencia.predictEpitope", "title": "Predict Epitope Binding", "category": "Confluencia" },
+      { "command": "confluencia.mhcEncode", "title": "Encode MHC Features", "category": "Confluencia" },
+      { "command": "confluencia.regMetrics", "title": "Compute Metrics", "category": "Confluencia" },
+      { "command": "confluencia.selectPython", "title": "Select Python Environment", "category": "Confluencia" },
+      { "command": "confluencia.trainDrug", "title": "Train Drug Model", "category": "Confluencia" },
+      { "command": "confluencia.trainEpitope", "title": "Train Epitope Model", "category": "Confluencia" }
+    ],
+    "views": {
+      "explorer": [
+        { "id": "confluencia.scoreTree", "name": "Confluencia 5D Scores", "when": "confluencia.hasResult" }
+      ]
+    },
+    "viewsWelcome": [
+      { "view": "confluencia.scoreTree", "contents": "Run 'Confluencia: Joint Evaluate (5D)' to see scores here." }
+    ],
+    "configuration": {
+      "title": "Confluencia",
+      "properties": {
+        "confluencia.pythonPath": {
+          "type": "string",
+          "default": "",
+          "description": "Path to Python executable with confluencia installed"
+        },
+        "confluencia.projectRoot": {
+          "type": "string",
+          "default": "",
+          "description": "Path to Confluencia project root (IGEM集成方案)"
+        }
+      }
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "lint": "eslint src --ext ts"
+  },
+  "devDependencies": {
+    "@types/vscode": "^1.85.0",
+    "@types/node": "^20.0.0",
+    "typescript": "^5.3.0",
+    "eslint": "^8.0.0"
+  },
+  "dependencies": {}
+}

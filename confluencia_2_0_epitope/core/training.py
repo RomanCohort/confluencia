@@ -590,7 +590,26 @@ def train_epitope_model(
     start_time = time.time()
     tune_result: Dict[str, Any] | None = None  # hyperparameter tuning result
     work = ensure_columns(df)
+
+    # Auto-enable MHC features when allele data is present
     _feat_spec = feature_spec or FeatureSpec()
+    if not _feat_spec.use_mhc and not _feat_spec.use_mhc_ii and not _feat_spec.mhc_auto_detect:
+        if "mhc_allele" in work.columns and work["mhc_allele"].notna().any():
+            _feat_spec = FeatureSpec(
+                mamba=_feat_spec.mamba,
+                kmer_hash_dim=_feat_spec.kmer_hash_dim,
+                env_candidates=_feat_spec.env_candidates,
+                use_esm2=_feat_spec.use_esm2,
+                esm2_model_size=_feat_spec.esm2_model_size,
+                esm2_cache_dir=_feat_spec.esm2_cache_dir,
+                esm2_pca_dim=_feat_spec.esm2_pca_dim,
+                use_mhc=True,
+                mhc_allele_col=_feat_spec.mhc_allele_col,
+                use_mhc_ii=True,
+                mhc_auto_detect=True,
+            )
+            logger.info("Auto-enabled MHC features (allele column detected in data)")
+
     X, feature_names, env_cols = build_feature_matrix(work, _feat_spec)
     n = int(X.shape[0])
     if n == 0:
