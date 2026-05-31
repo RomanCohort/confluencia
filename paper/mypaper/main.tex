@@ -28,7 +28,7 @@ Changchun, China}%
 \maketitle
 
 \begin{abstract}
-\textbf{Summary:} Confluencia integrates circRNA pharmacokinetic modeling (half-life matching literature within 4.1\%), uncertainty-adaptive five-dimension evaluation, and cross-modality Go/Conditional/No-Go recommendations for circRNA therapeutic candidates. circRNA immunogenicity scores correlate with literature IFN data ($\rho{=}0.93$, $p{=}0.003$); 5D decisions remain stable under $\pm$50\% weight perturbation; gene signature target availability stratifies 3\,064 patients (log-rank $p{<}0.001$).\\
+\textbf{Summary:} No existing platform evaluates circRNA-specific therapeutic dimensions. We developed Confluencia for our own circRNA program, integrating six-compartment pharmacokinetic modeling (half-life matching literature within 4.1\%), uncertainty-adaptive five-dimension evaluation, and cross-modality Go/Conditional/No-Go recommendations. Immunogenicity scores are consistent with literature IFN data ($\rho{=}0.93$, $p{=}0.003$); 5D decisions remain stable under $\pm$50\% weight perturbation; gene signature target availability stratifies 3\,064 patients (log-rank $p{<}0.001$).\\
 \textbf{Availability and implementation:} \url{https://github.com/RomanCohort/confluencia}, MIT license. Python 3.8+.\\
 \textbf{Contact:} \email{18806370529@163.com}
 \end{abstract}
@@ -37,7 +37,7 @@ Changchun, China}%
 \begin{figure}[t]
 \centering
 \includegraphics[width=\textwidth]{figures/fig1_composite.pdf}
-\caption{(A) Confluencia architecture: unified inputs processed through Drug Pipeline (sample-size-adaptive MOE ensemble, ADMET screening), Epitope Pipeline (Mamba3Lite encoding, MHC features), RNACTM six-compartment PK, and circRNA Functional Assessment (structure, immunogenicity, miRNA/RBP/translation/modification axes) converge to uncertainty-adaptive five-dimension evaluation producing Go/Conditional/No-Go recommendations. (B) RNACTM simulated protein expression trajectories: $\Psi$-modified circRNA achieves sustained expression (half-life ${\sim}15$\,h) compared to unmodified (6.24\,h), m6A (${\sim}10.8$\,h), and 5mC (${\sim}8$\,h).}
+\caption{(A) Confluencia architecture: unified inputs processed through Drug Pipeline (sample-size-adaptive MOE ensemble, ADMET screening), Epitope Pipeline (Mamba3Lite encoding, MHC features), RNACTM six-compartment PK, and circRNA Functional Assessment (structure, immunogenicity, miRNA/RBP/translation/modification axes) converge to uncertainty-adaptive five-dimension evaluation producing Go/Conditional/No-Go recommendations. Under-constrained dimensions auto-downweight via $(1-u)^2$. (B) RNACTM simulated protein expression trajectories: $\Psi$-modified circRNA achieves sustained expression (half-life ${\sim}15$\,h) compared to unmodified (6.24\,h), m6A (${\sim}10.8$\,h), and 5mC (${\sim}8$\,h).}
 \label{fig:overview}
 \end{figure}
 
