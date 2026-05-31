@@ -41,12 +41,17 @@ except ImportError:
     create_cloud_client = None
     CLOUD_CLIENT_AVAILABLE = False
 
-st.set_page_config(page_title="Confluencia 2.0 药物模块", layout="wide", page_icon="app.png")
+# i18n support
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "confluencia_shared"))
+from lang import t, lang_toggle
 
-st.title("Confluencia 2.0：药物训练与微机制疗效预测")
-st.caption("MOE 自动建模 + CTM 动态仿真 + 靶点/免疫/炎症多指标预测")
+st.set_page_config(page_title=t("page_title_drug"), layout="wide", page_icon="app.png")
 
-doc_mode = "新手版"
+lang_toggle()
+st.title(t("title_drug"))
+st.caption(t("caption_drug"))
+
+doc_mode = t("mode_beginner")
 
 
 @st.cache_data(show_spinner=False)
