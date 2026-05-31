@@ -28,8 +28,8 @@ Changchun, China}%
 \maketitle
 
 \begin{abstract}
-\textbf{Summary:} CircRNA therapeutics require evaluation of nucleotide modification effects on half-life, immunogenicity, and translation---dimensions absent from existing drug evaluation tools. Confluencia integrates RNACTM, a six-compartment circRNA pharmacokinetic model (half-life validated within 4.1\%), sample-size-adaptive mixture-of-experts for binding prediction (39.2\% MAE reduction at $N{=}300$), and uncertainty-adaptive five-dimension scoring that auto-downweights under-constrained dimensions. circRNA immunogenicity scores correlate with literature IFN data ($\rho{=}0.93$, $p{=}0.003$); gene signature stratification achieves log-rank $p{<}0.001$ on 3\,064 patients; 5D decisions remain stable under $\pm$50\% weight perturbation ($\Psi$: 100\% Go). The platform produces Go/Conditional/No-Go recommendations guiding wet-lab prioritization---e.g., $\Psi$ is prioritized for synthesis while unmodified circRNA is deprioritized.\\
-\textbf{Availability and implementation:} \url{https://github.com/RomanCohort/confluencia}, MIT license. Python 3.8+, Linux/macOS/Windows.\\
+\textbf{Summary:} Confluencia integrates circRNA pharmacokinetic modeling (half-life validated within 4.1\%), uncertainty-adaptive five-dimension evaluation, and cross-modality Go/Conditional/No-Go recommendations for circRNA therapeutic candidates. circRNA immunogenicity scores correlate with literature IFN data ($\rho{=}0.93$, $p{=}0.003$); 5D decisions remain stable under $\pm$50\% weight perturbation; gene signature target availability stratifies 3\,064 patients (log-rank $p{<}0.001$).\\
+\textbf{Availability and implementation:} \url{https://github.com/RomanCohort/confluencia}, MIT license. Python 3.8+.\\
 \textbf{Contact:} \email{18806370529@163.com}
 \end{abstract}
 \printkeywords
@@ -100,25 +100,25 @@ Lorenz, R., Bernhart, S.H., H\"oner zu Siederdissen, C. et al. (2011)
 ViennaRNA Package 2.0.
 \textit{Algorithms Mol. Biol.}, \textbf{6}, 26.
 
-\bibitem[Nallagatla et~al.(2007)]{nallagatla2007}
-Nallagatla, S.R., Hwang, J., Toroney, R. et al. (2007)
-5'-triphosphate-dependent activation of PKR by RNAs with short stem-loops.
-\textit{Science}, \textbf{318}, 1455--1458.
+\bibitem[Weinstein et~al.(2013)]{weinstein2013}
+Weinstein, J.N. et~al. (2013)
+The Cancer Genome Atlas Pan-Cancer analysis project.
+\textit{Nat.\ Genet.}, \textbf{45}, 1113--1120.
 
-\bibitem[Chen and Mellman(2018)]{chen2018immunity}
-Chen, D.S. and Mellman, I. (2018)
-Elements of cancer immunity and the cancer--immune cycle.
-\textit{Nat. Cancer}, \textbf{1}, 1--12.
+\bibitem[Curtis et~al.(2012)]{curtis2012}
+Curtis, C. et~al. (2012)
+The genomic and transcriptomic architecture of 2,000 breast tumours reveals novel subgroups.
+\textit{Nature}, \textbf{486}, 346--352.
 
 \bibitem[Gilleron et~al.(2013)]{gilleron2013}
 Gilleron, J., Querbes, W., Zeigerer, A. et al. (2013)
 Image-based analysis of lipid nanoparticle-mediated siRNA delivery.
 \textit{Nat. Biotechnol.}, \textbf{31}, 638--646.
 
-\bibitem[Brenk et~al.(2008)]{brenk2008}
-Brenk, R., Schipani, A. and James, D. (2008)
-Lessons learned from molecular scaffold design.
-\textit{ChemMedChem}, \textbf{3}, 435--444.
+\bibitem[Dumont et~al.(2014)]{dumont2014}
+Dumont, C., Lestini, M., Le Nagard, H. et al. (2014)
+Monolix: a powerful and flexible software for population pharmacokinetic modelling.
+\textit{CPT Pharmacometrics Syst. Pharmacol.}, \textbf{3}, e121.
 
 \bibitem[Pedregosa et~al.(2011)]{pedregosa2011}
 Pedregosa, F., Varoquaux, G. and Gramfort, A. (2011)

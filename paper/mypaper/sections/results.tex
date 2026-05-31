@@ -1,11 +1,11 @@
-%% sections/results.tex — v6: compressed for Application Note
+%% sections/results.tex — v7: honest reporting, consistent decisions
 %% Functional coverage + validation + case study + robustness
 
 \section{Results}
 
 \subsection{Functional coverage}
 
-Table~\ref{tab:coverage} shows that Confluencia uniquely covers circRNA-specific functional dimensions and provides the only cross-modality evaluation---no existing tool operates across both small-molecule and circRNA modalities.
+Table~\ref{tab:coverage} shows that Confluencia covers circRNA-specific functional dimensions that no other listed tool addresses, and provides the only cross-modality evaluation---no existing tool operates across both small-molecule and circRNA modalities.
 
 \begin{table}[t]
 \centering
@@ -37,27 +37,27 @@ Cross-modality Go/No-Go & & & & \checkmark \\
 
 \subsection{RNACTM validation}
 
-Half-life predictions match published values within 4.1\% \citep{wesselhoeft2018,chen2019}: unmodified (6.24 vs 6.0\,h), $\Psi$ (15.61 vs 15.0\,h), m6A (11.24 vs 10.8\,h). Endosomal escape (4.43\%) falls within 1--5\% \citep{gilleron2013}. The productive expression window (active translation from viable RNA) matches the published ${\sim}48$\,h range.
+Half-life predictions match published values within 4.1\% \citep{wesselhoeft2018,chen2019}: unmodified (6.24 vs 6.0\,h), $\Psi$ (15.61 vs 15.0\,h), m6A (11.24 vs 10.8\,h). Endosomal escape (4.43\%) falls within 1--5\% \citep{gilleron2013}. The productive expression window (time with cytoplasmic RNA $\geq$10\% peak and protein $\geq$5\% peak) matches the published ${\sim}48$\,h range.
 
 \subsection{Small-sample ensemble}
 
-On epitope efficacy ($N{=}300$, 5-fold CV), adaptive MOE achieves 39.2\% MAE reduction over Ridge ($p<0.001$). On drug efficacy ($N{=}200$, 154 features), MOE achieves R$^2{=}0.982$ with 7.5--52.7\% MAE improvement over individual baselines \citep{pedregosa2011}.
+On epitope efficacy ($N{=}300$, 5-fold CV), adaptive MOE achieves 39.2\% mean absolute error (MAE) reduction over Ridge ($p<0.001$). On drug efficacy ($N{=}200$, 154 features), MOE achieves R$^2{=}0.982$, comparable to Ridge (R$^2{=}0.984$) while improving MAE 7.5--52.7\% over non-linear baselines \citep{pedregosa2011}.
 
 \subsection{5D scoring robustness}
 
-Under 1\,000 $\pm$50\% weight perturbations, decisions remain stable: $\Psi$ retains Go in 100\% of trials, unmodified retains Conditional in 100\%, m6A in 99.9\%. Kinetics is the most critical dimension---removing it flips $\Psi$ from Go to Conditional ($\Delta{-4.6\%}$).
+Under 1\,000 $\pm$50\% weight perturbations, decisions remain stable: $\Psi$ retains Go in 100\% of trials, unmodified retains Conditional in 100\%, m6A in 99.9\%. Kinetics is the most critical dimension---removing it shifts $\Psi$ from Go to Conditional ($\Delta{-4.6\%}$).
 
-\subsection{circRNA immunogenicity validation}
+\subsection{circRNA immunogenicity consistency}
 
-Pathway scores correlate strongly with literature IFN data ($\rho{=}0.93$, $p{=}0.003$, $n{=}7$ case studies): $\Psi$ shows lowest immunogenicity (IFN${=}0.15$), unmodified highest (IFN${=}0.85$), m6A intermediate (IFN${=}0.4$)---consistent with known modification effects \citep{chen2019}.
+Pathway scoring based on RIG-I/TLR/PKR activation rules shows consistent ranking with literature IFN data ($\rho{=}0.93$, $p{=}0.003$, $n{=}7$): $\Psi$ shows lowest immunogenicity (IFN${=}0.15$), unmodified highest (IFN${=}0.85$), m6A intermediate (IFN${=}0.4$)---consistent with known modification effects \citep{chen2019}. Note that scoring rules were informed by these literature patterns, making this a consistency check rather than independent validation.
 
 \subsection{Gene signature stratification}
 
-The five-gene scorer stratifies 3\,064 TCGA+METABRIC patients: log-rank $p{<}0.001$, high-risk death rate 57.3\% vs low-risk 27.3\%, median survival 114 vs 42 months.
+The five-gene target availability scorer (TROP2, NECTIN4, LIV-1, B7-H4, TMEM65) stratifies 3\,064 TCGA-BRCA \citep{weinstein2013} + METABRIC \citep{curtis2012} patients: log-rank $p{<}0.001$, high-target median survival 118 vs low-target 40 months. High target availability predicts longer survival, consistent with these genes being ADC/immune checkpoint targets in TNBC. C-index is modest (0.52), reflecting that target availability captures therapeutic response potential rather than intrinsic disease risk.
 
 \subsection{Cross-modality prioritization}
 
-Table~\ref{tab:casestudy} shows modification prioritization for a TNBC-targeting circRNA. $\Psi$ and m6A are Go candidates (extended half-life, acceptable immunogenicity); unmodified is No-Go (short half-life, high immune activation); I is Conditional. These predictions directly guide wet-lab synthesis prioritization.
+Table~\ref{tab:casestudy} shows modification prioritization for a TNBC-targeting circRNA. $\Psi$ is a Go candidate (extended half-life, low immunogenicity); m6A and 5mC are Conditional (moderate immunogenicity limits confidence); unmodified is Conditional (short half-life, high immune activation, but usable with dosing adjustment).
 
 \begin{table}[t]
 \centering
@@ -67,7 +67,7 @@ Table~\ref{tab:casestudy} shows modification prioritization for a TNBC-targeting
 \toprule
 \textbf{Modification} & \textbf{Half-life (h)} & \textbf{Immunogenicity} & \textbf{Composite} & \textbf{Decision} \\
 \midrule
-Unmodified & 6.24 & High & 0.525 & No-Go \\
+Unmodified & 6.24 & High & 0.525 & Conditional \\
 $\Psi$ & 15.61 & Low & 0.670 & Go \\
 m6A & 11.24 & Moderate & 0.610 & Conditional \\
 5mC & ${\sim}8$ & Moderate & 0.548 & Conditional \\

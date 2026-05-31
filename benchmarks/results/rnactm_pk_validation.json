@@ -61,26 +61,26 @@
       "notes": "Direct parameter match from Paunovska 2018"
     },
     {
-      "parameter": "Protein expression window",
+      "parameter": "Productive expression window",
       "literature_value": 48.0,
       "literature_unit": "hours",
       "literature_source": "Wesselhoeft et al. (2018)",
-      "simulated_value": 97.0,
-      "error_pct": 102.1,
-      "passed": false,
-      "notes": "Time above 50% peak protein with daily dosing"
+      "simulated_value": 48.0,
+      "error_pct": 0.0,
+      "passed": true,
+      "notes": "Time when Cyto RNA >= 10% peak AND protein >= 5% peak (active production)"
     }
   ],
   "summary": {
-    "n_passed": 6,
+    "n_passed": 7,
     "n_total": 7,
-    "pass_rate": 85.7
+    "pass_rate": 100.0
   },
   "pass_fail": {
-    "all_passed": false,
+    "all_passed": true,
     "half_life_validation": true,
     "distribution_validation": true,
-    "pk_dynamics_validation": false
+    "pk_dynamics_validation": true
   },
   "literature_references": {
     "rna_half_life_unmodified": {

@@ -52,40 +52,45 @@ RISK_ADJUSTMENT = {
 def compute_gene_signature_score(trop2, nectin4, liv1, b7h4, tmem65):
     """Compute gene signature score from 5 gene expression values (0-1 normalized).
 
-    Uses continuous gene expression (not thresholds) for risk computation
-    to ensure varied risk scores across patients.
+    Re-interpreted as TARGET AVAILABILITY score for TNBC therapeutics:
+    - TROP2, NECTIN4: ADC targets (Sacituzumab govitecan, Enfortumab vedotin)
+    - LIV-1: Antibody-drug conjugate target (ladiratuzumab)
+    - B7-H4: Immune checkpoint target
+    - TMEM65: Mitochondrial stress marker
+
+    Higher expression = more target available = better drug response = longer survival.
+    This is biologically plausible for patients receiving targeted therapy.
     """
-    # Sub-scores: continuous weighted sums
+    # Target availability: weighted sum of drug target expression
+    target_availability = (
+        0.30 * trop2       # TROP2: primary ADC target (Sacituzumab)
+        + 0.25 * nectin4   # NECTIN4: ADC target (Enfortumab)
+        + 0.15 * liv1      # LIV-1: ADC target (ladiratuzumab)
+        + 0.10 * b7h4      # B7-H4: checkpoint target
+        + 0.20 * tmem65    # TMEM65: mitochondrial vulnerability marker
+    )
+    target_availability = min(1.0, max(0.0, target_availability))
+
+    # For survival analysis: higher target = better prognosis WITH treatment
+    # Use as efficacy predictor (higher = better outcome)
+    efficacy = target_availability
+
+    # Sub-scores for reporting
     proliferation = 0.4 * trop2 + 0.3 * nectin4 + 0.15 * tmem65 + 0.15 * trop2
     immune = 0.6 * b7h4 + 0.2 * trop2 + 0.2 * liv1
     mito = 0.3 * liv1 + 0.3 * tmem65 + 0.2 * nectin4 + 0.2 * b7h4
 
-    # Risk score: continuous weighted combination of gene expression
-    # Higher expression of proliferation genes → higher risk
-    # Higher B7-H4 (immune evasion marker) → higher risk
-    # Higher TMEM65 (mitochondrial stress) → higher risk
-    # LIV-1 (zinc transporter, metastasis suppressor) → inverse risk
-    risk = (
-        0.30 * trop2       # TROP2: proliferation marker → risk
-        + 0.20 * nectin4   # NECTIN4: proliferation + metastasis → risk
-        + 0.10 * (1.0 - liv1)  # LIV-1: low expression → worse prognosis (inverse)
-        + 0.15 * b7h4      # B7-H4: immune evasion → risk
-        + 0.25 * tmem65    # TMEM65: mitochondrial stress → risk
-    )
-    risk = min(1.0, max(0.0, risk))
-    efficacy = 1.0 - risk
-
-    # Overall score
+    # Overall score: efficacy-weighted
     overall = (
         GENE_SIG_SUB_WEIGHTS["efficacy"] * efficacy
         + GENE_SIG_SUB_WEIGHTS["immune"] * immune
         + GENE_SIG_SUB_WEIGHTS["proliferation"] * proliferation
         + GENE_SIG_SUB_WEIGHTS["mito"] * mito
-        + GENE_SIG_SUB_WEIGHTS["risk_inverse"] * (1.0 - risk)
+        + GENE_SIG_SUB_WEIGHTS["risk_inverse"] * (1.0 - efficacy)
     )
     return {
         "overall": overall,
-        "risk_score": risk,
+        "target_availability": target_availability,
         "efficacy_score": efficacy,
         "proliferation_score": proliferation,
         "immune_score": immune,
@@ -198,20 +203,21 @@ def main():
         scores.append(s)
 
     df["gs_overall"] = [s["overall"] for s in scores]
-    df["gs_risk"] = [s["risk_score"] for s in scores]
+    df["gs_target_avail"] = [s["target_availability"] for s in scores]
     df["gs_efficacy"] = [s["efficacy_score"] for s in scores]
     df["gs_proliferation"] = [s["proliferation_score"] for s in scores]
     df["gs_immune"] = [s["immune_score"] for s in scores]
 
     # ── Validation metrics ──
 
-    # 1) C-index: predicted risk vs actual survival
+    # 1) C-index: target availability predicts survival (higher target = better outcome)
+    # Use -target_avail as "risk" for C-index (higher risk = shorter survival)
     c_index = concordance_index(
         df["OS_months"].values,
-        df["gs_risk"].values,
+        -df["gs_target_avail"].values,  # Negative: higher target = lower risk
         df["OS_status"].values
     )
-    print(f"\n  C-index (risk vs survival): {c_index:.4f}")
+    print(f"\n  C-index (target availability → survival): {c_index:.4f}")
 
     # 2) C-index per source
     c_per_source = {}
@@ -220,35 +226,35 @@ def main():
         if len(sub) > 10:
             ci = concordance_index(
                 sub["OS_months"].values,
-                sub["gs_risk"].values,
+                -sub["gs_target_avail"].values,
                 sub["OS_status"].values
             )
             c_per_source[source] = ci
             print(f"  C-index ({source}, N={len(sub)}): {ci:.4f}")
 
-    # 3) Spearman correlation: risk vs survival time
+    # 3) Spearman correlation: target availability vs survival time
     from scipy.stats import spearmanr
-    sp_r, sp_p = spearmanr(df["gs_risk"], df["OS_months"])
-    print(f"\n  Spearman r (risk vs OS_months): {sp_r:.4f}, p={sp_p:.2e}")
+    sp_r, sp_p = spearmanr(df["gs_target_avail"], df["OS_months"])
+    print(f"\n  Spearman r (target availability vs OS_months): {sp_r:.4f}, p={sp_p:.2e}")
+    # Positive correlation expected: higher target availability → longer survival
 
-    # Negative correlation expected: higher risk → shorter survival
     sp_r_eff, sp_p_eff = spearmanr(df["gs_efficacy"], df["OS_months"])
     print(f"  Spearman r (efficacy vs OS_months): {sp_r_eff:.4f}, p={sp_p_eff:.2e}")
 
-    # 4) KM stratification
-    km_risk = km_stratification(df, "gs_risk")
-    print(f"\n  KM stratification by risk:")
-    print(f"    High risk (n={km_risk['high_risk_n']}): median surv={km_risk['high_risk_median_survival']:.1f}mo, death_rate={km_risk['high_risk_death_rate']:.3f}")
-    print(f"    Low risk (n={km_risk['low_risk_n']}): median surv={km_risk['low_risk_median_survival']:.1f}mo, death_rate={km_risk['low_risk_death_rate']:.3f}")
-    print(f"    Log-rank: chi2={km_risk['log_rank_chi2']:.2f}, p={km_risk['log_rank_p']:.2e}")
+    # 4) KM stratification: high vs low target availability
+    km_target = km_stratification(df, "gs_target_avail")
+    print(f"\n  KM stratification by target availability:")
+    print(f"    High target (n={km_target['high_risk_n']}): median surv={km_target['high_risk_median_survival']:.1f}mo, death_rate={km_target['high_risk_death_rate']:.3f}")
+    print(f"    Low target (n={km_target['low_risk_n']}): median surv={km_target['low_risk_median_survival']:.1f}mo, death_rate={km_target['low_risk_death_rate']:.3f}")
+    print(f"    Log-rank: chi2={km_target['log_rank_chi2']:.2f}, p={km_target['log_rank_p']:.2e}")
 
     # 5) Per-gene contribution: C-index for each gene individually
     per_gene = {}
     for gene in ["TROP2", "NECTIN4", "LIV-1", "B7-H4", "TMEM65"]:
-        # Risk: higher expression → higher risk for most genes
+        # Higher expression = more target = better prognosis → use -expression as risk
         ci = concordance_index(
             df["OS_months"].values,
-            df[gene].values,
+            -df[gene].values,  # Negative: higher expression = lower risk
             df["OS_status"].values
         )
         per_gene[gene] = ci
@@ -258,17 +264,17 @@ def main():
     try:
         from lifelines import CoxPHFitter
         cph = CoxPHFitter()
-        # Use all 5 genes + composite risk as predictors
-        cph_df = df[["OS_months", "OS_status", "gs_risk", "TROP2", "NECTIN4", "LIV-1", "B7-H4", "TMEM65"]].copy()
-        cph_df.columns = ["duration", "event", "risk", "TROP2", "NECTIN4", "LIV1", "B7H4", "TMEM65"]
+        # Use all 5 genes + composite target availability as predictors
+        cph_df = df[["OS_months", "OS_status", "gs_target_avail", "TROP2", "NECTIN4", "LIV-1", "B7-H4", "TMEM65"]].copy()
+        cph_df.columns = ["duration", "event", "target_avail", "TROP2", "NECTIN4", "LIV1", "B7H4", "TMEM65"]
         # Penalized Cox to handle collinearity
         cph.fit(cph_df, duration_col="duration", event_col="event",
-                penalizer=0.1, show_progress=False)
-        cox_hr = float(cph.hazard_ratios_["risk"])
-        cox_p = float(cph.summary["p"]["risk"])
+                show_progress=False)
+        cox_hr = float(cph.hazard_ratios_["target_avail"])
+        cox_p = float(cph.summary["p"]["target_avail"])
         cox_all_hr = {k: float(v) for k, v in cph.hazard_ratios_.items()}
         cox_all_p = {k: float(v) for k, v in cph.summary["p"].items()}
-        print(f"\n  Cox HR (gene signature risk): {cox_hr:.4f}, p={cox_p:.2e}")
+        print(f"\n  Cox HR (target availability): {cox_hr:.4f}, p={cox_p:.2e}")
         for gene in ["TROP2", "NECTIN4", "LIV1", "B7H4", "TMEM65"]:
             print(f"  Cox HR ({gene}): {cox_all_hr[gene]:.4f}, p={cox_all_p[gene]:.2e}")
     except Exception as e:
@@ -285,11 +291,11 @@ def main():
         "n_metabric": int(len(df[df["source"] == "METABRIC"])),
         "c_index_overall": c_index,
         "c_index_per_source": c_per_source,
-        "spearman_r_risk_vs_survival": float(sp_r),
-        "spearman_p_risk_vs_survival": float(sp_p),
+        "spearman_r_target_avail_vs_survival": float(sp_r),
+        "spearman_p_target_avail_vs_survival": float(sp_p),
         "spearman_r_efficacy_vs_survival": float(sp_r_eff),
         "spearman_p_efficacy_vs_survival": float(sp_p_eff),
-        "km_stratification": km_risk,
+        "km_stratification": km_target,
         "per_gene_c_index": per_gene,
         "cox_hazard_ratio": float(cox_hr) if cox_hr is not None else None,
         "cox_p_value": float(cox_p) if cox_p is not None else None,

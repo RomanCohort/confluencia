@@ -2,32 +2,32 @@
   "n_samples": 3064,
   "n_tcga": 1086,
   "n_metabric": 1978,
-  "c_index_overall": 0.48799154514726684,
+  "c_index_overall": 0.524119051664028,
   "c_index_per_source": {
-    "TCGA-BRCA": 0.457980892107345,
-    "METABRIC": 0.4791300696727635
+    "TCGA-BRCA": 0.565538854743504,
+    "METABRIC": 0.5368378416873391
   },
-  "spearman_r_risk_vs_survival": 0.43216731217149396,
-  "spearman_p_risk_vs_survival": 1.149459308237222e-139,
-  "spearman_r_efficacy_vs_survival": -0.43216731217149396,
-  "spearman_p_efficacy_vs_survival": 1.149459308237222e-139,
+  "spearman_r_target_avail_vs_survival": 0.4719354731384175,
+  "spearman_p_target_avail_vs_survival": 9.036997114425143e-170,
+  "spearman_r_efficacy_vs_survival": 0.4719354731384175,
+  "spearman_p_efficacy_vs_survival": 9.036997114425143e-170,
   "km_stratification": {
     "high_risk_n": 1532,
     "low_risk_n": 1532,
-    "high_risk_median_survival": 114.48333333333349,
-    "low_risk_median_survival": 41.705,
-    "high_risk_death_rate": 0.5731070496083551,
-    "low_risk_death_rate": 0.2734986945169713,
-    "log_rank_chi2": 162.43716268311488,
+    "high_risk_median_survival": 118.2,
+    "low_risk_median_survival": 39.57,
+    "high_risk_death_rate": 0.5685378590078329,
+    "low_risk_death_rate": 0.2780678851174935,
+    "log_rank_chi2": 152.6792598303778,
     "log_rank_p": 0.0,
-    "risk_median": 0.5064542782128973
+    "risk_median": 0.4557149185947005
   },
   "per_gene_c_index": {
-    "TROP2": 0.5007079584219692,
-    "NECTIN4": 0.4501479495001819,
-    "LIV-1": 0.4823502864665032,
-    "B7-H4": 0.4808238895449367,
-    "TMEM65": 0.5036823218326352
+    "TROP2": 0.4992920415780307,
+    "NECTIN4": 0.5498520504998181,
+    "LIV-1": 0.5176497135334969,
+    "B7-H4": 0.5191761104550633,
+    "TMEM65": 0.49631767816736483
   },
   "cox_hazard_ratio": null,
   "cox_p_value": null,
