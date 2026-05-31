@@ -2,7 +2,7 @@
 
 \section{Discussion}
 
-Confluencia provides a computational platform for integrated circRNA therapeutic evaluation. Unlike NetMHCpan (AUC $>0.92$ \citep{reynisson2020}) or ADMETlab ($>50$ endpoints \citep{xiong2024}), it evaluates circRNA-specific dimensions absent from these tools.
+Confluencia provides a computational platform for integrated circRNA therapeutic evaluation. Unlike NetMHCpan (AUC $>0.92$ \citep{reynisson2020}) or ADMETlab ($>50$ endpoints \citep{xiong2024}), it evaluates circRNA-specific dimensions absent from these tools, and closes the loop from evaluation to molecular optimization---no listed tool provides closed-loop candidate improvement.
 
 Three lines of evidence support the platform: (1) circRNA immunogenicity scoring is consistent with literature IFN data ($\rho{=}0.93$, $p{=}0.003$); (2) 5D decisions remain stable under $\pm$50\% weight perturbation ($\Psi$: 100\% Go), with kinetics as the most critical dimension; (3) gene signature target availability stratifies 3\,064 patients by tertiles (log-rank $p{<}0.001$, high vs low death rate 57\% vs 20\%) with biological plausibility---high target expression correlates with longer survival in TNBC, consistent with these genes being therapeutic targets. Under-constrained dimensions auto-downweight via $(1-u)^2$, reflecting data limitations.
 
