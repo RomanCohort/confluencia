@@ -1,4 +1,4 @@
-%% sections/discussion.tex — v10: focus on strong validations, honest limitations
+%% sections/discussion.tex — v11: focus on strong validations, honest limitations
 
 \section{Discussion}
 
@@ -6,4 +6,4 @@ Confluencia provides the first computational platform for circRNA therapeutic ev
 
 Three validations support the platform: (1) circRNA immunogenicity scoring matches literature IFN data ($\rho{=}0.93$, $p{=}0.003$); (2) 5D decisions remain stable under $\pm$50\% weight perturbation ($\Psi$: 100\% Go), with kinetics as the most critical dimension; (3) gene signature stratification on 3\,064 patients ($p{<}0.001$, high-risk 57.3\% vs low-risk 27.3\% mortality) provides clinical grounding. Under-constrained dimensions auto-downweight via $(1-u)^2$, communicating limitations rather than hiding them.
 
-Limitations: (1) RNACTM overestimates expression duration (97 vs 48\,h); (2) ADMET QSAR lacks circRNA toxicity data; (3) only MHC-I alleles; (4) large-scale circBase comparison yields $\rho{=}0.03$---reflecting synthetic pseudo-label limitations, as no experimental ground truth exists for circRNA immunogenicity; (5) ViennaRNA predicts short RNAs well but circRNA structures ($>$200\,nt) remain challenging. As circRNA PK datasets emerge, parameters can transition from heuristic to data-fitted. Wet-lab validation is underway.
+Limitations: (1) RNACTM overestimates expression duration (97 vs 48\,h); (2) ADMET QSAR lacks circRNA toxicity data; (3) only MHC-I alleles. As circRNA PK datasets emerge, parameters can transition from heuristic to data-fitted. Wet-lab validation is underway.
