@@ -477,6 +477,9 @@ def run_benchmark():
     feats_df  = pd.DataFrame(features_list)
     df = pd.concat([df.reset_index(drop=True), scores_df, feats_df], axis=1)
 
+    # Remove duplicate columns (e.g. gc_content from both CSV and computed)
+    df = df.loc[:, ~df.columns.duplicated()]
+
     # -----------------------------------------------------------------------
     # Analysis: compare predicted vs pseudo-label
     # -----------------------------------------------------------------------
