@@ -1,0 +1,7 @@
+^.*\.Rproj$
+^\.Rproj\.user$
+^LICENSE$
+^CONDUCT$
+^codecov\.yml$
+^\.github$
+^inst/python/__pycache__$

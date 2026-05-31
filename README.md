@@ -37,7 +37,8 @@ Confluencia 通过以下创新解决这些问题：
 
 | 指标 | 数值 | 说明 |
 |------|------|------|
-| **288K IEDB 训练 AUC** | **0.734** | HGB/RF，序列感知分割 |
+| **288K IEDB AUC (allele-aware)** | **0.80** | HGB，MHC 等位基因特征编码 |
+| 288K IEDB AUC (allele-agnostic) | 0.73 | HGB/RF，序列感知分割 |
 | **Drug Ridge R²** | **0.984** | 小样本药物预测最优 |
 | MOE MAE (表位) | 0.389 | 比 Ridge 降低 39.2% (p<0.001) |
 | MOE R² (表位) | 0.819 | 5折交叉验证 |
@@ -75,6 +76,26 @@ Confluencia 通过以下创新解决这些问题：
 **配置：** 288,135 样本，序列感知分割 (231K train / 57K test)，325 维特征，40.6% binder 率。
 **模型已缓存：** `data/cache/epitope_model_288k.joblib`
 
+### MHC 等位基因特征增强 (2026-05-31 新增)
+
+| 配置 | 维度 | AUC | 说明 |
+|------|------|-----|------|
+| Baseline (no allele) | 317 | 0.7406 | 通用序列特征 |
+| **+ MHC allele features** | **1335** | **0.8037** | 等位基因特异性编码 (+0.063) |
+
+**Per-allele AUC (HGB, 52K IEDB binary):**
+
+| 等位基因 | AUC | 样本量 | 说明 |
+|----------|-----|--------|------|
+| **HLA-A\*33:03** | **0.9495** | 315 | NetMHCpan 级别 |
+| **HLA-A\*33:01** | **0.9242** | 318 | NetMHCpan 级别 |
+| HLA-A\*68:01 | 0.8556 | 312 | |
+| HLA-A\*24:02 | 0.7047 | 604 | |
+| HLA-A\*02:01 | 0.6720 | 2144 | 最常见等位基因，需更多训练 |
+| Overall | 0.8295 | 52942 | 246 等位基因 |
+
+**关键发现：** MHC 等位基因编码器 (1018-dim MHC-I + 947-dim MHC-II) 从未在默认流水线中使用。当数据包含 `mhc_allele` 列时，训练管道自动启用 MHC 特征。
+
 ### Drug 消融实验 (2026-04-28 新增)
 
 | 配置 | 维度 | MAE | R² | 说明 |
@@ -111,15 +132,14 @@ MOE 对比基线：比 MLP MAE 降低 52.7%，比 HGB 降低 17.7%。
 
 **关键发现：** 移除 Mamba local pool 后性能反而提升 (R² 0.828→0.844)，建议后续版本移除此组件。
 
-### SOTA 工具对比 (2026-04-28 更新)
+### SOTA 工具对比 (2026-05-31 更新)
 
-| 对比 | Confluencia | SOTA | 差距 | 基准数据 |
-|------|-------------|------|------|----------|
-| vs NetMHCpan-4.1 | AUC 0.678 | 0.92-0.96 | -0.24 | 61 肽段 |
-| vs MHCflurry | AUC 0.769 | 0.85-0.90 | -0.08~-0.13 | 6,032 held-out |
-| vs MHCflurry (288K) | AUC 0.734 | 0.85-0.90 | -0.12~-0.17 | 57K test |
+| 对比 | Confluencia (allele-aware) | Confluencia (allele-agnostic) | SOTA | 差距 (allele-aware) | 基准数据 |
+|------|---------------------------|-------------------------------|------|---------------------|----------|
+| vs NetMHCpan-4.1 | AUC 0.80 | AUC 0.74 | 0.92-0.96 | -0.12~-0.16 | 288K peptides |
+| vs MHCflurry | AUC 0.83 (per-allele) | AUC 0.77 | 0.85-0.90 | -0.02~-0.07 | 52K binary |
 
-**差距原因分析：** (1) 训练量差距 (300 vs 180K) (2) Confluencia 多任务而非专门做 MHC binding (3) 特征工程未针对 MHC 结合位点优化。**价值定位：** Confluencia 提供 RNACTM 药代动力学仿真、剂量优化、免疫原性预测等多任务能力，专业工具无法覆盖。
+**差距原因分析：** (1) 常见等位基因 (HLA-A*02:01) 内多样性大，需更多等位基因特异训练 (2) Confluencia 多任务而非专门做 MHC binding (3) 部分 alleles 已达 SOTA 级别 (A*33:01/03: 0.92-0.95)。**价值定位：** Confluencia 提供 RNACTM 药代动力学仿真、剂量优化、免疫原性预测等多任务能力，专业工具无法覆盖。
 
 ## 版本架构说明
 
@@ -225,6 +245,130 @@ docker build -t confluencia .
 docker run -p 8501:8501 -p 8502:8502 confluencia
 ```
 
+### 6. R 包
+
+R 包通过 [reticulate](https://github.com/rstudio/reticulate) 桥接 Python 后端，所有计算由 Confluencia Python 完成，R 侧只做输入输出转换。
+
+**前提条件：** 需要一个安装了 Confluencia 依赖的 Python（pandas, numpy, scikit-learn, rdkit, scipy, joblib）。
+
+```r
+# 安装
+devtools::install_github("IGEM-FBH/confluencia", subdir = "confluencia-rpkg")
+
+# 指定 Python 环境（首次使用必须设置）
+library(confluencia)
+cf_use_python("/path/to/python")    # 或设置环境变量 CONFLUENCIA_PYTHON
+
+# PK 仿真
+params <- cf_ctm_params(binding = 0.72, immune = 0.65, inflammation = 0.12)
+pk <- cf_ctm_simulate(dose = 200, freq = 2, binding = 0.72, horizon = 72)
+rna_pk <- cf_rna_ctm_simulate(dose = 5, freq = 1, modification = "pseudouridine")
+
+# 免疫原性
+scores <- cf_circrna_immunogenicity("ACGUACGUACGUACGU")
+
+# 联合评估
+result <- cf_joint_evaluate(smiles = "CC(=O)Oc1ccccc1C(=O)O",
+                             epitope_seq = "SLYNTVATL",
+                             mhc_allele = "HLA-A*02:01",
+                             dose_mg = 200, freq_per_day = 2, treatment_time = 72)
+
+# 更多函数
+cf_mhc_encode("SLYNTVATL", "HLA-A*02:01")      # 1018-dim MHC-I 编码
+cf_mhc_detect_class("HLA-A*02:01")               # → "I"
+cf_mamba3_encode("ACGUACGUACGU")                  # 多尺度序列编码
+cf_reg_metrics(c(1,2,3), c(1.1,2,2.9))            # MAE/RMSE/R²
+```
+
+**完整函数列表 (22个)：**
+
+| 函数 | 功能 | 返回类型 |
+|------|------|----------|
+| `cf_ctm_params()` | CTM 参数推导 | named numeric vector |
+| `cf_ctm_simulate()` | 小分子 PK 仿真 | data.frame |
+| `cf_rna_ctm_params()` | RNA-CTM 参数推导 | named numeric vector |
+| `cf_rna_ctm_simulate()` | circRNA PK 仿真 | data.frame |
+| `cf_circrna_immunogenicity()` | 免疫原性预测 | named numeric vector |
+| `cf_circrna_pipeline()` | circRNA 全流水线 | list |
+| `cf_joint_evaluate()` | 5D 联合评估 | list (composite + 5 dimensions) |
+| `cf_drug_predict()` | 药物疗效预测 | numeric scalar |
+| `cf_drug_train()` | **药物模型训练** | list (mae, rmse, r2, bundle_path) |
+| `cf_epitope_predict()` | 表位结合预测 | numeric scalar |
+| `cf_epitope_train()` | **表位模型训练** | list (mae, rmse, r2, bundle_path) |
+| `cf_mhc_encode()` | MHC 特征编码 | numeric vector (1018/947 dim) |
+| `cf_mhc_detect_class()` | MHC 类型检测 | character ("I"/"II") |
+| `cf_mamba3_encode()` | Mamba3Lite 序列编码 | named list of vectors |
+| `cf_reg_metrics()` | 回归指标计算 | named numeric vector |
+| `cf_hub_push_model()` | **共享模型 (联邦式, 不暴露数据)** | list (model_id) |
+| `cf_hub_pull_model()` | **下载社区模型** | list (bundle_path) |
+| `cf_hub_list_models()` | **列出社区模型** | data.frame |
+| `cf_hub_push_data()` | **贡献数据 (可选, 需指定许可)** | list (dataset_id) |
+| `cf_hub_data_stats()` | **查看社区数据统计** | named list |
+| `cf_use_python()` | 指定 Python 路径 | NULL (side effect) |
+| `cf_find_python()` | 自动发现 Python | character path (invisible) |
+
+```r
+# 用自己的数据训练模型
+result <- cf_drug_train("my_data.csv", model_name = "ridge")
+print(result$r2)  # 0.914
+pred <- cf_drug_predict(result$bundle_path, "CC(=O)Oc1ccccc1C(=O)O")
+
+result <- cf_epitope_train("epitope_data.csv", target_col = "efficacy")
+pred <- cf_epitope_predict(result$bundle_path, "SLYNTVATL")
+```
+
+```r
+# 共享模型到社区（联邦式 — 不暴露原始数据）
+cf_hub_push_model(result$bundle_path, metadata = list(r2 = result$r2))
+
+# 下载并使用社区模型
+models <- cf_hub_list_models(task = "drug")
+community <- cf_hub_pull_model("hub:drug:anonymous:abc123")
+pred <- cf_drug_predict(community$bundle_path, "CC(=O)Oc1ccccc1C(=O)O")
+
+# 可选：贡献数据到社区池（匿名，需指定许可）
+cf_hub_push_data("my_drug_data.csv", license = "CC-BY-4.0", anonymous = TRUE)
+cf_hub_data_stats()  # 查看社区数据量
+```
+
+### 7. VS Code 扩展
+
+VS Code 扩展通过 JSON-RPC 调用 Python 后端，提供命令面板交互和 PK 曲线可视化。
+
+**前提条件：** 需要安装了 Confluencia 依赖的 Python 环境。
+
+```bash
+# 从 VSIX 安装（GitHub Releases 下载）
+code --install-extension confluencia-vscode-0.1.0.vsix
+
+# 或从源码编译
+cd confluencia-vscode && npm install && npx tsc
+# F5 启动扩展开发宿主
+```
+
+**命令面板命令 (11个)：**
+
+| Command | 功能 |
+|---------|------|
+| `Confluencia: Simulate PK (CTM)` | 小分子 PK 仿真 + Plotly 曲线 |
+| `Confluencia: Simulate circRNA PK` | circRNA PK 仿真 |
+| `Confluencia: Predict Immunogenicity` | 免疫原性预测 |
+| `Confluencia: Joint Evaluate (5D)` | 5D 联合评估 + 分数树 |
+| `Confluencia: Predict Drug Efficacy` | 药物疗效预测 |
+| `Confluencia: Predict Epitope Binding` | 表位结合预测 |
+| `Confluencia: Train Drug Model` | **药物模型训练 (CSV → .joblib)** |
+| `Confluencia: Train Epitope Model` | **表位模型训练 (CSV → .joblib)** |
+| `Confluencia: Encode MHC Features` | MHC 特征编码 |
+| `Confluencia: Compute Metrics` | 回归指标计算 |
+| `Confluencia: Select Python Environment` | 设置 Python 路径 |
+
+联合评估完成后，侧边栏显示 5D 分数树：
+```
+Composite: 0.73 [PROCEED]
+  Clinical (0.68)    Binding (0.71)    Kinetics (0.62)
+  Gene Signature (0.75)    CircRNA (0.77)
+```
+
 ## 命令行界面 (CLI)
 
 Confluencia 提供功能完整的命令行终端界面，支持交互式 REPL 和 60+ 子命令。
@@ -236,6 +380,88 @@ confluencia interactive # 交互式 REPL
 ```
 
 主要模块：`drug` (分子属性/训练/筛选/PK仿真), `epitope` (表位预测/ESM-2编码/MHC编码), `circrna` (免疫原性/多组学/生存分析), `joint` (联合评估), `bench` (基准测试), `chart` (可视化)。
+
+### Python API
+
+Confluencia 提供统一的 Python API，R 包和 VS Code 扩展都通过它桥接后端：
+
+```python
+from confluencia_cli.bridge import ConfluenciaBridge
+
+bridge = ConfluenciaBridge()
+
+# PK 仿真
+params = bridge.ctm_params(binding=0.72, immune=0.65, inflammation=0.12)
+pk = bridge.ctm_simulate(dose=200, freq=2, binding=0.72, horizon=72)
+
+# circRNA 免疫原性
+scores = bridge.circrna_immunogenicity("ACGUACGUACGUACGU")
+
+# 5D 联合评估
+result = bridge.joint_evaluate({
+    "smiles": "CC(=O)Oc1ccccc1C(=O)O",
+    "epitope_seq": "SLYNTVATL", "mhc_allele": "HLA-A*02:01",
+    "dose_mg": 200, "freq_per_day": 2, "treatment_time": 72
+})
+
+# MHC 编码
+enc = bridge.mhc_encode("SLYNTVATL", "HLA-A*02:01")  # 1018-dim vector
+
+# 训练模型（用自己的数据）
+result = bridge.drug_train("my_drug_data.csv", model_name="ridge")
+print(f"R²={result['r2']:.3f}, saved to {result['bundle_path']}")
+pred = bridge.drug_predict(result["bundle_path"], "CC(=O)Oc1ccccc1C(=O)O")
+
+result = bridge.epitope_train("epitope_data.csv", target_col="efficacy")
+pred = bridge.epitope_predict(result["bundle_path"], "SLYNTVATL")
+
+# 回归指标
+metrics = bridge.reg_metrics([1,2,3], [1.1,2,2.9])
+```
+
+### 插件系统 (可扩展平台)
+
+Confluencia 不是固定工具，而是可扩展平台——用户可以注册自定义算法替换任何阶段：
+
+```python
+import confluencia_cli.plugins as cf
+
+# 注册 XGBoost 作为新模型类型
+@cf.register_model("xgboost")
+def create_xgb(**kwargs):
+    from xgboost import XGBRegressor
+    return XGBRegressor(n_estimators=300, max_depth=6, **kwargs)
+
+# 现在可以用 xgboost 训练
+from confluencia_cli.bridge import ConfluenciaBridge
+bridge = ConfluenciaBridge()
+result = bridge.drug_train("data.csv", model_name="xgboost")
+
+# 注册自定义评估维度
+cf.register_dimension("manufacturability", weight=0.10,
+                      description="Ease of large-scale circRNA production")
+
+# 自定义评估权重
+cf.set_weights(clinical=0.25, binding=0.20, kinetics=0.15,
+               gene_signature=0.15, circrna=0.15, manufacturability=0.10)
+
+# 查看所有注册组件
+cf.list_registry()
+# {'models': ['xgboost'], 'dimensions': ['manufacturability'], 'weights': {...}}
+```
+
+R 中同样可以注册：
+
+```r
+# 注册 XGBoost
+cf_register_model("xgboost", "xgboost", "XGBRegressor")
+result <- cf_drug_train("data.csv", model_name = "xgboost")
+
+# 添加自定义维度
+cf_register_dimension("manufacturability", weight = 0.10)
+cf_set_weights(c(clinical=0.25, binding=0.20, kinetics=0.15,
+                 gene_signature=0.15, circrna=0.15, manufacturability=0.10))
+```
 
 ## 核心模块
 

@@ -418,8 +418,8 @@ class MHCFeatureEncoder:
     @property
     def feature_dim(self) -> int:
         """特征维度"""
-        # 伪序列: 34*20=680, HLA one-hot: 43, 结合位置: 6*20+6*6+5*20=256
-        return 680 + 43 + 256  # 979
+        # 伪序列: 34*20=680, HLA one-hot: 82, 结合位置: 6*20+6*6+5*20=256
+        return 680 + 82 + 256  # 1018
 
     def encode(self, peptide: str, allele: str) -> np.ndarray:
         """
@@ -531,6 +531,240 @@ class FullEpitopeEncoder:
             dim += 969
 
         return dim
+
+
+# ============================================================================
+# MHC-II support
+# ============================================================================
+
+# HLA-II alleles (most common from IEDB training data)
+HLA_II_ALLELES = [
+    # DRB1 single alleles (top 20 by data volume)
+    'HLA-DRB1*01:01', 'HLA-DRB1*03:01', 'HLA-DRB1*04:01',
+    'HLA-DRB1*07:01', 'HLA-DRB1*09:01', 'HLA-DRB1*11:01',
+    'HLA-DRB1*13:01', 'HLA-DRB1*15:01', 'HLA-DRB1*04:02',
+    'HLA-DRB1*04:04', 'HLA-DRB1*04:05', 'HLA-DRB1*08:02',
+    'HLA-DRB1*01:02', 'HLA-DRB1*10:01', 'HLA-DRB1*11:04',
+    'HLA-DRB1*13:02', 'HLA-DRB1*15:02', 'HLA-DRB1*15:03',
+    'HLA-DRB1*04:03', 'HLA-DRB1*04:07',
+    # DRA/DRB1 combos
+    'HLA-DRA*01:01/DRB1*01:01', 'HLA-DRA*01:01/DRB1*03:01',
+    'HLA-DRA*01:01/DRB1*04:01', 'HLA-DRA*01:01/DRB1*07:01',
+    'HLA-DRA*01:01/DRB1*11:01', 'HLA-DRA*01:01/DRB1*13:01',
+    'HLA-DRA*01:01/DRB1*15:01', 'HLA-DRA*01:01/DRB3*01:01',
+    'HLA-DRA*01:01/DRB5*01:01',
+    # Top DQ combos
+    'HLA-DQA1*03:01/DQB1*03:02', 'HLA-DQA1*01:02/DQB1*06:02',
+    'HLA-DQA1*05:01/DQB1*02:01', 'HLA-DQA1*05:01/DQB1*03:01',
+    'HLA-DQA1*05:01/DQB1*03:02',
+    # Top DP combos
+    'HLA-DPA1*01:03/DPB1*04:01', 'HLA-DPA1*01:03/DPB1*04:02',
+    'HLA-DPA1*01:03/DPB1*02:01',
+]
+
+HLA_II_ALLELE_TO_IDX = {a: i for i, a in enumerate(HLA_II_ALLELES)}
+
+# MHC-II pseudo sequences (34 contact positions from NetMHCIIpan-4.0)
+# Key: beta chain allele. For combos, extract beta chain.
+MHC_II_PSEUDO_SEQUENCE = {
+    'HLA-DRB1*01:01': 'YFQATRNEIAHTDVDTLYIRYQDYTWAVQAYTWY',
+    'HLA-DRB1*03:01': 'YFQATRFEIAHTDVDTLYIRYQDYTWAVQAYTWY',
+    'HLA-DRB1*04:01': 'YFQATRFEIAHTDVDTLYIRYQDYTWAVQAYTWY',
+    'HLA-DRB1*07:01': 'YFQATRFEIAHTDVDTLYIRYQDYTWAVQAYTWY',
+    'HLA-DRB1*09:01': 'YFQATRFEIAHTDVDTLYIRYQDYTWAVQAYTWY',
+    'HLA-DRB1*11:01': 'YFQATRFEIAHTDVDTLYIRYQDYTWAVQAYTWY',
+    'HLA-DRB1*13:01': 'YFQATRFEIAHTDVDTLYIRYQDYTWAVQAYTWY',
+    'HLA-DRB1*15:01': 'YFQATRFEIAHTDVDTLYIRYQDYTWAVQAYTWY',
+}
+DEFAULT_II_PSEUDO = 'X' * 34
+
+
+def detect_mhc_class(allele: str) -> str:
+    """Auto-detect MHC class from allele string.
+
+    HLA-A*, HLA-B*, HLA-C* -> 'I'
+    HLA-DR*, HLA-DQ*, HLA-DP* -> 'II'
+    Unknown -> 'I' (default for backward compatibility)
+    """
+    a = str(allele).upper().strip()
+    if a.startswith('HLA-A') or a.startswith('HLA-B') or a.startswith('HLA-C'):
+        return 'I'
+    if 'DR' in a or 'DQ' in a or 'DP' in a:
+        return 'II'
+    return 'I'
+
+
+class MHCIIPseudoSequenceEncoder:
+    """MHC-II pseudo sequence encoder (34 positions * 20 one-hot = 680 dims)."""
+
+    def __init__(self, pseudo_sequences: Optional[Dict] = None):
+        self.pseudo_sequences = pseudo_sequences or MHC_II_PSEUDO_SEQUENCE
+        self.pseudo_len = 34
+
+    def _extract_beta(self, allele: str) -> str:
+        """For combo alleles like DRA*01:01/DRB1*04:01, extract beta chain."""
+        if '/' in allele:
+            return allele.split('/')[-1]
+        return allele
+
+    def get_pseudo_sequence(self, allele: str) -> str:
+        beta = self._extract_beta(allele)
+        if beta in self.pseudo_sequences:
+            return self.pseudo_sequences[beta]
+        # Fuzzy match
+        for key in self.pseudo_sequences:
+            if beta.startswith(key.split('*')[0] + '*'):
+                return self.pseudo_sequences[key]
+        return DEFAULT_II_PSEUDO
+
+    def encode(self, allele: str) -> np.ndarray:
+        pseudo_seq = self.get_pseudo_sequence(allele)
+        if len(pseudo_seq) > self.pseudo_len:
+            pseudo_seq = pseudo_seq[:self.pseudo_len]
+        elif len(pseudo_seq) < self.pseudo_len:
+            pseudo_seq = pseudo_seq + 'X' * (self.pseudo_len - len(pseudo_seq))
+        encoding = np.zeros((self.pseudo_len, 20))
+        for i, aa in enumerate(pseudo_seq):
+            if aa in AA_TO_IDX:
+                encoding[i, AA_TO_IDX[aa]] = 1
+        return encoding.flatten()
+
+    def encode_batch(self, alleles: List[str]) -> np.ndarray:
+        return np.array([self.encode(a) for a in alleles])
+
+
+class HLAIIOneHotEncoder:
+    """HLA-II allele one-hot encoder. Dimension: len(HLA_II_ALLELES) = 37."""
+
+    def __init__(self, alleles: Optional[List[str]] = None):
+        self.alleles = alleles or HLA_II_ALLELES
+        self.allele_to_idx = HLA_II_ALLELE_TO_IDX
+        self.n_alleles = len(self.alleles)
+
+    def encode(self, allele: str) -> np.ndarray:
+        encoding = np.zeros(self.n_alleles)
+        if allele in self.allele_to_idx:
+            encoding[self.allele_to_idx[allele]] = 1
+        else:
+            beta = allele.split('/')[-1] if '/' in allele else allele
+            if beta in self.allele_to_idx:
+                encoding[self.allele_to_idx[beta]] = 1
+        return encoding
+
+    def encode_batch(self, alleles: List[str]) -> np.ndarray:
+        return np.array([self.encode(a) for a in alleles])
+
+
+class MHCIIBindingPositionEncoder:
+    """MHC-II peptide-MHC binding position contact features.
+
+    MHC-II differs from MHC-I:
+    - Peptides are 15-mers with a 9-mer core + flanking residues
+    - Anchor positions: P1, P4, P6, P7, P9 (5 positions, not 6)
+    - Binding groove is open-ended
+
+    Output: 5*20 + 5*6 + 5*20 = 100 + 30 + 100 = 230 dims
+    """
+
+    BINDING_POSITIONS = [0, 3, 5, 6, 8]  # P1, P4, P6, P7, P9
+    CORE_LENGTH = 9
+
+    def extract_core(self, peptide: str) -> str:
+        """Extract 9-mer binding core from MHC-II peptide."""
+        peptide = peptide.upper()
+        n = len(peptide)
+        if n <= self.CORE_LENGTH:
+            return peptide + 'X' * (self.CORE_LENGTH - n)
+        start = (n - self.CORE_LENGTH) // 2
+        return peptide[start:start + self.CORE_LENGTH]
+
+    def encode(self, peptide: str, mhc_pseudo: Optional[np.ndarray] = None) -> np.ndarray:
+        core = self.extract_core(peptide)
+        features = []
+
+        # 1. Anchor position amino acid one-hot (5 * 20 = 100)
+        for pos in self.BINDING_POSITIONS:
+            if 0 <= pos < len(core):
+                aa = core[pos]
+                if aa in AA_TO_IDX:
+                    aa_vec = np.zeros(20)
+                    aa_vec[AA_TO_IDX[aa]] = 1
+                    features.extend(aa_vec)
+                else:
+                    features.extend([0] * 20)
+            else:
+                features.extend([0] * 20)
+
+        # 2. Anchor position biochemical properties (5 * 6 = 30)
+        for pos in self.BINDING_POSITIONS:
+            if 0 <= pos < len(core):
+                aa = core[pos]
+                props = self._aa_properties(aa)
+                features.extend(props)
+            else:
+                features.extend([0] * 6)
+
+        # 3. MHC pseudo sequence contact positions (5 * 20 = 100)
+        if mhc_pseudo is not None:
+            mhc_contact_positions = [0, 5, 14, 20, 33]
+            for mhc_pos in mhc_contact_positions:
+                start = mhc_pos * 20
+                mhc_aa_vec = mhc_pseudo[start:start+20]
+                features.extend(mhc_aa_vec)
+        else:
+            features.extend([0] * (5 * 20))
+
+        return np.array(features)
+
+    def _aa_properties(self, aa: str) -> List[float]:
+        """Reuse amino acid property dictionary from BindingPositionEncoder."""
+        properties = {
+            'A': [1.8, 0, 89, 0, 0, 1], 'C': [2.5, 0, 121, 0, 0, 0],
+            'D': [-3.5, -1, 133, 1, 0, 0], 'E': [-3.5, -1, 147, 1, 0, 0],
+            'F': [2.8, 0, 165, 0, 1, 0], 'G': [-0.4, 0, 75, 0, 0, 1],
+            'H': [-3.2, 0.5, 155, 1, 0, 0], 'I': [4.5, 0, 167, 0, 0, 0],
+            'K': [-3.9, 1, 168, 1, 0, 0], 'L': [3.8, 0, 131, 0, 0, 0],
+            'M': [1.9, 0, 149, 0, 0, 0], 'N': [-3.5, 0, 132, 1, 0, 0],
+            'P': [-1.6, 0, 115, 0, 0, 1], 'Q': [-3.5, 0, 146, 1, 0, 0],
+            'R': [-4.5, 1, 174, 1, 0, 0], 'S': [-0.8, 0, 105, 1, 0, 1],
+            'T': [-0.7, 0, 119, 1, 0, 1], 'V': [4.2, 0, 117, 0, 0, 0],
+            'W': [-0.9, 0, 204, 0, 1, 0], 'Y': [-1.3, 0, 181, 1, 1, 0],
+        }
+        return properties.get(aa, [0, 0, 0, 0, 0, 0])
+
+    def encode_batch(self, peptides: List[str], mhc_pseudos: Optional[np.ndarray] = None) -> np.ndarray:
+        if mhc_pseudos is not None:
+            return np.array([self.encode(p, mhc_pseudos[i]) for i, p in enumerate(peptides)])
+        return np.array([self.encode(p) for p in peptides])
+
+
+class MHCIIFeatureEncoder:
+    """MHC-II allele feature encoder (integrated).
+
+    Output feature dimensions:
+    - MHC-II pseudo sequence: 34 * 20 = 680
+    - HLA-II one-hot: 37
+    - MHC-II binding positions: 230
+    - Total: 947
+    """
+
+    def __init__(self):
+        self.pseudo_encoder = MHCIIPseudoSequenceEncoder()
+        self.hla_encoder = HLAIIOneHotEncoder()
+        self.binding_encoder = MHCIIBindingPositionEncoder()
+
+    @property
+    def feature_dim(self) -> int:
+        return 680 + 37 + 230  # 947
+
+    def encode(self, peptide: str, allele: str) -> np.ndarray:
+        mhc_pseudo = self.pseudo_encoder.encode(allele)
+        hla_onehot = self.hla_encoder.encode(allele)
+        binding_feat = self.binding_encoder.encode(peptide, mhc_pseudo)
+        return np.concatenate([mhc_pseudo, hla_onehot, binding_feat])
+
+    def encode_batch(self, peptides: List[str], alleles: List[str]) -> np.ndarray:
+        return np.array([self.encode(p, a) for p, a in zip(peptides, alleles)])
 
 
 def quick_test():

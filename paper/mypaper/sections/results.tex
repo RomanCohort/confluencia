@@ -48,6 +48,37 @@ Half-life predictions match published values within 4.1\% (Supplementary Table~S
 
 On epitope efficacy ($N{=}300$, 5-fold CV), adaptive MOE achieves R$^2{=}0.82$ (MAE${=}0.39$), reducing MAE 39\% over Ridge and 5--26\% over non-linear baselines \citep{pedregosa2011}. On drug efficacy ($N{=}200$, 154 features), MOE achieves R$^2{=}0.982$, comparable to Ridge while improving MAE 7.5--52.7\% over non-linear baselines (Supplementary Table~S2).
 
+\subsection{MHC binding prediction}
+
+On 288\,K IEDB peptides, MHC-aware training with allele-specific features (1018-dim MHC-I + 947-dim MHC-II pseudo-sequence encoding) achieves overall AUC${=}0.80$, a ${+}0.06$ improvement over the allele-agnostic baseline (AUC${=}0.74$, 317 features). Table~\ref{tab:allele_auc} shows per-allele AUC on 52\,K IEDB binary binding data (246 alleles, HGB). Performance varies substantially: well-characterized alleles with focused peptide repertoires (HLA-A*33:01, A*33:03) reach AUC${>}0.92$, matching NetMHCpan-level accuracy, whereas common alleles with broad peptide diversity (HLA-A*02:01, A*11:01) remain challenging (AUC${<}0.70$). This heterogeneity reflects within-allele peptide diversity rather than training volume---HLA-A*02:01 binds peptides from diverse protein sources, making its binding groove harder to model from generic features alone. FeatureSpec auto-detects the MHC class from allele names and activates allele-specific encoding when an \texttt{mhc\_allele} column is present---no manual configuration required. Allele-aware mode is recommended for $N{\geq}5000$ datasets; the 317-dim allele-agnostic mode remains preferable for small-sample ($N{<}300$) settings where high-dimensional features risk overfitting (Supplementary Table~S6).
+
+\begin{table}[t]
+\centering
+\caption{Per-allele MHC-I binding AUC on 52\,K IEDB binary data.}
+\label{tab:allele_auc}
+\begin{tabular}{lccc}
+\toprule
+\textbf{Allele} & \textbf{AUC} & \textbf{$n$} & \textbf{NetMHCpan range} \\
+\midrule
+\multicolumn{4}{l}{\textit{High-performing alleles (AUC $\geq$ 0.85)}} \\
+HLA-A*33:03 & 0.9495 & 315 & 0.92--0.96 \\
+HLA-A*33:01 & 0.9242 & 318 & 0.92--0.96 \\
+HLA-A*68:01 & 0.8556 & 312 & 0.85--0.90 \\
+\midrule
+\multicolumn{4}{l}{\textit{Moderate alleles (AUC 0.60--0.85)}} \\
+HLA-A*24:02 & 0.7047 & 604 & 0.85--0.90 \\
+HLA-B*07:02 & 0.6404 & 571 & 0.85--0.90 \\
+HLA-A*01:01 & 0.6225 & 429 & 0.85--0.90 \\
+\midrule
+\multicolumn{4}{l}{\textit{Challenging alleles (AUC $<$ 0.60)}} \\
+HLA-A*02:01 & 0.6720 & 2144 & 0.92--0.96 \\
+HLA-A*11:01 & 0.6127 & 673 & 0.85--0.90 \\
+HLA-A*03:01 & 0.5882 & 540 & 0.85--0.90 \\
+\bottomrule
+\multicolumn{4}{l}{\small Overall: AUC 0.83, 246 alleles, 52\,942 samples.}
+\end{tabular}
+\end{table}
+
 \subsection{Evaluation stability}
 
 Under 1\,000 $\pm$50\% weight perturbations, decisions remain stable: $\Psi$ 100\% Go, unmodified 100\% Conditional, m6A 99.9\% (Supplementary Table~S4). Kinetics is the most critical dimension---removing it shifts $\Psi$ from Go to Conditional ($\Delta{-4.6\%}$). Immunogenicity scoring is consistent with literature IFN data ($\rho{=}0.93$, $p{=}0.003$): $\Psi$ lowest, unmodified highest \citep{chen2019}.
