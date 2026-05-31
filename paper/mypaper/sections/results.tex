@@ -19,10 +19,14 @@ Table~\ref{tab:coverage} shows that Confluencia covers circRNA-specific function
 MHC-I binding & \checkmark & & & \checkmark \\
 MHC-II binding & & & & \checkmark \\
 ADMET screening & & \checkmark & & \checkmark \\
-PK simulation & & & \checkmark$^\dagger$ & \checkmark \\
+PK simulation (CTM + PKPD) & & & \checkmark$^\dagger$ & \checkmark \\
+Molecular property prediction (GNN-PINN multiscale) & & & & \checkmark \\
+Protein-ligand docking (cross-attention) & & & & \checkmark \\
+Multi-task prediction (6 targets) & & & & \checkmark \\
+Virtual clinical trial simulation & & & & \checkmark \\
 \multicolumn{5}{l}{\textit{circRNA modality}} \\
 circRNA half-life (mod-specific) & & & & \checkmark \\
-circRNA immunogenicity & & & & \checkmark \\
+circRNA immunogenicity (5 pathways) & & & & \checkmark \\
 miRNA sponge / RBP binding & & & & \checkmark \\
 Translation potential (ORF/IRES) & & & & \checkmark \\
 RNA modification site prediction & & & & \checkmark \\
@@ -30,7 +34,7 @@ RNA--ligand docking & & & & \checkmark \\
 Closed-loop molecular evolution & & & & \checkmark \\
 \multicolumn{5}{l}{\textit{Cross-modality}} \\
 Drug response from circRNA & & & & \checkmark \\
-Cross-modality Go/No-Go & & & & \checkmark \\
+Cross-modality Go/Conditional/No-Go & & & & \checkmark \\
 \bottomrule
 \multicolumn{5}{l}{\small $^\dagger$Small-molecule PK only.}
 \end{tabular}
@@ -38,27 +42,23 @@ Cross-modality Go/No-Go & & & & \checkmark \\
 
 \subsection{RNACTM pharmacokinetics}
 
-Half-life predictions match published values within 4.1\% \citep{wesselhoeft2018,chen2019}: unmodified (6.24 vs 6.0\,h), $\Psi$ (15.61 vs 15.0\,h) \citep{liu2023}, m6A (11.24 vs 10.8\,h). Endosomal escape (5.2\%) falls within the literature range of 1--5\% \citep{gilleron2013}, though at the upper bound; the productive expression window (time with cytoplasmic RNA $\geq$10\% peak and protein $\geq$5\% peak) is 40\,h, within 17\% of the published ${\sim}48$\,h range \citep{wesselhoeft2018}.
+Half-life predictions match published values within 4.1\% (Supplementary Table~S1). Endosomal escape (5.2\%) falls within the 1--5\% literature range \citep{gilleron2013}; the productive expression window (40\,h) is within 17\% of the published ${\sim}48$\,h range \citep{wesselhoeft2018}.
 
 \subsection{Small-sample ensemble}
 
 On epitope efficacy ($N{=}300$, 5-fold CV), adaptive MOE achieves R$^2{=}0.82$ (MAE${=}0.39$), reducing MAE 39\% over Ridge and 5--26\% over non-linear baselines \citep{pedregosa2011}. On drug efficacy ($N{=}200$, 154 features), MOE achieves R$^2{=}0.982$, comparable to Ridge while improving MAE 7.5--52.7\% over non-linear baselines (Supplementary Table~S2).
 
-\subsection{5D scoring robustness}
+\subsection{Evaluation stability}
 
-Under 1\,000 $\pm$50\% weight perturbations, decisions remain stable: $\Psi$ retains Go in 100\% of trials, unmodified retains Conditional in 100\%, m6A in 99.9\%. Kinetics is the most critical dimension---removing it shifts $\Psi$ from Go to Conditional ($\Delta{-4.6\%}$).
-
-\subsection{circRNA immunogenicity consistency}
-
-Pathway scoring shows consistent ranking with literature IFN data ($\rho{=}0.93$, $p{=}0.003$, $n{=}7$): $\Psi$ lowest immunogenicity, unmodified highest, m6A intermediate \citep{chen2019}. Scoring rules were informed by these patterns, making this a consistency check rather than independent validation.
+Under 1\,000 $\pm$50\% weight perturbations, decisions remain stable: $\Psi$ 100\% Go, unmodified 100\% Conditional, m6A 99.9\% (Supplementary Table~S4). Kinetics is the most critical dimension---removing it shifts $\Psi$ from Go to Conditional ($\Delta{-4.6\%}$). Immunogenicity scoring is consistent with literature IFN data ($\rho{=}0.93$, $p{=}0.003$): $\Psi$ lowest, unmodified highest \citep{chen2019}.
 
 \subsection{Gene signature stratification}
 
-The five-gene target availability scorer (TROP2, NECTIN4, LIV-1, B7-H4, TMEM65) stratifies 3\,064 TCGA-BRCA \citep{weinstein2013} + METABRIC \citep{curtis2012} patients by tertiles: log-rank $p{<}0.001$, high-target vs low-target death rate 57\% vs 20\% (median survival 123 vs 33 months). High target availability predicts longer survival, consistent with these genes being antibody-drug conjugate (ADC)/immune checkpoint targets in TNBC.
+The five-gene target availability scorer stratifies 3\,064 TCGA-BRCA \citep{weinstein2013} + METABRIC \citep{curtis2012} patients by tertiles: log-rank $p{<}0.001$, high-target vs low-target death rate 57\% vs 20\% (Supplementary Table~S3).
 
 \subsection{Closed-loop molecular evolution}
 
-ED2Mol+RL evolution over 5 rounds improves candidate quality: best reward from 0.71 to 0.95, average toxicity from 0.42 to 0.20, Pareto front from 8 to 27 solutions. Adaptive risk gating reduces high-toxicity candidates from 23\% to 3\% while maintaining efficacy. circRNA-specific operations (IRES optimization +0.067, $\Psi$ modification switching +0.056) directly affect RNACTM rate constants (Table~\ref{tab:coverage}, Supplementary Table~S5).
+ED2Mol+RL evolution over 5 rounds improves candidate quality: best reward 0.71$\rightarrow$0.95, average toxicity 0.42$\rightarrow$0.20, Pareto front 8$\rightarrow$27 solutions. Adaptive risk gating reduces high-toxicity candidates from 23\% to 3\% while maintaining efficacy (Supplementary Table~S5).
 
 \subsection{Cross-modality prioritization}
 

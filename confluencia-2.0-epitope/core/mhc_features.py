@@ -418,8 +418,8 @@ class MHCFeatureEncoder:
     @property
     def feature_dim(self) -> int:
         """特征维度"""
-        # 伪序列: 34*20=680, HLA one-hot: 43, 结合位置: 6*20+6*6+5*20=256
-        return 680 + 43 + 256  # 979
+        # 伪序列: 34*20=680, HLA one-hot: 82, 结合位置: 6*20+6*6+5*20=256
+        return 680 + 82 + 256  # 1018
 
     def encode(self, peptide: str, allele: str) -> np.ndarray:
         """

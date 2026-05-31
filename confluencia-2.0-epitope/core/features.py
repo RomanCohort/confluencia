@@ -226,14 +226,14 @@ def build_feature_matrix(df: pd.DataFrame, spec: FeatureSpec | None = None) -> T
     特征顺序:
         1. Mamba3Lite 编码 (~168维)
         2. ESM-2 嵌入 (320/640/1280维，当 use_esm2=True)
-        3. MHC-I 特征 (979维，当 use_mhc=True)
-        4. MHC-II 特征 (945维，当 use_mhc_ii=True 或 mhc_auto_detect=True)
+        3. MHC-I 特征 (1018维，当 use_mhc=True)
+        4. MHC-II 特征 (947维，当 use_mhc_ii=True 或 mhc_auto_detect=True)
         5. k-mer hash (64*2=128维)
         6. 生化统计 (16维)
         7. 环境变量 (0-5维)
 
     总维度 (use_esm2=True, use_mhc=True, use_mhc_ii=True, 650M): ~3551维
-    总维度 (use_mhc=True, mhc_auto_detect=True): ~2219维 (979+947+etc)
+    总维度 (use_mhc=True, mhc_auto_detect=True): ~2258维 (1018+947+etc)
     总维度 (use_mhc=True): ~1272维
     总维度 (use_esm2=False, use_mhc=False): ~317维
     """
@@ -315,7 +315,7 @@ def build_feature_matrix(df: pd.DataFrame, spec: FeatureSpec | None = None) -> T
             # MHC-I encoding
             if use_mhc_i:
                 mhc_i_encoder = MHCFeatureEncoder()
-                mhc_i_dim = mhc_i_encoder.feature_dim  # 979
+                mhc_i_dim = mhc_i_encoder.feature_dim  # 1018
                 i_alleles = [a if detect_mhc_class(a) == 'I' else "HLA-A*02:01" for a in alleles]
                 mhc_i_features = mhc_i_encoder.encode_batch(sequences, i_alleles)
 
