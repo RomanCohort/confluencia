@@ -41,7 +41,7 @@ Half-life predictions match published values within 4.1\% \citep{wesselhoeft2018
 
 \subsection{Small-sample ensemble}
 
-On epitope efficacy ($N{=}300$, 5-fold cross-validation (CV)), adaptive MOE achieves 39.2\% mean absolute error (MAE) reduction over Ridge ($p<0.001$). On drug efficacy ($N{=}200$, 154 features), MOE achieves R$^2{=}0.982$, comparable to Ridge (R$^2{=}0.984$) while improving MAE 7.5--52.7\% over non-linear baselines \citep{pedregosa2011}.
+On epitope efficacy ($N{=}300$, 5-fold cross-validation (CV)), adaptive MOE achieves R$^2{=}0.82$ (MAE${=}0.39$), reducing MAE 39\% over Ridge and 5--24\% over non-linear baselines \citep{pedregosa2011}. On drug efficacy ($N{=}200$, 154 features), MOE achieves R$^2{=}0.982$, comparable to Ridge (R$^2{=}0.984$) while improving MAE 7.5--52.7\% over non-linear baselines \citep{pedregosa2011}.
 
 \subsection{5D scoring robustness}
 
@@ -53,7 +53,7 @@ Pathway scoring based on RIG-I/TLR/PKR activation rules shows consistent ranking
 
 \subsection{Gene signature stratification}
 
-The five-gene target availability scorer (TROP2, NECTIN4, LIV-1, B7-H4, TMEM65) stratifies 3\,064 TCGA-BRCA \citep{weinstein2013} + METABRIC \citep{curtis2012} patients: log-rank $p{<}0.001$, high-target median survival 118 vs low-target 40 months. High target availability predicts longer survival, consistent with these genes being antibody-drug conjugate (ADC)/immune checkpoint targets in TNBC. C-index is modest (0.52), reflecting that target availability captures therapeutic response potential rather than intrinsic disease risk.
+The five-gene target availability scorer (TROP2, NECTIN4, LIV-1, B7-H4, TMEM65) stratifies 3\,064 TCGA-BRCA \citep{weinstein2013} + METABRIC \citep{curtis2012} patients by tertiles: log-rank $p{<}0.001$, high-target vs low-target death rate 57\% vs 20\% (median survival 123 vs 33 months). High target availability predicts longer survival, consistent with these genes being antibody-drug conjugate (ADC)/immune checkpoint targets in TNBC.
 
 \subsection{Cross-modality prioritization}
 

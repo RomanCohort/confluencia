@@ -134,10 +134,11 @@ def concordance_index(survival_times, predicted_risk, events):
 
 
 def km_stratification(df, risk_col, time_col="OS_months", event_col="OS_status"):
-    """Stratify patients into high/low risk and compute log-rank test."""
-    median = df[risk_col].median()
-    high_risk = df[df[risk_col] >= median]
-    low_risk = df[df[risk_col] < median]
+    """Stratify patients by tertiles (top vs bottom) and compute log-rank test."""
+    q33 = df[risk_col].quantile(0.33)
+    q67 = df[risk_col].quantile(0.67)
+    high_risk = df[df[risk_col] >= q67]
+    low_risk = df[df[risk_col] < q33]
 
     # Compute median survival for each group
     high_surv_median = high_risk[time_col].median()
