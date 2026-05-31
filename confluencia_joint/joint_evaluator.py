@@ -552,6 +552,8 @@ class JointEvaluationEngine:
         self._pkpd = None
         self._epitope_pipeline = None
         self._circrna_pipeline = None
+        # Cached epitope model bundle for single-sample prediction
+        self._epitope_bundle = None
 
     # ------------------------------------------------------------------
     # Public API
@@ -640,7 +642,7 @@ class JointEvaluationEngine:
         try:
             drug_out, drug_curve, drug_artifacts = self._drug_pipeline.run_pipeline(
                 drug_df,
-                compute_profile=self.drug_compute_profile,
+                compute_mode=self.drug_compute_profile,
             )
         except Exception as ex:
             drug_errors.append(f"Drug pipeline error: {ex}")
@@ -656,11 +658,50 @@ class JointEvaluationEngine:
         t_epi = time.time()
         epi_errors: List[str] = []
         try:
-            epi_out, epi_artifacts, epi_sens = self._epitope_pipeline.run_pipeline(
-                epi_df,
-                model_backend=self.epitope_backend,
-                feature_spec=self._epitope_pipeline.FeatureSpec(use_mhc=self.use_mhc),
-            )
+            # For small sample counts, run_pipeline's MOE KFold will crash.
+            # Use predict_one with cached model bundle if available.
+            if len(epi_df) < 20:
+                # Try to load cached bundle on first use
+                if self._epitope_bundle is None:
+                    try:
+                        import joblib
+                        cache_paths = [
+                            _PROJECT / "data" / "cache" / "epitope_model.joblib",
+                            _PROJECT / "data" / "cache" / "epitope_model_288k.joblib",
+                        ]
+                        for cp in cache_paths:
+                            if cp.exists():
+                                self._epitope_bundle = joblib.load(str(cp))
+                                break
+                    except Exception:
+                        pass
+                if self._epitope_bundle is not None:
+                    from confluencia_2_0_epitope.core.predictor import predict_one
+                    preds = []
+                    for _, row in epi_df.iterrows():
+                        pred = predict_one(
+                            self._epitope_bundle,
+                            str(row.get("epitope_seq", "")),
+                            env_params={c: float(row.get(c, 0.0)) for c in self._epitope_bundle.env_cols},
+                        )
+                        preds.append(pred)
+                    epi_out = epi_df.copy()
+                    epi_out["efficacy_pred"] = preds
+                    epi_out["pred_uncertainty"] = 0.0
+                    epi_artifacts = None
+                    epi_sens = None
+                else:
+                    # No cached bundle — use simple Ridge fallback
+                    epi_out, epi_artifacts, epi_sens = self._epitope_pipeline.run_pipeline(
+                        epi_df,
+                        model_backend="ridge",
+                    )
+            else:
+                epi_out, epi_artifacts, epi_sens = self._epitope_pipeline.run_pipeline(
+                    epi_df,
+                    model_backend=self.epitope_backend,
+                    feature_spec=self._epitope_pipeline.FeatureSpec(use_mhc=self.use_mhc),
+                )
         except Exception as ex:
             epi_errors.append(f"Epitope pipeline error: {ex}")
             epi_out = epi_df.copy()
@@ -829,8 +870,8 @@ class JointEvaluationEngine:
                 immune_activation=inp.ifn_score if inp.ifn_score > 0 else 0.5,
             )
         return self._pkpd.infer_pkpd_params(
-            target_binding=inp.circ_expr if inp.circ_expr > 0 else 0.3,
-            immune_activation=inp.ifn_score if inp.ifn_score > 0 else 0.5,
+            binding=inp.circ_expr if inp.circ_expr > 0 else 0.3,
+            immune=inp.ifn_score if inp.ifn_score > 0 else 0.5,
             inflammation=0.1,
             dose_mg=inp.dose_mg,
             freq_per_day=inp.freq_per_day,
