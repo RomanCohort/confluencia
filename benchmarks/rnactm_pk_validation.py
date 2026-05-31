@@ -299,9 +299,9 @@ def run_pk_validation() -> Dict[str, Any]:
     print("\n" + "-"*60)
     print("Test 7: Productive protein expression window (RNA viable + protein detectable)")
 
-    # Run with daily dosing to measure expression window
-    curve_daily = simulate_rna_ctm(dose, freq=1.0, params=params_unmodified, horizon=168)
-    summary = summarize_rna_ctm_curve(curve_daily)
+    # Run single dose to measure per-dose expression window (literature uses single dose)
+    curve_single = simulate_rna_ctm(dose, freq=0.01, params=params_unmodified, horizon=168)
+    summary = summarize_rna_ctm_curve(curve_single)
     sim_val_window = summary.get("rna_ctm_protein_expression_window_h", 0.0)
     sim_val_persist = summary.get("rna_ctm_protein_persistence_window_h", 0.0)
 
