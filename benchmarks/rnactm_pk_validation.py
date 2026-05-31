@@ -294,32 +294,34 @@ def run_pk_validation() -> Dict[str, Any]:
     print(f"  Status:     {'PASS' if passed_spleen else 'FAIL'}")
 
     # =========================================================================
-    # Test 7: Protein expression window
+    # Test 7: Productive protein expression window
     # =========================================================================
     print("\n" + "-"*60)
-    print("Test 7: Protein expression window")
+    print("Test 7: Productive protein expression window (RNA viable + protein detectable)")
 
     # Run with daily dosing to measure expression window
     curve_daily = simulate_rna_ctm(dose, freq=1.0, params=params_unmodified, horizon=168)
     summary = summarize_rna_ctm_curve(curve_daily)
     sim_val_window = summary.get("rna_ctm_protein_expression_window_h", 0.0)
+    sim_val_persist = summary.get("rna_ctm_protein_persistence_window_h", 0.0)
 
     lit_val_window = LITERATURE_VALUES["protein_expression_window"]["value"]
     error_pct_window = abs(sim_val_window - lit_val_window) / lit_val_window * 100
-    passed_window = error_pct_window < 60  # Allow 60% error (48-72h range)
+    passed_window = error_pct_window < 30  # Tighter tolerance for corrected metric
 
     validation_items.append({
-        "parameter": "Protein expression window",
+        "parameter": "Productive expression window",
         "literature_value": lit_val_window,
         "literature_unit": "hours",
         "literature_source": LITERATURE_VALUES["protein_expression_window"]["source"],
         "simulated_value": round(sim_val_window, 1),
         "error_pct": round(error_pct_window, 1),
         "passed": bool(passed_window),
-        "notes": "Time above 50% peak protein with daily dosing",
+        "notes": "Time when Cyto RNA >= 10% peak AND protein >= 5% peak (active production)",
     })
-    print(f"  Literature: {lit_val_window} h (range 48-72h)")
-    print(f"  Simulated:  {sim_val_window:.1f} h")
+    print(f"  Literature: {lit_val_window} h (active production from viable RNA)")
+    print(f"  Simulated:  {sim_val_window:.1f} h (productive window)")
+    print(f"  Persistence: {sim_val_persist:.1f} h (50% peak protein)")
     print(f"  Error:      {error_pct_window:.1f}%")
     print(f"  Status:     {'PASS' if passed_window else 'FAIL'}")
 

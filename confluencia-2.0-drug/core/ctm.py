@@ -145,6 +145,13 @@ class RNACTMParams:
     k_protein_half: float  # Product protein half-life (h)
     k_immune_clear: float  # Immune-mediated clearance rate (1/h)
 
+    # Late-phase accelerated clearance parameters
+    # After ~48h, proteasomal upregulation accelerates protein turnover.
+    # k_protein_degrade transitions from base rate to accelerated rate via sigmoid.
+    k_protein_late_delay: float = 48.0     # Delay before acceleration begins (h)
+    k_protein_late_width: float = 12.0     # Sigmoid transition width (h)
+    k_protein_late_factor: float = 3.0     # Max acceleration multiplier
+
     # Tissue distribution coefficients (fractions, sum ≈ 1 for remaining)
     # Values from Paunovska et al. (2018) ACS Nano for standard LNP formulations:
     # ~80% liver (hepatocyte uptake via ApoE-mediated LDLR), ~10% spleen (macrophage uptake),
@@ -265,11 +272,18 @@ def simulate_rna_ctm(
 
     rows: List[Dict[str, float]] = []
     pulse_every = max(int(round(24.0 / freq)), 1)
-    k_protein_degrade = float(np.log(2.0) / max(params.k_protein_half, 1.0))
+    k_protein_degrade_base = float(np.log(2.0) / max(params.k_protein_half, 1.0))
 
     for t in range(steps):
         if t % pulse_every == 0:
             Inj += dose
+
+        # Time-dependent protein degradation with late-phase accelerated clearance
+        # After ~48h, proteasomal upregulation accelerates protein turnover.
+        # k(t) = k_base * (1 + factor * sigmoid((t - delay) / width))
+        sigmoid_arg = (float(t) - params.k_protein_late_delay) / max(params.k_protein_late_width, 1.0)
+        acceleration = 1.0 + params.k_protein_late_factor / (1.0 + np.exp(-sigmoid_arg))
+        k_protein_degrade = k_protein_degrade_base * acceleration
 
         # Flux: Inj → LNP (rapid for IV, slower for SC/IM)
         dInj = -params.k_release * Inj
@@ -332,6 +346,7 @@ def summarize_rna_ctm_curve(curve: pd.DataFrame) -> Dict[str, float]:
             "rna_ctm_peak_protein": 0.0,
             "rna_ctm_peak_cytoplasmic_rna": 0.0,
             "rna_ctm_protein_expression_window_h": 0.0,
+            "rna_ctm_protein_persistence_window_h": 0.0,
             "rna_ctm_rna_half_life_h": 0.0,
             "rna_ctm_bioavailability_frac": 0.0,
             "rna_ctm_peak_toxicity": 0.0,
