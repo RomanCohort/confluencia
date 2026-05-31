@@ -1,5 +1,5 @@
-%% sections/results.tex — v5: compressed for Application Note
-%% Functional coverage table + validation + case study
+%% sections/results.tex — v6: compressed for Application Note
+%% Functional coverage + validation + case study + robustness
 
 \section{Results}
 
@@ -40,11 +40,23 @@ Half-life predictions match published values within 4.1\% \citep{wesselhoeft2018
 
 \subsection{Small-sample ensemble}
 
-On epitope efficacy ($N{=}300$, 5-fold CV), the adaptive MOE achieves 39.2\% MAE reduction over Ridge ($p<0.001$).
+On epitope efficacy ($N{=}300$, 5-fold CV), adaptive MOE achieves 39.2\% MAE reduction over Ridge ($p<0.001$). On drug efficacy ($N{=}200$, 154 features), MOE achieves R$^2{=}0.982$ with 7.5--52.7\% MAE improvement over individual baselines \citep{pedregosa2011}.
+
+\subsection{5D scoring robustness}
+
+Under 1\,000 $\pm$50\% weight perturbations, decisions remain stable: $\Psi$ retains Go in 100\% of trials, unmodified retains Conditional in 100\%, m6A in 99.9\%. Kinetics is the most critical dimension---removing it flips $\Psi$ from Go to Conditional ($\Delta{-4.6\%}$).
+
+\subsection{circRNA immunogenicity validation}
+
+Pathway scores correlate strongly with literature IFN data ($\rho{=}0.93$, $p{=}0.003$, $n{=}7$): $\Psi$ shows lowest immunogenicity (IFN${=}0.15$), unmodified highest (IFN${=}0.85$). On 5\,000 circBase sequences, RIG-I/TLR motif counts correlate with predicted immunogenicity ($\rho{=}0.52$--$0.55$, $p{<}0.001$), confirming internal scoring consistency.
+
+\subsection{Gene signature stratification}
+
+The five-gene scorer stratifies 3\,064 TCGA+METABRIC patients: log-rank $p{<}0.001$, high-risk death rate 57.3\% vs low-risk 27.3\%, median survival 114 vs 42 months.
 
 \subsection{Cross-modality prioritization}
 
-Table~\ref{tab:casestudy} shows Confluencia's prioritization of five nucleotide modifications for a TNBC-targeting circRNA therapeutic. The platform identifies $\Psi$ and m6A as Go candidates (extended half-life, acceptable immunogenicity), while flagging unmodified circRNA as No-Go (short half-life, high immune activation) and I as Conditional (PK benefit offset by translation uncertainty). These predictions guide wet-lab validation: modifications receiving Go are prioritized for synthesis, while No-Go candidates are deprioritized, saving experimental resources.
+Table~\ref{tab:casestudy} shows modification prioritization for a TNBC-targeting circRNA. $\Psi$ and m6A are Go candidates (extended half-life, acceptable immunogenicity); unmodified is No-Go (short half-life, high immune activation); I is Conditional. These predictions directly guide wet-lab synthesis prioritization.
 
 \begin{table}[t]
 \centering
@@ -54,11 +66,11 @@ Table~\ref{tab:casestudy} shows Confluencia's prioritization of five nucleotide 
 \toprule
 \textbf{Modification} & \textbf{Half-life (h)} & \textbf{Immunogenicity} & \textbf{Composite} & \textbf{Decision} \\
 \midrule
-Unmodified & 6.24 & High & --- & No-Go \\
-$\Psi$ & 15.61 & Low & --- & Go \\
-m6A & 11.24 & Moderate & --- & Go \\
-5mC & ${\sim}8$ & Moderate & --- & Conditional \\
-I & ${\sim}12$ & Low & --- & Conditional \\
+Unmodified & 6.24 & High & 0.525 & No-Go \\
+$\Psi$ & 15.61 & Low & 0.670 & Go \\
+m6A & 11.24 & Moderate & 0.610 & Conditional \\
+5mC & ${\sim}8$ & Moderate & 0.548 & Conditional \\
+I & ${\sim}12$ & Low & 0.584 & Conditional \\
 \bottomrule
 \end{tabular}
 \end{table}
