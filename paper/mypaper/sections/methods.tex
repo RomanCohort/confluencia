@@ -8,7 +8,7 @@ RNACTM simulates circRNA concentration through six compartments (Injection $\rig
 
 \subsection{Small-molecule evaluation}
 
-Expert architectures are selected by sample size \citep{jacobs1991}: Ridge + Histogram-based Gradient Boosting (HGB) ($N<80$); adding Random Forest (RF) ($N<300$); adding Multi-Layer Perceptron (MLP) ($N\geq300$), with inverse-RMSE gating and biological constraints preventing collapse. Epitope sequences use Mamba3Lite encoding \citep{gu2023}; MHC features cover 173 class-I and 37 class-II alleles. ADMET screening covers PAINS \citep{baell2010}, reactive groups, and 2083-dimension feature flags, with safety floors (toxicity $\geq 0.06 + 0.16 \times \text{efficacy}$) preventing unsafe candidates regardless of efficacy.
+Expert architectures are selected by sample size \citep{jacobs1991}: Ridge + Histogram-based Gradient Boosting (HGB) ($N<80$); adding Random Forest (RF) ($N<300$); adding Multi-Layer Perceptron (MLP) ($N\geq300$), with inverse-RMSE gating and biological constraints preventing collapse. This design was motivated by initial experiments with large protein language models (ESM-2 \citep{lin2023}) which produced severe overfitting at $N<300$; well-regularized sklearn models provide stable predictions without GPU dependency in data-limited regimes. Epitope sequences use Mamba3Lite encoding \citep{gu2023}; MHC features cover 173 class-I and 37 class-II alleles. ADMET screening covers PAINS \citep{baell2010}, reactive groups, and 2083-dimension feature flags, with safety floors (toxicity $\geq 0.06 + 0.16 \times \text{efficacy}$) preventing unsafe candidates regardless of efficacy.
 
 \subsection{circRNA functional assessment}
 
