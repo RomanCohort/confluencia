@@ -460,7 +460,11 @@ class ConfluenciaBridge:
         if hasattr(val, "tolist"):  # numpy
             return val.tolist()
         if hasattr(val, "to_dict"):  # pandas DataFrame/Series
-            return val.to_dict(orient="list")
+            try:
+                return val.to_dict(orient="list")
+            except TypeError:
+                # dataclass or other object with to_dict but no orient parameter
+                return val.to_dict()
         return str(val)
 
 
