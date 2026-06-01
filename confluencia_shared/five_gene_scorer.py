@@ -108,12 +108,19 @@ class FiveGeneMOEScorer:
 
         self.moe = self.model_bundle["moe"]
         self.encoder = self.model_bundle["encoder"]
-        self.scaler = self.model_bundle["scaler"]
+        self.scaler = self.model_bundle.get("scaler")
         self.clinical_cols = self.model_bundle.get(
             "clinical_cols",
             ["grade", "grade_high", "ER_positive", "HER2_positive", "PR_positive",
              "is_idc", "is_ilc"]
         )
+        # Detect if MOE expects only gene features (no clinical)
+        self._gene_only = False
+        if hasattr(self.moe, "scaler") and self.moe.scaler is not None:
+            moe_n_feat = getattr(self.moe.scaler, "n_features_in_", 0)
+            # Encoder outputs 28 features; if MOE expects 28, it's gene-only
+            if moe_n_feat == 28:
+                self._gene_only = True
 
     def predict(
         self,
@@ -145,32 +152,34 @@ class FiveGeneMOEScorer:
         m = gene_dict["TMEM65"]
         gene_feat = self.encoder.transform([gene_dict])
 
-        # Clinical features (use defaults if not provided)
-        if clinical_features is None:
-            clinical_features = {
-                "grade": 2.0,
-                "grade_high": 0.0,
-                "ER_positive": 0.5,
-                "HER2_positive": 0.5,
-                "PR_positive": 0.5,
-                "is_idc": 0.5,
-                "is_ilc": 0.0,
-                "log_tmb": 0.5,
-                "tmb_high": 0.0,
-                "mutation_count_norm": 0.5,
-                "fga": 0.3,
-                "genomic_instability": 0.3,
-                "tumor_stage_norm": 0.5,
-                "tumor_size_norm": 0.5,
-            }
+        if self._gene_only:
+            # Model trained only on gene features — skip clinical
+            X = gene_feat
+        else:
+            # Clinical features (use defaults if not provided)
+            if clinical_features is None:
+                clinical_features = {
+                    "grade": 2.0,
+                    "grade_high": 0.0,
+                    "ER_positive": 0.5,
+                    "HER2_positive": 0.5,
+                    "PR_positive": 0.5,
+                    "is_idc": 0.5,
+                    "is_ilc": 0.0,
+                    "log_tmb": 0.5,
+                    "tmb_high": 0.0,
+                    "mutation_count_norm": 0.5,
+                    "fga": 0.3,
+                    "genomic_instability": 0.3,
+                    "tumor_stage_norm": 0.5,
+                    "tumor_size_norm": 0.5,
+                }
 
-        clin_array = np.array([
-            clinical_features.get(col, 0.5) for col in self.clinical_cols
-        ], dtype=np.float32).reshape(1, -1)
-        clin_feat = self.scaler.transform(clin_array)
-
-        # Combine
-        X = np.hstack([gene_feat, clin_feat])
+            clin_array = np.array([
+                clinical_features.get(col, 0.5) for col in self.clinical_cols
+            ], dtype=np.float32).reshape(1, -1)
+            clin_feat = self.scaler.transform(clin_array)
+            X = np.hstack([gene_feat, clin_feat])
 
         # Predict
         efficacy = float(self.moe.predict(X)[0])

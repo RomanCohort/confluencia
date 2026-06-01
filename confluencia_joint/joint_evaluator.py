@@ -552,6 +552,8 @@ class JointEvaluationEngine:
         self._pkpd = None
         self._epitope_pipeline = None
         self._circrna_pipeline = None
+        # Cached drug model bundle for single-sample prediction
+        self._drug_bundle = None
         # Cached epitope model bundle for single-sample prediction
         self._epitope_bundle = None
 
@@ -640,10 +642,48 @@ class JointEvaluationEngine:
         t_drug = time.time()
         drug_errors: List[str] = []
         try:
-            drug_out, drug_curve, drug_artifacts = self._drug_pipeline.run_pipeline(
-                drug_df,
-                compute_mode=self.drug_compute_profile,
-            )
+            # For single/few samples, run_pipeline expects a training DataFrame with
+            # an efficacy target column — which JointInput.to_drug_dataframe() does
+            # not provide. Use cached model bundle with direct prediction instead.
+            if len(drug_df) < 20:
+                # Try to load cached bundle on first use
+                if self._drug_bundle is None:
+                    try:
+                        import joblib
+                        cache_paths = [
+                            _PROJECT / "data" / "drug_from_v2_drug_bundle.joblib",
+                            _PROJECT / "data" / "cache" / "drug_model_91k.joblib",
+                            _PROJECT / "data" / "cache" / "drug_model.joblib",
+                        ]
+                        for cp in cache_paths:
+                            if cp.exists():
+                                self._drug_bundle = joblib.load(str(cp))
+                                break
+                    except Exception:
+                        pass
+                if self._drug_bundle is not None:
+                    efficacy_preds = []
+                    for _, row in drug_df.iterrows():
+                        smiles = str(row.get("smiles", ""))
+                        pred = self._predict_drug_one(self._drug_bundle, smiles, dict(row))
+                        efficacy_preds.append(pred)
+                    drug_out = drug_df.copy()
+                    drug_out["efficacy_pred"] = efficacy_preds
+                    drug_out["target_binding_pred"] = [min(1.0, max(0.0, p)) for p in efficacy_preds]
+                    drug_out["immune_activation_pred"] = 0.0
+                    drug_out["inflammation_risk_pred"] = 0.0
+                    drug_out["genotoxicity_risk_pred"] = 0.0
+                else:
+                    # No cached bundle — fallback to pipeline (will likely fail for N<20)
+                    drug_out, drug_curve, drug_artifacts = self._drug_pipeline.run_pipeline(
+                        drug_df,
+                        compute_mode=self.drug_compute_profile,
+                    )
+            else:
+                drug_out, drug_curve, drug_artifacts = self._drug_pipeline.run_pipeline(
+                    drug_df,
+                    compute_mode=self.drug_compute_profile,
+                )
         except Exception as ex:
             drug_errors.append(f"Drug pipeline error: {ex}")
             drug_out = drug_df.copy()
@@ -676,13 +716,12 @@ class JointEvaluationEngine:
                     except Exception:
                         pass
                 if self._epitope_bundle is not None:
-                    from confluencia_2_0_epitope.core.predictor import predict_one
                     preds = []
                     for _, row in epi_df.iterrows():
-                        pred = predict_one(
+                        pred = self._predict_epitope_one(
                             self._epitope_bundle,
                             str(row.get("epitope_seq", "")),
-                            env_params={c: float(row.get(c, 0.0)) for c in self._epitope_bundle.env_cols},
+                            dict(row),
                         )
                         preds.append(pred)
                     epi_out = epi_df.copy()
@@ -857,7 +896,7 @@ class JointEvaluationEngine:
             horizon=self.pk_horizon,
             dt=1.0,
         )
-        summary = self._pkpd.summarize_pkpd_curve(curve_df)
+        summary = self._pkpd.summarize_pkpd_curve(curve_df, params)
         return summary, curve_df
 
     def _infer_pk_params(self, inp: JointInput):
@@ -902,22 +941,45 @@ class JointEvaluationEngine:
         circrna_out = {}
         if self._circrna_pipeline is not None:
             pipeline_mod = self._circrna_pipeline
-            pipeline = pipeline_mod.CircRNAPipeline(
-                immune_sensing_config=pipeline_mod.ImmuneSensingConfig(),
-                immune_cycle_config=pipeline_mod.ImmuneCycleConfig(),
-            )
+            try:
+                pipeline = pipeline_mod.CircRNAPipeline()
+            except TypeError:
+                # Fallback: try with config
+                try:
+                    pipeline = pipeline_mod.CircRNAPipeline(
+                        config=pipeline_mod.CircRNAPipelineConfig()
+                    )
+                except Exception:
+                    return None
 
-            result = pipeline.run(
-                sequences=[seq] if seq else None,
-                expr_matrix=expr,
-                mutation_data=getattr(inp, "mutation_data", None),
-                cnv_data=getattr(inp, "cnv_data", None),
-                survival_data=getattr(inp, "survival_data", None),
-            )
+            # Build gene_expression dict from JointInput attributes
+            gene_expression = None
+            if any(getattr(inp, g, 0.5) != 0.5 for g in ["trop2", "nectin4", "liv1", "b7h4", "tmem65"]):
+                gene_expression = inp.to_gene_signature_dict()
 
-            if result.sample_scores:
-                score = result.sample_scores[0]
-                circrna_out = self._circrna_score_to_dict(score)
+            try:
+                result = pipeline.run(
+                    sequence=seq or "",
+                    gene_expression=gene_expression,
+                    clinical_data=None,
+                )
+                # Extract composite scores
+                if hasattr(result, "composite_scores") and result.composite_scores:
+                    circrna_out = result.composite_scores
+                elif hasattr(result, "immune_scores") and result.immune_scores:
+                    circrna_out = result.immune_scores
+            except Exception as ex:
+                # Fallback: try direct immunogenicity prediction
+                if seq:
+                    try:
+                        from confluencia_circrna.core.immune_sensing import predict_circrna_immunogenicity
+                        imm_result = predict_circrna_immunogenicity(seq)
+                        circrna_out["overall_immunogenicity"] = float(imm_result.get("overall", 0.5))
+                        circrna_out["rig_i_score"] = float(imm_result.get("rig_i", 0.0))
+                        circrna_out["tlr_score"] = float(imm_result.get("tlr7", 0.0))
+                        circrna_out["pkr_score"] = float(imm_result.get("pkr", 0.0))
+                    except Exception:
+                        pass
 
         # Compute trained survival model risk score
         trained_risk = self._compute_trained_model_risk(inp, expr)
@@ -966,6 +1028,102 @@ class JointEvaluationEngine:
                     return risk
 
         return None
+
+    @staticmethod
+    def _predict_epitope_one(
+        bundle, sequence: str, row_dict: Dict[str, float]
+    ) -> float:
+        """Predict epitope binding from a cached bundle (dict or EpitopeModelBundle).
+
+        Handles both the dict format from joblib cache and the EpitopeModelBundle dataclass.
+        """
+        # Dict-format bundle from joblib cache
+        if isinstance(bundle, dict):
+            from confluencia_epitope.core.featurizer import SequenceFeatures
+            featurizer = SequenceFeatures(version=1)
+            seq_x = featurizer.transform_one(sequence).reshape(1, -1)
+
+            env_cols = bundle.get("env_cols", [])
+            env_vec = []
+            for c in env_cols:
+                env_vec.append(float(row_dict.get(c, 0.0)))
+            env_x = np.array(env_vec, dtype=np.float32).reshape(1, -1) if env_cols else np.zeros((1, 0), dtype=np.float32)
+
+            x = np.concatenate([seq_x, env_x], axis=1)
+
+            # Apply scaler if present
+            scaler = bundle.get("scaler")
+            if scaler is not None:
+                x = scaler.transform(x)
+
+            model = bundle.get("model")
+            if model is not None and hasattr(model, "predict"):
+                return float(np.asarray(model.predict(x)).reshape(-1)[0])
+            else:
+                return 0.0
+        else:
+            # EpitopeModelBundle dataclass — use predict_one
+            from confluencia_epitope.core.predictor import predict_one
+            env_params = {c: float(row_dict.get(c, 0.0)) for c in bundle.env_cols}
+            return predict_one(bundle, sequence, env_params)
+
+    @staticmethod
+    def _predict_drug_one(
+        bundle, smiles: str, row_dict: Dict[str, float]
+    ) -> float:
+        """Predict drug efficacy from a cached bundle (dict or DrugModelBundle).
+
+        Handles both the dict format from joblib cache (MOE ensemble) and
+        the DrugModelBundle dataclass from predictor.train_bundle().
+        """
+        # Dict-format bundle from joblib cache
+        if isinstance(bundle, dict):
+            from confluencia_drug.core.featurizer import MoleculeFeatures
+            featurizer = MoleculeFeatures(version=2)
+            mol_x, ok = featurizer.transform_one(smiles)
+
+            env_cols = bundle.get("env_cols", [])
+            env_vec = []
+            for c in env_cols:
+                env_vec.append(float(row_dict.get(c, 0.0)))
+            env_x = np.array(env_vec, dtype=np.float32) if env_cols else np.zeros((0,), dtype=np.float32)
+
+            x = np.concatenate([mol_x, env_x], axis=0).reshape(1, -1)
+
+            # Pad or truncate to match scaler/model expected dimensions
+            scaler = bundle.get("scaler")
+            if scaler is not None and hasattr(scaler, "n_features_in_"):
+                n_expected = scaler.n_features_in_
+                if x.shape[1] < n_expected:
+                    pad = np.zeros((1, n_expected - x.shape[1]), dtype=np.float32)
+                    x = np.concatenate([x, pad], axis=1)
+                elif x.shape[1] > n_expected:
+                    x = x[:, :n_expected]
+                x = scaler.transform(x)
+
+            # MOE prediction
+            moe = bundle.get("model", {})
+            if isinstance(moe, dict) and moe.get("type") == "MOE":
+                models = moe.get("models", {})
+                weights = moe.get("weights", {})
+                pred = 0.0
+                total_w = 0.0
+                for name, model in models.items():
+                    w = float(weights.get(name, 0.0))
+                    p = float(np.asarray(model.predict(x)).reshape(-1)[0])
+                    pred += w * p
+                    total_w += w
+                return pred / total_w if total_w > 0 else 0.0
+            elif hasattr(moe, "predict"):
+                # Single sklearn model
+                return float(np.asarray(moe.predict(x)).reshape(-1)[0])
+            else:
+                return 0.0
+        else:
+            # DrugModelBundle dataclass — use predict_one
+            from confluencia_drug.core.predictor import predict_one
+            env_params = {c: float(row_dict.get(c, 0.0)) for c in bundle.env_cols}
+            return predict_one(bundle, smiles, env_params)
 
     @staticmethod
     def _row_to_dict(

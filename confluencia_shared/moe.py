@@ -267,7 +267,15 @@ def _make_expert(
 
 
 class MOERegressor:
-    """Transparent MOE regressor with data-dependent expert weighting.
+    """Weighted model averaging regressor (inverse-RMSE weighting).
+
+    NOTE: This is NOT a true Mixture-of-Experts with learnable input-dependent
+    gating. It is a stacking simplification using inverse-RMSE weighted averaging
+    of base model predictions. For true gating, see GatedMOERegressor or set
+    ``use_gating=True`` in MOERegressorConfig.
+
+    In publications, this should be referred to as "weighted model averaging (WMA)"
+    rather than "MOE" to avoid terminology confusion.
 
     The ensemble combines predictions from multiple expert regressors
     weighted by their out-of-fold RMSE performance (inverse weighting).

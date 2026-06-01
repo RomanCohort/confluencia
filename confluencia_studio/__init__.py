@@ -1,6 +1,6 @@
 """ConfluenciaStudio - PyQt6 Desktop IDE for circRNA Drug Discovery."""
 
-__version__ = "2.1.0"
+__version__ = "2.6.0"
 __author__ = "IGEM-FBH Confluencia Team"
 
 # Lazy imports to avoid PyQt6 dependency when not needed

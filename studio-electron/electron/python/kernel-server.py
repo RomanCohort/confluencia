@@ -136,35 +136,23 @@ MODULES: Dict[str, Dict[str, Any]] = {
     "drug": {
         "description": "Drug efficacy prediction pipeline",
         "commands": {
-            "train": "Train drug model", "predict": "Predict drug efficacy",
-            "screen": "Screen compounds", "run": "Run full pipeline",
-            "run-predict": "Predict with bundle", "cv": "Cross-validation",
-            "suggest-env": "Optimize env params", "generate": "Generate molecules",
-            "pk": "PK simulation (CTM)", "props": "Molecular properties",
-            "fingerprint": "Molecular fingerprint", "similarity": "Tanimoto similarity",
-            "pkpd": "PK/PD simulation", "train-torch": "Train PyTorch model",
-            "predict-torch": "Predict with PyTorch", "innate-immune": "Innate immune assessment",
-            "reliability": "Model reliability", "evaluate": "Evaluate on test data",
-            "nca": "Non-compartmental analysis", "report": "HTML clinical report",
-            "evolve": "Molecular evolution",
-            "sites": "List crawl sites", "crawl": "Crawl datasets",
-            "crawl-train": "Crawl and train", "self-train": "Self-training",
-            "plot": "Diagnostic plots", "info": "Model info",
+            "sites": "List crawl sites", "train": "Train drug model",
+            "cv": "Cross-validation", "predict": "Predict drug efficacy",
+            "screen": "Screen compounds", "info": "Model info",
+            "crawl": "Crawl datasets", "crawl-train": "Crawl and train",
+            "self-train": "Self-training", "generate": "Generate molecules",
+            "plot": "Diagnostic plots", "suggest-env": "Optimize env params",
         },
     },
     "epitope": {
         "description": "Epitope / MHC binding prediction pipeline",
         "commands": {
-            "train": "Train epitope model", "predict": "Predict epitope efficacy",
-            "screen": "Screen epitopes", "cv": "Cross-validation",
-            "sensitivity": "Feature sensitivity", "orf": "Extract ORFs from circRNA",
-            "suggest-env": "Optimize env params", "evaluate": "Train and evaluate",
-            "reliability": "Model reliability", "report": "Sensitivity report",
-            "esm2": "ESM-2 encoding", "encode": "Sequence encoding",
-            "mhc-encode": "MHC encoding", "bio": "Biochemical features",
-            "acquire": "Acquire training data", "checkpoint": "Checkpoint management",
-            "moe": "MOE diagnostics", "batch-orf": "Batch ORF extraction",
-            "fasta-crawl": "FASTA crawling", "fasta-clean": "FASTA cleanup",
+            "sites": "List crawl sites", "train": "Train epitope model",
+            "tune": "Hyperparameter tuning", "cv": "Cross-validation",
+            "predict": "Predict epitope efficacy", "suggest-env": "Optimize env params",
+            "screen": "Screen epitopes", "info": "Model info",
+            "crawl": "Crawl datasets", "crawl-train": "Crawl and train",
+            "self-train": "Self-training", "plot": "Diagnostic plots",
         },
     },
     "circrna": {
@@ -1218,7 +1206,21 @@ class ThreadKernel:
             start = time.time()
             try:
                 extra_args = self._build_cli_args(parts)
-                sub_env = {**os.environ, "PYTHONIOENCODING": "utf-8"}
+                # Inherit essential confluencia paths as PYTHONPATH so
+                # subprocesses can import shared libraries and module cores
+                sep = ";" if os.name == "nt" else ":"
+                essential_paths = [
+                    str(cli_path.parent.parent),  # module root (e.g. confluencia-2.0-epitope)
+                    str(cli_path.parent.parent.parent),  # project root (IGEM集成方案)
+                ]
+                # Also add paths _setup_paths() found for shared libs
+                for p in _setup_paths():
+                    if "confluencia" in p.lower() or "IGEM" in p or "\u96c6\u6210" in p:
+                        essential_paths.append(p)
+                existing_pp = os.environ.get("PYTHONPATH", "")
+                new_pp = sep.join(essential_paths)
+                combined_pp = new_pp + (sep + existing_pp if existing_pp else "")
+                sub_env = {**os.environ, "PYTHONIOENCODING": "utf-8", "PYTHONPATH": combined_pp}
                 proc = _sp.Popen(
                     [sys.executable, str(cli_path), subcmd] + extra_args,
                     stdout=_sp.PIPE, stderr=_sp.PIPE,

@@ -5,6 +5,7 @@ from typing import Dict, List
 
 import numpy as np
 import pandas as pd
+from scipy.integrate import solve_ivp
 
 # ---------------------------------------------------------------------------
 # Literature references for pharmacokinetic parameter values:
@@ -138,6 +139,7 @@ class RNACTMParams:
 
     Compartments: Inj(jection) → LNP → Endo(some) → Cyto(plasmic RNA) → Trans(lated protein) → Clear
     """
+    k_uptake: float        # Inj → LNP uptake rate (1/h), independent from LNP→Endo
     k_release: float       # LNP → endosome release rate (1/h)
     k_escape: float        # Endosomal escape efficiency (1/h)
     k_translate: float     # Translation initiation rate (1/h)
@@ -179,14 +181,16 @@ def infer_rna_ctm_params(
     mod = str(modification).lower().strip()
     vec = str(delivery_vector).strip()
 
-    # --- Release rate: depends on delivery system ---
+    # --- Uptake rate: Inj → LNP, depends on route of administration ---
+    # IV: rapid uptake (near-instant), SC/IM: slower depot absorption
+    base_uptake = {"IV": 0.80, "SC": 0.15, "IM": 0.20, "ID": 0.10}
+    k_uptake = base_uptake.get(route.upper(), 0.30)
+
+    # --- Release rate: LNP → Endosome, depends on delivery system ---
     # Values from Hassett et al. (2019) Mol Ther for LNP systems
     base_release = {"LNP_standard": 0.12, "LNP_liver": 0.15, "LNP_spleen": 0.10,
                     "AAV": 0.005, "naked": 0.80}
     k_release = base_release.get(vec, 0.12)
-    # Route adjustment: SC/IM has slower release
-    route_release_factor = {"IV": 1.0, "SC": 0.4, "IM": 0.5, "ID": 0.3}
-    k_release *= route_release_factor.get(route.upper(), 1.0)
 
     # --- Endosomal escape: depends on delivery system and structure ---
     # Values from Gilleron et al. (2013) Nat Biotechnol (1-5% escape for LNP)
@@ -231,6 +235,7 @@ def infer_rna_ctm_params(
     f_liver, f_spleen, f_muscle, f_other = del_params.get(vec, (0.80, 0.10, 0.03, 0.07))
 
     return RNACTMParams(
+        k_uptake=k_uptake,
         k_release=k_release,
         k_escape=k_escape,
         k_translate=k_translate,
@@ -261,85 +266,140 @@ def simulate_rna_ctm(
       Trans: translated protein product
       Clear: cumulative clearance
 
-    Returns DataFrame with time-series for all compartments plus tissue distribution.
+    Uses scipy.integrate.solve_ivp with adaptive RK45 for numerical stability.
     """
-    steps = int(max(horizon, 2))
+    horizon = int(max(horizon, 2))
     dose = float(max(dose, 0.0))
     freq = float(max(freq, 0.01))
 
-    Inj = 0.0
-    LNP = 0.0
-    Endo = 0.0
-    Cyto = 0.0
-    Trans = 0.0
-    Clear = 0.0
-
-    rows: List[Dict[str, float]] = []
     pulse_every = max(int(round(24.0 / freq)), 1)
     k_protein_degrade_base = float(np.log(2.0) / max(params.k_protein_half, 1.0))
 
-    for t in range(steps):
-        if t % pulse_every == 0:
-            Inj += dose
+    # Dosing events: list of (time, dose_amount)
+    dose_times = [float(t) for t in range(0, horizon, pulse_every)]
+
+    def ode_rhs(t, y):
+        Inj, LNP, Endo, Cyto, Trans, Clear = y
+
+        # Add dose pulse at dosing times via smooth approximation
+        # (exact impulses handled separately after integration)
+        dose_input = 0.0
 
         # Time-dependent protein degradation with late-phase accelerated clearance
-        # After ~48h, proteasomal upregulation accelerates protein turnover.
-        # k(t) = k_base * (1 + factor * sigmoid((t - delay) / width))
-        sigmoid_arg = (float(t) - params.k_protein_late_delay) / max(params.k_protein_late_width, 1.0)
+        sigmoid_arg = (t - params.k_protein_late_delay) / max(params.k_protein_late_width, 1.0)
         acceleration = 1.0 + params.k_protein_late_factor / (1.0 + np.exp(-sigmoid_arg))
         k_protein_degrade = k_protein_degrade_base * acceleration
 
-        # Flux: Inj → LNP (rapid for IV, slower for SC/IM)
-        dInj = -params.k_release * Inj
-        dLNP = params.k_release * Inj - params.k_release * LNP  # same release rate
-        # Flux: LNP → Endo → Cyto
+        # Separate uptake (Inj→LNP) and release (LNP→Endo) rate constants
+        dInj = -params.k_uptake * Inj + dose_input
+        dLNP = params.k_uptake * Inj - params.k_release * LNP
         dEndo = params.k_release * LNP - params.k_escape * Endo
         dCyto = params.k_escape * Endo - (params.k_degrade + params.k_translate + params.k_immune_clear) * Cyto
-        # Flux: Cyto → Trans (protein production)
         dTrans = params.k_translate * Cyto - k_protein_degrade * Trans
-        # Accumulated clearance
         dClear = params.k_degrade * Cyto + params.k_immune_clear * Cyto + k_protein_degrade * Trans
 
-        Inj = max(0.0, Inj + dt * dInj)
-        LNP = max(0.0, LNP + dt * dLNP)
-        Endo = max(0.0, Endo + dt * dEndo)
-        Cyto = max(0.0, Cyto + dt * dCyto)
-        Trans = max(0.0, Trans + dt * dTrans)
-        Clear = max(0.0, Clear + dt * dClear)
+        return [dInj, dLNP, dEndo, dCyto, dTrans, dClear]
 
-        # Tissue distribution of circulating RNA (LNP + Endo compartments)
-        circulating_rna = LNP + Endo + Cyto
-        tissue_liver = circulating_rna * params.f_liver
-        tissue_spleen = circulating_rna * params.f_spleen
-        tissue_muscle = circulating_rna * params.f_muscle
-        tissue_other = circulating_rna * params.f_other
+    # Integrate between dosing events with dose impulses
+    t_grid = np.arange(0, horizon + 1, dt, dtype=np.float64)
+    y0 = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
 
-        # Effective efficacy signal: proportional to translated protein
-        efficacy_signal = Trans
-        # Toxicity signal: from RNA degradation products + immune clearance
-        toxicity_signal = 0.20 * Clear + 0.10 * params.k_immune_clear * Cyto
-        # 20% cumulative clearance products + 10% immune-mediated clearance of cytoplasmic RNA.
-        # Immune clearance weighted lower because circRNA is designed to minimize innate immune activation
-        # (Wesselhoeft et al. 2019, Mol Cell). The 0.10 coefficient modulates by immune_score.
+    # Process dosing intervals: integrate, then add dose to Inj at pulse times
+    segments = []
+    current_y = np.array(y0, dtype=np.float64)
+    prev_t = 0.0
 
-        rows.append({
-            "time_h": float(t),
-            "rna_injected": Inj,
-            "rna_lnp": LNP,
-            "rna_endosomal": Endo,
-            "rna_cytoplasmic": Cyto,
-            "protein_translated": Trans,
-            "cumulative_clearance": Clear,
-            "tissue_liver": tissue_liver,
-            "tissue_spleen": tissue_spleen,
-            "tissue_muscle": tissue_muscle,
-            "tissue_other": tissue_other,
-            "rna_circulating_total": circulating_rna,
-            "efficacy_signal": float(efficacy_signal),
-            "toxicity_signal": float(toxicity_signal),
-        })
+    # Build time segments between dosing events
+    all_events = sorted(set(dose_times + [0.0, float(horizon)]))
+    # Also add dt-aligned grid points for output
+    grid_points = set(t_grid.tolist())
+    event_points = set(all_events)
+    # Merge and sort all boundary times
+    boundaries = sorted(grid_points | event_points)
 
-    return pd.DataFrame(rows)
+    for i in range(len(boundaries) - 1):
+        t_start = boundaries[i]
+        t_end = boundaries[i + 1]
+        if t_end <= t_start:
+            continue
+
+        # Check if this is a dosing time — add dose to Inj before integrating
+        if t_start in event_points and any(abs(t_start - dt_ev) < 0.01 for dt_ev in dose_times):
+            current_y[0] += dose  # Add dose to Inj compartment
+
+        # Select grid points within this segment for output
+        t_eval = np.array([t for t in t_grid if t_start <= t <= t_end and t >= t_start],
+                          dtype=np.float64)
+        if t_eval.size == 0 or (t_eval.size == 1 and t_eval[0] == t_start):
+            t_eval = np.array([t_start, t_end], dtype=np.float64)
+
+        sol = solve_ivp(
+            fun=ode_rhs,
+            t_span=(t_start, t_end),
+            y0=current_y,
+            t_eval=t_eval,
+            method="RK45",
+            rtol=1e-6,
+            atol=1e-8,
+        )
+
+        if sol.success and sol.y.shape[1] > 0:
+            segments.append(sol)
+            # Update state for next segment
+            current_y = sol.y[:, -1].copy()
+            # Ensure non-negative compartments
+            current_y = np.maximum(current_y, 0.0)
+        else:
+            # Fallback: use Euler step if solver fails
+            step_dt = min(dt, t_end - t_start)
+            dy = np.array(ode_rhs(t_start, current_y))
+            current_y = np.maximum(current_y + step_dt * dy, 0.0)
+            single_t = np.array([t_end])
+            single_y = current_y.reshape(6, 1)
+            segments.append(type(sol)(t=single_t, y=single_y, success=True))
+
+    # Combine all segments into output DataFrame
+    rows: List[Dict[str, float]] = []
+    for seg in segments:
+        for j in range(seg.t.size):
+            t_val = float(seg.t[j])
+            Inj_val = float(max(seg.y[0, j], 0.0))
+            LNP_val = float(max(seg.y[1, j], 0.0))
+            Endo_val = float(max(seg.y[2, j], 0.0))
+            Cyto_val = float(max(seg.y[3, j], 0.0))
+            Trans_val = float(max(seg.y[4, j], 0.0))
+            Clear_val = float(max(seg.y[5, j], 0.0))
+
+            circulating_rna = LNP_val + Endo_val + Cyto_val
+            tissue_liver = circulating_rna * params.f_liver
+            tissue_spleen = circulating_rna * params.f_spleen
+            tissue_muscle = circulating_rna * params.f_muscle
+            tissue_other = circulating_rna * params.f_other
+
+            efficacy_signal = Trans_val
+            toxicity_signal = 0.20 * Clear_val + 0.10 * params.k_immune_clear * Cyto_val
+
+            rows.append({
+                "time_h": t_val,
+                "rna_injected": Inj_val,
+                "rna_lnp": LNP_val,
+                "rna_endosomal": Endo_val,
+                "rna_cytoplasmic": Cyto_val,
+                "protein_translated": Trans_val,
+                "cumulative_clearance": Clear_val,
+                "tissue_liver": tissue_liver,
+                "tissue_spleen": tissue_spleen,
+                "tissue_muscle": tissue_muscle,
+                "tissue_other": tissue_other,
+                "rna_circulating_total": circulating_rna,
+                "efficacy_signal": float(efficacy_signal),
+                "toxicity_signal": float(toxicity_signal),
+            })
+
+    df = pd.DataFrame(rows)
+    # Remove duplicate time points
+    df = df.drop_duplicates(subset=["time_h"], keep="last").sort_values("time_h").reset_index(drop=True)
+    return df
 
 
 def summarize_rna_ctm_curve(curve: pd.DataFrame) -> Dict[str, float]:

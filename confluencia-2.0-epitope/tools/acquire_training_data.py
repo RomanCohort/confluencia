@@ -102,10 +102,43 @@ def _ic50_to_efficacy(ic50_nm: float) -> float:
       500 nM → 2.0
       5000 nM → 1.0
       50000 nM → 0.0
+
+    NOTE (Reviewer 3 concern): This efficacy score is a synthetic transformation
+    of IC50, not a standard MHC binding metric. For reporting in publications,
+    use ic50_nm directly (standard) or %Rank (NetMHCpan convention). The
+    efficacy score is retained for internal model compatibility only.
+    Conversion back: ic50_nm = 50000 * 10^(-efficacy)
     """
     if ic50_nm <= 0 or np.isnan(ic50_nm):
         return 0.0
     return max(0.0, -np.log10(ic50_nm / 50000.0))
+
+
+def _efficacy_to_ic50(efficacy: float) -> float:
+    """Reverse conversion: efficacy score back to IC50 (nM).
+    ic50_nm = 50000 * 10^(-efficacy)
+    """
+    return 50000.0 * np.power(10.0, -efficacy)
+
+
+def _ic50_to_percent_rank(ic50_nm: float, allele: str = "") -> float:
+    """Approximate %Rank from IC50 using NetMHCpan-4.1 threshold conventions.
+    These are approximate mappings; exact %Rank requires NetMHCpan scoring.
+
+    Standard thresholds (NetMHCpan-4.1):
+      Strong binder: %Rank < 0.5%  (IC50 < 50 nM)
+      Weak binder:   %Rank < 2.0%  (IC50 < 500 nM)
+    """
+    if ic50_nm <= 0:
+        return 100.0
+    if ic50_nm < 50:
+        return max(0.01, ic50_nm / 50.0 * 0.5)
+    elif ic50_nm < 500:
+        return 0.5 + (ic50_nm - 50) / 450.0 * 1.5
+    elif ic50_nm < 5000:
+        return 2.0 + (ic50_nm - 500) / 4500.0 * 18.0
+    else:
+        return min(100.0, 20.0 + (ic50_nm - 5000) / 45000.0 * 80.0)
 
 
 def _qualitative_to_efficacy(measure: str) -> float:

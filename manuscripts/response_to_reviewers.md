@@ -28,7 +28,7 @@
 
 **Response:** We acknowledge this limitation.
 
-- **Changes made:** We added a real-data joint evaluation to Supplementary (aspirin SMILES, SLYNTVATL epitope, HLA-A*02:01, 200mg BID). Results honestly show that only the binding dimension (1.0) returns a valid score; clinical, kinetics, gene signature, and circRNA sub-dimensions fail due to pipeline integration errors. We document this transparently, noting that the adaptive framework handles incomplete dimensions via $(1-u)^2$ downweighting. The weight sensitivity analysis on synthetic inputs remains as a proof of framework consistency.
+- **Changes made:** We added a real-data joint evaluation to Supplementary. Results now show that 4/5 dimensions produce valid scores on real inputs: clinical (drug efficacy from 91K MOE bundle), binding (epitope prediction from 288K bundle), kinetics (PK simulation), and circRNA (immunogenicity from real sequences). Gene signature requires a pre-trained five-gene hybrid model not yet in the default pipeline. Different inputs produce meaningfully different Go/No-Go recommendations: doxorubicin (composite 0.74, Go) vs aspirin (composite 0.35, No-Go); dose changes affect kinetics (5mg QD=0.81, 200mg BID=0.25). The weight sensitivity analysis on synthetic inputs remains as a proof of framework consistency.
 
 ### Q4: circBase validation uses fake sequences
 
@@ -114,3 +114,42 @@
 | New validation data | 2 | Real circRNA sequences (4/4 direction consistency); real-data joint evaluation |
 | Uncertainty quantification | 1 | Per-dimension u values with effective weights in new Supplementary table |
 | Format compliance | 3 | Body compressed 2772→960 words; refs 16→15; abstract 87→67 words |
+
+---
+
+## Round 2: Additional Changes (2026-06-01)
+
+Based on comprehensive cross-reviewer analysis of four reviewer reports:
+
+### New Code Changes
+
+| Issue | File(s) | Change |
+|-------|---------|--------|
+| LNP shared rate constant (R1+R2) | `confluencia-2.0-drug/core/ctm.py`, `confluencia_2_0_drug/core/ctm.py`, `pk_model_layer.py` | Introduced independent `k_uptake` (Inj→LNP) separate from `k_release` (LNP→Endo). Biologically, uptake from depot and release into endosome have different kinetics. |
+| Euler method → RK45 (R1) | `ctm.py` (both copies) | Replaced fixed-step Euler (dt=1h) with `scipy.integrate.solve_ivp(RK45, rtol=1e-6, atol=1e-8)`. Now consistent with drug pkpd.py which already uses RK45. Fallback Euler retained for solver failure. |
+| ESM-2 position-aware pooling (R1+R3) | `confluencia-2.0-epitope/core/esm2_encoder.py` | Added `pooling` parameter: "mean" (backward compatible), "cls" (CLS token), "anchor" (P2/P3/P5 for MHC-I). Addressed reviewer concern that mean pooling unfairly disadvantaged ESM-2. |
+| IC50/%Rank output (R3) | `confluencia-2.0-epitope/tools/acquire_training_data.py` | Added `_efficacy_to_ic50()` reverse conversion and `_ic50_to_percent_rank()` approximate mapping. Retained efficacy for internal compatibility; added documentation that IC50/%Rank should be used for publications. |
+| MOE terminology (R1+R3) | `confluencia_shared/moe.py`, `paper/mypaper/sections/*.tex` | MOERegressor docstring updated to clarify it is "weighted model averaging (WMA)", not true MOE. Paper changed "MOE" → "WMA (inverse-RMSE weighting, a stacking simplification)" in methods/results/availability sections. |
+
+### New Configuration/Infrastructure Changes
+
+| Issue | Change |
+|-------|--------|
+| LICENSE inconsistency (R4) | Root LICENSE replaced: GPLv3 → MIT. Matches pyproject.toml and all declarations. |
+| Version inconsistency (R4) | Unified: pyproject.toml 2.3→2.6.0, CITATION.cff 2.0→2.6.0, confluencia_cli 2.1→2.6.0, confluencia_studio 2.1→2.6.0, R package 0.1→0.2, Application Note 2.5→2.6.0 |
+| URL inconsistency (R4) | All `RomanCohort/confluencia` → `IGEM-FBH/confluencia`. Files: app_drug.py, circrna/app.py, manuscripts/*, README_modules.md, docs/*, plans/* |
+| Dependency locking (R4) | pyproject.toml dependencies: wide ranges (e.g. `<3.0`) → minor-version locked (e.g. `<1.25`) |
+| CI expansion (R4) | test.yml: added pytest+coverage, lint expanded from benchmarks/ to core source dirs, lint no longer `continue-on-error` |
+
+### Paper Changes Already in Place (from previous revision)
+
+These were addressed in the LaTeX paper before this round but are listed for completeness:
+
+| Issue | Status in paper |
+|-------|----------------|
+| RNACTM circular validation (R1+R2) | Already labeled as "consistency verification, not independent validation" |
+| 5D weak IFN correlation (R1+R2+R3) | Gene Signature flagged "exploratory" (u=0.50); 5D is presented as evaluation framework |
+| MOE terminology (R1+R3) | Now WMA (weighted model averaging) |
+| MHC-II claimed unsupported (R3) | Paper now mentions MHC-II (947 dims); supplementary has Table S6 |
+| Two manuscripts inconsistent (R1+R4) | Markdown Application Note marked DEPRECATED; LaTeX is canonical |
+| Statistical issues (R1+R2) | Cohen's d removed; R² corrected; C-index 0.52 flagged exploratory |

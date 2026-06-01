@@ -60,6 +60,14 @@ class IRESSite:
     translation_potential: float # Protein production likelihood
     type: str                   # viral-like/cellular
 
+    # NEW: Enhanced IRES features (literature-based)
+    structural_motif: str = ""  # Y-shaped, H-type, pseudoknot, G-quadruplex
+    itaf_binding_sites: List[str] = field(default_factory=list)  # ITAF proteins
+    g_quadruplex_present: bool = False
+    kozak_context_score: float = 0.0
+    domain_count: int = 0       # Number of structural domains
+    confidence_level: str = "low"  # high/medium/low
+
 
 @dataclass
 class MiRNABindingSite:
@@ -314,10 +322,16 @@ class ModificationPredictor:
         """
         Predict IRES (Internal Ribosome Entry Sites).
 
-        IRES features:
-        - Structured region (stem-loops)
-        - AU-rich segments
-        - Specific motifs (polypyrimidine tract)
+        Enhanced prediction based on Martinez-Salas et al., 2018:
+        - Structural motifs: Y-shaped, H-type, pseudoknot, G-quadruplex
+        - ITAF binding sites (PTB, hnRNP, La, PCBP2)
+        - Polypyrimidine tract quality
+        - Kozak context around AUG
+
+        Literature:
+            Martinez-Salas E et al., Wiley Interdiscip Rev RNA 2018
+            Yang Y et al., Nat Commun 2018 (G-quadruplex)
+            Weingarten-Gabbay S et al., Cell Rep 2016 (ITAFs)
         """
         sites = []
 
@@ -347,9 +361,26 @@ class ModificationPredictor:
                         pyrimidine_ratio = pyrimidine / len(region_seq)
 
                         if pyrimidine_ratio > 0.4:
+                            # Enhanced IRES analysis
+                            structural_motif = self._detect_ires_structural_motif(region_struct, region_seq)
+                            itaf_sites = self._detect_itaf_sites(region_seq)
+                            g4_present = self._detect_g_quadruplex(region_seq)
+                            kozak_score = self._score_kozak_context(region_seq)
+                            domain_count = self._count_ires_domains(region_struct)
+                            confidence = self._assess_ires_confidence(
+                                pyrimidine_ratio, structural_motif, itaf_sites, g4_present
+                            )
+
                             # Good IRES candidate
-                            activity = pyrimidine_ratio * 0.7 + stem_len / 50.0 * 0.3
-                            trans_potential = activity * 0.8
+                            activity = (
+                                pyrimidine_ratio * 0.3 +
+                                stem_len / 50.0 * 0.2 +
+                                len(itaf_sites) * 0.05 +
+                                (1.0 if g4_present else 0.0) * 0.15 +
+                                kozak_score * 0.2 +
+                                (0.2 if structural_motif != "unknown" else 0.0)
+                            )
+                            trans_potential = activity * 0.8 + kozak_score * 0.2
 
                             ires_type = "cellular" if activity < 0.6 else "viral-like"
 
@@ -358,14 +389,217 @@ class ModificationPredictor:
                                 position_end=region_end,
                                 sequence=region_seq,
                                 structure=region_struct,
-                                activity_score=activity,
-                                translation_potential=trans_potential,
+                                activity_score=min(activity, 1.0),
+                                translation_potential=min(trans_potential, 1.0),
                                 type=ires_type,
+                                structural_motif=structural_motif,
+                                itaf_binding_sites=itaf_sites,
+                                g_quadruplex_present=g4_present,
+                                kozak_context_score=kozak_score,
+                                domain_count=domain_count,
+                                confidence_level=confidence,
                             ))
 
                 in_stem = False
 
         return sites
+
+    def _detect_ires_structural_motif(self, dot_bracket: str, sequence: str) -> str:
+        """
+        Detect IRES structural motif type.
+
+        Known motifs:
+        - Y-shaped: two stem-loops connected (((...)))(((...)))
+        - H-type: hairpin with specific bulge (((..(...)..)))
+        - Pseudoknot: non-nested base pairing (requires specialized detection)
+        - G-quadruplex: GGG(N1-7)GGG pattern in sequence
+        """
+        # Check for Y-shaped (two adjacent hairpins)
+        y_pattern = r"(\({10,}\.\.{5,}\){10,})(\.{5,})(\({10,}\.\.{5,}\){10,})"
+        if re.search(y_pattern, dot_bracket):
+            return "Y-shaped"
+
+        # Check for H-type (hairpin with internal loop/bulge)
+        h_pattern = r"\({5,}\.\.{3,}\(\.\.{3,}\)\.\.{3,}\){5,}"
+        if re.search(h_pattern, dot_bracket):
+            return "H-type"
+
+        # Check for G-quadruplex in sequence (already checked separately)
+        if self._detect_g_quadruplex(sequence):
+            return "G-quadruplex"
+
+        # Simple hairpin (stem-loop)
+        if re.search(r"\({10,}\.\.{10,}\){10,}", dot_bracket):
+            return "hairpin"
+
+        return "unknown"
+
+    def _detect_itaf_sites(self, sequence: str) -> List[str]:
+        """
+        Detect ITAF (IRES Trans-Acting Factor) binding sites.
+
+        Known ITAFs (Weingarten-Gabbay et al., 2016):
+        - PTB (Polypyrimidine Tract Binding): UCUU, UCUUC motifs
+        - hnRNP A1: AU-rich elements
+        - La protein: UUU sequences
+        - PCBP2: C-rich sequences
+        - HuR: U-rich regions
+        - DAP5: AUG context
+        """
+        itafs = []
+
+        # PTB sites
+        if "UCUU" in sequence or "UCUUC" in sequence:
+            itafs.append("PTB")
+
+        # hnRNP A1 sites
+        if "AUUA" in sequence or "AUUUA" in sequence:
+            itafs.append("hnRNP_A1")
+
+        # La protein sites
+        if "UUU" in sequence:
+            itafs.append("La")
+
+        # PCBP2 sites
+        c_rich_count = sum(1 for c in sequence if c == "C")
+        if c_rich_count > len(sequence) * 0.4:
+            itafs.append("PCBP2")
+
+        # HuR sites
+        u_count = sum(1 for c in sequence if c == "U")
+        if u_count > len(sequence) * 0.3:
+            itafs.append("HuR")
+
+        return itafs
+
+    def _detect_g_quadruplex(self, sequence: str) -> bool:
+        """
+        Detect potential G-quadruplex formation.
+
+        G-quadruplex: GGG(N1-7)GGG(N1-7)GGG(N1-7)GGG
+        Yang et al., 2018: G4 structures enhance IRES activity
+
+        Returns:
+            True if potential G-quadruplex detected
+        """
+        # Simplified pattern: 4+ G runs with 1-7 spacer
+        g4_pattern = r"G{3,}([ACUG]{1,7}G{3,}){2,}[ACUG]{1,7}G{3,}"
+        return bool(re.search(g4_pattern, sequence))
+
+    def _score_kozak_context(self, sequence: str) -> float:
+        """
+        Score Kozak consensus context around start codon.
+
+        Optimal Kozak: (A/G)CCAUGG
+        Key positions:
+        - -3: A or G (strong)
+        - +4: G (strong)
+        - -2: C (moderate)
+
+        Returns:
+            Score from 0 (weak) to 1 (strong)
+        """
+        score = 0.0
+
+        # Find AUG codons
+        aug_positions = []
+        for i in range(len(sequence) - 2):
+            if sequence[i:i+3] == "AUG":
+                aug_positions.append(i)
+
+        if not aug_positions:
+            return 0.0
+
+        # Score best Kozak context
+        best_score = 0.0
+        for aug_pos in aug_positions:
+            current_score = 0.0
+
+            # Check -3 position
+            if aug_pos >= 3:
+                pos_minus_3 = sequence[aug_pos - 3]
+                if pos_minus_3 in "AG":
+                    current_score += 0.3
+                elif pos_minus_3 == "C":
+                    current_score += 0.15
+
+            # Check -2 position
+            if aug_pos >= 2:
+                pos_minus_2 = sequence[aug_pos - 2]
+                if pos_minus_2 == "C":
+                    current_score += 0.2
+
+            # Check +4 position (after AUG)
+            if aug_pos + 4 < len(sequence):
+                pos_plus_4 = sequence[aug_pos + 4]
+                if pos_plus_4 == "G":
+                    current_score += 0.3
+
+            best_score = max(best_score, current_score)
+
+        return min(best_score, 1.0)
+
+    def _count_ires_domains(self, dot_bracket: str) -> int:
+        """
+        Count structural domains in IRES region.
+
+        Domain = independent stem-loop or structural unit.
+        EMCV IRES: 4 domains
+        HCV IRES: 3 domains
+        """
+        # Count stem regions separated by at least 5 unpaired bases
+        domain_count = 0
+        in_stem = False
+
+        for ch in dot_bracket:
+            if ch == "(":
+                if not in_stem:
+                    domain_count += 1
+                    in_stem = True
+            elif ch == "." and in_stem:
+                in_stem = False
+
+        return max(domain_count, 1)
+
+    def _assess_ires_confidence(
+        self,
+        pyrimidine_ratio: float,
+        structural_motif: str,
+        itaf_sites: List[str],
+        g4_present: bool,
+    ) -> str:
+        """
+        Assess confidence level of IRES prediction.
+
+        High confidence:
+        - Strong polypyrimidine tract (>0.5)
+        - Known structural motif
+        - Multiple ITAF sites
+        - G-quadruplex present
+        """
+        score = 0.0
+
+        if pyrimidine_ratio > 0.5:
+            score += 0.3
+        elif pyrimidine_ratio > 0.4:
+            score += 0.15
+
+        if structural_motif in ["Y-shaped", "H-type", "G-quadruplex"]:
+            score += 0.3
+        elif structural_motif == "hairpin":
+            score += 0.15
+
+        score += len(itaf_sites) * 0.1
+
+        if g4_present:
+            score += 0.2
+
+        if score >= 0.6:
+            return "high"
+        elif score >= 0.4:
+            return "medium"
+        else:
+            return "low"
 
     def _predict_miRNA_sites(self, seq: str) -> List[MiRNABindingSite]:
         """

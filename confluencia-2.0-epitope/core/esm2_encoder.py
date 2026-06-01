@@ -57,13 +57,25 @@ def _seq_hash(seq: str) -> str:
     return hashlib.sha256(seq.encode("utf-8")).hexdigest()[:16]
 
 
-def _batch_encode(sequences: List[str], tokenizer, model, device, batch_size: int, max_length: int):
-    """分批编码，支持大批量数据，带进度显示"""
+def _batch_encode(sequences: List[str], tokenizer, model, device, batch_size: int, max_length: int, pooling: str = "mean"):
+    """分批编码，支持大批量数据，带进度显示
+
+    Pooling modes:
+        - "mean": mean pooling over all tokens (default)
+        - "cls": use <cls> (BOS) token embedding at position 0
+        - "anchor": extract anchor position embeddings for MHC binding
+          (positions P2, P3, P5 relative to peptide start for MHC-I 9mer)
+    """
     import torch
     import sys
 
     n = len(sequences)
     embeddings = []
+
+    # MHC-I anchor positions (relative to peptide start, 0-indexed)
+    # For 9mers: P2 (index 2), P3 (index 3), P5 (index 5)
+    # ESM-2 adds BOS (<cls>) at index 0, so peptide starts at index 1
+    mhc_i_anchor_offsets = [2, 3, 5]  # relative to BOS position
 
     for start in range(0, n, batch_size):
         end = min(start + batch_size, n)
@@ -82,14 +94,41 @@ def _batch_encode(sequences: List[str], tokenizer, model, device, batch_size: in
             outputs = model(**inputs)
             last_hidden = outputs.last_hidden_state  # (B, L, embed_dim)
 
-            # Mean pooling
-            attention_mask = inputs["attention_mask"].unsqueeze(-1)
-            emb = (last_hidden * attention_mask).sum(dim=1) / attention_mask.sum(dim=1)
+            if pooling == "mean":
+                # Mean pooling (original, backward compatible)
+                attention_mask = inputs["attention_mask"].unsqueeze(-1)
+                emb = (last_hidden * attention_mask).sum(dim=1) / attention_mask.sum(dim=1)
+            elif pooling == "cls":
+                # CLS token pooling (position-aware, global context)
+                emb = last_hidden[:, 0, :]  # <cls> at position 0
+            elif pooling == "anchor":
+                # Anchor position pooling (position-aware, MHC-specific)
+                # For 9mer peptides, extract P2, P3, P5 embeddings
+                # ESM-2 tokenization: <cls> + <eos> wrapper, peptide starts at index 1
+                anchor_embs = []
+                for anchor_offset in mhc_i_anchor_offsets:
+                    # anchor_offset is relative to peptide start (index 1 after <cls>)
+                    pos_idx = anchor_offset  # <cls>=0, peptide_start=1, so P2=index 2
+                    if pos_idx < last_hidden.shape[1]:
+                        anchor_embs.append(last_hidden[:, pos_idx, :])
+                    else:
+                        # Fallback to mean if position exceeds sequence length
+                        attention_mask = inputs["attention_mask"].unsqueeze(-1)
+                        anchor_embs.append(
+                            (last_hidden * attention_mask).sum(dim=1) / attention_mask.sum(dim=1)
+                        )
+                # Concatenate anchor embeddings: (B, embed_dim * n_anchors)
+                emb = torch.cat(anchor_embs, dim=1)
+            else:
+                # Default fallback to mean pooling
+                attention_mask = inputs["attention_mask"].unsqueeze(-1)
+                emb = (last_hidden * attention_mask).sum(dim=1) / attention_mask.sum(dim=1)
+
             embeddings.append(emb.cpu().numpy())
 
         # 进度显示
         progress = end / n * 100
-        sys.stdout.write(f"\r[ESM-2] Encoding: {end}/{n} ({progress:.1f}%)")
+        sys.stdout.write(f"\r[ESM-2] Encoding ({pooling}): {end}/{n} ({progress:.1f}%)")
         sys.stdout.flush()
 
     print()  # 换行
@@ -103,6 +142,12 @@ class ESM2Encoder:
     使用方法:
         encoder = ESM2Encoder()  # 默认 650M
         embeddings = encoder.encode(["SLYNTVATL", "GILGFVFTL"])  # shape (2, 1280)
+
+    Pooling modes (Reviewer 1 concern: mean pooling loses position info):
+        - "mean": mean pooling over all tokens (default, backward compatible)
+        - "cls": use <cls> token embedding (position-aware, captures global context)
+        - "anchor": extract per-position embeddings for anchor residues
+          (P2, P3, P5 for MHC-I; P1, P4, P6, P7, P9 for MHC-II)
 
     可用模型:
         - "650M": facebook/esm2_t33_650M_UR50D (1280维, 默认)
@@ -118,10 +163,15 @@ class ESM2Encoder:
         cache_dir: Optional[str] = None,
         batch_size: int = DEFAULT_BATCH_SIZE,
         max_length: int = DEFAULT_MAX_LENGTH,
+        pooling: str = "mean",
     ):
         if model_size not in _ESM2_MODELS:
             raise ValueError(
                 f"Unknown model size '{model_size}'. Available: {list(_ESM2_MODELS.keys())}"
+            )
+        if pooling not in ("mean", "cls", "anchor"):
+            raise ValueError(
+                f"Unknown pooling '{pooling}'. Available: mean, cls, anchor"
             )
 
         self.model_size = model_size
@@ -129,6 +179,7 @@ class ESM2Encoder:
         self.embed_dim = _ESM2_MODELS[model_size]["embed_dim"]
         self.batch_size = batch_size
         self.max_length = max_length
+        self.pooling = pooling
 
         self.model = None
         self.tokenizer = None
@@ -301,6 +352,7 @@ class ESM2Encoder:
                 self.device,
                 self.batch_size,
                 self.max_length,
+                self.pooling,
             )
 
             # 3. 存储到缓存

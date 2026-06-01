@@ -120,11 +120,11 @@ streamlit run confluencia_circrna/app.py
 
 **Name:** Confluencia circRNA
 
-**Version:** 2.5.0
+**Version:** 2.6.0
 
 **License:** MIT
 
-**URL:** https://github.com/RomanCohort/confluencia
+**URL:** https://github.com/IGEM-FBH/confluencia
 
 **Programming Language:** Python 3.8+
 

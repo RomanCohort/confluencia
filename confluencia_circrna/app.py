@@ -147,7 +147,7 @@ page = st.sidebar.radio(
 
 st.sidebar.markdown("---")
 st.sidebar.markdown("### Quick Links")
-st.sidebar.markdown("- [Documentation](https://github.com/RomanCohort/confluencia)")
+st.sidebar.markdown("- [Documentation](https://github.com/IGEM-FBH/confluencia)")
 st.sidebar.markdown("- [ViennaRNA](https://www.tbi.univie.ac.at/RNA/)")
 
 
@@ -933,7 +933,7 @@ def page_settings():
 
     st.subheader("About")
     st.write("Confluencia circRNA Module v1.0")
-    st.write("GitHub: https://github.com/RomanCohort/confluencia")
+    st.write("GitHub: https://github.com/IGEM-FBH/confluencia")
     st.write("Documentation: See README.md")
 
 

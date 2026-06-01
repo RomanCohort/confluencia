@@ -159,15 +159,31 @@ def mutate_backbone(seq: str, rng: np.random.Generator, n_mutations: int = 3) ->
     """
     Introduce point mutations into circRNA backbone.
 
-    Protects backsplice junction region (first/last 5 nt).
+    Protects backsplice junction region based on BSJ features:
+    - Basic protection: first/last nucleotides
+    - Enhanced protection if Alu elements present
+    - Preserves circularization efficiency regions
     """
+    from .bsj_features import extract_bsj_features
+
     s = list(seq.upper().replace("T", "U"))
     if len(s) < 10:
         return seq
 
-    # Protect backsplice junction region
-    protected_start = min(5, len(s) // 4)
-    protected_end = min(5, len(s) // 4)
+    # Extract BSJ features for intelligent protection
+    try:
+        bsj_features = extract_bsj_features(seq)
+        protected_start, protected_end = bsj_features.protected_region
+
+        # Extra protection for high circularization efficiency sequences
+        if bsj_features.circularization_score > 0.7:
+            protected_start = max(protected_start, 15)
+            protected_end = max(protected_end, 15)
+    except Exception:
+        # Fallback to basic protection
+        protected_start = min(5, len(s) // 4)
+        protected_end = min(5, len(s) // 4)
+
     mutable_range = list(range(protected_start, len(s) - protected_end))
 
     if len(mutable_range) < 3:

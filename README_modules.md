@@ -166,4 +166,4 @@ MIT License - See LICENSE file
 
 ## Contact
 
-GitHub: https://github.com/RomanCohort/confluencia
+GitHub: https://github.com/IGEM-FBH/confluencia

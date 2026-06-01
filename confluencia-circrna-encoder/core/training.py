@@ -126,8 +126,9 @@ def train_epoch(
     optimizer: torch.optim.Optimizer,
     loss_fn: MultiTaskLoss,
     device: str,
+    max_grad_norm: float = 1.0,
 ) -> Dict:
-    """Train one epoch."""
+    """Train one epoch with gradient clipping."""
     model.train()
     total_loss = 0.0
     n_batches = 0
@@ -151,6 +152,10 @@ def train_epoch(
         loss_dict = loss_fn(outputs, targets)
 
         loss_dict["total"].backward()
+
+        # Gradient clipping for stability
+        torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=max_grad_norm)
+
         optimizer.step()
 
         total_loss += loss_dict["total"].item()
@@ -193,6 +198,35 @@ def validate(
     return {"loss": total_loss / n_batches}
 
 
+def save_checkpoint(
+    model: CircRNAEncoder,
+    optimizer: torch.optim.Optimizer,
+    scheduler,
+    epoch: int,
+    val_loss: float,
+    path: Path,
+):
+    """
+    Save complete checkpoint with metadata.
+
+    Includes:
+    - Model heads state dicts
+    - Optimizer state
+    - Scheduler state
+    - Training metadata
+    """
+    torch.save({
+        'epoch': epoch,
+        'config': model.config.to_dict(),
+        'composite_head': model.composite_head.state_dict(),
+        'report_head': model.report_head.state_dict(),
+        'response_head': model.response_head.state_dict(),
+        'optimizer': optimizer.state_dict(),
+        'scheduler': scheduler.state_dict() if scheduler else None,
+        'val_loss': val_loss,
+    }, path)
+
+
 def train_model(
     train_csv: str,
     output_dir: str,
@@ -201,6 +235,8 @@ def train_model(
     lr: float = 1e-3,
     device: str = "cuda",
     seed: int = 42,
+    patience: int = 5,
+    max_grad_norm: float = 1.0,
 ) -> Dict:
     """
     Train circRNA encoder model.
@@ -259,35 +295,59 @@ def train_model(
     loss_fn = MultiTaskLoss()
     optimizer = torch.optim.AdamW(model.parameters(), lr=lr, weight_decay=config.weight_decay)
 
+    # Learning rate scheduler (cosine annealing)
+    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
+        optimizer, T_max=epochs, eta_min=1e-5
+    )
+
     # Output
     output_path = Path(output_dir)
     output_path.mkdir(parents=True, exist_ok=True)
 
-    # Training
+    # Training with early stopping
     best_val_loss = float("inf")
+    no_improve_count = 0
     history = []
 
     for epoch in range(1, epochs + 1):
         print(f"\nEpoch {epoch}/{epochs}")
+        print(f"  LR: {optimizer.param_groups[0]['lr']:.6f}")
 
-        train_metrics = train_epoch(model, train_loader, optimizer, loss_fn, device)
+        train_metrics = train_epoch(
+            model, train_loader, optimizer, loss_fn, device,
+            max_grad_norm=max_grad_norm
+        )
         print(f"  Train: {train_metrics['loss']:.4f}")
 
         val_metrics = validate(model, val_loader, loss_fn, device)
         print(f"  Val: {val_metrics['loss']:.4f}")
 
+        # Scheduler step
+        scheduler.step()
+
         history.append({
             "epoch": epoch,
             "train_loss": train_metrics["loss"],
             "val_loss": val_metrics["loss"],
+            "lr": optimizer.param_groups[0]['lr'],
         })
 
+        # Early stopping logic
         if val_metrics["loss"] < best_val_loss:
             best_val_loss = val_metrics["loss"]
-            model.save(output_path / "best.pt")
-            print(f"  ✓ Best model saved")
+            no_improve_count = 0
+            save_checkpoint(model, optimizer, scheduler, epoch, best_val_loss, output_path / "best.pt")
+            print(f"  ✓ Best model saved (val_loss: {best_val_loss:.4f})")
+        else:
+            no_improve_count += 1
+            print(f"  No improvement for {no_improve_count} epochs")
 
-    model.save(output_path / "final.pt")
+            if no_improve_count >= patience:
+                print(f"\n⚠ Early stopping triggered at epoch {epoch}")
+                break
+
+    # Save final checkpoint
+    save_checkpoint(model, optimizer, scheduler, epoch, val_metrics["loss"], output_path / "final.pt")
 
     with open(output_path / "history.json", "w") as f:
         json.dump(history, f, indent=2)

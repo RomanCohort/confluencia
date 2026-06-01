@@ -33,10 +33,15 @@ from core.torch_mamba import (
 from core.cloud_client import CloudEpitopeClient, CloudHealthStatus
 from core.cloud_config import CloudConfig, load_cloud_config, save_cloud_config
 
-st.set_page_config(page_title="Confluencia 2.0 表位模块", layout="wide")
+# i18n support
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "confluencia_shared"))
+from lang import t, lang_toggle
 
-st.title("Confluencia 2.0 表位预测与训练")
-st.caption("面向 circRNA 的微观疗效预测，支持 PyTorch Mamba 训练与多邻域敏感性分析")
+st.set_page_config(page_title=t("page_title_epitope"), layout="wide")
+
+lang_toggle()
+st.title(t("title_epitope"))
+st.caption(t("caption_epitope"))
 
 
 def _ssm_unavailable_reason() -> str:
@@ -376,7 +381,7 @@ with st.sidebar:
             esm2_model_size = "650M"
             esm2_pca_dim = 0
             esm2_cache_dir = ""
-        use_mhc_epi = st.checkbox("启用 MHC 伪序列编码", value=False, help="MHC Class I 等位基因伪序列特征，979维，AUC=0.917")
+        use_mhc_epi = st.checkbox("启用 MHC 伪序列编码", value=False, help="MHC Class I 等位基因伪序列特征，1018维，AUC=0.917")
         if use_mhc_epi:
             mhc_allele_col = st.text_input("MHC 等位基因列名", value="mhc_allele", help="CSV 中 MHC 等位基因列的列名，如 HLA-A*02:01")
         else:
@@ -387,7 +392,7 @@ with st.sidebar:
             _raw_dim = {"650M": 1280, "150M": 640, "35M": 480, "8M": 320}[esm2_model_size]
             _est_dim += (esm2_pca_dim if esm2_pca_dim > 0 else _raw_dim)
         if use_mhc_epi:
-            _est_dim += 979
+            _est_dim += 1018
         st.caption(f"预计特征维度: ~{_est_dim} 维（默认 317 维）")
 
     with st.expander("超参数调优", expanded=False):
@@ -568,7 +573,7 @@ with st.expander("MHC 特征增强与结合预测 (v2.1+)", expanded=False):
     st.markdown("**模型对比 (IEDB held-out, N=2,166)**")
     model_compare = pd.DataFrame([
         {"模型": "NetMHCpan-4.1", "AUC": "0.92-0.96", "数据类型": "真实结合测量", "备注": "金标准"},
-        {"模型": "HGB + MHC pseudo-seq (v2.1)", "AUC": "0.917", "数据类型": "真实结合标签", "备注": "153 alleles, 979 dims"},
+        {"模型": "HGB + MHC pseudo-seq (v2.1)", "AUC": "0.917", "数据类型": "真实结合标签", "备注": "153 alleles, 1018 dims"},
         {"模型": "HGB (无 MHC)", "AUC": "0.731", "数据类型": "功效代理标签", "备注": "288k 数据"},
         {"模型": "Logistic Regression", "AUC": "0.663", "数据类型": "功效代理标签", "备注": "线性基线"},
         {"模型": "Random Forest", "AUC": "0.725", "数据类型": "功效代理标签", "备注": "集成基线"},
