@@ -70,13 +70,15 @@ MODIFICATION = "psi"  # Pseudouridine modification
 # Sensitivity Analysis Functions
 # ============================================================================
 
-def compute_pk_metrics(time_arr: np.ndarray, cyto: np.ndarray, protein: np.ndarray) -> Dict:
+def compute_pk_metrics(time_arr: np.ndarray, cyto: np.ndarray, protein: np.ndarray,
+                       k_degrade: float = None) -> Dict:
     """Compute PK metrics from simulation output.
 
     Args:
         time_arr: Time points (hours)
         cyto: Cytoplasmic RNA concentration
         protein: Protein concentration
+        k_degrade: RNA degradation rate (1/h), used as fallback for half-life
 
     Returns:
         Dictionary of PK metrics
@@ -91,13 +93,27 @@ def compute_pk_metrics(time_arr: np.ndarray, cyto: np.ndarray, protein: np.ndarr
         log_decay = np.log(decay_phase + 1e-10)
         valid = np.isfinite(log_decay) & (decay_phase > 0.01 * cyto[peak_idx])
 
-        if valid.sum() > 5:
+        if valid.sum() > 10:
             slope, _ = np.polyfit(time_decay[valid], log_decay[valid], 1)
-            half_life = -np.log(2) / slope if slope < 0 else np.inf
+            if slope < -0.001:  # Ensure meaningful decay rate
+                half_life = -np.log(2) / slope
+                # Sanity check: half-life should be < simulation horizon
+                if half_life > time_arr[-1] * 2:
+                    half_life = np.inf
+            else:
+                half_life = np.inf
         else:
             half_life = np.inf
     else:
         half_life = np.inf
+
+    # Fallback: theoretical half-life from k_degrade if numerical fit fails
+    # For circRNA: t1/2 = ln(2) / k_degrade (dominant elimination pathway)
+    if (not np.isfinite(half_life) or half_life == 999.0) and k_degrade is not None and k_degrade > 0:
+        half_life = np.log(2) / k_degrade
+        half_life_note = "theoretical (k_degrade)"
+    else:
+        half_life_note = "numerical (log-linear fit)"
 
     # Expression window: time above 10% of peak
     threshold = 0.1 * cyto.max()
@@ -110,8 +126,11 @@ def compute_pk_metrics(time_arr: np.ndarray, cyto: np.ndarray, protein: np.ndarr
         expression_window = 0.0
 
     # AUC via trapezoidal rule
-    auc_cyto = np.trapz(cyto, time_arr)
-    auc_protein = np.trapz(protein, time_arr)
+    trap_fn = getattr(np, "trapezoid", None)
+    if not callable(trap_fn):
+        trap_fn = np.trapz
+    auc_cyto = trap_fn(cyto, time_arr)
+    auc_protein = trap_fn(protein, time_arr)
 
     # Cmax and Tmax
     cmax_cyto = cyto.max()
@@ -121,6 +140,7 @@ def compute_pk_metrics(time_arr: np.ndarray, cyto: np.ndarray, protein: np.ndarr
 
     return {
         "half_life_h": float(half_life) if np.isfinite(half_life) else 999.0,
+        "half_life_method": half_life_note,
         "expression_window_h": float(expression_window),
         "auc_cyto": float(auc_cyto),
         "auc_protein": float(auc_protein),
@@ -167,12 +187,13 @@ def run_sensitivity_analysis(
 
         custom_params = RNACTMParams(**params_dict)
 
-        # Run simulation
+        # Run simulation — extend horizon for slow-uptake routes to capture full decay
+        sim_horizon = HORIZON if route == "IV" else 720  # 30 days for IM/SC
         df = simulate_rna_ctm(
             dose=DOSE,
             freq=FREQ,
             params=custom_params,
-            horizon=HORIZON,
+            horizon=sim_horizon,
         )
 
         # Extract columns — simulate_rna_ctm returns columns named:
@@ -181,8 +202,8 @@ def run_sensitivity_analysis(
         cyto = df["rna_cytoplasmic"].values.astype(np.float64)
         protein = df["protein_translated"].values.astype(np.float64)
 
-        # Compute metrics
-        metrics = compute_pk_metrics(time_arr, cyto, protein)
+        # Compute metrics (pass k_degrade for theoretical half-life fallback)
+        metrics = compute_pk_metrics(time_arr, cyto, protein, k_degrade=custom_params.k_degrade)
 
         metrics["k_uptake"] = k_uptake
         metrics["factor"] = factor
