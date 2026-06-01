@@ -63,6 +63,7 @@ class PKParameters:
     tv_ke: float = 0.12       # 消除速率常数 (1/h)
     tv_v: float = 2.0         # 分布容积 (L/kg)
     tv_f: float = 0.02        # 生物利用度分数
+    tv_k_uptake: float = 0.80  # Inj → LNP 摄取速率 (1/h), IV default
     tv_k_release: float = 0.12   # LNP 释放速率 (1/h)
     tv_k_escape: float = 0.02   # 内体逃逸分数
     tv_k_translate: float = 0.10  # 翻译速率 (1/h)
@@ -74,6 +75,7 @@ class PKParameters:
     omega_ke: float = 0.30
     omega_v: float = 0.25
     omega_f: float = 0.50
+    omega_k_uptake: float = 0.35
     omega_k_release: float = 0.35
     omega_k_escape: float = 0.45
     omega_k_translate: float = 0.30
@@ -134,6 +136,7 @@ class IndividualParams:
     f: float           # 生物利用度
 
     # RNACTM 扩展参数
+    k_uptake: float = 0.80    # Inj → LNP uptake rate (1/h), independent from LNP→Endo
     k_release: float = 0.12
     k_escape: float = 0.02
     k_translate: float = 0.10
@@ -189,7 +192,11 @@ class IndividualParams:
             mod_factor = pop_params.beta_mod_5mc_ke
         tv_ke *= mod_factor
 
-        # 给药途径影响
+        # 给药途径影响 uptake rate (Inj→LNP)
+        route_uptake_factor = {'IV': 1.0, 'IM': 0.25, 'SC': 0.19, 'ID': 0.13}
+        tv_k_uptake = pop_params.tv_k_uptake * route_uptake_factor.get(route, 1.0)
+
+        # 给药途径影响 absorption rate (depot)
         route_ka_factor = {'IV': 1.0, 'IM': 0.5, 'SC': 0.4, 'ID': 0.3}
         tv_ka = pop_params.tv_ka * route_ka_factor.get(route, 1.0)
 
@@ -200,6 +207,9 @@ class IndividualParams:
                 'ke': rng.normal(0, pop_params.omega_ke),
                 'v': rng.normal(0, pop_params.omega_v),
                 'f': rng.normal(0, pop_params.omega_f),
+                'k_uptake': rng.normal(0, pop_params.omega_k_uptake),
+                'k_release': rng.normal(0, pop_params.omega_k_release),
+                'k_escape': rng.normal(0, pop_params.omega_k_escape),
             }
 
         # 计算个体参数
@@ -207,13 +217,19 @@ class IndividualParams:
         ke_i = tv_ke * np.exp(eta.get('ke', 0))
         v_i = tv_v * np.exp(eta.get('v', 0))
         f_i = pop_params.tv_f * np.exp(eta.get('f', 0))
+        k_uptake_i = tv_k_uptake * np.exp(eta.get('k_uptake', 0))
+        k_release_i = pop_params.tv_k_release * np.exp(eta.get('k_release', 0))
+        k_escape_i = pop_params.tv_k_escape * np.exp(eta.get('k_escape', 0))
 
         return cls(
             ka=ka_i,
             ke=ke_i,
             v=v_i,
             f=f_i,
-            k_degrade=ke_i,  # 对于 circRNA，ke = k_degrade
+            k_uptake=k_uptake_i,
+            k_release=k_release_i,
+            k_escape=k_escape_i,
+            k_degrade=ke_i,  # for circRNA, ke = k_degrade
             subject_id=covariates.get('subject_id', ''),
             eta_values=eta,
         )
@@ -299,9 +315,9 @@ class RNACTMModel(PKModel):
         """ODE 系统"""
         Inj, LNP, Endo, Cyto, Prot, Clear = y[:6]
 
-        # 基本通量
-        dInj = -params.k_release * Inj
-        dLNP = params.k_release * Inj - params.k_release * LNP
+        # 基本通量 — separate uptake (Inj→LNP) and release (LNP→Endo)
+        dInj = -params.k_uptake * Inj
+        dLNP = params.k_uptake * Inj - params.k_release * LNP
         dEndo = params.k_release * LNP - params.k_escape * Endo
         k_total = params.k_degrade + params.k_translate
         dCyto = params.k_escape * Endo - k_total * Cyto

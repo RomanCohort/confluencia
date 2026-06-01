@@ -747,7 +747,7 @@ def page_settings():
 
     st.subheader("About")
     st.write("Confluencia 2.0 Drug Module v1.0")
-    st.write("GitHub: https://github.com/RomanCohort/confluencia")
+    st.write("GitHub: https://github.com/IGEM-FBH/confluencia")
 
 
 # ===================================================================

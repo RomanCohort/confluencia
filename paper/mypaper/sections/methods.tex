@@ -1,19 +1,15 @@
-%% sections/methods.tex — v10: compressed to ~250 words
+%% sections/methods.tex — v14: expanded with more detail
 
 \section{Methods}
 
-\subsection{RNACTM compartment simulation}
+\subsection*{RNACTM compartment simulation}
+RNACTM models six compartments (endosome, cytoplasm, ribosome, protein, immune clearance, degradation) as a linear ODE system solved analytically. Rate constants from literature: unmodified half-life 6.24\,h \citep{wesselhoeft2018}, m6A 10.8\,h \citep{chen2019}, $\Psi$ 15.0\,h \citep{liu2023}. This is a deterministic literature-parameterized simulation, not a population PK model; it provides compartment dynamics without inter-individual variability. Sensitivity: $\pm$20\% rate variation changes half-life by $\leq$8.2\%. Runs in $<$1\,s on laptop CPU.
 
-RNACTM simulates circRNA through six compartments (Injection $\rightarrow$ LNP $\rightarrow$ Endosome $\rightarrow$ Cytoplasmic RNA $\rightarrow$ Protein $\rightarrow$ Clearance) via $\dot{\mathbf{x}} = A\mathbf{x}$ with literature-derived rate constants \citep{wesselhoeft2018,chen2019,gilleron2013,paunovska2018} and late-phase accelerated clearance after ${\sim}48$\,h. This is a deterministic simulation, not a population PK model fitted to concentration--time data; it provides compartment dynamics without inter-individual variability. $\pm$20\% rate constant variation changes half-life by $\leq$8.2\%.
+\subsection*{Drug and epitope pipelines}
+Drug: sample-size-adaptive weighted model averaging (WMA; inverse-RMSE weighting, a stacking simplification \citep{jacobs1991}) switches from Morgan FP+XGBoost to simpler features+Ridge for N$<$2\,000; 91K ChEMBL data across 6 targets. ADMET screening via ADMETlab \citep{xiong2024} with PAINS \citep{baell2010}. Epitope: Mamba3Lite \citep{gu2023} encoding + allele-aware MHC features (MHC-I: 1\,018 dims; MHC-II: 947 dims via NetMHCIIpan pseudo-sequences); 288K IEDB data, 5-fold CV. Both pipelines CPU-only; no GPU required.
 
-\subsection{Small-molecule evaluation}
+\subsection*{circRNA functional assessment}
+Five innate immune pathways scored from sequence motifs (RIG-I, TLR7, PKR, OAS, MDA5). Pathway weights (e.g.\ RIG-I 35/40/20/5\%) are author-informed heuristics, not empirically calibrated. Structure via ViennaRNA \citep{lorenz2011}. Five functional axes: half-life/modification, immunogenicity, miRNA sponge, RBP binding, translation potential. Uncertainty: half-life and immunogenicity $u{=}0.15$; miRNA/RBP/translation $u{=}0.8$, yielding effective weights of $(1{-}0.8)^2{=}0.04$.
 
-Expert architectures are selected by sample size \citep{jacobs1991}: Ridge+HGB ($N{<}80$); adding RF ($N{<}300$); adding MLP ($N{\geq}300$), with inverse-RMSE gating. ESM-2 \citep{lin2023} overfits at $N{<}300$; sklearn models provide stable predictions without GPU. Epitope sequences use Mamba3Lite encoding \citep{gu2023}; MHC features cover 153 class-I and 37 class-II alleles with allele-specific pseudo-sequence encoding; 56 additional alleles use allele-agnostic features (total 246). ADMET screening covers PAINS \citep{baell2010} and safety floors.
-
-\subsection{circRNA functional assessment}
-
-ViennaRNA \citep{lorenz2011} predicts secondary structure; five innate immune pathways (RIG-I, TLR3, TLR7, PKR, OAS) receive modification-specific heuristic scoring (author-informed weights, not empirically calibrated). Per-dimension uncertainty: half-life and immunogenicity $u{=}0.15$ (direction-consistency verified); miRNA sponge, RBP binding, translation potential $u{=}0.8$ (no independent validation), yielding effective weights $(1{-}0.8)^2{=}0.04$ of nominal.
-
-\subsection{Uncertainty-adaptive 5D evaluation}
-
-Five dimensions (Clinical 0.30, Binding 0.20, Kinetics 0.15, Gene Signature 0.15, circRNA 0.20) are aggregated with $w_i' = w_i \times (1 - u_i)^2$. Gene Signature (C-index 0.52) is flagged as exploratory. Composite yields Go ($\geq0.65$), Conditional ($\geq0.40$), or No-Go, with safety override at penalty $>0.30$.
+\subsection*{Five-dimension evaluation}
+Dimensions: Clinical (drug, 30\%), Binding (epitope, 20\%), Kinetics (PK, 15\%), Gene Signature (TCGA/METABRIC, 15\%; C-index 0.52, flagged exploratory, $u{=}0.50$), circRNA (20\%). Effective weights incorporate $(1{-}u_i)^2$. Go/Conditional/No-Go thresholds: $\geq$0.65/0.35--0.65/$<$0.35. Safety override: genotoxicity risk $>$0.7 forces No-Go regardless of composite.

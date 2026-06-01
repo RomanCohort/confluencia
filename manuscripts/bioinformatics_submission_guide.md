@@ -37,7 +37,7 @@
 
 | 材料 | 状态 | 说明 |
 |------|------|------|
-| GitHub仓库 | ✓ | https://github.com/RomanCohort/confluencia |
+| GitHub仓库 | ✓ | https://github.com/IGEM-FBH/confluencia |
 | 代码开源 | ✓ | MIT License |
 | 文档 | ✓ | README_modules.md |
 | 安装说明 | ✓ | pip install说明 |

@@ -1,24 +1,32 @@
-"""Compatibility shim: forward to refactored CLI in `src.cli.epitope_cli`.
-
-This file preserves the original entrypoint path so existing scripts
-and shortcuts (e.g., running this file directly) keep working. The
-actual implementation lives in `src.cli.epitope_cli`.
-"""
+"""Epitope / MHC binding prediction CLI — train, predict, screen, tune, crawl."""
 
 from __future__ import annotations
 
+import argparse
 import sys
 from pathlib import Path
+from typing import Any, Dict, List, Optional, cast
+
+import joblib
+import numpy as np
+import pandas as pd
 
 _PROJECT_ROOT = Path(__file__).resolve().parents[1]
-if str(_PROJECT_ROOT) not in sys.path:
-    sys.path.insert(0, str(_PROJECT_ROOT))
+_PARENT_ROOT = _PROJECT_ROOT.parent  # confluencia_shared lives here
+# Insert parent root first (higher priority) so real confluencia_shared
+# is found before any stale local copy inside the epitope project dir
+sys.path.insert(0, str(_PARENT_ROOT))
+sys.path.insert(1, str(_PROJECT_ROOT))
 
-from src.cli.epitope_cli import main  # type: ignore
-
-
-if __name__ == "__main__":
-    raise SystemExit(main())
+from core.featurizer import SequenceFeatures
+from core.predictor import (
+    EpitopeModelBundle,
+    build_model,
+    infer_env_cols,
+    make_xy,
+    train_bundle,
+)
+from confluencia_shared.optim.hyperopt import run_hyper_search
 
 
 def _parse_kv(items: Optional[List[str]]) -> Dict[str, float]:
@@ -35,6 +43,15 @@ def _parse_kv(items: Optional[List[str]]) -> Dict[str, float]:
             raise ValueError(f"Invalid param '{item}', empty key")
         params[k] = float(v)
     return params
+
+
+def cmd_sites(args: argparse.Namespace) -> int:
+    """List supported crawl sites."""
+    sites = ["urlcsv (URL-based CSV)", "fasta (FASTA sequence)", "uniprot (UniProt accession)"]
+    print("Supported crawl sites:")
+    for s in sites:
+        print(f"  {s}")
+    return 0
 
 
 def cmd_train(args: argparse.Namespace) -> int:

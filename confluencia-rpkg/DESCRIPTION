@@ -1,6 +1,6 @@
 Package: confluencia
 Title: R Bridge to Confluencia circRNA Drug Discovery Platform
-Version: 0.1.0
+Version: 0.2.0
 Authors@R: person("IGEM-FBH", role = c("aut", "cre"), email = "igem@fbh-china.org")
 Description: Provides R bindings to the Confluencia platform for circRNA
     therapeutic evaluation. Includes PK simulation (CTM/RNA-CTM),

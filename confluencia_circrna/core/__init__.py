@@ -12,6 +12,7 @@ Modules:
 - rna_modifications: m6A, IRES, miRNA, RBP modification prediction
 - clinical_prediction: Clinical outcome and survival prediction
 - cirrna_evolution: circRNA sequence evolutionary optimization
+- bsj_features: Back-splice junction feature extraction (NEW)
 """
 
 from confluencia_circrna.core.immune_sensing import (
@@ -105,6 +106,28 @@ from confluencia_circrna.core.cirrna_evolution import (
     optimize_ires,
     shuffle_utr,
 )
+from confluencia_circrna.core.bsj_features import (
+    BSJFeatureExtractor,
+    BSJFeatures,
+    AluMatch,
+    SpliceSiteScore,
+    detect_alu_elements,
+    compute_intron_complementarity,
+    score_splice_site,
+    predict_circularization_efficiency,
+    extract_bsj_features,
+    get_bsj_summary,
+    # NEW: Real-time detection
+    JunctionSignal,
+    BSJValidationResult,
+    detect_junction_signal,
+    validate_bsj_realtime,
+    # NEW: Conservation scoring
+    ConservationAnnotation,
+    compute_bsj_conservation_score,
+    get_cross_species_bsj,
+    add_conservation_to_features,
+)
 
 __all__ = [
     # immune_sensing
@@ -188,4 +211,24 @@ __all__ = [
     "mutate_backbone",
     "optimize_ires",
     "shuffle_utr",
+    # bsj_features (NEW)
+    "BSJFeatureExtractor",
+    "BSJFeatures",
+    "AluMatch",
+    "SpliceSiteScore",
+    "detect_alu_elements",
+    "compute_intron_complementarity",
+    "score_splice_site",
+    "predict_circularization_efficiency",
+    "extract_bsj_features",
+    "get_bsj_summary",
+    # bsj_features - NEW (real-time & conservation)
+    "JunctionSignal",
+    "BSJValidationResult",
+    "detect_junction_signal",
+    "validate_bsj_realtime",
+    "ConservationAnnotation",
+    "compute_bsj_conservation_score",
+    "get_cross_species_bsj",
+    "add_conservation_to_features",
 ]
