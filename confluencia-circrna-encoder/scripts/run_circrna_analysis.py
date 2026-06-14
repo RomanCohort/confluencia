@@ -107,17 +107,56 @@ class RNAFMBackbone(nn.Module):
 class RiNALMoBackbone(nn.Module):
     """RiNALMo: largest RNA LM (650M params, 36M ncRNA)."""
 
-    def __init__(self, model_name="giga-v1", freeze=True):
+    def __init__(self, model_name="giga-v1", freeze=True, weights_path=None):
         super().__init__()
-        from rinalmo.pretrained import get_pretrained_model
+        # 本地加载，不依赖官方下载函数
+        import sys
+        sys.path.insert(0, "/root/autodl-tmp/RiNALMo")
+        from rinalmo.config import model_config
+        from rinalmo.model.model import RiNALMo
+
         self.model_name = model_name
-        self.model, self.alphabet = get_pretrained_model(model_name=model_name)
+        config = model_config(model_name)
+        self.model = RiNALMo(config)
+
+        # 加载权重
+        if weights_path is None:
+            weights_path = "/root/autodl-tmp/RiNALMo/weights/rinalmo_giga_pretrained.pt"
+
+        import torch
+        weights_path = Path(weights_path)
+        if weights_path.exists():
+            checkpoint = torch.load(weights_path, map_location="cpu")
+            self.model.load_state_dict(checkpoint, strict=False)
+            print(f"  RiNALMo weights loaded from {weights_path}")
+        else:
+            raise FileNotFoundError(f"Weights not found at {weights_path}")
+
         if freeze:
             for p in self.model.parameters():
                 p.requires_grad = False
-        # Get d_model from model config
-        self.d_model = self.model.config['d_model'] if hasattr(self.model, 'config') else 1280
+
+        self.d_model = config.get('d_model', 1280)
+
+        # 创建简单的 alphabet
+        self.alphabet = type('Alphabet', (), {
+            'batch_tokenize': self._tokenize,
+            'all_toks': ['A', 'C', 'G', 'U', 'N', '<pad>', '<cls>', '<eos>'],
+        })()
+
+        self.tok_to_idx = {'<pad>': 0, '<cls>': 1, '<eos>': 2, 'A': 3, 'C': 4, 'G': 5, 'U': 6, 'N': 7}
         print(f"  RiNALMo loaded: {model_name}, d_model={self.d_model}")
+
+    def _tokenize(self, sequences):
+        """Tokenize RNA sequences."""
+        tokens = []
+        for seq in sequences:
+            tok = [self.tok_to_idx['<cls>']]  # BOS
+            for c in seq.upper().replace('T', 'U'):
+                tok.append(self.tok_to_idx.get(c, self.tok_to_idx['N']))
+            tok.append(self.tok_to_idx['<eos>'])  # EOS
+            tokens.append(tok)
+        return tokens
 
     def encode(self, sequences, device):
         self.model = self.model.to(device)
@@ -128,8 +167,8 @@ class RiNALMoBackbone(nn.Module):
         )
         with torch.no_grad(), torch.cuda.amp.autocast(enabled=device.type == 'cuda'):
             outputs = self.model(tokens)
-        repr = outputs["representation"]
-        # Mean pool (exclude BOS/EOS if present)
+        repr = outputs.get("representation", outputs.get("embeddings", outputs))
+        # Mean pool (exclude BOS/EOS)
         if repr.size(1) > 2:
             pooled = repr[:, 1:-1, :].mean(dim=1)
         else:
@@ -326,6 +365,9 @@ def main():
     parser.add_argument('--backbone', type=str, default='rna-fm',
                         choices=['rna-fm', 'rinalmo', 'esm2', 'mock'])
     parser.add_argument('--rinalmo-model', type=str, default='giga-v1')
+    parser.add_argument('--rinalmo-weights', type=str,
+                        default='/root/autodl-tmp/RiNALMo/weights/rinalmo_giga_pretrained.pt',
+                        help='Path to RiNALMo pretrained weights')
     parser.add_argument('--epochs', type=int, default=30)
     parser.add_argument('--batch-size', type=int, default=8)
     parser.add_argument('--lr', type=float, default=5e-4)
@@ -380,7 +422,8 @@ def main():
     if args.backbone == 'rna-fm':
         backbone = RNAFMBackbone(freeze=True)
     elif args.backbone == 'rinalmo':
-        backbone = RiNALMoBackbone(model_name=args.rinalmo_model, freeze=True)
+        backbone = RiNALMoBackbone(model_name=args.rinalmo_model, freeze=True,
+                                    weights_path=args.rinalmo_weights)
     elif args.backbone == 'esm2':
         import esm
         backbone = type('ESM2Backbone', (nn.Module,), {
