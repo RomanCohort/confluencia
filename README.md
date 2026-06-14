@@ -3,6 +3,12 @@
 
 > **Adaptive Mixture-of-Experts with Pharmacokinetic Dynamics for Small-Sample circRNA Drug Discovery**
 
+[![CI](https://github.com/IGEM-FBH/confluencia/actions/workflows/ci.yml/badge.svg)](https://github.com/IGEM-FBH/confluencia/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Python](https://img.shields.io/badge/python-3.10%20%7C%203.11-blue.svg)](https://www.python.org/)
+
+**[English Documentation](README_EN.md)** | **完整中文文档**
+
 Confluencia 是一个面向 circRNA 药物发现的多任务计算平台，集成了样本量自适应 MOE 集成学习、RNACTM 六室药代动力学模型和 Mamba3Lite 多尺度序列编码器，专为小样本 (N<300) 场景设计。
 
 ## 目录
@@ -94,7 +100,7 @@ Confluencia 通过以下创新解决这些问题：
 | HLA-A\*02:01 | 0.6720 | 2144 | 最常见等位基因，需更多训练 |
 | Overall | 0.8295 | 52942 | 246 等位基因 |
 
-**关键发现：** MHC 等位基因编码器 (1018-dim MHC-I + 947-dim MHC-II) 从未在默认流水线中使用。当数据包含 `mhc_allele` 列时，训练管道自动启用 MHC 特征。
+**关键发现：** MHC 等位基因编码器 (1018-dim MHC-I + 947-dim MHC-II) 从未在默认流水线中使用。当数据包含 `mhc_allele` 列时，训练管道自动启用 MHC 特征。 **Note: MHC-II binding prediction is provided as an experimental feature. While MHC-I binding has been validated against IEDB benchmarks (R²=0.82), MHC-II predictions have not been independently validated and should be interpreted with caution.**
 
 ### Drug 消融实验 (2026-04-28 新增)
 
@@ -466,6 +472,8 @@ cf_set_weights(c(clinical=0.25, binding=0.20, kinetics=0.15,
 ## 核心模块
 
 ### MOE 集成学习 (confluencia_shared/moe.py)
+
+> **术语说明：** 本项目的 "MOE" 指的是 Weighted Model Averaging (WMA，加权模型平均)，而非神经网络中可学习门控的 Mixture of Experts (MoE)。WMA 使用 inverse-RMSE 权重对专家预测进行加权平均，不包含输入依赖的门控网络。对于真正的输入依赖门控，请使用 `GatedMOERegressor` 或 `BioGatedMOERegressor` 类。
 
 样本量自适应专家选择：
 - **Low (N<80):** Ridge + HGB

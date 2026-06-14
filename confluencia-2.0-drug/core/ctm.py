@@ -294,9 +294,27 @@ def simulate_rna_ctm(
         dInj = -params.k_uptake * Inj + dose_input
         dLNP = params.k_uptake * Inj - params.k_release * LNP
         dEndo = params.k_release * LNP - params.k_escape * Endo
-        dCyto = params.k_escape * Endo - (params.k_degrade + params.k_translate + params.k_immune_clear) * Cyto
-        dTrans = params.k_translate * Cyto - k_protein_degrade * Trans
-        dClear = params.k_degrade * Cyto + params.k_immune_clear * Cyto + k_protein_degrade * Trans
+
+        # Cyto: k_degrade is the TOTAL elimination rate from Cyto (ln2 / half-life).
+        # Translation is a PRODUCT of Cyto, not an additional loss — it does not
+        # accelerate RNA clearance. The k_translate rate is the fraction of
+        # eliminated RNA that becomes protein, not a parallel elimination pathway.
+        # Rationale: k_degrade=0.111/h gives t1/2=6.24h (Wesselhoeft 2018).
+        # Old formulation: k_degrade + k_translate + k_immune_clear = 0.23/h →
+        #   effective t1/2 ≈ 3.0h (too short, reviewer R2-M3 flag).
+        # New formulation: total outflow = k_degrade, allocated as:
+        #   degradation = (1-translation_fraction) * k_degrade
+        #   translation = translation_fraction * k_degrade
+        #   immune_clear = included in (1-translation_fraction) * k_degrade
+        # This preserves the literature half-life while allowing translation flux.
+        translation_fraction = min(params.k_translate / max(params.k_degrade, 0.001), 0.8)
+        k_total_out = params.k_degrade  # total Cyto elimination = ln2/6.24h
+        k_translation_flux = translation_fraction * k_total_out  # Cyto → Trans transfer
+        k_degradation_flux = (1.0 - translation_fraction) * k_total_out  # Cyto → Clear (degradation + immune)
+
+        dCyto = params.k_escape * Endo - k_total_out * Cyto
+        dTrans = k_translation_flux * Cyto - k_protein_degrade * Trans
+        dClear = k_degradation_flux * Cyto + k_protein_degrade * Trans
 
         return [dInj, dLNP, dEndo, dCyto, dTrans, dClear]
 
@@ -347,7 +365,11 @@ def simulate_rna_ctm(
             segments.append(sol)
             # Update state for next segment
             current_y = sol.y[:, -1].copy()
-            # Ensure non-negative compartments
+            # Non-negative clip at segment boundary (NOT inside ODE RHS).
+            # This only affects the initial condition for the next segment,
+            # not the RK45 error estimation within the current segment.
+            # Negative values here indicate numerical undershoot near zero,
+            # not a structural issue (all rate constants are positive).
             current_y = np.maximum(current_y, 0.0)
         else:
             # Fallback: use Euler step if solver fails

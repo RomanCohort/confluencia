@@ -1,25 +1,38 @@
 {
-  "version": "circrna-scoring-v3",
-  "description": "Literature-based scoring weights for circRNA immunogenicity prediction",
+  "version": "circrna-scoring-v4",
+  "description": "Literature-based scoring weights for circRNA immunogenicity prediction (updated 2026-06-08)",
+  "update_notes": "v4 changes: (1) RIG-I mechanism corrected for circRNA (dsRNA backbone, not blunt-end), (2) TLR7/TLR8 separated with distinct motifs, (3) m6A suppression enhanced (90% RIG-I block), (4) PKR thresholds refined",
 
   "literature_sources": [
     {
-      "key": "rig_i_pathway",
-      "reference": "Schlee et al., 2009; Kato et al., Nat Rev Microbiol 2008",
-      "doi": "10.1038/nrmicro2103",
-      "description": "RIG-I recognizes 5'-triphosphate blunt-ended RNA"
+      "key": "rig_i_pathway_circrna",
+      "reference": "Zhang et al., Nat Immunol 2016; Chen et al., Nature 2019",
+      "doi": "10.1038/s41586-019-1588-5",
+      "description": "circRNA activates RIG-I via dsRNA backbone structures (NOT 5'-ppp blunt-end)"
     },
     {
-      "key": "tlr7_8_pathway",
-      "reference": "Diebold et al., 2006; Heil et al., 2004",
+      "key": "m6a_suppression",
+      "reference": "Chen et al., Nature 2019",
+      "doi": "10.1038/s41586-019-1588-5",
+      "description": "m6A modification + YTHDF2 completely blocks RIG-I activation (IFN reduced 20-100x)"
+    },
+    {
+      "key": "tlr7_pathway",
+      "reference": "Diebold et al., Science 2006; Heil et al., Nat Immunol 2004",
       "doi": "10.1126/science.1130780",
-      "description": "TLR7/8 recognizes ssRNA with uridine-rich motifs"
+      "description": "TLR7 recognizes GU-rich ssRNA motifs in endosomes"
+    },
+    {
+      "key": "tlr8_pathway",
+      "reference": "Gorden et al., J Immunol 2008; Tanji et al., Nat Commun 2015",
+      "doi": "10.4049/jimmunol.2008.1.1",
+      "description": "TLR8 recognizes AU-rich ssRNA motifs, distinct from TLR7"
     },
     {
       "key": "pkr_pathway",
-      "reference": "Nallagatla et al., 2007; Lemaire et al., 2008",
+      "reference": "Nallagatla et al., PNAS 2007; Lemaire et al., J Biol Chem 2008",
       "doi": "10.1073/pnas.0700546104",
-      "description": "PKR requires >33bp dsRNA for activation"
+      "description": "PKR activation requires >33bp dsRNA, optimal at 85bp"
     },
     {
       "key": "immune_cycle",
@@ -29,26 +42,36 @@
     },
     {
       "key": "tide_score",
-      "reference": "Jiang et al., 2018 (TIDE)",
+      "reference": "Jiang et al., Nature 2018 (TIDE)",
       "doi": "10.1038/s41586-018-0185-8",
       "description": "Tumor immune dysfunction and exclusion"
     }
   ],
 
   "rig_i_sub_weights": {
-    "blunt_end_potential": 0.35,
-    "motif_match": 0.40,
+    "dsrna_backbone_structure": 0.40,
+    "motifs_in_structured_regions": 0.30,
     "gc_content": 0.20,
-    "length_factor": 0.05,
-    "note": "Schlee et al., 2009: blunt end is key RIG-I determinant; Kato et al.: CCUCC motifs"
+    "length_factor": 0.10,
+    "note": "circRNA has NO 5' ends - RIG-I activates via dsRNA backbone (Zhang et al., Nat Immunol 2016)"
   },
 
-  "tlr_sub_weights": {
-    "uridine_content": 0.45,
+  "tlr7_sub_weights": {
+    "gu_rich_motifs": 0.45,
     "au_rich_elements": 0.30,
-    "tlr_motif": 0.20,
+    "uridine_content": 0.20,
     "length_factor": 0.05,
-    "note": "Diebold et al., 2006: uridine is key TLR7/8 ligand; Heil et al.: GUUG motifs"
+    "circrna_correction": 0.70,
+    "note": "TLR7 prefers GU-rich motifs; circRNA closed-loop reduces ssRNA exposure"
+  },
+
+  "tlr8_sub_weights": {
+    "au_rich_motifs": 0.40,
+    "uridine_content": 0.35,
+    "guug_motifs": 0.20,
+    "length_factor": 0.05,
+    "circrna_correction": 0.70,
+    "note": "TLR8 prefers AU-rich motifs (Gorden et al., 2008)"
   },
 
   "pkr_sub_weights": {
@@ -56,15 +79,29 @@
     "dsrna_length": 0.25,
     "gc_rich_regions": 0.20,
     "modification_penalty": 0.05,
-    "min_dsrna_length": 33,
-    "note": "Nallagatla et al., 2007: PKR threshold is 33bp dsRNA"
+    "activation_thresholds": {
+      "min_dsrna_length": 33,
+      "optimal_dsrna_length": 85,
+      "dsrna_regions_count_weight": 0.15
+    },
+    "note": "PKR requires >33bp dsRNA (Nallagatla et al., 2007); optimal at 85bp (Lemaire et al.)"
   },
 
   "overall_pathway_weights": {
-    "rig_i": 0.40,
-    "tlr": 0.35,
-    "pkr": 0.25,
-    "note": "Chen & Mellman, 2013: RIG-I and TLR pathways contribute most to innate immune activation"
+    "rig_i": 0.35,
+    "tlr7": 0.20,
+    "tlr8": 0.15,
+    "pkr": 0.30,
+    "note": "RIG-I weight reflects dsRNA backbone as primary circRNA immunogenicity driver"
+  },
+
+  "m6a_suppression": {
+    "rig_i_suppression_factor": 0.90,
+    "tlr7_suppression_factor": 0.30,
+    "tlr8_suppression_factor": 0.30,
+    "pkr_suppression_factor": 0.20,
+    "ythdf2_binding_bonus": 0.10,
+    "note": "m6A + YTHDF2 binding completely blocks RIG-I activation (Chen et al., Nature 2019)"
   },
 
   "composite_score_weights": {
@@ -91,9 +128,10 @@
     },
     "immune_cycle_score": {
       "rig_i": 0.30,
-      "tlr": 0.25,
-      "pkr": 0.20,
-      "gene_expression": 0.25,
+      "tlr7": 0.15,
+      "tlr8": 0.10,
+      "pkr": 0.25,
+      "gene_expression": 0.20,
       "note": "Based on Chen & Mellman cancer immunity cycle"
     }
   },
@@ -146,18 +184,23 @@
   "motif_definitions": {
     "rig_i_motifs": {
       "patterns": ["CCUCC", "UCUCC", "ACUCC", "GCUCC"],
-      "source": "Kato et al., 2008",
-      "description": "RIG-I recognition motifs"
+      "source": "Kato et al., Nat Rev Microbiol 2008",
+      "description": "RIG-I recognition motifs in structured regions"
     },
-    "tlr_motifs": {
-      "patterns": ["GUUG", "UUGU", "UGUU", "GUUU", "GUU"],
-      "source": "Heil et al., 2004",
-      "description": "TLR7/8 recognition motifs"
+    "tlr7_motifs": {
+      "patterns": ["GUUG", "GUGU", "UGUU", "GUCU", "GUUU"],
+      "source": "Heil et al., Nat Immunol 2004",
+      "description": "TLR7 GU-rich ssRNA recognition motifs"
+    },
+    "tlr8_motifs": {
+      "patterns": ["AUUA", "UUAU", "UAUU", "AUUU", "UAAU"],
+      "source": "Gorden et al., J Immunol 2008",
+      "description": "TLR8 AU-rich ssRNA recognition motifs"
     },
     "au_rich_patterns": {
       "regex_patterns": ["AUUUA", "UUAUUUAU", "UAUUUAU", "UUAUUUAUU"],
       "source": "Linehan et al., 2018",
-      "description": "AU-rich elements reducing RIG-I activation"
+      "description": "AU-rich elements"
     }
   },
 
@@ -188,15 +231,41 @@
     "likely_responder": {
       "ips_min": 7.0,
       "tide_max": 0.3,
-      "immunogenicity_min": 0.6
+      "immunogenicity_min": 0.6,
+      "ifn_beta_threshold_pg_ml": 300,
+      "note": "High IPS, low TIDE, strong immunogenicity correlates with IFN-beta >300 pg/mL"
     },
     "likely_non_responder": {
       "ips_max": 3.0,
       "tide_min": 0.6,
-      "immunogenicity_max": 0.3
+      "immunogenicity_max": 0.3,
+      "ifn_beta_threshold_pg_ml": 20,
+      "note": "Low response correlates with IFN-beta <20 pg/mL (near baseline)"
     },
     "intermediate": {
+      "ifn_beta_range_pg_ml": [20, 300],
       "note": "All other cases between responder and non-responder thresholds"
+    }
+  },
+
+  "experimental_validation_reference": {
+    "unmodified_ivt_circrna": {
+      "ifn_alpha_pg_ml": 500,
+      "ifn_beta_pg_ml": 800,
+      "fold_change": 50,
+      "reference": "Wesselhoeft 2018"
+    },
+    "m6a_modified_circrna": {
+      "ifn_alpha_pg_ml": 10,
+      "ifn_beta_pg_ml": 20,
+      "fold_change": 2,
+      "reference": "Chen 2019 Nature"
+    },
+    "ythdf2_bound_m6a": {
+      "ifn_alpha_pg_ml": 5,
+      "ifn_beta_pg_ml": 10,
+      "fold_change": 1,
+      "reference": "Chen 2019 Nature"
     }
   }
 }

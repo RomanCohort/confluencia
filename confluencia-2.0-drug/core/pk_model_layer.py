@@ -319,11 +319,18 @@ class RNACTMModel(PKModel):
         dInj = -params.k_uptake * Inj
         dLNP = params.k_uptake * Inj - params.k_release * LNP
         dEndo = params.k_release * LNP - params.k_escape * Endo
-        k_total = params.k_degrade + params.k_translate
-        dCyto = params.k_escape * Endo - k_total * Cyto
+
+        # Cyto: k_degrade is the TOTAL elimination rate from Cyto.
+        # Translation is a transfer to Prot, not an additional loss.
+        translation_fraction = min(params.k_translate / max(params.k_degrade, 0.001), 0.8)
+        k_total_out = params.k_degrade  # ln2/6.24h for unmodified, ln2/15.61h for Ψ
+        k_translation_flux = translation_fraction * k_total_out
+        k_degradation_flux = (1.0 - translation_fraction) * k_total_out
+
+        dCyto = params.k_escape * Endo - k_total_out * Cyto
         k_prot_deg = params.k_protein_deg
-        dProt = params.k_translate * Cyto - k_prot_deg * Prot
-        dClear = params.k_degrade * Cyto + k_prot_deg * Prot
+        dProt = k_translation_flux * Cyto - k_prot_deg * Prot
+        dClear = k_degradation_flux * Cyto + k_prot_deg * Prot
 
         if self.extended:
             # 扩展房室

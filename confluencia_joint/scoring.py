@@ -312,7 +312,6 @@ class JointScoringEngine:
     clinical_weight: float = None
     binding_weight: float = None
     kinetics_weight: float = None
-    gene_signature_weight: float = None
     circrna_weight: float = None
     go_threshold: float = None
     conditional_threshold: float = None
@@ -323,13 +322,11 @@ class JointScoringEngine:
         fw = get_sub_weights("fusion")
         th = get_thresholds()
         if self.clinical_weight is None:
-            self.clinical_weight = fw.get("clinical", 0.30)
+            self.clinical_weight = fw.get("clinical", 0.35)
         if self.binding_weight is None:
-            self.binding_weight = fw.get("binding", 0.20)
+            self.binding_weight = fw.get("binding", 0.25)
         if self.kinetics_weight is None:
-            self.kinetics_weight = fw.get("kinetics", 0.15)
-        if self.gene_signature_weight is None:
-            self.gene_signature_weight = fw.get("gene_signature", 0.15)
+            self.kinetics_weight = fw.get("kinetics", 0.20)
         if self.circrna_weight is None:
             self.circrna_weight = fw.get("circ_rna", 0.20)
         if self.go_threshold is None:
@@ -404,24 +401,21 @@ class JointScoringEngine:
             "clinical": self._uncertainty_clinical(drug_outputs),
             "binding": self._uncertainty_binding(epitope_outputs),
             "kinetics": self._uncertainty_kinetics(pk_summary),
-            "gene_signature": self._uncertainty_gene_signature(gene_signature_outputs) if gene_signature_outputs else 1.0,
             "circrna": self._uncertainty_circrna(circrna_outputs) if circrna_outputs else 1.0,
         }
         base = {
             "clinical": self.clinical_weight,
             "binding": self.binding_weight,
             "kinetics": self.kinetics_weight,
-            "gene_signature": self.gene_signature_weight,
             "circrna": self.circrna_weight,
         }
         effective = self._adaptive_weights(base, uncertainties)
 
-        # Weighted composite with adaptive weights
+        # Weighted composite with adaptive weights (4D - gene signature removed)
         composite = (
             effective["clinical"] * clinical.overall
             + effective["binding"] * binding.overall
             + effective["kinetics"] * kinetics.overall
-            + (effective["gene_signature"] * gene_sig.overall if gene_sig else 0.0)
             + (effective["circrna"] * circrna.overall if circrna else 0.0)
         )
 

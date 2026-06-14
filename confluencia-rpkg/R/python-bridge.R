@@ -116,3 +116,189 @@ cf_find_python <- function() {
   }
   env_params
 }
+
+#' Diagnose Python environment for Confluencia
+#'
+#' Checks if Python is available via reticulate, verifies the confluencia
+#' package installation, and reports version information for Python,
+#' confluencia, and key dependencies.
+#'
+#' @return A named list with diagnostic information:
+#' \describe{
+#'   \item{python_available}{Logical indicating if Python is available}
+#'   \item{python_version}{Python version string, or NA if unavailable}
+#'   \item{python_path}{Path to Python executable, or NA if unavailable}
+#'   \item{confluencia_available}{Logical indicating if confluencia is installed}
+#'   \item{confluencia_version}{Confluencia version, or NA if not installed}
+#'   \item{numpy_available}{Logical indicating if NumPy is installed}
+#'   \item{numpy_version}{NumPy version, or NA if not installed}
+#'   \item{pandas_available}{Logical indicating if pandas is installed}
+#'   \item{pandas_version}{Pandas version, or NA if not installed}
+#'   \item{torch_available}{Logical indicating if PyTorch is installed}
+#'   \item{torch_version}{PyTorch version, or NA if not installed}
+#'   \item{viennarna_available}{Logical indicating if ViennaRNA is installed}
+#'   \item{status}{Overall status: "OK", "WARNING", or "ERROR"}
+#'   \item{message}{Summary message describing the diagnostic result}
+#' }
+#' @export
+#' @examples
+#' \dontrun{
+#' diag <- cf_diagnose()
+#' print(diag$status)
+#' print(diag$message)
+#' }
+cf_diagnose <- function() {
+  result <- list(
+    python_available = FALSE,
+    python_version = NA_character_,
+    python_path = NA_character_,
+    confluencia_available = FALSE,
+    confluencia_version = NA_character_,
+    numpy_available = FALSE,
+    numpy_version = NA_character_,
+    pandas_available = FALSE,
+    pandas_version = NA_character_,
+    torch_available = FALSE,
+    torch_version = NA_character_,
+    viennarna_available = FALSE,
+    status = "ERROR",
+    message = "Unknown error occurred"
+  )
+
+  # Check 1: Python availability
+  py_available <- tryCatch({
+    reticulate::py_available(initialize = TRUE)
+  }, error = function(e) FALSE)
+
+  if (!py_available) {
+    result$status <- "ERROR"
+    result$message <- "Python is not available. Install Python and ensure reticulate can find it."
+    return(result)
+  }
+
+  result$python_available <- TRUE
+
+  # Get Python version and path
+  result$python_version <- tryCatch({
+    as.character(reticulate::py_run_string(
+      "import sys; print(sys.version.split()[0])"
+    )$`__builtins__`$print)
+  }, error = function(e) {
+    tryCatch({
+      reticulate::py_config()$version
+    }, error = function(e2) NA_character_)
+  })
+
+  result$python_path <- tryCatch({
+    reticulate::py_config()$python
+  }, error = function(e) NA_character_)
+
+  # Check 2: Confluencia package
+  result$confluencia_available <- tryCatch({
+    !is.null(reticulate::import("confluencia", convert = FALSE))
+  }, error = function(e) FALSE)
+
+  if (result$confluencia_available) {
+    result$confluencia_version <- tryCatch({
+      cf_mod <- reticulate::import("confluencia", convert = FALSE)
+      if (!is.null(cf_mod$`__version__`)) {
+        as.character(cf_mod$`__version__`)
+      } else {
+        NA_character_
+      }
+    }, error = function(e) NA_character_)
+  }
+
+  # Check 3: NumPy
+  result$numpy_available <- tryCatch({
+    !is.null(reticulate::import("numpy", convert = FALSE))
+  }, error = function(e) FALSE)
+
+  if (result$numpy_available) {
+    result$numpy_version <- tryCatch({
+      np <- reticulate::import("numpy", convert = FALSE)
+      as.character(np$`__version__`)
+    }, error = function(e) NA_character_)
+  }
+
+  # Check 4: Pandas
+  result$pandas_available <- tryCatch({
+    !is.null(reticulate::import("pandas", convert = FALSE))
+  }, error = function(e) FALSE)
+
+  if (result$pandas_available) {
+    result$pandas_version <- tryCatch({
+      pd <- reticulate::import("pandas", convert = FALSE)
+      as.character(pd$`__version__`)
+    }, error = function(e) NA_character_)
+  }
+
+  # Check 5: PyTorch
+  result$torch_available <- tryCatch({
+    !is.null(reticulate::import("torch", convert = FALSE))
+  }, error = function(e) FALSE)
+
+  if (result$torch_available) {
+    result$torch_version <- tryCatch({
+      torch <- reticulate::import("torch", convert = FALSE)
+      as.character(torch$`__version__`)
+    }, error = function(e) NA_character_)
+  }
+
+  # Check 6: ViennaRNA (RNA package)
+  result$viennarna_available <- tryCatch({
+    rna_mod <- reticulate::import("RNA", convert = FALSE)
+    !is.null(rna_mod)
+  }, error = function(e) FALSE)
+
+  # Determine overall status
+  issues <- character(0)
+
+  if (!result$confluencia_available) {
+    issues <- c(issues, "confluencia package not installed")
+  }
+
+  if (!result$numpy_available) {
+    issues <- c(issues, "numpy not available")
+  }
+
+  if (!result$pandas_available) {
+    issues <- c(issues, "pandas not available")
+  }
+
+  # ViennaRNA is optional but important for RNA structure prediction
+  if (!result$viennarna_available) {
+    # Don't count as error, just note it
+    result$viennarna_note <- "ViennaRNA (RNA package) not available - RNA structure features will be disabled"
+  }
+
+  if (length(issues) == 0) {
+    result$status <- "OK"
+    result$message <- "All checks passed. Python environment is ready for confluencia."
+    if (!result$viennarna_available) {
+      result$message <- paste0(result$message, " Note: ViennaRNA not installed (optional).")
+    }
+  } else {
+    result$status <- "ERROR"
+    result$message <- paste("Issues found:", paste(issues, collapse = ", "))
+  }
+
+  # Ensure clean output order
+  result <- result[c(
+    "python_available", "python_version", "python_path",
+    "confluencia_available", "confluencia_version",
+    "numpy_available", "numpy_version",
+    "pandas_available", "pandas_version",
+    "torch_available", "torch_version",
+    "viennarna_available",
+    "status", "message"
+  )]
+
+  # Add viennarna_note if present
+  if (!is.null(result$viennarna_note)) {
+    result <- c(result, list(viennarna_note = result$viennarna_note))
+    result$viennarna_note <- NULL
+  }
+
+  result
+}

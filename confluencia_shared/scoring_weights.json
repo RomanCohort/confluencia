@@ -4,10 +4,9 @@
   "description": "Centralized scoring weights for Confluencia 2.0 evaluation pipeline",
 
   "fusion": {
-    "clinical": 0.30,
-    "binding": 0.20,
-    "kinetics": 0.15,
-    "gene_signature": 0.15,
+    "clinical": 0.35,
+    "binding": 0.25,
+    "kinetics": 0.20,
     "circ_rna": 0.20
   },
 
@@ -29,15 +28,6 @@
     "auc": 0.30,
     "therapeutic_index": 0.30,
     "cmax": 0.15
-  },
-
-  "gene_signature_sub": {
-    "efficacy": 0.30,
-    "immune": 0.15,
-    "proliferation": 0.15,
-    "mito": 0.15,
-    "risk_inverse": 0.15,
-    "tide_inverse": 0.10
   },
 
   "circ_rna_sub": {
@@ -127,12 +117,6 @@
     "implausible_penalty": 0.3,
     "cmax_high": 1000.0,
     "extreme_cmax_penalty": 0.2
-  },
-
-  "gene_signature_uncertainty": {
-    "extreme_high": 0.8,
-    "extreme_low": 0.2,
-    "extreme_penalty": 0.15
   },
 
   "circ_rna_uncertainty": {

@@ -4,6 +4,7 @@ Multi-modal fusion strategies for joint Drug-Epitope-PK evaluation.
 
 from __future__ import annotations
 
+import warnings
 from dataclasses import dataclass
 from enum import Enum
 from typing import Dict, Literal
@@ -12,15 +13,20 @@ import numpy as np
 
 
 class FusionStrategy(Enum):
-    """Available multi-modal fusion strategies."""
+    """Available multi-modal fusion strategies.
+
+    NOTE: BILINEAR_CROSS and ATTENTION_GATING are NOT YET IMPLEMENTED —
+    reserved for future labeled data. Selecting them will emit a
+    UserWarning and fall back to WEIGHTED_CONCAT.
+    """
 
     # Weighted concatenation — no training needed, default choice
     WEIGHTED_CONCAT = "weighted_concat"
 
-    # Bilinear cross-attention — reserved for future labeled data
+    # NOT YET IMPLEMENTED — reserved for future labeled data
     BILINEAR_CROSS = "bilinear_cross"
 
-    # Attention gating — reserved for future labeled data
+    # NOT YET IMPLEMENTED — reserved for future labeled data
     ATTENTION_GATING = "attention_gating"
 
 
@@ -30,25 +36,25 @@ class FusionWeights:
 
     Default values are loaded from scoring_weights.json (fusion group).
     Falls back to hardcoded defaults if JSON not found.
+
+    Note: Gene signature dimension (C-index=0.52) was removed due to lack
+    of predictive value (reviewer consensus R1+R4).
     """
 
     clinical: float = None       # loaded from config
     binding: float = None        # loaded from config
     kinetics: float = None       # loaded from config
-    gene_signature: float = None # loaded from config
     circrna: float = None        # loaded from config
 
     def __post_init__(self):
         if self.clinical is None:
             from confluencia_shared.weight_loader import get_sub_weights
             fw = get_sub_weights("fusion")
-            self.clinical = fw.get("clinical", 0.30)
-            self.binding = fw.get("binding", 0.20)
-            self.kinetics = fw.get("kinetics", 0.15)
-            self.gene_signature = fw.get("gene_signature", 0.15)
+            self.clinical = fw.get("clinical", 0.35)
+            self.binding = fw.get("binding", 0.25)
+            self.kinetics = fw.get("kinetics", 0.20)
             self.circrna = fw.get("circ_rna", 0.20)
-        total = (self.clinical + self.binding + self.kinetics +
-                 self.gene_signature + self.circrna)
+        total = (self.clinical + self.binding + self.kinetics + self.circrna)
         if abs(total - 1.0) > 1e-6:
             raise ValueError(
                 f"FusionWeights must sum to 1.0, got {total}"
@@ -92,10 +98,9 @@ class JointFusionLayer:
         clinical: Dict[str, float] | np.ndarray,
         binding: Dict[str, float] | np.ndarray,
         kinetics: Dict[str, float] | np.ndarray,
-        gene_signature: Dict[str, float] | np.ndarray | None = None,
         circrna: Dict[str, float] | np.ndarray | None = None,
     ) -> np.ndarray:
-        """Fuse five modality outputs into a single feature vector.
+        """Fuse four modality outputs into a single feature vector.
 
         Parameters
         ----------
@@ -105,8 +110,6 @@ class JointFusionLayer:
             MHC-epitope binding outputs.
         kinetics : dict or ndarray
             PK/kinetics outputs.
-        gene_signature : dict or ndarray or None
-            Five-target gene signature outputs.
         circrna : dict or ndarray or None
             circRNA multi-omics outputs.
 
@@ -116,11 +119,25 @@ class JointFusionLayer:
             Fused feature vector. Shape depends on strategy.
         """
         if self.strategy == FusionStrategy.WEIGHTED_CONCAT:
-            return self._weighted_concat(clinical, binding, kinetics, gene_signature, circrna)
+            return self._weighted_concat(clinical, binding, kinetics, circrna)
         elif self.strategy == FusionStrategy.BILINEAR_CROSS:
-            return self._bilinear_cross(clinical, binding, kinetics, gene_signature, circrna)
+            warnings.warn(
+                "FusionStrategy.BILINEAR_CROSS is not implemented — "
+                "falling back to WEIGHTED_CONCAT. "
+                "This strategy is reserved for future labeled data.",
+                UserWarning,
+                stacklevel=2,
+            )
+            return self._bilinear_cross(clinical, binding, kinetics, circrna)
         elif self.strategy == FusionStrategy.ATTENTION_GATING:
-            return self._attention_gating(clinical, binding, kinetics, gene_signature, circrna)
+            warnings.warn(
+                "FusionStrategy.ATTENTION_GATING is not implemented — "
+                "falling back to WEIGHTED_CONCAT. "
+                "This strategy is reserved for future labeled data.",
+                UserWarning,
+                stacklevel=2,
+            )
+            return self._attention_gating(clinical, binding, kinetics, circrna)
         else:
             raise ValueError(f"Unknown strategy: {self.strategy}")
 
@@ -129,14 +146,13 @@ class JointFusionLayer:
         clinical: Dict[str, float] | np.ndarray,
         binding: Dict[str, float] | np.ndarray,
         kinetics: Dict[str, float] | np.ndarray,
-        gene_signature: Dict[str, float] | np.ndarray | None = None,
         circrna: Dict[str, float] | np.ndarray | None = None,
         weights: FusionWeights = None,
     ) -> np.ndarray:
         """Fuse with custom weights (overrides self.weights for this call)."""
         original = self.weights
         self.weights = weights or self.weights
-        result = self.fuse(clinical, binding, kinetics, gene_signature, circrna)
+        result = self.fuse(clinical, binding, kinetics, circrna)
         self.weights = original
         return result
 
@@ -149,7 +165,6 @@ class JointFusionLayer:
         clinical: Dict[str, float] | np.ndarray,
         binding: Dict[str, float] | np.ndarray,
         kinetics: Dict[str, float] | np.ndarray,
-        gene_signature: Dict[str, float] | np.ndarray | None = None,
         circrna: Dict[str, float] | np.ndarray | None = None,
     ) -> np.ndarray:
         """Weighted concatenation — no trainable parameters.
@@ -162,9 +177,6 @@ class JointFusionLayer:
         b = self._to_array(binding) * w.binding
         k = self._to_array(kinetics) * w.kinetics
         parts = [c, b, k]
-        if gene_signature is not None:
-            g = self._to_array(gene_signature) * w.gene_signature
-            parts.append(g)
         if circrna is not None:
             r = self._to_array(circrna) * w.circrna
             parts.append(r)
@@ -175,7 +187,6 @@ class JointFusionLayer:
         clinical: Dict[str, float] | np.ndarray,
         binding: Dict[str, float] | np.ndarray,
         kinetics: Dict[str, float] | np.ndarray,
-        gene_signature: Dict[str, float] | np.ndarray | None = None,
         circrna: Dict[str, float] | np.ndarray | None = None,
     ) -> np.ndarray:
         """Bilinear cross-interaction — reserved for future labeled data.
@@ -183,14 +194,13 @@ class JointFusionLayer:
         Requires training on labeled (composite_score, recommendation) pairs.
         Currently returns weighted concat as placeholder.
         """
-        return self._weighted_concat(clinical, binding, kinetics, gene_signature, circrna)
+        return self._weighted_concat(clinical, binding, kinetics, circrna)
 
     def _attention_gating(
         self,
         clinical: Dict[str, float] | np.ndarray,
         binding: Dict[str, float] | np.ndarray,
         kinetics: Dict[str, float] | np.ndarray,
-        gene_signature: Dict[str, float] | np.ndarray | None = None,
         circrna: Dict[str, float] | np.ndarray | None = None,
     ) -> np.ndarray:
         """Soft attention gating — reserved for future labeled data.
@@ -198,7 +208,7 @@ class JointFusionLayer:
         Requires training on (input, composite_score) pairs.
         Currently returns weighted concat as placeholder.
         """
-        return self._weighted_concat(clinical, binding, kinetics, gene_signature, circrna)
+        return self._weighted_concat(clinical, binding, kinetics, circrna)
 
     # ------------------------------------------------------------------
     # Utilities

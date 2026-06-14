@@ -1,6 +1,16 @@
 """
 Unified Mixture-of-Experts (MOE) Regressor for Confluencia.
 
+NOTE: Despite the "MOE" naming, this module implements Weighted Model Averaging (WMA),
+not a learnable Mixture of Experts with gating networks. WMA uses inverse-RMSE weighting
+to combine expert predictions. The name "MOE" is retained for backwards compatibility.
+
+In academic publications, use "weighted model averaging (WMA)" or "inverse-RMSE weighted
+ensemble" rather than "Mixture of Experts" to avoid confusion with neural MoE architectures
+that employ learnable, input-dependent gating networks (e.g., Shazeer et al., 2017).
+
+For true input-dependent gating, see GatedMOERegressor or BioGatedMOERegressor classes.
+
 This module provides a sample-size-adaptive MOE ensemble that automatically
 selects and weights regression experts based on data availability.
 
@@ -558,10 +568,13 @@ class StackingMOERegressor:
             rmse = float(np.sqrt(mean_squared_error(y, oof)))
             self.metrics[f"{name}_rmse"] = rmse
 
-            # Fit final expert on all data
-            final_m = _make_expert(name, self.random_state, self.config)
-            final_m.fit(Xs, y)
-            self.experts[name] = final_m
+        # Store per-expert OOF RMSE for residual feature estimation at inference
+        self.oof_rmse_ = [self.metrics[f"{name}_rmse"] for name in self.expert_names]
+
+        # Fit final expert on all data
+        final_m = _make_expert(name, self.random_state, self.config)
+        final_m.fit(Xs, y)
+        self.experts[name] = final_m
 
         # Step 2: Build meta-features
         meta_feats_list = [oof_preds[name].reshape(-1, 1) for name in self.expert_names]
@@ -644,10 +657,15 @@ class StackingMOERegressor:
         # Build meta-features
         meta_feats_list = [base_preds[:, j].reshape(-1, 1) for j in range(k)]
 
-        # Residual features (use zero since we don't have y)
+        # Residual features at inference time: use fold-averaged RMSE as constant estimate
+        # NOTE: Training uses |oof_pred - y| which is unavailable at inference.
+        # Using per-expert RMSE as a constant approximation avoids train-test distribution
+        # mismatch that would occur if we filled zeros (the old approach).
         if self.use_residual_features:
             for j in range(k):
-                meta_feats_list.append(np.zeros((n, 1), dtype=np.float32))
+                # Use expert's OOF RMSE as constant residual estimate
+                rmse_j = float(self.oof_rmse_[j]) if hasattr(self, 'oof_rmse_') and j < len(self.oof_rmse_) else 1.0
+                meta_feats_list.append(np.full((n, 1), rmse_j, dtype=np.float32))
 
         # Rank features
         if self.use_rank_features:
@@ -1025,25 +1043,31 @@ class EmotionalState:
 
 
 class BioGatedMOERegressor:
-    """类生物门控MOE回归器
+    """Bio-inspired gated MOE regressor (EXPERIMENTAL — not validated in any published benchmark).
 
-    在GatedMOE基础上引入:
-    1. 膜电位系统 - 追踪Expert历史激活
-    2. 不应期机制 - 防止Expert过度使用
-    3. 情绪状态 - 根据输入分子特性动态调整路由
-    4. 侧抑制 - 强化Winner，降低其他候选
+    WARNING: This class has NOT been experimentally validated. The membrane potential system,
+    emotional state system, and lateral inhibition mechanisms are conceptual prototypes.
+    Published results use MOERegressor (static WMA) or GatedMOERegressor. Do NOT use
+    BioGatedMOERegressor for production predictions or publications.
 
-    这模拟了"情绪影响认知" - 相同的输入在不同系统状态下可能产生不同的路由
+    On top of GatedMOE, introduces:
+    1. Membrane potential system — tracks Expert activation history
+    2. Refractory period — prevents Expert overuse
+    3. Emotional state — adjusts routing based on input molecule properties
+    4. Lateral inhibition — reinforces winner, suppresses others
+
+    This simulates "emotion influences cognition" — same input may produce different routing
+    under different system states.
 
     Attributes:
-        expert_names: Expert名称列表
-        folds: CV折数
-        random_state: 随机种子
-        config: Expert超参数
-        membrane: 膜电位系统
-        emotional: 情绪状态系统
-        scaler: 特征标准化
-        experts: 训练的Expert模型
+        expert_names: Expert name list
+        folds: CV fold count
+        random_state: Random seed
+        config: Expert hyperparameters
+        membrane: Membrane potential system
+        emotional: Emotional state system
+        scaler: Feature standardization
+        experts: Trained Expert models
     """
 
     def __init__(
@@ -1181,11 +1205,11 @@ class BioGatedMOERegressor:
         """
         n, k = base_weights.shape
 
-        # 1. 膜电位调制
-        # 高电位 → 倾向于已验证的Expert (电位×权重)
-        # 低电位 → 更愿意尝试新Expert (探索模式)
+        # 1. Membrane potential modulation
+        # High potential → prefer validated experts (potential × weight)
+        # Low potential → more willing to try new experts (exploration mode)
         membrane_mod = membrane_state[np.newaxis, :]  # (1, k)
-        电位_modifier = 0.7 + 0.5 * membrane_mod  # [0.7, 1.2]
+        membrane_potential_modifier = 0.7 + 0.5 * membrane_mod  # [0.7, 1.2]
 
         # 2. 情绪调制 - 探索模式加成
         exploration = emotional_bias.get("exploration_bonus", 0.0)
@@ -1202,7 +1226,7 @@ class BioGatedMOERegressor:
             lateral[i, top_idx[i]] = self.lateral_enhance
 
         # 综合计算
-        final_weights = base_weights * 电位_modifier * refractory_penalty * lateral
+        final_weights = base_weights * membrane_potential_modifier * refractory_penalty * lateral
         final_weights += unexplored_bonus
 
         # Softmax归一化
