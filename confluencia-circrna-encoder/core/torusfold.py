@@ -69,6 +69,13 @@ from .equivariant_backbone import CircEquivariantBackbone
 from .triangle_update import CircPairformerStack
 from .diffusion_structure import CircDiffusionStructure, SimpleStructureHead
 from .irs_pair import BSJPairAnalyzer, circular_distance_matrix
+from .physics_structure_head import PhysicsStructureHead
+
+from .tpe import TorusPositionalEncoding, CircularRelativeBias
+from .equivariant_backbone import CircEquivariantBackbone
+from .triangle_update import CircPairformerStack
+from .diffusion_structure import CircDiffusionStructure, SimpleStructureHead
+from .irs_pair import BSJPairAnalyzer, circular_distance_matrix
 
 
 @dataclass
@@ -91,13 +98,21 @@ class TorusFoldConfig:
     n_heads_tri: int = 4       # Heads for triangle attention
 
     # Structure module
-    structure_mode: str = "simple"   # "simple" or "diffusion"
+    structure_mode: str = "simple"   # "simple", "diffusion", "physics_b", "physics_ba"
     d_cond: int = 256          # Diffusion conditioning dim
     d_coord: int = 64          # Coordinate feature dim
     n_diffusion_steps: int = 100  # Diffusion inference steps
     n_denoiser_layers: int = 4
     n_rbf: int = 16
     bond_length: float = 3.4
+
+    # Physics-based structure parameters (only for physics_b / physics_ba)
+    pair_distance: float = 10.6       # Å, WC C1'-C1' distance
+    n_solver_samples: int = 20        # Number of solver conformations
+    n_minimize_steps: int = 500       # OpenMM minimization steps
+    n_md_steps: int = 5000            # OpenMM MD steps
+    use_dl_bias: bool = True          # DL bias in CG MD
+    closure_tolerance: float = 0.5    # Å tolerance for closure
 
     # Multi-task heads
     composite_keys: List[str] = field(default_factory=lambda: [
@@ -314,7 +329,7 @@ class TorusFold(nn.Module):
         # 5. BSJ analyzer
         self.bsj_analyzer = BSJPairAnalyzer(d_pair=c.c_z)
 
-        # 6. Structure head (diffusion or simple)
+        # 6. Structure head (diffusion, simple, or physics-based)
         if c.structure_mode == "diffusion":
             self.structure_head = CircDiffusionStructure(
                 d_pair=c.c_z,
@@ -323,6 +338,19 @@ class TorusFold(nn.Module):
                 n_layers=c.n_denoiser_layers,
                 n_steps=c.n_diffusion_steps,
                 bond_length=c.bond_length,
+            )
+        elif c.structure_mode in ("physics_b", "physics_ba"):
+            # Physics-based structure head (Plan B + optional Plan A)
+            self.structure_head = PhysicsStructureHead(
+                c_z=c.c_z,
+                structure_mode=c.structure_mode,
+                bond_length=c.bond_length,
+                pair_distance=c.pair_distance,
+                n_solver_samples=c.n_solver_samples,
+                n_minimize_steps=c.n_minimize_steps,
+                n_md_steps=c.n_md_steps,
+                use_dl_bias=c.use_dl_bias,
+                closure_tolerance=c.closure_tolerance,
             )
         else:
             self.structure_head = SimpleStructureHead(
@@ -405,7 +433,7 @@ class TorusFold(nn.Module):
         L = pair_repr.size(1)
         positions = torch.arange(L, device=pair_repr.device)
         diff = positions.unsqueeze(0) - positions.unsqueeze(1)
-        bsj_mask = (diff.abs() > L / 2).float()  # (L, L)
+        bsj_mask = (diff.abs() >= L / 2).float()  # (L, L) — >= because circ_dist max == L/2 for even L
 
         bsj_out = self.bsj_analyzer(pair_repr, bsj_mask)
         bsj_stability = bsj_out["bsj_stability_score"]  # (B,)
@@ -413,7 +441,12 @@ class TorusFold(nn.Module):
         # 6. Structure prediction
         structure_out = None
         if predict_structure:
-            structure_out = self.structure_head(pair_repr)
+            if isinstance(self.structure_head, PhysicsStructureHead):
+                structure_out = self.structure_head(
+                    pair_repr, pair_probs=pair_probs, sequences=sequences
+                )
+            else:
+                structure_out = self.structure_head(pair_repr)
             # Normalize output keys
             if "closure_dist" in structure_out and "closure_distance" not in structure_out:
                 structure_out["closure_distance"] = structure_out["closure_dist"]
