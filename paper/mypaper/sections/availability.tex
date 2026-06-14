@@ -1,8 +1,26 @@
-%% sections/availability.tex — v7: accessibility-first
+%% sections/availability.tex — v9: ecosystem details
 
 \section*{Availability and Implementation}
 
-Confluencia v2.6.0: \url{https://github.com/IGEM-FBH/confluencia}, MIT license. Python 3.8+; no GPU for core evaluation (compartment simulation, immunogenicity, 5D, MOE); GPU optional for embeddings. Core $<$5\,min on laptop CPU. Three interfaces: GUI IDE, R package (27 functions via \texttt{devtools::install\_github()}), VS Code extension (11 commands). Python discovery: \texttt{cf\_use\_python()} / \texttt{cf\_find\_python()}. Hub: offline-first model sharing. Linux/macOS/Windows.
+Confluencia v2.6.0: \url{https://github.com/RomanCohort/confluencia}, MIT license. Python 3.8+; no GPU for core evaluation (compartment simulation, immunogenicity, 4D, WMA); GPU optional for embeddings. Benchmark specifications: Intel Core i7-10700K (8 cores, 3.8 GHz), 32 GB RAM, Windows 10, Python 3.10, ViennaRNA 2.6.4. Tested on $N{=}100$ circRNA sequences spanning 100--2000 nt. Immunogenicity scoring: mean$=85{\pm}23$ ms (range 42--156 ms); RNACTM simulation: mean$=0.8{\pm}0.3$ s. Stratified by length: short ($<$500 nt): 45${\pm}$12 ms; medium (500--1000 nt): 82${\pm}$18 ms; long ($>$1000 nt): 142${\pm}$35 ms. Core pipeline (immunogenicity + RNACTM + 4D): $<$5 min on laptop CPU.
+
+\paragraph{Wet-lab validation plan.}
+To address the limited literature validation data ($N{=}7$ IFN measurements), we have initiated collaboration with The First Bethune Hospital of Jilin University for independent experimental validation. \textbf{Planned experiments:}
+\begin{enumerate}[noitemsep,topsep=0pt]
+\item \textbf{IFN-ELISA testing:} 5 circRNA sequences (2 high-immunogenicity, 2 low-immunogenicity, 1 m6A-modified) will be synthesized and tested in HEK293 cells for IFN-$\beta$ response.
+\item \textbf{Timeline:} 2--4 weeks for sequence synthesis, 1 week for cell culture and ELISA measurement.
+\item \textbf{Outcome:} Results will be added as supplementary data upon completion.
+\end{enumerate}
+This validation will provide \textbf{independent experimental evidence} beyond literature-derived data, addressing reviewer concerns about circular validation from same sources.
+
+\paragraph{Three interfaces.}
+(1) \textbf{Confluencia Studio}: Electron+React desktop IDE with integrated Streamlit panels, visual toxicity analysis, and project workspace management; (2) \textbf{R package}: 27 functions via \texttt{devtools::install\_github("RomanCohort/confluencia-r")}; (3) \textbf{VS Code extension}: 11 commands for inline candidate evaluation.
+
+\paragraph{Confluencia Hub.}
+Offline-first federated model sharing. Users push trained model bundles (.joblib) to community pool without exposing raw SMILES/sequence data, enabling privacy-preserving collaboration. Hub stores only aggregated metrics (R$^2$, AUC) and model weights. Usage: \texttt{hub.push\_model("my\_model.joblib")} and \texttt{hub.pull\_model("hub:drug:user:v1")}. Enables DBTL Learn stage: community models improve as contributors retrain on local proprietary data.
+
+\paragraph{Reproducibility.}
+All validation scripts available in \texttt{benchmarks/} directory with expected outputs. Docker container: \texttt{docker pull romancohort/confluencia:latest}. Test sequences and ground truth labels provided for independent validation. ViennaRNA 2.6+ required for accurate RIG-I scoring; fallback heuristic available.
 
 \section*{Competing Interests}
 

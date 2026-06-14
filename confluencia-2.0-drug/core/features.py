@@ -89,7 +89,7 @@ class MixedFeatureSpec:
     use_dose_response: bool = False
     use_feature_selection: bool = False
     use_cross_features: bool = False
-    use_auxiliary_labels: bool = False
+    use_auxiliary_labels: bool = False  # DATA LEAKAGE: uses target_binding/immune_activation as features — only for ablation study, NOT for production
     target_transform: str = "none"  # "none" or "logit"
     online_mode: bool = False  # attempt online download for pretrained encoders
     feature_selection_top_k: int = 512
@@ -690,7 +690,18 @@ def build_feature_matrix(df: pd.DataFrame, spec: MixedFeatureSpec | None = None)
         blocks.append(compute_cross_features(dose_arr, freq_arr, tt_arr, bind_arr, imm_arr))
 
     # ── Block 9: Auxiliary labels (target_binding, immune_activation as features) ──
+    # WARNING: This is DATA LEAKAGE — target_binding and immune_activation are
+    # supervision labels, not available at deployment time. Only use for ablation
+    # studies to quantify leakage impact. Production models MUST set use_auxiliary_labels=False.
     if bool(spec.use_auxiliary_labels):
+        import warnings
+        warnings.warn(
+            "use_auxiliary_labels=True: target_binding/immune_activation are used as "
+            "input features. This is DATA LEAKAGE — these labels are not available at "
+            "deployment. Only use for ablation studies. Production: set use_auxiliary_labels=False.",
+            UserWarning,
+            stacklevel=2,
+        )
         aux_arr = np.zeros((n, 2), dtype=np.float32)
         if "target_binding" in df.columns:
             aux_arr[:, 0] = pd.to_numeric(df["target_binding"], errors="coerce").fillna(0.5)

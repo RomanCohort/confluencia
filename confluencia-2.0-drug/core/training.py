@@ -12,6 +12,7 @@ import pandas as pd
 from .legacy_algorithms import LegacyAlgorithmConfig
 from .pipeline import ConfluenciaArtifacts, ConfluenciaModelBundle, predict_pipeline_with_bundle, run_pipeline, train_pipeline_bundle
 from confluencia_shared.metrics import reg_metrics as _shared_reg_metrics
+from confluencia_shared.safe_serialize import import_legacy_pickle
 
 
 @dataclass
@@ -141,7 +142,12 @@ def import_drug_model_bytes(payload: bytes, allow_unsafe_deserialization: bool =
         )
 
     try:
-        obj = pickle.loads(gzip.decompress(payload))
+        # Use safe wrapper instead of direct pickle.loads
+        obj = import_legacy_pickle(
+            gzip.decompress(payload),
+            allow_unsafe=True,
+            source_description="drug model payload"
+        )
     except Exception as e:
         raise ValueError(f"Invalid model payload: {e}") from e
 

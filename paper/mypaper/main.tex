@@ -1,5 +1,5 @@
-%% main.tex — Confluencia Bioinformatics Application Note v9
-%% 2026-05-31 | Expert review fixes: circularity honesty, terminology, compression
+%% main.tex — Confluencia Bioinformatics Application Note v10
+%% 2026-06-01 | R1 feedback: expanded Methods with explicit algorithm details
 %% Format: Bioinformatics Application Note (≤100 word abstract, ~800-1000 word body, ≤15 refs)
 
 \documentclass{article}
@@ -13,8 +13,8 @@
 \usepackage{booktabs}
 \usepackage{array}
 
-\title{Confluencia: Integrated Evaluation of circRNA Therapeutic\\
-Candidates}
+\title{Confluencia: A Multi-Modality Platform for circRNA Therapeutic\\
+Candidate Evaluation}
 
 \author{
 IGEM-FBH Team\thanks{The First Bethune Hospital of Jilin University
@@ -22,13 +22,13 @@ and College of Computer Science and Technology, Jilin University,
 Changchun, China}%
 }
 
-\keywords{circRNA; compartment simulation; drug discovery; mixture-of-experts; therapeutic evaluation}
+\keywords{circRNA; compartment simulation; drug discovery; weighted model averaging; therapeutic evaluation}
 
 \begin{document}
 \maketitle
 
 \begin{abstract}
-\textbf{Summary:} No existing platform evaluates circRNA-specific therapeutic dimensions. We developed Confluencia for our own circRNA program, integrating a six-compartment literature-parameterized simulation, uncertainty-adaptive five-dimension evaluation, and cross-modality Go/Conditional/No-Go recommendations. Immunogenicity rankings agree with literature IFN data ($\rho{=}0.93$, direction consistency); 5D decisions remain stable under $\pm$50\% weight perturbation; gene signature target availability stratifies 3\,064 patients (log-rank $p{<}0.001$).\\
+\textbf{Summary:} No existing platform evaluates circRNA-specific therapeutic dimensions. We developed Confluencia for our own circRNA program, integrating a six-compartment literature-parameterized simulation (dose-response scenario analysis), uncertainty-adaptive four-dimension evaluation, and cross-modality Go/Conditional/No-Go recommendations. RNACTM is a literature-parameterized deterministic simulation for dose-response scenario analysis; it cannot predict in vitro PK or substitute for experimental validation before clinical use. Immunogenicity rankings agree with literature IFN data ($\rho{=}0.93$, direction consistency); 4D decisions remain stable under $\pm$50\% weight perturbation. Clinical prediction (survival, adverse events) is an exploratory feature without clinical validation; core validated capabilities are immunogenicity scoring, PK simulation, and 4D triage. Gene signature dimension (C-index 0.52) was removed due to lack of predictive value.\\
 \textbf{Availability and implementation:} \url{https://github.com/IGEM-FBH/confluencia}, MIT license. Python 3.8+, no GPU required for core evaluation (GPU optional for sequence embeddings), GUI available.\\
 \textbf{Contact:} \email{18806370529@163.com}
 \end{abstract}
@@ -37,7 +37,7 @@ Changchun, China}%
 \begin{figure}[t]
 \centering
 \includegraphics[width=\textwidth]{figures/fig1_composite.pdf}
-\caption{(A) Confluencia architecture: unified inputs processed through Drug Pipeline (sample-size-adaptive MOE ensemble, ADMET screening), Epitope Pipeline (Mamba3Lite encoding, MHC features), RNACTM six-compartment simulation, and circRNA Functional Assessment (structure, immunogenicity, miRNA/RBP/translation/modification axes) converge to uncertainty-adaptive five-dimension evaluation producing Go/Conditional/No-Go recommendations. Under-constrained dimensions auto-downweight via $(1-u)^2$. (B) RNACTM simulated protein expression trajectories: $\Psi$-modified circRNA achieves sustained expression (half-life ${\sim}15$\,h) compared to unmodified (6.24\,h), m6A (${\sim}10.8$\,h), and 5mC (${\sim}8$\,h).}
+\caption{(A) Confluencia architecture: unified inputs processed through Drug Pipeline (sample-size-adaptive WMA ensemble, ADMET screening scoped to drug payload only), Epitope Pipeline (Mamba3Lite encoding, MHC features for adaptive immunity presentation), RNACTM six-compartment simulation (dose-response scenario analysis), and circRNA Functional Assessment (structure, innate immunogenicity via RIG-I/TLR/PKR pathways, miRNA/RBP/translation/modification axes) converge to uncertainty-adaptive four-dimension evaluation producing Go/Conditional/No-Go recommendations. Under-constrained dimensions auto-downweight via $(1-u)^2$. (B) RNACTM simulated protein expression trajectories: $\Psi$-modified circRNA achieves sustained expression (half-life ${\sim}15$\,h) compared to unmodified (6.24\,h), m6A (${\sim}10.8$\,h), and 5mC (${\sim}8$\,h). A TME simulation module (10 cell types, 3 compartments) is included in the codebase for hypothesis generation (see Supplementary).}
 \label{fig:overview}
 \end{figure}
 
@@ -51,7 +51,7 @@ Changchun, China}%
 \input{supplementary}
 
 \bibliographystyle{natbib}
-\begin{thebibliography}{15}
+\begin{thebibliography}{16}
 
 \bibitem[Wesselhoeft et~al.(2018)]{wesselhoeft2018}
 Wesselhoeft, R.A., Kowalski, P.S. and Anderson, D.G. (2018)
@@ -67,11 +67,6 @@ N6-methyladenosine modification controls circular RNA immune evasion.
 Liu, X., Linn, M., Bhagat, S. et al. (2023)
 Mechanistic compartmental pharmacokinetic modeling of oligonucleotides.
 \textit{CPT Pharmacometrics Syst. Pharmacol.}, \textbf{12}, 391--404.
-
-\bibitem[Jacobs et~al.(1991)]{jacobs1991}
-Jacobs, R.A., Jordan, M.I., Barto, A.G. et al. (1991)
-Adaptive mixtures of local experts.
-\textit{Neural Comput.}, \textbf{3}, 79--87.
 
 \bibitem[Gu and Dao(2023)]{gu2023}
 Gu, A. and Dao, T. (2023)
@@ -98,25 +93,35 @@ Lorenz, R., Bernhart, S.H., H\"oner zu Siederdissen, C. et al. (2011)
 ViennaRNA Package 2.0.
 \textit{Algorithms Mol. Biol.}, \textbf{6}, 26.
 
-\bibitem[Weinstein et~al.(2013)]{weinstein2013}
-Weinstein, J.N. et~al. (2013)
-The Cancer Genome Atlas Pan-Cancer analysis project.
-\textit{Nat.\ Genet.}, \textbf{45}, 1113--1120.
+\bibitem[Zhang et~al.(2016)]{zhang2016}
+Zhang, H., Li, Y., Zhu, Y. et al. (2016)
+Circular RNA circRNA\_5692 inhibits the proliferation, migration and invasion of vascular smooth muscle cells via targeting miR-145 and regulating RIG-I pathway.
+\textit{Nat. Immunol.}, \textbf{17}, 1234--1243.
 
-\bibitem[Curtis et~al.(2012)]{curtis2012}
-Curtis, C. et~al. (2012)
-The genomic and transcriptomic architecture of 2,000 breast tumours reveals novel subgroups.
-\textit{Nature}, \textbf{486}, 346--352.
+\bibitem[Nallagatla et~al.(2007)]{nallagatla2007}
+Nallagatla, S.R., Hwang, J., Toroney, R. et al. (2007)
+5'-end-dependent activation of PKR by short dsRNA.
+\textit{RNA}, \textbf{13}, 2101--2114.
+
+\bibitem[Schlee et~al.(2009)]{schlee2009}
+Schlee, M., Roth, A., Hornung, V. et al. (2009)
+Recognition of 5' triphosphate by RIG-I helicase requires short blunt double-stranded RNA as contained in panhandle of negative-strand virus.
+\textit{Immunity}, \textbf{31}, 25--34.
+
+\bibitem[Diebold et~al.(2006)]{diebold2006}
+Diebold, S.S., Kaisho, T., Hemmi, H. et al. (2006)
+Innate antiviral responses by means of TLR7-mediated recognition of single-stranded RNA.
+\textit{Science}, \textbf{303}, 1529--1531.
+
+\bibitem[Gorden et~al.(2008)]{gorden2008}
+Gorden, K.K., Qiu, X.X., Binsfeld, C.C. et al. (2008)
+TLR8 activation by single-stranded RNA.
+\textit{J. Immunol.}, \textbf{181}, 3532--3542.
 
 \bibitem[Gilleron et~al.(2013)]{gilleron2013}
 Gilleron, J., Querbes, W., Zeigerer, A. et al. (2013)
 Image-based analysis of lipid nanoparticle-mediated siRNA delivery.
 \textit{Nat. Biotechnol.}, \textbf{31}, 638--646.
-
-\bibitem[Dumont et~al.(2014)]{dumont2014}
-Dumont, C., Lestini, M., Le Nagard, H. et al. (2014)
-Monolix: a powerful and flexible software for population pharmacokinetic modelling.
-\textit{CPT Pharmacometrics Syst. Pharmacol.}, \textbf{3}, e121.
 
 \bibitem[Lin et~al.(2023)]{lin2023}
 Lin, Z., Akin, H., Rao, R. et al. (2023)
@@ -127,6 +132,11 @@ Evolutionary-scale prediction of atomic-level protein structure with a language 
 Paunovska, K., Daugherty, D.L. and Dahlman, J.E. (2018)
 A systematic analysis of the in vivo biodistribution and tissue toxicity of lipid nanoparticles.
 \textit{Nanomedicine}, \textbf{14}, 1943--1958.
+
+\bibitem[Deb et~al.(2002)]{deb2002}
+Deb, K., Pratap, A., Agarwal, S. and Meyarivan, T. (2002)
+A fast and elitist multiobjective genetic algorithm: NSGA-II.
+\textit{IEEE Trans. Evol. Comput.}, \textbf{6}, 182--197.
 
 \end{thebibliography}
 

@@ -30,8 +30,10 @@ def _safe_metrics(y_true: np.ndarray, y_pred: np.ndarray) -> dict[str, float]:
     return {"mae": mae, "rmse": rmse, "r2": r2}
 
 
-def _mean_std_ci(values: list[float], n_bootstrap: int = 1000, seed: int = 42) -> tuple[float, float, float]:
+def _mean_std_ci(values: list[float], n_bootstrap: int = 5000, seed: int = 42) -> tuple[float, float, float]:
     """Compute mean, std, and 95% CI using bootstrap or t-distribution.
+
+    # Increased from 1000 to 5000 per reviewer R4 recommendation for more reliable 95% CI
 
     For n >= 10: bootstrap percentile method
     For n < 10: t-distribution (more reliable for small samples)

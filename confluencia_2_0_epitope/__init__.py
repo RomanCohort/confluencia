@@ -1,1 +1,0 @@
-"""Confluencia Epitope Prediction Module."""

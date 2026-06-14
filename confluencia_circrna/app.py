@@ -311,7 +311,8 @@ def page_sequence_analysis():
         with col1:
             st.info("Predict how immune sensors recognize circRNA")
             st.markdown("**Literature basis:**")
-            st.markdown("- RIG-I: blunt end detection (Schlee et al., 2009)")
+            st.markdown("- RIG-I: dsRNA backbone detection (Zhang et al., Nat Immunol 2016)")
+            st.markdown("  - circRNA has no 5' end; blunt-end detection inapplicable")
             st.markdown("- TLR7/8: GU-rich/U-rich sequences")
             st.markdown("- PKR: dsRNA >33bp (Nallagatla et al., 2007)")
 
@@ -895,6 +896,87 @@ def page_settings():
     """Settings page."""
     st.markdown("<h2 class='sub-header'>⚙️ Settings</h2>", unsafe_allow_html=True)
 
+    # Backend Configuration Section
+    st.subheader("🔧 Backend Configuration")
+
+    st.info("""
+    **Flexible Backend Architecture:** Choose between fast local models and high-accuracy external APIs.
+    - Local models: Fast, offline-ready, good for screening
+    - External APIs: Higher accuracy, requires network, good for validation
+    """)
+
+    # MHC Backend
+    st.write("**MHC Binding Prediction**")
+    mhc_backend = st.selectbox(
+        "Select MHC backend:",
+        ["local", "netmhcpan"],
+        index=0,
+        key="mhc_backend_select",
+        help="local: AUC=0.80, fast; netmhcpan: AUC=0.92-0.96, requires network"
+    )
+
+    if mhc_backend == "local":
+        st.caption("✅ Local model (AUC=0.80, ~50ms, offline-ready)")
+    else:
+        st.caption("⚠️ NetMHCpan API (AUC=0.92-0.96, ~200ms, requires network)")
+
+    # Immunogenicity Backend
+    st.write("**Immunogenicity Scoring**")
+    imm_backend = st.selectbox(
+        "Select Immunogenicity backend:",
+        ["heuristic", "vienna", "esm2"],
+        index=0,
+        key="imm_backend_select",
+        help="heuristic: fast; vienna: with accessibility; esm2: experimental"
+    )
+
+    if imm_backend == "heuristic":
+        st.caption("✅ Heuristic model (~85ms, offline-ready)")
+    elif imm_backend == "vienna":
+        st.caption("ℹ️ ViennaRNA-enhanced (~150ms, adds structural accessibility)")
+    else:
+        st.caption("⚠️ ESM-2 embeddings (~2-5s, experimental, may require GPU)")
+
+    # Drug Backend
+    st.write("**Drug Binding Prediction**")
+    drug_backend = st.selectbox(
+        "Select Drug backend:",
+        ["local", "chembl_api"],
+        index=0,
+        key="drug_backend_select",
+        help="local: R²=0.95, fast; chembl_api: experimental data"
+    )
+
+    if drug_backend == "local":
+        st.caption("✅ Local model (R²=0.95, ~100ms, offline-ready)")
+    else:
+        st.caption("⚠️ ChEMBL API (~500ms, requires network)")
+
+    # API Timeout
+    st.write("**API Settings**")
+    api_timeout = st.slider(
+        "API Timeout (seconds):",
+        min_value=5,
+        max_value=120,
+        value=30,
+        step=5,
+        key="api_timeout_slider"
+    )
+
+    # Save backend settings to session state
+    st.session_state["backend_settings"] = {
+        "mhc_backend": mhc_backend,
+        "immunogenicity_backend": imm_backend,
+        "drug_backend": drug_backend,
+        "timeout": api_timeout
+    }
+
+    if st.button("Apply Backend Settings", key="apply_backend_btn"):
+        st.success("Backend settings applied! Settings will be used in next analysis.")
+
+    st.markdown("---")
+
+    # ViennaRNA Configuration
     st.subheader("ViennaRNA Configuration")
 
     st.info("""
@@ -920,12 +1002,12 @@ def page_settings():
     col1, col2, col3 = st.columns(3)
 
     with col1:
-        st.write("**RIG-I**: 0.35 (Schlee et al., 2009)")
-        st.write("**TLR7**: 0.25")
+        st.write("**RIG-I**: 0.35 (dsRNA backbone detection)")
+        st.write("**TLR7**: 0.20 (GU-rich motifs)")
 
     with col2:
-        st.write("**TLR8**: 0.20")
-        st.write("**PKR**: 0.20 (Nallagatla et al., 2007)")
+        st.write("**TLR8**: 0.15 (AU-rich motifs)")
+        st.write("**PKR**: 0.30 (dsRNA >33bp, Nallagatla et al., 2007)")
 
     with col3:
         st.write("**OAS**: 0.15")

@@ -21,6 +21,7 @@ import pandas as pd
 from confluencia_shared.utils.logging import get_logger
 from confluencia_shared.metrics import reg_metrics as _shared_reg_metrics
 from confluencia_shared.data_utils import resolve_label as _resolve_label
+from confluencia_shared.safe_serialize import import_legacy_pickle
 
 logger = get_logger(__name__)
 from sklearn.ensemble import GradientBoostingRegressor, HistGradientBoostingRegressor, RandomForestRegressor
@@ -270,16 +271,21 @@ def import_epitope_model_bytes(data: bytes, *, allow_unsafe: bool = False) -> Ep
     elif serialization.startswith("pickle"):
         if not allow_unsafe:
             raise ValueError(
-                "当前模型文件使用不安全反序列化格式（pickle），默认已禁用导入。"
-                "若确认文件来源完全可信，请勾选“允许不安全导入”后重试。"
+                "Model file uses unsafe pickle serialization. "
+                "Set allow_unsafe=True only if you trust this file source completely."
             )
         if not bundle_raw:
-            raise ValueError("未找到旧版模型数据 model_bundle.pkl。")
-        bundle = pickle.loads(bundle_raw)
+            raise ValueError("Legacy model data not found: model_bundle.pkl")
+        # Use safe wrapper instead of direct pickle.loads
+        bundle = import_legacy_pickle(
+            bundle_raw,
+            allow_unsafe=True,
+            source_description="epitope model bundle"
+        )
         if not isinstance(bundle, EpitopeModelBundle):
-            raise ValueError("模型对象类型不匹配，导入失败。")
+            raise ValueError("Model type mismatch: expected EpitopeModelBundle")
     else:
-        raise ValueError(f"不支持的模型序列化格式: {serialization}")
+        raise ValueError(f"Unsupported model serialization format: {serialization}")
 
     bundle_schema = str(getattr(bundle, "feature_schema_version", "legacy-unknown"))
     if bundle_schema != FEATURE_SCHEMA_VERSION:

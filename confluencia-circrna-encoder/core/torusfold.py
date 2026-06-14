@@ -104,7 +104,8 @@ class TorusFoldConfig:
     n_diffusion_steps: int = 100  # Diffusion inference steps
     n_denoiser_layers: int = 4
     n_rbf: int = 16
-    bond_length: float = 3.4
+    bond_length: float = 5.9  # Å, P-P backbone distance (adjacent phosphates)
+    # Note: C1'-C1' adjacent distance is ~3.4 Å, but physics module uses P-P for coarse-grained model
 
     # Physics-based structure parameters (only for physics_b / physics_ba)
     pair_distance: float = 10.6       # Å, WC C1'-C1' distance
@@ -272,9 +273,10 @@ class PairPredictionHead(nn.Module):
         # Enforce symmetry: P[i,j] = P[j,i]
         logits = 0.5 * (logits + logits.transpose(-1, -2))
 
-        # Enforce BSJ symmetry: P[i,j] ≈ P[(i+1)%L, (j+1)%L]
+        # Soft BSJ rotational consistency: encourage P[i,j] ≈ P[(i+1)%L, (j+1)%L]
+        # Not hard-enforced because real circRNA structures depend on sequence context
         rolled = torch.roll(logits, shifts=(1, 1), dims=(1, 2))
-        logits = 0.5 * (logits + rolled)
+        logits = 0.9 * logits + 0.1 * rolled
 
         probs = torch.sigmoid(logits)
         return probs

@@ -18,6 +18,7 @@ from .search_panel import SearchPanel
 from .notebook_panel import NotebookPanel
 from .report_panel import ReportPanel
 from .git_panel import GitPanel
+from .backend_settings_panel import BackendSettingsPanel
 
 __all__ = [
     "ConsolePanel",
@@ -31,6 +32,7 @@ __all__ = [
     "NotebookPanel",
     "ReportPanel",
     "GitPanel",
+    "BackendSettingsPanel",
 ]
 
 # Panel metadata for registration
@@ -46,4 +48,5 @@ PANEL_REGISTRY = {
     "notebook": {"class": NotebookPanel, "title": "Notebook", "area": "center"},
     "report": {"class": ReportPanel, "title": "Report", "area": "right"},
     "git": {"class": GitPanel, "title": "Git", "area": "bottom"},
+    "backend_settings": {"class": BackendSettingsPanel, "title": "Backend Settings", "area": "left"},
 }
