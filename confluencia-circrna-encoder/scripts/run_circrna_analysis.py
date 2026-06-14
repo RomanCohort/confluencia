@@ -289,8 +289,8 @@ class CircRNAClassifier(nn.Module):
         pair_probs = self.pair_head(pair_repr).squeeze(-1)
         pair_probs = 0.5 * (pair_probs + pair_probs.transpose(-1, -2))
 
-        bsj_mask = (self._circ_dist_matrix(L, device) > L / 2).float()
-        bsj_strength = (pair_probs * bsj_mask.unsqueeze(0)).sum(dim=(1, 2)) / bsj_mask.sum()
+        bsj_mask = (self._circ_dist_matrix(L, device) >= L / 2).float()
+        bsj_strength = (pair_probs * bsj_mask.unsqueeze(0)).sum(dim=(1, 2)) / bsj_mask.sum().clamp(min=1)
 
         struct_feat = pair_repr.mean(dim=(1, 2))
         class_input = torch.cat([seq_emb, struct_feat, bsj_strength.unsqueeze(-1)], dim=-1)
