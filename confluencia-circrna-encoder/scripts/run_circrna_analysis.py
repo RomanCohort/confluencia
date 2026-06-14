@@ -107,13 +107,15 @@ class RNAFMBackbone(nn.Module):
 class RiNALMoBackbone(nn.Module):
     """RiNALMo: largest RNA LM (650M params, 36M ncRNA)."""
 
-    def __init__(self, model_name="giga-v1", freeze=True, weights_path=None):
+    def __init__(self, model_name="giga", freeze=True, weights_path=None):
         super().__init__()
-        # 本地加载，不依赖官方下载函数
         import sys
         sys.path.insert(0, "/root/autodl-tmp/RiNALMo")
+
+        # 用官方 API 加载模型和 alphabet
         from rinalmo.config import model_config
         from rinalmo.model.model import RiNALMo
+        from rinalmo.data.alphabet import Alphabet
 
         self.model_name = model_name
         config = model_config(model_name)
@@ -123,7 +125,6 @@ class RiNALMoBackbone(nn.Module):
         if weights_path is None:
             weights_path = "/root/autodl-tmp/RiNALMo/weights/rinalmo_giga_pretrained.pt"
 
-        import torch
         weights_path = Path(weights_path)
         if weights_path.exists():
             checkpoint = torch.load(weights_path, map_location="cpu")
@@ -136,51 +137,30 @@ class RiNALMoBackbone(nn.Module):
             for p in self.model.parameters():
                 p.requires_grad = False
 
+        # 用官方 Alphabet
+        self.alphabet = Alphabet(**config['alphabet'])
         self.d_model = config.get('d_model', 1280)
-
-        # 创建简单的 alphabet
-        self.alphabet = type('Alphabet', (), {
-            'batch_tokenize': self._tokenize,
-            'all_toks': ['A', 'C', 'G', 'U', 'N', '<pad>', '<cls>', '<eos>'],
-        })()
-
-        self.tok_to_idx = {'<pad>': 0, '<cls>': 1, '<eos>': 2, 'A': 3, 'C': 4, 'G': 5, 'U': 6, 'N': 7}
         print(f"  RiNALMo loaded: {model_name}, d_model={self.d_model}")
-
-    def _tokenize(self, sequences):
-        """Tokenize RNA sequences."""
-        tokens = []
-        for seq in sequences:
-            tok = [self.tok_to_idx['<cls>']]  # BOS
-            for c in seq.upper().replace('T', 'U'):
-                tok.append(self.tok_to_idx.get(c, self.tok_to_idx['N']))
-            tok.append(self.tok_to_idx['<eos>'])  # EOS
-            tokens.append(tok)
-        return tokens
 
     def encode(self, sequences, device):
         self.model = self.model.to(device)
         self.model.eval()
         seqs_rna = [s.upper().replace('T', 'U') for s in sequences]
-        token_lists = self.alphabet.batch_tokenize(seqs_rna)
-
-        # Pad to same length
-        max_len = max(len(t) for t in token_lists)
-        pad_idx = self.tok_to_idx['<pad>']
-        padded = [t + [pad_idx] * (max_len - len(t)) for t in token_lists]
-        tokens = torch.tensor(padded, dtype=torch.int64, device=device)
-        # Mask: 1 for real tokens, 0 for padding
-        mask = torch.tensor(
-            [[1] * len(t) + [0] * (max_len - len(t)) for t in token_lists],
-            dtype=torch.float32, device=device
-        ).unsqueeze(-1)
-
+        tokens = torch.tensor(
+            self.alphabet.batch_tokenize(seqs_rna), dtype=torch.int64, device=device
+        )
         with torch.no_grad(), torch.cuda.amp.autocast(enabled=device.type == 'cuda'):
             outputs = self.model(tokens)
         repr = outputs.get("representation", outputs.get("embeddings", outputs))
-        # Mean pool excluding BOS/EOS/padding
+        # Mean pool (exclude BOS/EOS)
         if repr.size(1) > 2:
-            pooled = (repr[:, 1:-1, :] * mask[:, 1:-1, :]).sum(dim=1) / mask[:, 1:-1, :].sum(dim=1).clamp(min=1)
+            # Mask padding
+            pad_idx = self.alphabet.tok_to_idx.get('<pad>', 0)
+            mask = (tokens != pad_idx).float().unsqueeze(-1)
+            # Exclude CLS and EOS tokens
+            mask[:, 0] = 0  # CLS
+            mask[:, -1] = 0  # might be EOS or last real token
+            pooled = (repr * mask).sum(dim=1) / mask.sum(dim=1).clamp(min=1)
         else:
             pooled = repr.mean(dim=1)
         return pooled
