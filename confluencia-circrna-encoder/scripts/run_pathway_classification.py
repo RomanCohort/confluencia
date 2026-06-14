@@ -275,7 +275,41 @@ class CircRNAClassifier(nn.Module):
 
 # ─── Backbone ────────────────────────────────────────────────────────
 
+class RNAFMBackbone(nn.Module):
+    """RNA-FM: proper RNA language model (recommended backbone)."""
+
+    def __init__(self, model_name="rna_fm_t12", freeze=True):
+        super().__init__()
+        import fm
+        self.model_name = model_name
+        self.model, self.alphabet = getattr(fm.pretrained, model_name)()
+        self.freeze = freeze
+        if freeze:
+            for p in self.model.parameters():
+                p.requires_grad = False
+        self.d_model = self.model.embed_dim  # 640
+        self.repr_layer = self.model.num_layers  # 12
+        self.batch_converter = self.alphabet.get_batch_converter()
+        print(f"  RNA-FM loaded: {model_name}, d_model={self.d_model}")
+
+    def encode(self, sequences, device):
+        self.model = self.model.to(device)
+        # RNA-FM uses U not T
+        seqs_rna = [s.upper().replace('T', 'U') for s in sequences]
+        _, _, tokens = self.batch_converter([(f"seq_{i}", s) for i, s in enumerate(seqs_rna)])
+        tokens = tokens.to(device)
+        with torch.no_grad():
+            results = self.model(tokens, repr_layers=[self.repr_layer])
+            emb = results["representations"][self.repr_layer]
+            mask = (tokens[:, 1:-1] != self.alphabet.padding_idx).float().unsqueeze(-1)
+            pooled = (emb[:, 1:-1, :] * mask).sum(dim=1) / mask.sum(dim=1).clamp(min=1)
+        return pooled
+
+
 class ESM2Backbone(nn.Module):
+    """ESM2: protein language model. Has ACGTU tokens but trained on proteins.
+    Use RNA-FM instead when possible."""
+
     def __init__(self, model_name="esm2_t30_150M_UR50D", freeze=True):
         super().__init__()
         import esm
@@ -406,8 +440,11 @@ def main():
     import argparse
     parser = argparse.ArgumentParser()
     parser.add_argument('--data', type=str, default=str(DATA_PATH))
+    parser.add_argument('--backbone', type=str, default='rna-fm',
+                        choices=['rna-fm', 'esm2', 'mock'],
+                        help='Backbone: rna-fm (recommended), esm2 (protein LM), mock')
     parser.add_argument('--esm-model', type=str, default='esm2_t30_150M_UR50D')
-    parser.add_argument('--mock', action='store_true', help='Use mock backbone')
+    parser.add_argument('--mock', action='store_true', help='Use mock backbone (shorthand for --backbone mock)')
     parser.add_argument('--epochs', type=int, default=30)
     parser.add_argument('--batch-size', type=int, default=16)
     parser.add_argument('--lr', type=float, default=5e-4)
@@ -425,7 +462,7 @@ def main():
     print("TorusFold: circRNA Immune Pathway Classification")
     print("=" * 70)
     print(f"  Data:        {args.data}")
-    print(f"  ESM model:   {args.mock and 'Mock' or args.esm_model}")
+    print(f"  Backbone:    {args.backbone}")
     print(f"  Device:      {args.device}")
     print(f"  Epochs:      {args.epochs}")
     print(f"  Batch size:  {args.batch_size}")
@@ -456,12 +493,17 @@ def main():
 
     # ─── Model ────────────────────────────────────────────────────
     print("\n--- Creating model ---")
-    if args.mock:
+    if args.mock or args.backbone == 'mock':
         backbone = MockBackbone(d_model=128)
         d_model = 128
-    else:
+    elif args.backbone == 'rna-fm':
+        backbone = RNAFMBackbone(freeze=True)
+        d_model = backbone.d_model  # 640
+    elif args.backbone == 'esm2':
         backbone = ESM2Backbone(args.esm_model, freeze=True)
         d_model = backbone.d_model
+    else:
+        raise ValueError(f"Unknown backbone: {args.backbone}")
 
     model = CircRNAClassifier(
         d_model=d_model, c_z=args.c_z,

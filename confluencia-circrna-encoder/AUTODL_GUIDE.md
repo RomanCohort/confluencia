@@ -17,9 +17,10 @@ cd confluencia/confluencia-circrna-encoder
 ## 3. 安装依赖
 
 ```bash
-pip install esm fair-esm  # ESM2
-pip install ViennaRNA     # circRNA structure
-pip install scikit-learn  # metrics
+pip install rna-fm         # RNA-FM (RNA语言模型, 推荐!)
+pip install fair-esm       # ESM2 (蛋白质LM, 备选)
+pip install ViennaRNA      # circRNA结构
+pip install scikit-learn   # metrics
 ```
 
 ## 4. 上传数据
@@ -33,11 +34,11 @@ cp data/circrna/sequences_enhanced.csv /root/autodl-tmp/
 
 ## 5. 运行训练
 
-### 推荐配置 (ESM2 150M + CircPairformer)
+### 推荐配置 (RNA-FM + CircPairformer)
 
 ```bash
 python scripts/run_pathway_classification.py \
-    --esm-model esm2_t30_150M_UR50D \
+    --backbone rna-fm \
     --epochs 30 \
     --batch-size 8 \
     --lr 5e-4 \
@@ -48,17 +49,14 @@ python scripts/run_pathway_classification.py \
     --data /root/autodl-tmp/sequences_enhanced.csv
 ```
 
-### 更大模型 (ESM2 650M)
+### ESM2 备选 (蛋白质LM, 有ACGU token但不是RNA专用)
 
 ```bash
 python scripts/run_pathway_classification.py \
-    --esm-model esm2_t36_3B_UR50D \
-    --epochs 20 \
-    --batch-size 4 \
-    --lr 3e-4 \
-    --c-z 128 \
-    --n-pf-blocks 4 \
-    --max-seq-len 200 \
+    --backbone esm2 \
+    --esm-model esm2_t30_150M_UR50D \
+    --epochs 30 \
+    --batch-size 8 \
     --device cuda \
     --data /root/autodl-tmp/sequences_enhanced.csv
 ```
@@ -81,9 +79,9 @@ python scripts/run_pathway_classification.py \
 | 模型 | 通路分类 | 免疫原性 AUC | 说明 |
 |------|---------|-------------|------|
 | Mock backbone | ~14% (随机) | ~0.50 | 无序列信息 |
-| ESM2 8M + MLP | 30-40% | 0.6-0.7 | 有序列嵌入 |
-| ESM2 150M + CircPairformer | 50-65% | 0.7-0.8 | +环形拓扑 |
-| ESM2 650M + CircPairformer | 60-75% | 0.75-0.85 | 最佳 (需要大GPU) |
+| ESM2 8M + MLP | 30-40% | 0.6-0.7 | 蛋白质LM，有ACGU token |
+| **RNA-FM + CircPairformer** | **50-65%** | **0.7-0.8** | **RNA专用LM + 环形拓扑 (推荐)** |
+| RNA-FM 1.6B + CircPairformer | 60-75% | 0.75-0.85 | 大模型 (需要更多GPU) |
 
 ## 7. 结果文件
 
