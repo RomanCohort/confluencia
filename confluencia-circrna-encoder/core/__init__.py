@@ -54,9 +54,20 @@ from .diffusion_structure import (
     SimpleStructureHead,
     DiffusionConditioning,
     DiffusionDenoiser,
+    FlexibleStructureHead,  # New: multi-conformation output
+    ClosureConstrainedDiffusion,  # New: flexibility-aware diffusion
 )
 from .irs_pair import BSJPairAnalyzer, circular_distance_matrix
 from .torusfold import TorusFold, TorusFoldConfig, PairInitialization, PairPredictionHead
+
+# Tertiary interaction modules (future use, not enabled by default)
+from .tertiary_interaction import (
+    LongRangeAttention,
+    LoopCrossAttention,
+    PseudoknotUpdater,
+    TertiaryInteractionModule,
+    circ_contact_from_linear,
+)
 
 __all__ = [
     # Base components
@@ -111,7 +122,15 @@ __all__ = [
     "SimpleStructureHead",
     "DiffusionConditioning",
     "DiffusionDenoiser",
+    "FlexibleStructureHead",
+    "ClosureConstrainedDiffusion",
     # IRS/BSJ
     "BSJPairAnalyzer",
     "circular_distance_matrix",
+    # Tertiary interaction (future use)
+    "LongRangeAttention",
+    "LoopCrossAttention",
+    "PseudoknotUpdater",
+    "TertiaryInteractionModule",
+    "circ_contact_from_linear",
 ]
