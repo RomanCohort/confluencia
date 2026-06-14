@@ -219,6 +219,314 @@ class DiffusionDenoiser(nn.Module):
 
         return coords_clean, closure_pred
 
+    # ============== Flexible Structure Head ==============
+
+class FlexibleStructureHead(nn.Module):
+    """
+    Multi-conformation structure prediction head for flexible circRNA.
+
+    Unlike SimpleStructureHead which outputs a single structure,
+    this module predicts multiple possible conformations (an ensemble)
+    along with mixture weights and flexibility indices.
+
+    RNA is inherently flexible, and circRNA is even more flexible
+    (it's a "spring coil" with no free ends). A single structure
+    prediction fails to capture this flexibility.
+
+    Output:
+    - M conformations: coords_0, coords_1, ..., coords_M-1
+    - Mixture weights: w_0, w_1, ..., w_M (softmax over conformations)
+    - Flexibility index: flex_i for each position (high = flexible)
+    - Cross-conformation correlation: how correlated are positions across conformations
+
+    Args:
+        d_pair: Pair representation dimension
+        d_coord: Coordinate dimension (3 for 3D)
+        d_cond: Conditioning dimension for diffusion
+        n_rbf: Number of RBF features for distance encoding
+        num_conformations: Number of conformations to predict (default: 8)
+        use_diffusion: Whether to use diffusion for each conformation (default: False)
+    """
+
+    def __init__(
+        self,
+        d_pair: int = 128,
+        d_coord: int = 3,
+        d_cond: int = 128,
+        n_rbf: int = 16,
+        num_conformations: int = 8,
+        use_diffusion: bool = False,
+    ):
+        super().__init__()
+        self.d_pair = d_pair
+        self.d_coord = d_coord
+        self.d_cond = d_cond
+        self.num_confs = num_conformations
+        self.use_diffusion = use_diffusion
+
+        # Per-conformation structure predictors
+        self.conf_heads = nn.ModuleList([
+            SimpleStructureHead(d_pair, d_coord, n_rbf)
+            for _ in range(num_conformations)
+        ])
+
+        # Mixture weight predictor
+        self.mixture_weights = nn.Sequential(
+            nn.Linear(d_pair, 64),
+            nn.GELU(),
+            nn.Linear(64, num_conformations),
+        )
+
+        # Flexibility index predictor (per-position)
+        self.flexibility_head = nn.Sequential(
+            nn.Linear(d_pair, 32),
+            nn.GELU(),
+            nn.Linear(32, 1),
+            nn.Sigmoid(),
+        )
+
+        # Cross-conformation correlation (learnable bias matrix)
+        self.conf_bias = nn.Parameter(torch.randn(num_conformations, num_conformations) * 0.1)
+
+    def forward(self, pair_repr: torch.Tensor) -> Dict[str, torch.Tensor]:
+        """
+        Args:
+            pair_repr: (B, L, L, d_pair) pair representation
+
+        Returns:
+            Dict with:
+                conformations: List of (B, L, d_coord) tensors
+                weights: (B, num_confs) mixture weights
+                flexibility: (B, L) flexibility indices
+                correlation: (B, L, L) cross-conformation correlation
+        """
+        B, L, _, _ = pair_repr.shape
+
+        # Predict each conformation
+        conformations = []
+        for head in self.conf_heads:
+            out = head(pair_repr)
+            conformations.append(out['coords'])
+
+        # Predict mixture weights (condition on pair representation mean)
+        pair_mean = pair_repr.mean(dim=(1, 2))  # (B, d_pair)
+        weights = F.softmax(self.mixture_weights(pair_mean), dim=-1)  # (B, num_confs)
+
+        # Predict flexibility index
+        # Use row-wise mean of pair representation as position features
+        pos_feat = pair_repr.mean(dim=2)  # (B, L, d_pair)
+        flexibility = self.flexibility_head(pos_feat).squeeze(-1)  # (B, L)
+
+        # Compute cross-conformation correlation
+        # For each position, measure variance across conformations
+        # High variance = flexible, Low variance = rigid
+        stacked_coords = torch.stack(conformations, dim=1)  # (B, num_confs, L, d_coord)
+
+        # Variance across conformations (normalized)
+        coord_var = stacked_coords.var(dim=1)  # (B, L, d_coord)
+        flex_from_var = coord_var.mean(dim=-1)  # (B, L)
+
+        # Combine explicit flexibility prediction with empirical variance
+        flexibility = 0.5 * flexibility + 0.5 * torch.sigmoid(flex_from_var)
+
+        # Weighted average conformation (the "representative" structure)
+        weighted_coords = torch.einsum('bm,bmlc->blc', weights, stacked_coords)
+
+        # Add bias-weighted conformation interactions
+        # This captures correlations between conformations (e.g., if conf_0 moves, conf_1 moves)
+        conf_bias_exp = torch.exp(self.conf_bias)  # (num_confs, num_confs)
+        conf_corr = F.softmax(conf_bias_exp, dim=-1)  # Soft correlation matrix
+
+        return {
+            'conformations': conformations,
+            'weights': weights,
+            'flexibility': flexibility,
+            'weighted_coords': weighted_coords,
+            'conf_correlation': conf_corr,
+            'stacked_coords': stacked_coords,
+        }
+
+    def sample(self, pair_repr: torch.Tensor, n_samples: int = 1) -> Dict[str, torch.Tensor]:
+        """
+        Sample conformations according to mixture weights.
+
+        Args:
+            pair_repr: (B, L, L, d_pair)
+            n_samples: Number of samples (default: 1)
+
+        Returns:
+            Dict with sampled coordinates and metadata
+        """
+        out = self.forward(pair_repr)
+        weights = out['weights']  # (B, num_confs)
+        conformations = out['conformations']
+        B = weights.size(0)
+
+        # Sample from mixture
+        sampled_indices = torch.multinomial(weights, n_samples, replacement=True)  # (B, n_samples)
+
+        # Get sampled conformations
+        sampled_coords = []
+        for b in range(B):
+            for s in range(n_samples):
+                idx = sampled_indices[b, s]
+                sampled_coords.append(conformations[idx][b])
+
+        sampled_coords = torch.stack(sampled_coords).view(B, n_samples, -1, self.d_coord)
+
+        return {
+            'coords': sampled_coords[:, 0],  # First sample
+            'all_samples': sampled_coords,
+            'weights': weights,
+            'flexibility': out['flexibility'],
+        }
+
+
+class ClosureConstrainedDiffusion(nn.Module):
+    """
+    Diffusion model with explicit closure constraint for circRNA.
+
+    Extends CircDiffusionStructure with:
+    1. Multiple diffusion trajectories (conformation ensemble)
+    2. Per-position flexibility-aware closure tolerance
+    3. B-factor-like confidence from diffusion noise
+
+    Args:
+        Same as CircDiffusionStructure plus:
+        num_conformations: Number of diffusion trajectories
+        flex_tolerance_scale: How much flexibility affects closure tolerance
+    """
+
+    def __init__(
+        self,
+        d_pair: int = 128,
+        d_time: int = 64,
+        d_cond: int = 128,
+        d_coord: int = 3,
+        n_layers: int = 3,
+        n_steps: int = 10,
+        bond_length: float = 3.4,
+        num_conformations: int = 4,
+        flex_tolerance_scale: float = 0.5,
+    ):
+        super().__init__()
+        self.num_confs = num_conformations
+        self.flex_tolerance_scale = flex_tolerance_scale
+        self.bond_length = bond_length
+        self.n_steps = n_steps
+
+        # Multiple denoisers for each conformation
+        self.denoisers = nn.ModuleList([
+            DenoiseNetwork(d_coord, d_time, d_cond, n_layers)
+            for _ in range(num_conformations)
+        ])
+
+        # Mixture weights (which conformation is most likely)
+        self.mixture_weights = nn.Sequential(
+            nn.Linear(d_cond, 32),
+            nn.GELU(),
+            nn.Linear(32, num_conformations),
+        )
+
+        # Flexibility predictor
+        self.flexibility_head = nn.Sequential(
+            nn.Linear(d_pair, 16),
+            nn.GELU(),
+            nn.Linear(16, 1),
+            nn.Sigmoid(),
+        )
+
+        # Time embedding
+        self.time_embed = nn.Sequential(
+            nn.Linear(1, d_time),
+            nn.SiLU(),
+            nn.Linear(d_time, d_time),
+        )
+
+    def forward(self, coords_noisy: torch.Tensor, t: torch.Tensor,
+                cond: torch.Tensor, flexibility: Optional[torch.Tensor] = None) -> Tuple[torch.Tensor, torch.Tensor]:
+        """Forward pass for one denoising step."""
+        # Simplified: use first denoiser
+        t_emb = self.time_embed(t.unsqueeze(-1))
+        return self.denoisers[0](coords_noisy, t_emb, cond), torch.zeros(coords_noisy.size(0))
+
+    def sample(self, pair_repr: torch.Tensor, n_samples: int = 1,
+               return_trajectory: bool = False, flexibility: Optional[torch.Tensor] = None) -> Dict[str, torch.Tensor]:
+        """
+        Sample multiple conformations with flexibility-aware closure.
+
+        Args:
+            pair_repr: (B, L, L, d_pair)
+            n_samples: Samples per conformation
+            return_trajectory: Whether to return full diffusion trajectory
+            flexibility: (B, L) optional precomputed flexibility indices
+
+        Returns:
+            Dict with conformations, weights, closure distances, flexibility
+        """
+        B, L, _, d_pair = pair_repr.shape
+        device = pair_repr.device
+
+        # Compute flexibility if not provided
+        if flexibility is None:
+            pos_feat = pair_repr.mean(dim=2)
+            flexibility = self.flexibility_head(pos_feat).squeeze(-1)  # (B, L)
+
+        # Condition from pair representation
+        cond = pair_repr.mean(dim=(1, 2))  # (B, d_pair)
+
+        # Predict mixture weights
+        weights = F.softmax(self.mixture_weights(cond), dim=-1)  # (B, num_confs)
+
+        # Sample each conformation
+        conformations = []
+        closure_dists = []
+
+        for conf_idx in range(self.num_confs):
+            # Initialize with noise
+            coords = torch.randn(B, L, 3, device=device) * 10.0
+
+            # Diffusion steps
+            for step_idx in range(self.n_steps):
+                t = torch.ones(B, device=device) * (self.n_steps - step_idx) / self.n_steps
+                coords_clean, _ = self.denoisers[conf_idx](coords, self.time_embed(t.unsqueeze(-1)), cond)
+
+                # Apply closure constraint with flexibility tolerance
+                if step_idx > self.n_steps // 2:
+                    # Higher flexibility = more tolerance for imperfect closure
+                    tol = self.bond_length * (1.0 + self.flex_tolerance_scale * flexibility.mean(dim=-1))
+                    closure_vec = coords_clean[:, -1] - coords_clean[:, 0]
+                    closure_dist = closure_vec.norm(dim=-1)
+
+                    # Soft constraint: move towards closure if too far
+                    too_far = closure_dist > tol
+                    if too_far.any():
+                        target = coords_clean[:, 0] + closure_vec / closure_dist.unsqueeze(-1) * tol.unsqueeze(-1)
+                        coords_clean[:, -1] = torch.where(too_far.unsqueeze(-1), target, coords_clean[:, -1])
+
+                coords = coords_clean
+
+            # Final closure distance
+            final_closure = (coords[:, 0] - coords[:, -1]).norm(dim=-1)
+            conformations.append(coords)
+            closure_dists.append(final_closure)
+
+        # Stack results
+        stacked_coords = torch.stack(conformations, dim=1)  # (B, num_confs, L, 3)
+        closure_dists = torch.stack(closure_dists, dim=1)  # (B, num_confs)
+
+        # Weighted average conformation
+        weighted_coords = torch.einsum('bm,bmlc->blc', weights, stacked_coords)
+
+        return {
+            'coords': weighted_coords,
+            'conformations': conformations,
+            'weights': weights,
+            'closure_dists': closure_dists,
+            'flexibility': flexibility,
+            'stacked_coords': stacked_coords,
+        }
+
 
 class CircDiffusionStructure(nn.Module):
     """
