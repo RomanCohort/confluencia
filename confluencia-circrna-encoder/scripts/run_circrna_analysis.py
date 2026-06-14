@@ -162,15 +162,25 @@ class RiNALMoBackbone(nn.Module):
         self.model = self.model.to(device)
         self.model.eval()
         seqs_rna = [s.upper().replace('T', 'U') for s in sequences]
-        tokens = torch.tensor(
-            self.alphabet.batch_tokenize(seqs_rna), dtype=torch.int64, device=device
-        )
+        token_lists = self.alphabet.batch_tokenize(seqs_rna)
+
+        # Pad to same length
+        max_len = max(len(t) for t in token_lists)
+        pad_idx = self.tok_to_idx['<pad>']
+        padded = [t + [pad_idx] * (max_len - len(t)) for t in token_lists]
+        tokens = torch.tensor(padded, dtype=torch.int64, device=device)
+        # Mask: 1 for real tokens, 0 for padding
+        mask = torch.tensor(
+            [[1] * len(t) + [0] * (max_len - len(t)) for t in token_lists],
+            dtype=torch.float32, device=device
+        ).unsqueeze(-1)
+
         with torch.no_grad(), torch.cuda.amp.autocast(enabled=device.type == 'cuda'):
             outputs = self.model(tokens)
         repr = outputs.get("representation", outputs.get("embeddings", outputs))
-        # Mean pool (exclude BOS/EOS)
+        # Mean pool excluding BOS/EOS/padding
         if repr.size(1) > 2:
-            pooled = repr[:, 1:-1, :].mean(dim=1)
+            pooled = (repr[:, 1:-1, :] * mask[:, 1:-1, :]).sum(dim=1) / mask[:, 1:-1, :].sum(dim=1).clamp(min=1)
         else:
             pooled = repr.mean(dim=1)
         return pooled
