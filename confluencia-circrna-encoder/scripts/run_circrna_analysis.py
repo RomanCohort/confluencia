@@ -91,16 +91,21 @@ class RNAFMBackbone(nn.Module):
         self.batch_converter = self.alphabet.get_batch_converter()
         print(f"  RNA-FM loaded: d_model={self.d_model}")
 
-    def encode(self, sequences, device):
+    def encode(self, sequences, device, return_per_pos=False):
         self.model = self.model.to(device)
         seqs_rna = [s.upper().replace('T', 'U') for s in sequences]
         _, _, tokens = self.batch_converter([(f"s{i}", s) for i, s in enumerate(seqs_rna)])
         tokens = tokens.to(device)
         with torch.no_grad():
             results = self.model(tokens, repr_layers=[self.repr_layer])
-            emb = results["representations"][self.repr_layer]
-            mask = (tokens[:, 1:-1] != self.alphabet.padding_idx).float().unsqueeze(-1)
-            pooled = (emb[:, 1:-1, :] * mask).sum(dim=1) / mask.sum(dim=1).clamp(min=1)
+            emb = results["representations"][self.repr_layer]  # (B, L+2, d_model)
+            valid_mask = (tokens[:, 1:-1] != self.alphabet.padding_idx)  # (B, L)
+
+        if return_per_pos:
+            return emb[:, 1:-1, :], valid_mask.float()
+
+        mask = valid_mask.float().unsqueeze(-1)
+        pooled = (emb[:, 1:-1, :] * mask).sum(dim=1) / mask.sum(dim=1).clamp(min=1)
         return pooled
 
 
@@ -144,7 +149,21 @@ class RiNALMoBackbone(nn.Module):
         print(f"  RiNALMo loaded: {model_name}, d_model={self.d_model}")
         print(f"  Alphabet tokens: {list(self.alphabet.tkn_to_idx.keys())}")
 
-    def encode(self, sequences, device):
+    def encode(self, sequences, device, return_per_pos=False):
+        """Encode sequences.
+
+        Args:
+            sequences: list of RNA strings
+            device: torch device
+            return_per_pos: if True, return (repr, mask) for per-position;
+                           if False, return pooled embedding (B, d_model)
+
+        Returns:
+            if return_per_pos: tuple of (repr, mask) where
+                repr: (B, L, d_model) per-position embeddings
+                mask: (B, L) binary mask (1 for valid tokens, 0 for pad)
+            else: pooled (B, d_model) embedding
+        """
         # RiNALMo 必须在 GPU 上运行（flash_attn Triton kernel）
         self.model = self.model.to(device)
         self.model.eval()
@@ -163,20 +182,27 @@ class RiNALMoBackbone(nn.Module):
         with torch.no_grad(), torch.cuda.amp.autocast(dtype=torch.bfloat16):
             out = self.model(tokens)
 
-        repr = out.get("representation", out.get("embeddings"))
+        repr = out.get("representation", out.get("embeddings")).float()  # (B, L, d_model)
 
         # 检查 NaN
         if torch.isnan(repr).any():
             print(f"  WARNING: RiNALMo output has NaN, falling back to zeros")
+            if return_per_pos:
+                return torch.zeros(tokens.size(0), tokens.size(1), self.d_model, device=device), \
+                       torch.zeros(tokens.size(0), tokens.size(1), device=device)
             return torch.zeros(tokens.size(0), self.d_model, device=device)
 
-        # Mean pool: exclude CLS, EOS, PAD tokens
+        # Build mask: exclude CLS, EOS, PAD tokens
         eos_idx = self.alphabet.tkn_to_idx.get('<eos>', 2)
         cls_idx = self.alphabet.tkn_to_idx.get('<cls>', 0)
-        mask = (tokens != pad_idx) & (tokens != eos_idx) & (tokens != cls_idx)
-        mask = mask.float().unsqueeze(-1)
+        valid_mask = (tokens != pad_idx) & (tokens != eos_idx) & (tokens != cls_idx)  # (B, L)
 
-        pooled = (repr * mask).sum(dim=1) / mask.sum(dim=1).clamp(min=1)
+        if return_per_pos:
+            return repr, valid_mask.float()
+
+        # Mean pool
+        pooled = (repr * valid_mask.unsqueeze(-1).float()).sum(dim=1) / \
+                 valid_mask.sum(dim=1).clamp(min=1).unsqueeze(-1)
         return pooled
 
 
@@ -186,8 +212,20 @@ class MockBackbone(nn.Module):
         self.d_model = d_model
         self.embed = nn.Embedding(5, d_model)
 
-    def encode(self, sequences, device):
+    def encode(self, sequences, device, return_per_pos=False):
         B = len(sequences)
+        if return_per_pos:
+            # Per-position: simple nucleotide embedding
+            max_len = max(len(s) for s in sequences)
+            repr = torch.zeros(B, max_len, self.d_model, device=device)
+            mask = torch.zeros(B, max_len, device=device)
+            for i, seq in enumerate(sequences):
+                for j, c in enumerate(seq.upper()):
+                    idx = {'A': 0, 'C': 1, 'G': 2, 'U': 3, 'T': 3}.get(c, 4)
+                    repr[i, j] = self.embed(torch.tensor([idx], device=device)).squeeze(0)
+                    mask[i, j] = 1.0
+            return repr, mask
+        # Pooled fallback
         emb = torch.zeros(B, self.d_model, device=device)
         for i, seq in enumerate(sequences):
             counts = {'A': 0, 'C': 0, 'G': 0, 'U': 0}
@@ -241,12 +279,24 @@ class CircPairformerStack(nn.Module):
 
 
 class CircRNAClassifier(nn.Module):
+    """
+    CircRNA classifier using per-position embeddings + dynamic pair matrix.
+
+    Pipeline:
+      1. Per-position embeddings (B, L, d_model) from frozen backbone
+      2. Project to pair representation: z[i,j] = left[i] + right[j] + circ_dist[i,j]
+      3. CircPairformer refines pair representations
+      4. BSJ-crossing pair analysis (circRNA-specific)
+      5. Classification heads: pathway (7-class) + immunogenicity (binary)
+    """
+
     def __init__(self, d_model=640, c_z=64, n_pairformer_blocks=2,
                  n_heads_tri=2, n_pathways=7, dropout=0.2):
         super().__init__()
         self.d_model = d_model
         self.c_z = c_z
 
+        # Project per-position embeddings to pair dim
         self.left_proj = nn.Linear(d_model, c_z)
         self.right_proj = nn.Linear(d_model, c_z)
         self.dist_embed = nn.Embedding(256, c_z)
@@ -257,6 +307,7 @@ class CircRNAClassifier(nn.Module):
             nn.Linear(c_z, c_z), nn.GELU(), nn.Linear(c_z, 1), nn.Sigmoid(),
         )
 
+        # Classification input: pooled seq repr + pooled pair repr + bsj_strength
         input_dim = d_model + c_z + 1
 
         self.pathway_head = nn.Sequential(
@@ -270,30 +321,61 @@ class CircRNAClassifier(nn.Module):
         )
 
     def _circ_dist_matrix(self, L, device):
+        """Circular distance matrix for sequence length L."""
         pos = torch.arange(L, device=device)
         diff = (pos.unsqueeze(0) - pos.unsqueeze(1)).abs()
         return torch.min(diff, L - diff)
 
-    def forward(self, seq_emb, device='cpu'):
-        B = seq_emb.size(0)
-        L = 64
-        seq_repr = seq_emb.unsqueeze(1).expand(-1, L, -1)
+    def forward(self, seq_repr, valid_mask, device='cpu'):
+        """
+        Args:
+            seq_repr: (B, L, d_model) per-position embeddings from backbone
+            valid_mask: (B, L) binary mask (1=valid, 0=pad)
+            device: torch device
 
-        left = self.left_proj(seq_repr)
-        right = self.right_proj(seq_repr)
-        pair = left.unsqueeze(2) + right.unsqueeze(1)
+        Returns:
+            Dict with pathway_logits, immunogenicity_logits, pair_probs, bsj_strength
+        """
+        B, L, _ = seq_repr.shape
+
+        # 1. Build pair representation from per-position embeddings
+        left = self.left_proj(seq_repr)     # (B, L, c_z)
+        right = self.right_proj(seq_repr)   # (B, L, c_z)
+        pair = left.unsqueeze(2) + right.unsqueeze(1)  # (B, L, L, c_z)
+
+        # 2. Add circular distance features
         circ_dist = self._circ_dist_matrix(L, device).clamp(max=255).long()
-        pair = pair + self.dist_embed(circ_dist).unsqueeze(0)
+        pair = pair + self.dist_embed(circ_dist).unsqueeze(0)  # (B, L, L, c_z)
 
-        pair_repr = self.pairformer(pair)
-        pair_probs = self.pair_head(pair_repr).squeeze(-1)
+        # 3. Mask out padding positions in pair representation
+        # valid_mask: (B, L) → pair_mask: (B, L, L)
+        pair_valid = valid_mask.unsqueeze(2) * valid_mask.unsqueeze(1)  # (B, L, L)
+        pair = pair * pair_valid.unsqueeze(-1)  # zero out padded pairs
+
+        # 4. CircPairformer
+        pair_repr = self.pairformer(pair)  # (B, L, L, c_z)
+
+        # 5. Pair probabilities (masked)
+        pair_probs = self.pair_head(pair_repr).squeeze(-1)  # (B, L, L)
         pair_probs = 0.5 * (pair_probs + pair_probs.transpose(-1, -2))
+        pair_probs = pair_probs * pair_valid  # mask out pad positions
 
-        bsj_mask = (self._circ_dist_matrix(L, device) >= L / 2).float()
-        bsj_strength = (pair_probs * bsj_mask.unsqueeze(0)).sum(dim=(1, 2)) / bsj_mask.sum().clamp(min=1)
+        # 6. BSJ-crossing pair strength (circRNA-specific)
+        bsj_mask = (self._circ_dist_matrix(L, device) >= L / 2).float()  # (L, L)
+        # Only count BSJ pairs at valid positions
+        valid_bsj = bsj_mask * pair_valid  # (B, L, L)
+        bsj_strength = (pair_probs * valid_bsj).sum(dim=(1, 2)) / valid_bsj.sum(dim=(1, 2)).clamp(min=1)
 
-        struct_feat = pair_repr.mean(dim=(1, 2))
-        class_input = torch.cat([seq_emb, struct_feat, bsj_strength.unsqueeze(-1)], dim=-1)
+        # 7. Aggregate features for classification
+        # Pooled sequence representation (masked mean)
+        seq_emb = (seq_repr * valid_mask.unsqueeze(-1)).sum(dim=1) / \
+                  valid_mask.sum(dim=1).clamp(min=1).unsqueeze(-1)  # (B, d_model)
+
+        # Pooled pair representation (masked mean over valid pairs)
+        pair_pooled = (pair_repr * pair_valid.unsqueeze(-1)).sum(dim=(1, 2)) / \
+                      pair_valid.sum(dim=(1, 2)).clamp(min=1).unsqueeze(-1)  # (B, c_z)
+
+        class_input = torch.cat([seq_emb, pair_pooled, bsj_strength.unsqueeze(-1)], dim=-1)
 
         return {
             'pathway_logits': self.pathway_head(class_input),
@@ -443,16 +525,21 @@ def main():
         backbone.d_model = model_esm.embed_dim
         backbone.repr_layer = model_esm.num_layers
 
-        def esm_encode(self, sequences, device):
+        def esm_encode(self, sequences, device, return_per_pos=False):
             self.model = self.model.to(device)
             seqs_t = [s.upper().replace('U', 'T') for s in sequences]
             _, _, tokens = self.alphabet.get_batch_converter()([(f"s{i}", s) for i, s in enumerate(seqs_t)])
             tokens = tokens.to(device)
             with torch.no_grad():
                 results = self.model(tokens, repr_layers=[self.repr_layer])
-                emb = results["representations"][self.repr_layer]
-                mask = (tokens[:, 1:-1] != self.alphabet.padding_idx).float().unsqueeze(-1)
-                return (emb[:, 1:-1, :] * mask).sum(dim=1) / mask.sum(dim=1).clamp(min=1)
+                emb = results["representations"][self.repr_layer]  # (B, L+2, d_model)
+                valid_mask = (tokens[:, 1:-1] != self.alphabet.padding_idx)  # (B, L)
+
+            if return_per_pos:
+                return emb[:, 1:-1, :], valid_mask.float()
+
+            mask = valid_mask.float().unsqueeze(-1)
+            return (emb[:, 1:-1, :] * mask).sum(dim=1) / mask.sum(dim=1).clamp(min=1)
 
         backbone.encode = esm_encode.__get__(backbone)
         print(f"  ESM2 loaded: d_model={backbone.d_model}")
@@ -489,8 +576,8 @@ def main():
             pw_target = batch['pathway'].to(device)
             imm_target = batch['immunogenicity'].to(device)
 
-            seq_emb = backbone.encode(batch['sequences'], device)
-            out = model(seq_emb, device)
+            seq_repr, valid_mask = backbone.encode(batch['sequences'], device, return_per_pos=True)
+            out = model(seq_repr, valid_mask, device)
 
             pw_loss = F.cross_entropy(out['pathway_logits'], pw_target)
             imm_loss = F.binary_cross_entropy_with_logits(out['immunogenicity_logits'], imm_target)
@@ -509,8 +596,8 @@ def main():
         all_pw_true, all_pw_pred, all_imm_true, all_imm_pred = [], [], [], []
         with torch.no_grad():
             for batch in test_loader:
-                seq_emb = backbone.encode(batch['sequences'], device)
-                out = model(seq_emb, device)
+                seq_repr, valid_mask = backbone.encode(batch['sequences'], device, return_per_pos=True)
+                out = model(seq_repr, valid_mask, device)
                 all_pw_true.extend(batch['pathway'].numpy())
                 all_pw_pred.extend(out['pathway_logits'].argmax(dim=-1).cpu().numpy())
                 all_imm_true.extend(batch['immunogenicity'].numpy())
