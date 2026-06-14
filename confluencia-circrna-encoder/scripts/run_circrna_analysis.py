@@ -151,9 +151,13 @@ class RiNALMoBackbone(nn.Module):
 
         # RiNALMo 用 T 不用 U
         seqs_rna = [s.upper().replace('U', 'T') for s in sequences]
-        tokens = torch.tensor(
-            self.alphabet.batch_tokenize(seqs_rna), dtype=torch.int64, device=device
-        )
+        token_lists = self.alphabet.batch_tokenize(seqs_rna)
+
+        # Pad to same length (batch_tokenize returns variable-length lists)
+        max_len = max(len(t) for t in token_lists)
+        pad_idx = self.alphabet.tkn_to_idx.get('<pad>', 1)
+        padded = [t + [pad_idx] * (max_len - len(t)) for t in token_lists]
+        tokens = torch.tensor(padded, dtype=torch.int64, device=device)
 
         # RiNALMo flash_attn 要求 bfloat16
         with torch.no_grad(), torch.cuda.amp.autocast(dtype=torch.bfloat16):
@@ -166,14 +170,10 @@ class RiNALMoBackbone(nn.Module):
             print(f"  WARNING: RiNALMo output has NaN, falling back to zeros")
             return torch.zeros(tokens.size(0), self.d_model, device=device)
 
-        # Mean pool (exclude CLS token at position 0)
-        # Padding token is '<pad>' at index 1
-        pad_idx = self.alphabet.tkn_to_idx.get('<pad>', 1)
+        # Mean pool: exclude CLS, EOS, PAD tokens
         eos_idx = self.alphabet.tkn_to_idx.get('<eos>', 2)
-        mask = (tokens != pad_idx) & (tokens != eos_idx)
-        # Also exclude CLS (index 0)
         cls_idx = self.alphabet.tkn_to_idx.get('<cls>', 0)
-        mask = mask & (tokens != cls_idx)
+        mask = (tokens != pad_idx) & (tokens != eos_idx) & (tokens != cls_idx)
         mask = mask.float().unsqueeze(-1)
 
         pooled = (repr * mask).sum(dim=1) / mask.sum(dim=1).clamp(min=1)
