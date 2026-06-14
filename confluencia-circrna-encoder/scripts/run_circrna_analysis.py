@@ -155,7 +155,7 @@ class RiNALMoBackbone(nn.Module):
         # Mean pool (exclude BOS/EOS)
         if repr.size(1) > 2:
             # Mask padding
-            pad_idx = self.alphabet.tok_to_idx.get('<pad>', 0)
+            pad_idx = self.alphabet.tkn_to_idx.get('<pad>', 0)
             mask = (tokens != pad_idx).float().unsqueeze(-1)
             # Exclude CLS and EOS tokens
             mask[:, 0] = 0  # CLS
