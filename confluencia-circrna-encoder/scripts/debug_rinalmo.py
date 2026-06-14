@@ -56,40 +56,30 @@ except Exception as e:
     print(f"3. Alphabet 失败: {e}")
     sys.exit(1)
 
-# 4. 前向传播
-try:
-    model.eval()
-    tokens_t = torch.tensor(tokens, dtype=torch.int64)
-    with torch.no_grad():
-        out = model(tokens_t)
-    print(f"4. 前向传播 ✓")
-    print(f"   Output keys: {list(out.keys())}")
-    for k, v in out.items():
-        if isinstance(v, torch.Tensor):
-            print(f"   {k}: shape={v.shape}, has_nan={torch.isnan(v).any()}, mean={v.mean():.4f}")
-except Exception as e:
-    print(f"4. 前向传播失败: {e}")
-    import traceback
-    traceback.print_exc()
+# 4. 前向传播 (跳过 CPU — RiNALMo 用 Triton kernel 只能 GPU)
+print("4. 前向传播: 跳过 CPU 测试 (RiNALMo 使用 Triton kernel，需要 GPU)")
+if not torch.cuda.is_available():
+    print("   ERROR: CUDA 不可用，RiNALMo 无法运行")
     sys.exit(1)
 
 # 5. GPU 测试
-if torch.cuda.is_available():
-    try:
-        model = model.cuda()
-        tokens_t = tokens_t.cuda()
-        with torch.no_grad(), torch.cuda.amp.autocast():
-            out = model(tokens_t)
-        repr = out.get('representation', out.get('embeddings'))
-        has_nan = torch.isnan(repr).any()
-        print(f"5. GPU 前向传播 ✓")
-        print(f"   has_nan={has_nan}, mean={repr.mean():.4f}")
-    except Exception as e:
-        print(f"5. GPU 失败: {e}")
-        import traceback
-        traceback.print_exc()
-else:
-    print("5. GPU 不可用，跳过")
+try:
+    model = model.cuda()
+    tokens_t = torch.tensor(tokens, dtype=torch.int64, device='cuda')
+    # 不用 autocast — Triton 和 autocast 不兼容
+    with torch.no_grad():
+        out = model(tokens_t)
+    repr = out.get('representation', out.get('embeddings'))
+    has_nan = torch.isnan(repr).any()
+    print(f"5. GPU 前向传播 ✓")
+    print(f"   shape={repr.shape}, has_nan={has_nan}, mean={repr.mean():.4f}")
+    if has_nan:
+        print("   WARNING: 输出有 NaN!")
+except Exception as e:
+    print(f"5. GPU 前向传播失败: {e}")
+    import traceback
+    traceback.print_exc()
+    sys.exit(1)
 
 # 6. Pooling 测试
 try:
