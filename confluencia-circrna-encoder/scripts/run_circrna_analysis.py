@@ -105,14 +105,15 @@ class RNAFMBackbone(nn.Module):
 
 
 class RiNALMoBackbone(nn.Module):
-    """RiNALMo: largest RNA LM (650M params, 36M ncRNA)."""
+    """RiNALMo: largest RNA LM (650M params, 36M ncRNA).
+    Requires GPU (uses flash_attn Triton kernels).
+    """
 
     def __init__(self, model_name="giga", freeze=True, weights_path=None):
         super().__init__()
         import sys
         sys.path.insert(0, "/root/autodl-tmp/RiNALMo")
 
-        # 用官方 API 加载模型和 alphabet
         from rinalmo.config import model_config
         from rinalmo.model.model import RiNALMo
         from rinalmo.data.alphabet import Alphabet
@@ -141,28 +142,41 @@ class RiNALMoBackbone(nn.Module):
         self.alphabet = Alphabet(**config['alphabet'])
         self.d_model = config.get('d_model', 1280)
         print(f"  RiNALMo loaded: {model_name}, d_model={self.d_model}")
+        print(f"  Alphabet tokens: {list(self.alphabet.tkn_to_idx.keys())}")
 
     def encode(self, sequences, device):
+        # RiNALMo 必须在 GPU 上运行（flash_attn Triton kernel）
         self.model = self.model.to(device)
         self.model.eval()
-        seqs_rna = [s.upper().replace('T', 'U') for s in sequences]
+
+        # RiNALMo 用 T 不用 U
+        seqs_rna = [s.upper().replace('U', 'T') for s in sequences]
         tokens = torch.tensor(
             self.alphabet.batch_tokenize(seqs_rna), dtype=torch.int64, device=device
         )
-        with torch.no_grad(), torch.cuda.amp.autocast(enabled=device.type == 'cuda'):
-            outputs = self.model(tokens)
-        repr = outputs.get("representation", outputs.get("embeddings", outputs))
-        # Mean pool (exclude BOS/EOS)
-        if repr.size(1) > 2:
-            # Mask padding
-            pad_idx = self.alphabet.tkn_to_idx.get('<pad>', 0)
-            mask = (tokens != pad_idx).float().unsqueeze(-1)
-            # Exclude CLS and EOS tokens
-            mask[:, 0] = 0  # CLS
-            mask[:, -1] = 0  # might be EOS or last real token
-            pooled = (repr * mask).sum(dim=1) / mask.sum(dim=1).clamp(min=1)
-        else:
-            pooled = repr.mean(dim=1)
+
+        # 不用 autocast — flash_attn Triton 和 autocast 不兼容
+        with torch.no_grad():
+            out = self.model(tokens)
+
+        repr = out.get("representation", out.get("embeddings"))
+
+        # 检查 NaN
+        if torch.isnan(repr).any():
+            print(f"  WARNING: RiNALMo output has NaN, falling back to zeros")
+            return torch.zeros(tokens.size(0), self.d_model, device=device)
+
+        # Mean pool (exclude CLS token at position 0)
+        # Padding token is '<pad>' at index 1
+        pad_idx = self.alphabet.tkn_to_idx.get('<pad>', 1)
+        eos_idx = self.alphabet.tkn_to_idx.get('<eos>', 2)
+        mask = (tokens != pad_idx) & (tokens != eos_idx)
+        # Also exclude CLS (index 0)
+        cls_idx = self.alphabet.tkn_to_idx.get('<cls>', 0)
+        mask = mask & (tokens != cls_idx)
+        mask = mask.float().unsqueeze(-1)
+
+        pooled = (repr * mask).sum(dim=1) / mask.sum(dim=1).clamp(min=1)
         return pooled
 
 
