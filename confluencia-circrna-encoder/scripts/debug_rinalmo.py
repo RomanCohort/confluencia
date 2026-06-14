@@ -66,13 +66,13 @@ if not torch.cuda.is_available():
 try:
     model = model.cuda()
     tokens_t = torch.tensor(tokens, dtype=torch.int64, device='cuda')
-    # 不用 autocast — Triton 和 autocast 不兼容
-    with torch.no_grad():
+    # RiNALMo flash_attn 要求 float16/bfloat16，必须用 autocast
+    with torch.no_grad(), torch.cuda.amp.autocast(dtype=torch.bfloat16):
         out = model(tokens_t)
     repr = out.get('representation', out.get('embeddings'))
     has_nan = torch.isnan(repr).any()
     print(f"5. GPU 前向传播 ✓")
-    print(f"   shape={repr.shape}, has_nan={has_nan}, mean={repr.mean():.4f}")
+    print(f"   shape={repr.shape}, dtype={repr.dtype}, has_nan={has_nan}, mean={repr.mean():.4f}")
     if has_nan:
         print("   WARNING: 输出有 NaN!")
 except Exception as e:

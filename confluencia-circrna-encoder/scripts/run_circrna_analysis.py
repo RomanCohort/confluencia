@@ -155,8 +155,8 @@ class RiNALMoBackbone(nn.Module):
             self.alphabet.batch_tokenize(seqs_rna), dtype=torch.int64, device=device
         )
 
-        # 不用 autocast — flash_attn Triton 和 autocast 不兼容
-        with torch.no_grad():
+        # RiNALMo flash_attn 要求 bfloat16
+        with torch.no_grad(), torch.cuda.amp.autocast(dtype=torch.bfloat16):
             out = self.model(tokens)
 
         repr = out.get("representation", out.get("embeddings"))
