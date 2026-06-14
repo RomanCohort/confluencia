@@ -364,7 +364,9 @@ def main():
     parser.add_argument('--data', type=str, default=str(DATA_PATH))
     parser.add_argument('--backbone', type=str, default='rna-fm',
                         choices=['rna-fm', 'rinalmo', 'esm2', 'mock'])
-    parser.add_argument('--rinalmo-model', type=str, default='giga-v1')
+    parser.add_argument('--rinalmo-model', type=str, default='giga',
+                        choices=['giga', 'mega', 'micro'],
+                        help='RiNALMo model size: giga (650M), mega (150M), micro (35M)')
     parser.add_argument('--rinalmo-weights', type=str,
                         default='/root/autodl-tmp/RiNALMo/weights/rinalmo_giga_pretrained.pt',
                         help='Path to RiNALMo pretrained weights')
