@@ -33,12 +33,14 @@ from sklearn.metrics import (
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(PROJECT_ROOT))
 
-# Data path
-DATA_PATH = Path("/root/autodl-tmp/sequences_enhanced.csv")
-if not DATA_PATH.exists():
-    DATA_PATH = Path("D:/IGEM集成方案/data/circrna/sequences_enhanced.csv")
+# Data path - try multiple locations
+DATA_PATH = Path("data/circrna/sequences_enhanced.csv")
 if not DATA_PATH.exists():
     DATA_PATH = PROJECT_ROOT / "data" / "circrna" / "sequences_enhanced.csv"
+if not DATA_PATH.exists():
+    DATA_PATH = Path("/root/autodl-tmp/confluencia/data/circrna/sequences_enhanced.csv")
+if not DATA_PATH.exists():
+    DATA_PATH = Path("/root/autodl-tmp/sequences_enhanced.csv")
 
 PATHWAY_MAP = {
     'RIG-I': 0, 'MDA5': 1, 'NF-κB': 2, 'cGAS-STING': 3,

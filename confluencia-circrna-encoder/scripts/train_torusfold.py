@@ -684,9 +684,9 @@ def hparam_search(args):
 def main():
     parser = argparse.ArgumentParser(description='Train TorusFold on circRNA data')
     parser.add_argument('--data', type=str,
-                        default='D:/IGEM集成方案/data/circrna/unified_training_data.csv')
+                        default='data/circrna/unified_training_data.csv')
     parser.add_argument('--external-data', type=str,
-                        default='D:/IGEM集成方案/data/circrna/sequences_enhanced.csv')
+                        default='data/circrna/sequences_enhanced.csv')
     parser.add_argument('--epochs', type=int, default=10)
     parser.add_argument('--batch-size', type=int, default=32)
     parser.add_argument('--lr', type=float, default=1e-3)
