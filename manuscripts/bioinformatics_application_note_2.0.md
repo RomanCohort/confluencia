@@ -149,19 +149,19 @@ ADMET weights are literature-derived heuristics, not empirically calibrated on c
 
 ## References
 
-1. Hassett KJ, et al. Optimization of Lipid Nanoparticles for Intramuscular Administration of mRNA Vaccines. Mol Ther. 2019;27(8):1550-1563.
+1. Hassett KJ, et al. Optimization of Lipid Nanoparticles for Intramuscular Administration of mRNA Vaccines. Mol Ther. 2019;27(8):1550-1563. doi:10.1016/j.ymthe.2019.05.009
 
 2. Wesselhoeft RA, Kowalski PS, Anderson DG. Engineering circular RNA for potent and stable translation in eukaryotic cells. Nat Commun. 2018;9(1):2629. doi:10.1038/s41467-018-05096-x
 
-3. Gilleron J, et al. Image-based analysis of lipid nanoparticle-mediated siRNA delivery. Nat Biotechnol. 2013;31(7):638-646.
+3. Gilleron J, et al. Image-based analysis of lipid nanoparticle-mediated siRNA delivery. Nat Biotechnol. 2013;31(7):638-646. doi:10.1038/nbt.2612
 
-4. Paunovska K, et al. Quantitative analysis of nanoparticle delivery to mammalian cells in vitro. ACS Nano. 2018;12(8):7570-7580.
+4. Paunovska K, Dahlman JE, et al. Quantitative Analysis of Particle Biodistribution. ACS Nano. 2018;12(8):7580-7593. doi:10.1021/acsnano.8b02167
 
-5. Jurtz V, et al. NetMHCpan-4.0: Improved Peptide-MHC Class I Interaction Predictions. J Immunol. 2017;199(9):3280-3287.
+5. Jurtz V, Paul S, Andreatta M, et al. NetMHCpan-4.0: Improving Peptide-MHC Class I Interaction Predictions Using Encoder Decoder Neural Networks. J Immunol. 2017;199(9):3367-3375. doi:10.4049/jimmunol.1700843
 
-6. Lin Z, et al. Evolutionary-scale prediction of atomic-level protein structure with a language model. Science. 2023;379(6640):1123-1130.
+6. Lin Z, et al. Evolutionary-scale prediction of atomic-level protein structure with a language model. Science. 2023;379(6637):1123-1130. doi:10.1126/science.ade2574
 
-7. Williams RJ. Simple statistical gradient-following algorithms for connectionist reinforcement learning. Mach Learn. 1992;8(3):229-256.
+7. Williams RJ. Simple statistical gradient-following algorithms for connectionist reinforcement learning. Mach Learn. 1992;8(3):229-256. doi:10.1007/BF00992696
 
 ---
 

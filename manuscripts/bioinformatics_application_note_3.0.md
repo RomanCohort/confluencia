@@ -83,11 +83,11 @@ TorusFold lacks experimental circRNA 3D structure validation (Circ-CASP does not
 
 1. Wesselhoeft RA, Kowalski PS, Anderson DG. Engineering circular RNA for potent and stable translation in eukaryotic cells. Nat Commun. 2018;9(1):2629. doi:10.1038/s41467-018-05096-x
 
-2. Jiang YZ, Ma D, Suo C, et al. Genomic and Transcriptomic Landscape of Triple-Negative Breast Cancers: Subtypes and Treatment Strategies. Cancer Cell. 2019;35(3):428-440. doi:10.1016/j.ccell.2019.02.001
+2. Jiang YZ, Ma D, Suo C, et al. Genomic and Transcriptomic Landscape of Triple-Negative Breast Cancers: Subtypes and Treatment Strategies. Cancer Cell. 2019;35(3):428-440.e5. doi:10.1016/j.ccell.2019.02.001
 
 3. Chen YG, Chen R, Ahmad S, et al. Sensing Self and Foreign Circular RNAs by Intron Identity. Mol Cell. 2019;73(3):422-434. doi:10.1016/j.molcel.2018.12.018
 
-4. Paunovska K, Loughrey D, Dahlman JE. Quantitative analysis of nanoparticle delivery to mammalian cells in vitro. ACS Nano. 2018;12(8):7570-7580. doi:10.1021/acsnano.8b03749
+4. Paunovska K, Dahlman JE, et al. Quantitative Analysis of Particle Biodistribution. ACS Nano. 2018;12(8):7580-7593. doi:10.1021/acsnano.8b02167
 
 5. Lehmann BD, Bauer JA, Chen X, et al. Identification of human triple-negative breast cancer subtypes and preclinical models for selection of targeted therapies. J Clin Invest. 2011;121(7):2750-2767. doi:10.1172/JCI45014
 
