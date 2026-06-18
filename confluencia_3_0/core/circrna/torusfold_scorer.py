@@ -79,9 +79,25 @@ class TorusFoldScorer:
         model_path: Optional[str] = None,
         device: str = "cpu",
         config: Optional[TorusFoldConfig] = None,
+        structure_mode: str = "simple",
+        diffusion_steps: int = 100,
+        solver_samples: int = 20,
+        openmm_minimize_steps: int = 500,
+        openmm_md_steps: int = 5000,
     ):
         self.device = device
-        self.config = config or TorusFoldConfig()
+        self.structure_mode = structure_mode
+        # 如果未提供 config，根据 structure_mode 构造
+        if config is not None:
+            self.config = config
+        else:
+            self.config = TorusFoldConfig(
+                structure_mode=structure_mode,
+                n_diffusion_steps=diffusion_steps,
+                n_solver_samples=solver_samples,
+                n_minimize_steps=openmm_minimize_steps,
+                n_md_steps=openmm_md_steps,
+            )
         self._model: Optional[TorusFold] = None
         self._model_path = model_path
 
@@ -104,8 +120,23 @@ class TorusFoldScorer:
         self,
         sequence: str,
         gene_expr: Optional[Dict[str, float]] = None,
+        structure_mode: Optional[str] = None,
     ) -> TorusFoldSignals:
-        """运行 TorusFold 提取结构信号。"""
+        """运行 TorusFold 提取结构信号。
+
+        Args:
+            sequence: circRNA 序列
+            gene_expr: 基因表达字典
+            structure_mode: 可选覆盖结构模式 (simple/diffusion/physics_b/physics_ba)
+                           如为 None，使用初始化时的 self.structure_mode
+        """
+        # 如果传入了 structure_mode，临时更新 config
+        effective_mode = structure_mode or self.structure_mode
+        if effective_mode != self.config.structure_mode:
+            self.config.structure_mode = effective_mode
+            # 需要重新创建模型
+            self._model = None
+
         model = self.model
         if model is None:
             return TorusFoldSignals(available=False, method="heuristic_fallback")
@@ -199,7 +230,7 @@ class TorusFoldScorer:
                 clash_count=clash_count,
                 n_conformations=n_conformations,
                 available=True,
-                method=structure_method,
+                method=structure_method or effective_mode,
             )
 
         except Exception:

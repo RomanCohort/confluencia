@@ -5,6 +5,7 @@
 
 新增 CircRNAManager 管理 circRNA 免疫感知、结构预测、序列进化子系统。
 """
+import warnings
 from typing import Dict, Any, Optional
 from .state_schema import StateSchema
 from .events import (
@@ -379,10 +380,14 @@ class CircRNAManager(SubsystemManager):
                 except Exception:
                     pass
 
-            # TorusFold 深度学习评估（可选，需要 GPU/模型）
-            if getattr(circrna_cfg, 'enable_torusfold', False):
+            # TorusFold 结构预测（根据 structure_mode 选择）
+            # structure_mode: heuristic (不走 TorusFold), simple, diffusion, physics_b, physics_ba
+            if circrna_cfg.torusfold_required:
                 try:
-                    tf_result = self.assess_with_torusfold(self._current_sequence)
+                    tf_result = self.assess_with_torusfold(
+                        self._current_sequence,
+                        structure_mode=circrna_cfg.structure_mode,
+                    )
                     if tf_result:
                         for k, v in tf_result.items():
                             if k.startswith("crna_"):
@@ -395,21 +400,145 @@ class CircRNAManager(SubsystemManager):
         return result
 
     def assess_immunogenicity(self, sequence: str, backend: str = "heuristic") -> Dict[str, Any]:
-        """通过 Backend 架构调度免疫原性评估。"""
-        try:
-            from .circrna.immune_sensing import predict_circrna_immunogenicity, ImmuneSensingConfig
-            config = ImmuneSensingConfig()
-            result = predict_circrna_immunogenicity(sequence, config=config)
+        """通过 Backend 架构调度免疫原性评估，支持三层降级。
 
-            return {
-                "crna_immunogenicity_score": result.get("overall_score", 0.0),
-                "crna_rig_i_score": result.get("rig_i_score", 0.0),
-                "crna_tlr_score": result.get("tlr_score", 0.0),
-                "crna_pkr_score": result.get("pkr_score", 0.0),
-                "crna_ips_score": result.get("ips", 0.0),
-            }
-        except Exception:
-            return {}
+        降级链: ESM2 (Tier 0) → ViennaRNA (Tier 1) → Heuristic (Tier 2)
+
+        Args:
+            sequence: circRNA 序列
+            backend: 请求的后端层级 ("esm2", "vienna", "heuristic")
+
+        Returns:
+            Dict 包含 crna_immunogenicity_score, crna_rig_i_score 等
+        """
+        actual_backend = backend
+        backend_warning = None
+
+        # === Tier 0: ESM2 深度学习 ===
+        if backend == "esm2":
+            esm2_available = self._check_esm2_available()
+            if esm2_available:
+                try:
+                    return self._assess_immunogenicity_esm2(sequence)
+                except Exception as e:
+                    backend_warning = (
+                        f"ESM2 backend failed: {e}. "
+                        f"Falling back to ViennaRNA. "
+                        f"Ensure GPU memory is sufficient and ESM2 weights are downloaded."
+                    )
+                    actual_backend = "vienna"
+                    warnings.warn(backend_warning, UserWarning, stacklevel=2)
+            else:
+                backend_warning = (
+                    "ESM2 backend unavailable: requires GPU and ESM2 model weights. "
+                    "Falling back to ViennaRNA (Tier 1). "
+                    "To enable ESM2: pip install fair-esm and ensure CUDA GPU is available."
+                )
+                actual_backend = "vienna"
+                warnings.warn(backend_warning, UserWarning, stacklevel=2)
+
+        # === Tier 1: ViennaRNA 结构辅助 ===
+        if actual_backend == "vienna":
+            vienna_available = self._check_viennarna_available()
+            if vienna_available:
+                try:
+                    return self._assess_immunogenicity_vienna(sequence)
+                except Exception as e:
+                    backend_warning = (
+                        f"ViennaRNA backend failed: {e}. "
+                        f"Falling back to heuristic (Tier 2). "
+                        f"Check ViennaRNA installation."
+                    )
+                    actual_backend = "heuristic"
+                    warnings.warn(backend_warning, UserWarning, stacklevel=2)
+            else:
+                backend_warning = (
+                    "ViennaRNA backend unavailable: RNAfold not installed. "
+                    "Falling back to heuristic (Tier 2). "
+                    "To enable ViennaRNA: conda install -c bioconda viennarna"
+                )
+                actual_backend = "heuristic"
+                warnings.warn(backend_warning, UserWarning, stacklevel=2)
+
+        # === Tier 2: Heuristic 纯启发式 ===
+        return self._assess_immunogenicity_heuristic(sequence, actual_backend=actual_backend)
+
+    def _check_esm2_available(self) -> bool:
+        """检查 ESM2 模型是否可用 (GPU + 模型权重)."""
+        if not _has_cuda():
+            return False
+        try:
+            import esm
+            # 检查是否能加载模型（不实际加载，避免内存开销）
+            return True
+        except ImportError:
+            return False
+
+    def _check_viennarna_available(self) -> bool:
+        """检查 ViennaRNA 是否已安装."""
+        try:
+            import subprocess
+            result = subprocess.run(
+                ["RNAfold", "--version"],
+                capture_output=True,
+                text=True,
+                timeout=5,
+            )
+            return result.returncode == 0
+        except (subprocess.TimeoutExpired, FileNotFoundError):
+            return False
+
+    def _assess_immunogenicity_esm2(self, sequence: str) -> Dict[str, Any]:
+        """ESM2 深度学习后端免疫原性评估 (Tier 0)."""
+        # TODO: 当 ESM2-RNA 权重可用时实现
+        # 当前 ESM2 主要是蛋白质模型，RNA 特化版本需要额外训练
+        raise NotImplementedError("ESM2 RNA immunogenicity model not yet trained")
+
+    def _assess_immunogenicity_vienna(self, sequence: str) -> Dict[str, Any]:
+        """ViennaRNA 结构辅助后端免疫原性评估 (Tier 1)."""
+        from .circrna.immune_sensing import predict_circrna_immunogenicity, ImmuneSensingConfig
+        from .circrna.structure_prediction import StructurePredictor
+
+        # 先用 ViennaRNA 预测结构
+        predictor = StructurePredictor()
+        structure_features = predictor.predict(sequence)
+
+        # 基于结构特征调整免疫评分
+        config = ImmuneSensingConfig()
+        result = predict_circrna_immunogenicity(sequence, config=config)
+
+        # ViennaRNA 提供的 dsRNA 区域信息可修正 PKR 评分
+        dsrna_fraction = getattr(structure_features, 'dsrna_fraction', 0.0)
+        if dsrna_fraction > 0.25:  # 高 dsRNA 比例增强 PKR 激活风险
+            pkr_score = result.get("pkr_score", 0.0)
+            result["pkr_score"] = min(1.0, pkr_score * 1.2)
+
+        return {
+            "crna_backend_tier": "vienna",
+            "crna_backend_method": "viennarna_structure_assisted",
+            "crna_immunogenicity_score": result.get("overall_score", 0.0),
+            "crna_rig_i_score": result.get("rig_i_score", 0.0),
+            "crna_tlr_score": result.get("tlr_score", 0.0),
+            "crna_pkr_score": result.get("pkr_score", 0.0),
+            "crna_ips_score": result.get("ips", 0.0),
+            "crna_dsrna_fraction": dsrna_fraction,
+        }
+
+    def _assess_immunogenicity_heuristic(self, sequence: str, actual_backend: str = "heuristic") -> Dict[str, Any]:
+        """纯启发式后端免疫原性评估 (Tier 2)."""
+        from .circrna.immune_sensing import predict_circrna_immunogenicity, ImmuneSensingConfig
+        config = ImmuneSensingConfig()
+        result = predict_circrna_immunogenicity(sequence, config=config)
+
+        return {
+            "crna_backend_tier": actual_backend,  # 可能是 "heuristic" 或降级后的值
+            "crna_backend_method": "heuristic_motif_based",
+            "crna_immunogenicity_score": result.get("overall_score", 0.0),
+            "crna_rig_i_score": result.get("rig_i_score", 0.0),
+            "crna_tlr_score": result.get("tlr_score", 0.0),
+            "crna_pkr_score": result.get("pkr_score", 0.0),
+            "crna_ips_score": result.get("ips", 0.0),
+        }
 
     def predict_structure(self, sequence: str) -> Dict[str, Any]:
         """调度结构预测（ViennaRNA 或 fallback）。"""
@@ -424,21 +553,36 @@ class CircRNAManager(SubsystemManager):
         except Exception:
             return {"crna_structure_method": "fallback", "crna_mfe_kcal": 0.0}
 
-    def assess_with_torusfold(self, sequence: str) -> Dict[str, Any]:
+    def assess_with_torusfold(self, sequence: str, structure_mode: str = "simple") -> Dict[str, Any]:
         """运行 TorusFold 深度学习评估，提取结构信号并修正免疫评分。
+
+        根据 structure_mode 选择不同的结构预测模块:
+          - "simple": SimpleStructureHead (MDS 快速推断)
+          - "diffusion": CircDiffusionStructure (AF3 风格扩散)
+          - "physics_b": PhysicsStructureHead (几何约束求解器，零训练)
+          - "physics_ba": PhysicsStructureHead + OpenMM MD 精修
 
         返回的 crna_* 键会自动写入状态。
         """
+        circrna_cfg = getattr(self.agent.config, 'circrna', None)
+
         if self._torusfold_scorer is None:
             try:
                 from .circrna.torusfold_scorer import TorusFoldScorer
                 device = "cuda" if _has_cuda() else "cpu"
-                self._torusfold_scorer = TorusFoldScorer(device=device)
+                self._torusfold_scorer = TorusFoldScorer(
+                    device=device,
+                    structure_mode=structure_mode,
+                    diffusion_steps=getattr(circrna_cfg, 'diffusion_steps', 100) if circrna_cfg else 100,
+                    solver_samples=getattr(circrna_cfg, 'solver_samples', 20) if circrna_cfg else 20,
+                    openmm_minimize_steps=getattr(circrna_cfg, 'openmm_minimize_steps', 500) if circrna_cfg else 500,
+                    openmm_md_steps=getattr(circrna_cfg, 'openmm_md_steps', 5000) if circrna_cfg else 5000,
+                )
             except Exception:
                 return {}
 
         try:
-            signals = self._torusfold_scorer.extract_signals(sequence)
+            signals = self._torusfold_scorer.extract_signals(sequence, structure_mode=structure_mode)
             if not signals.available:
                 return {"crna_torusfold_method": "unavailable"}
 
@@ -455,7 +599,7 @@ class CircRNAManager(SubsystemManager):
             )
 
             result = {
-                "crna_torusfold_method": "torusfold_dl",
+                "crna_torusfold_method": structure_mode,
                 "crna_closure_score": signals.closure_score,
                 "crna_bsj_stability": signals.bsj_stability,
                 "crna_dsRNA_fraction_dl": signals.dsRNA_fraction,
