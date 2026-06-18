@@ -122,7 +122,15 @@ class ConfluenciaConfig:
 
 @dataclass
 class CircRNAConfig:
-    """circRNA 子系统参数"""
+    """circRNA 子系统参数
+
+    structure_mode 选项：
+      - "heuristic"  : 不用 TorusFold，走原有 Backend 三层降级 (默认)
+      - "simple"     : TorusFold SimpleStructureHead (MDS 快速推断)
+      - "diffusion"  : TorusFold CircDiffusionStructure (AF3 风格扩散)
+      - "physics_b"  : 几何约束求解器 (零训练，纯几何)
+      - "physics_ba" : 几何约束 + OpenMM MD 精修
+    """
     enabled: bool = True                          # 是否启用circRNA子系统
     immunogenicity_backend: str = "heuristic"     # heuristic/vienna/esm2
     mhc_backend: str = "local"                    # local/netmhcpan
@@ -130,7 +138,16 @@ class CircRNAConfig:
     pk_backend: str = "rnactm"                    # rnactm（内化）/2.0-bridge/fallback
     enable_structure_prediction: bool = True      # 启用ViennaRNA结构预测
     enable_folding_kinetics: bool = False         # 启用折叠动力学
-    enable_torusfold: bool = False                # 启用TorusFold DL评估 (需GPU)
+
+    # ====== 结构预测模式 (TorusFold) ======
+    structure_mode: str = "heuristic"             # heuristic/simple/diffusion/physics_b/physics_ba
+    enable_torusfold: bool = False                # 是否启用 TorusFold (由 structure_mode 派生)
+    # TorusFold 子参数 (按需使用)
+    diffusion_steps: int = 100                    # diffusion 模式去噪步数
+    solver_samples: int = 20                      # physics_b/ba 模式采样数
+    openmm_minimize_steps: int = 500              # physics_ba 模式能量最小化步数
+    openmm_md_steps: int = 5000                   # physics_ba 模式 MD 松弛步数
+
     # 进化配置
     evolution_backend: str = "internal"           # internal/2.0-bridge
     evolution_default_rounds: int = 5             # 默认进化轮数
@@ -139,6 +156,20 @@ class CircRNAConfig:
     pk_default_horizon: int = 168                 # 默认 PK 模拟时长 (h)
     pk_default_dt: float = 1.0                    # 默认 PK 时间步长 (h)
     viennarna_timeout_ms: int = 5000              # ViennaRNA超时
+
+    def __post_init__(self):
+        """根据 structure_mode 自动同步 enable_torusfold。
+
+        这是派生字段：用户只需指定 structure_mode，无需重复设置 enable_torusfold。
+        如需手动覆盖，可在外部显式赋值。
+        """
+        if self.structure_mode != "heuristic":
+            self.enable_torusfold = True
+
+    @property
+    def torusfold_required(self) -> bool:
+        """是否需要 TorusFold (供 CircRNAManager 决策路径)。"""
+        return self.structure_mode != "heuristic"
 
 
 @dataclass

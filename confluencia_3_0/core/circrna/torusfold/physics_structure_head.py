@@ -97,6 +97,7 @@ class PhysicsStructureHead(nn.Module):
 
         # CG MD refiner (optional, only for physics_ba)
         self.cgmd_refiner = None
+        self._openmm_available = True  # 标记 OpenMM 可用性
         if structure_mode == "physics_ba":
             # Import lazily to avoid OpenMM dependency for physics_b mode
             try:
@@ -107,9 +108,31 @@ class PhysicsStructureHead(nn.Module):
                     n_md_steps=n_md_steps,
                     use_dl_bias=use_dl_bias,
                 )
+                # 检查 CGMDRefiner 内部的 OpenMM 可用性
+                if not self.cgmd_refiner.available:
+                    import warnings
+                    warnings.warn(
+                        "OpenMM not available: structure_mode 'physics_ba' requires OpenMM. "
+                        "Falling back to 'physics_b' (geometric solver only). "
+                        "To enable OpenMM refinement, install: conda install -c conda-forge openmm",
+                        UserWarning,
+                        stacklevel=2,
+                    )
+                    self.structure_mode = "physics_b"
+                    self._openmm_available = False
+                    self.cgmd_refiner = None
             except ImportError:
-                # OpenMM not available, fall back to physics_b
+                # OpenMM not available: 显式警告而非静默降级
+                import warnings
+                warnings.warn(
+                    "OpenMM not available: structure_mode 'physics_ba' requires OpenMM. "
+                    "Falling back to 'physics_b' (geometric solver only). "
+                    "To enable OpenMM refinement, install: conda install -c conda-forge openmm",
+                    UserWarning,
+                    stacklevel=2,
+                )
                 self.structure_mode = "physics_b"
+                self._openmm_available = False
 
         # Confidence head (matches SimpleStructureHead interface)
         self.confidence_head = nn.Sequential(

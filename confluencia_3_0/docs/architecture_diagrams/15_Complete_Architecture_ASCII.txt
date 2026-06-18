@@ -1,0 +1,442 @@
+
+╔══════════════════════════════════════════════════════════════════════════════════════════════════════════════════════╗
+║                        Confluencia 3.0 — 完整架构图 (ASCII 版)                                                       ║
+║                  TNBC Simulacrum + circRNA Therapy Unified Computing Platform                                        ║
+║                  EventBus-First Architecture | Offline-First Design | Graceful Degradation                            ║
+╚══════════════════════════════════════════════════════════════════════════════════════════════════════════════════════╝
+
+┌─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
+│  main.py — CLI 入口                                                                                               │
+│  --subtype BLIS|IM|M|LAR  --steps 365  --circrna-backend heuristic|vienna|esm2  --structure-mode heuristic|...      │
+└─────────────────────────────────────┬───────────────────────────────────────────────────────────────────────────────┘
+                                      │
+                                      ▼
+┌─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
+│  core/agent.py — TNBCSimulacrum (Agent 基类)                                                                      │
+│  持有所有 Manager 引用, 每日 step() 调用各 Manager.step()                                                          │
+└─────────────────────────────────────┬───────────────────────────────────────────────────────────────────────────────┘
+                                      │
+          ┌───────────────────────────┼───────────────────────────┐
+          │                           │                           │
+          ▼                           ▼                           ▼
+┌──────────────────┐    ┌──────────────────────┐    ┌──────────────────────────────────┐
+│ core/event_bus.py│    │ core/state_schema.py │    │ core/events.py                   │
+│ EventBus 事件中枢│    │ StateSchema 状态模式 │    │ 18 种事件类型定义               │
+│ publish/subscribe│    │ 200+ 状态键          │    │ CIRCRNA_IMMUNE_EVAL 等           │
+└────────┬─────────┘    │ 范围钳制 + 类型检查  │    │ MOLECULE_EVOLUTION_REQUEST 等    │
+         │              └──────────────────────┘    └──────────────────────────────────┘
+         │
+ ════════╪═══════════════════════════════════════════════════════════════════════════════
+         │         子系统管理器层 (core/subsystem_managers.py)
+ ════════╪═══════════════════════════════════════════════════════════════════════════════
+         │
+    ┌────┴──────────────┬──────────────────┬──────────────────┬──────────────────┬──────────────────┐
+    ▼                   ▼                  ▼                  ▼                  ▼                  ▼
+┌────────────┐   ┌────────────┐     ┌────────────┐     ┌────────────┐     ┌────────────┐     ┌────────────┐
+│TumorManager│   │ TMEManager │     │TreatmentMgr│     │CircRNAMgr  │     │ClinicalMgr │     │BiomarkerMgr│
+│  subsystem │   │  subsystem │     │  subsystem │     │  subsystem │     │  subsystem │     │  subsystem │
+│  ="tumor"  │   │  ="tme"    │     │="treatment"│     │ ="circrna" │     │ ="clinical"│     │="biomarker"│
+└─────┬──────┘   └─────┬──────┘     └─────┬──────┘     └─────┬──────┘     └─────┬──────┘     └─────┬──────┘
+      │                │                  │                  │                  │                  │
+
+ ═════╪════════════════╪══════════════════╪══════════════════╪══════════════════╪══════════════════╪═══════════
+      │      肿瘤子系统 │    微环境子系统  │    治疗子系统    │   circRNA子系统  │    临床子系统    │ 标志物子系统
+ ═════╪════════════════╪══════════════════╪══════════════════╪══════════════════╪══════════════════╪═══════════
+
+      │                │                  │                  │                  │                  │
+      ▼                ▼                  ▼                  ▼                  ▼                  ▼
+
+┌─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
+│                                   各子系统内部模块 (文件级)                                                         │
+├─────────────────┬───────────────────┬─────────────────┬───────────────────┬─────────────────┬───────────────────┤
+│  core/tumor/    │  core/tme/        │ core/treatment/ │  core/circrna/    │ core/clinical/  │ core/biomarker/   │
+├─────────────────┼───────────────────┼─────────────────┼───────────────────┼─────────────────┼───────────────────┤
+│                 │                   │                 │                   │                 │                   │
+│ growth_engine   │ immune_dynamics   │ chemotherapy    │ immune_sensing    │ recist          │ subtype_classifier│
+│ ┈┈┈┈┈┈┈┈┈┈┈┈┈┈ │ ┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈ │ ┈┈┈┈┈┈┈┈┈┈┈┈┈ │ ┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈ │ ┈┈┈┈┈┈┈┈┈┈┈┈┈ │ ┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈ │
+│ Gompertz 生长   │ CD8+/CD4+/Treg   │ 蒽环/紫杉烷    │ RIG-I/TLR7/8/PKR │ RECIST 1.1 评估 │ BLIS/IM/M/LAR   │
+│ Logistic 上限   │ NK细胞动力学      │ 剂量-效应曲线  │ 四通路免疫评估    │ CR/PR/SD/PD    │ 随机森林分类     │
+│ 亚型增长率      │ 细胞因子梯度      │ 周期调度       │ dsRNA检测         │ 肿瘤负荷变化    │ 基因表达特征     │
+│                 │                   │                 │                   │                 │                   │
+│ heterogeneity  │ fibroblast        │ immunotherapy   │ structure_predict │ survival        │ resistance_detect │
+│ ┈┈┈┈┈┈┈┈┈┈┈┈┈┈ │ ┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈ │ ┈┈┈┈┈┈┈┈┈┈┈┈┈ │ ┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈ │ ┈┈┈┈┈┈┈┈┈┈┈┈┈ │ ┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈ │
+│ 细胞亚群比例    │ CAF激活/分化      │ PD-1/PD-L1抑制 │ 二级结构预测      │ Kaplan-Meier   │ 获得性耐药检测   │
+│ 克隆演化        │ ECM沉积/降解      │ CTLA-4 阻断    │ ViennaRNA/MFE    │ Cox 回归        │ 药物泵过表达     │
+│ 空间异质性      │ 基质重塑信号      │ 免疫检查点     │ 配对概率矩阵      │ 中位生存期      │ 靶点突变         │
+│                 │                   │                 │                   │                 │                   │
+│ cancer_stem_   │ immune_evasion    │ targeted        │ bsj_features      │ toxicity        │ tracker           │
+│ cell            │ ┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈ │ ┈┈┈┈┈┈┈┈┈┈┈┈┈ │ ┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈ │ ┈┈┈┈┈┈┈┈┈┈┈┈┈ │ ┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈ │
+│ ┈┈┈┈┈┈┈┈┈┈┈┈┈┈ │ MHC-I 下调       │ HER2/EGFR抑制  │ BSJ位点特征提取  │ CTCAE 分级      │ 标志物时序追踪   │
+│ CSC 干细胞池    │ PD-L1 过表达      │ PI3K/AKT靶向   │ 反向剪接检测      │ 器官毒性评估    │ 动态阈值预警     │
+│ 自我更新/分化   │ 免疫排斥微环境    │ PARP 抑制      │ 环化信号评分      │ 剂量调整建议    │ 疗效关联分析     │
+│                 │                   │                 │                   │                 │                   │
+│ angiogenesis   │ immunoediting     │ radiotherapy    │ folding_kinetics  │                 │                   │
+│ ┈┈┈┈┈┈┈┈┈┈┈┈┈┈ │ ┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈ │ ┈┈┈┈┈┈┈┈┈┈┈┈┈ │ ┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈ │                 │                   │
+│ VEGF 信号驱动   │ 消除/平衡/逃逸    │ 分次照射模型   │ 折叠动力学模拟    │                 │                   │
+│ 血管成熟度      │ 肿瘤抗原编辑      │ DNA损伤修复    │ 折叠路径采样      │                 │                   │
+│ 缺氧诱导        │ 免疫雕塑过程      │ 放射敏感性     │ 动力学速率常数    │                 │                   │
+│                 │                   │                 │                   │                 │                   │
+│ metastasis      │                   │ circrna_therapy │ cotrans_folding   │                 │                   │
+│ ┈┈┈┈┈┈┈┈┈┈┈┈┈┈ │                   │ ┈┈┈┈┈┈┈┈┈┈┈┈┈ │ ┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈ │                 │                   │
+│ 转移级联模型    │                   │ circRNA 治疗桥 │ 共转录折叠模拟    │                 │                   │
+│ EMT/MET 切换    │                   │ 免疫原性调控   │ 合成中折叠        │                 │                   │
+│ 器官趋向性      │                   │ 疫苗评估       │ 环化前构象        │                 │                   │
+│                 │                   │                 │                   │                 │                   │
+│                 │                   │ drug_pipeline/  │ rna_modifications │                 │                   │
+│                 │                   │ ├drug_registry  │ ┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈ │                 │                   │
+│                 │                   │ │ 药物注册表    │ m6A/Psi/5mC 修饰 │                 │                   │
+│                 │                   │ └pkpd          │ 修饰位点到功能    │                 │                   │
+│                 │                   │   PK/PD 模型   │ 免疫原性影响      │                 │                   │
+│                 │                   │                 │                   │                 │                   │
+│                 │                   │                 │ tme_simulation    │                 │                   │
+│                 │                   │                 │ ┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈ │                 │                   │
+│                 │                   │                 │ TME 响应模拟      │                 │                   │
+│                 │                   │                 │ 免疫微环境交互    │                 │                   │
+│                 │                   │                 │                   │                 │                   │
+│                 │                   │                 │ drug_response     │                 │                   │
+│                 │                   │                 │ ┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈ │                 │                   │
+│                 │                   │                 │ 药物响应预测      │                 │                   │
+│                 │                   │                 │ 敏感性/耐药性     │                 │                   │
+│                 │                   │                 │                   │                 │                   │
+│                 │                   │                 │ clinical_predict  │                 │                   │
+│                 │                   │                 │ ┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈ │                 │                   │
+│                 │                   │                 │ 临床预后预测      │                 │                   │
+│                 │                   │                 │ 生存期估计        │                 │                   │
+│                 │                   │                 │                   │                 │                   │
+│                 │                   │                 │ adaptive_dosing   │                 │                   │
+│                 │                   │                 │ ┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈ │                 │                   │
+│                 │                   │                 │ 自适应剂量调整    │                 │                   │
+│                 │                   │                 │ PK引导给药        │                 │                   │
+│                 │                   │                 │                   │                 │                   │
+│                 │                   │                 │ multi_drug_combo  │                 │                   │
+│                 │                   │                 │ ┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈ │                 │                   │
+│                 │                   │                 │ 联合用药方案      │                 │                   │
+│                 │                   │                 │ 协同/拮抗评分     │                 │                   │
+│                 │                   │                 │                   │                 │                   │
+│                 │                   │                 │ rna_docking       │                 │                   │
+│                 │                   │                 │ ┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈ │                 │                   │
+│                 │                   │                 │ RNA-蛋白对接      │                 │                   │
+│                 │                   │                 │ RIG-I/TLR 结合    │                 │                   │
+│                 │                   │                 │                   │                 │                   │
+│                 │                   │                 │ patient_stratif   │                 │                   │
+│                 │                   │                 │ ┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈ │                 │                   │
+│                 │                   │                 │ 患者风险分层      │                 │                   │
+│                 │                   │                 │ 亚型特异性方案    │                 │                   │
+└─────────────────┴───────────────────┴─────────────────┴───┬───────────────┴─────────────────┴───────────────────┘
+                                                            │
+                                                            │ TorusFold 信号
+                                                            ▼
+┌─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
+│                          TorusFold 深度学习架构 (core/circrna/torusfold/)                                            │
+│                                                                                                                      │
+│  输入: circRNA 序列 (A,C,G,U) + 基因表达字典                                                                        │
+│         │                                                                                                            │
+│         ▼                                                                                                            │
+│  ┌─────────────────┐                                                                                                 │
+│  │ tpe.py          │  Torus Positional Encoding                                                                      │
+│  │ TPE[0] = TPE[L] │  周期性位置编码, 保证环形拓扑连续                                                               │
+│  │ sin(2πi/L)+harms │  谐波分量捕捉长程依赖                                                                          │
+│  └────────┬────────┘                                                                                                 │
+│           ▼                                                                                                          │
+│  ┌─────────────────────────┐                                                                                         │
+│  │ equivariant_backbone.py │  旋转等变骨干网络                                                                       │
+│  │ ESM2 (frozen) + TPE     │  预训练蛋白质LLM (650M) 冻结提取                                                        │
+│  │ + Torus Transformer     │  环形拓扑感知自注意力                                                                   │
+│  └────────┬────────────────┘                                                                                         │
+│           │ sequence_repr (B, L, d_model)                                                                            │
+│           ▼                                                                                                          │
+│  ┌─────────────────────────┐                                                                                         │
+│  │ Pair Initialization     │  z[i,j] = left(seq[i]) + right(seq[j])                                                  │
+│  │ + circular_distance     │  + d_circ(i,j) 环形距离特征                                                             │
+│  └────────┬────────────────┘                                                                                         │
+│           │ pair_repr (B, L, L, c_z=128)                                                                             │
+│           ▼                                                                                                          │
+│  ┌──────────────────────────────────────────────────────┐                                                            │
+│  │ triangle_update.py  —  CircPairformer 核心 (x4 blocks)│                                                           │
+│  │ ├─ TriangleMulUpdate (outgoing)  行聚合→列更新       │                                                            │
+│  │ ├─ TriangleMulUpdate (incoming)  列聚合→行更新       │                                                            │
+│  │ ├─ TriangleAttention (starting)  行方向三角注意力     │                                                            │
+│  │ ├─ TriangleAttention (ending)    列方向三角注意力     │                                                            │
+│  │ └─ PairTransition               2层MLP过渡          │                                                            │
+│  │ + 环形距离 bias: d_circ(i,j) → 注意力偏置           │                                                            │
+│  └────────┬──────────────────────────────┬─────────────┘                                                            │
+│           │ refined pair_repr            │                                                                            │
+│           ▼                              ▼                                                                            │
+│  ┌──────────────────┐      ┌──────────────────────────────────────────────────────────────────┐                       │
+│  │ irs_pair.py      │      │                    结构预测模块 (4种模式)                        │                       │
+│  │ IRS 配对预测头    │      │                                                                │                       │
+│  │ pair_probs[L,L]  │      │  ┌──────────────────┐  ┌──────────────────────┐                  │                       │
+│  │ BSJ 配对检测      │      │  │ diffusion_        │  │ physics_bridge.py   │                  │                       │
+│  │ circular_distance │      │  │ structure.py      │  │ DL→几何约束提取      │                  │                       │
+│  │ _matrix           │      │  │ AF3-style 扩散    │  │ ConstraintSet       │                  │                       │
+│  │ 环形距离矩阵      │      │  │ 闭合约束损失      │  │ bond/pair/clash     │                  │                       │
+│  └──────────────────┘      │  │ ||x₀-xₗ||²→min   │  └──────────┬───────────┘                  │                       │
+│                             │  └──────────────────┘             │                              │                       │
+│                             │                                   ▼                              │                       │
+│                             │              ┌────────────────────────────────────────────┐       │                       │
+│                             │              │ constraint_solver.py  —  Plan B (纯几何)   │       │                       │
+│                             │              │ GeometricConstraintSolver                   │       │                       │
+│                             │              │ 多构象采样 + 闭环约束 + 碰撞检测            │       │                       │
+│                             │              └──────────────┬─────────────────────────────┘       │                       │
+│                             │                             │                                    │                       │
+│                             │              ┌──────────────┴─────────────────────────────┐       │                       │
+│                             │              │ cgmd_refiner.py  —  Plan A (OpenMM)        │       │                       │
+│                             │              │ CGMDRefiner: 能量最小化 + MD 弛豫          │       │                       │
+│                             │              │ DL bias 注入力场                            │       │                       │
+│                             │              └──────────────┬─────────────────────────────┘       │                       │
+│                             │                             │                                    │                       │
+│                             │              ┌──────────────┴─────────────────────────────┐       │                       │
+│                             │              │ structure_validator.py                      │       │                       │
+│                             │              │ StructureValidator + ValidationMetrics      │       │                       │
+│                             │              │ closure_distance, bond_rmsd, clash_count   │       │                       │
+│                             │              │ energy_score, stability_score               │       │                       │
+│                             │              └────────────────────────────────────────────┘       │                       │
+│                             └──────────────────────────────────────────────────────────────────┘                       │
+│                                                                                                                      │
+│  torusfold.py — 主模型入口, 统一调度以上所有模块                                                                    │
+│  TorusFoldConfig: structure_mode = simple | diffusion | physics_b | physics_ba                                       │
+│                                                                                                                      │
+│  多任务头:                                                                                                           │
+│  ├─ Composite Score (8 维): 稳定性/翻译/免疫/递送等综合评分                                                          │
+│  ├─ Report Card (4 维): 安全性/有效性/可制造性/可递送性                                                              │
+│  ├─ Drug Response (3 维): 敏感性/耐药性/协同性                                                                      │
+│  ├─ Translation Efficiency Head: IRES 活性 + 翻译效率                                                               │
+│  ├─ Circ Stability Head: 环稳定性评分                                                                               │
+│  └─ Immune Pathway Heads: RIG-I / TLR / PKR 三通路独立预测                                                          │
+└──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
+
+┌──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
+│  torusfold_scorer.py — TorusFold 信号 → 四维目标向量桥接                                                            │
+│                                                                                                                     │
+│  TorusFoldSignals:                                                                                                  │
+│  ├─ closure_score, bsj_stability, bsj_pair_count                                                                   │
+│  ├─ dsRNA_fraction, mean_pair_prob, long_range_pair_fraction                                                       │
+│  ├─ translation_efficiency, circ_stability                                                                         │
+│  ├─ immune_rig_i, immune_tlr, immune_pkr                                                                           │
+│  └─ energy_score, bond_rmsd, pair_satisfaction, clash_count                                                        │
+│                                                                                                                     │
+│  compute_objectives() → [stability, translation, immune_evasion, delivery]                                         │
+│  compute_immune_override() → DL 免疫头替代启发式评分                                                               │
+│  quick_score() → 一步完成 TorusFold 增强评分                                                                       │
+└──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
+
+┌──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
+│  Backend 三层降级架构 (core/backend_architecture.py + core/external_backends.py)                                    │
+│                                                                                                                     │
+│  ┌──────────────────┐    不可用    ┌──────────────────┐    不可用    ┌──────────────────┐                            │
+│  │   Tier 0: ESM2   │ ──────────→ │  Tier 1: ViennaRNA│ ──────────→ │ Tier 2: Heuristic │                            │
+│  │  (最高精度)       │             │  (中等精度)       │             │  (保底降级)        │                            │
+│  │  650M 参数 LLM   │             │  热力学折叠算法   │             │  GC含量+IRES基序  │                            │
+│  │  需 GPU + 在线   │             │  本地 CPU 运行    │             │  零依赖纯Python   │                            │
+│  └──────────────────┘             └──────────────────┘             └──────────────────┘                            │
+│                                                                                                                     │
+│  core/encoder/ ─ 模型加载层                                                                                         │
+│  ├─ model.py      Transformer 编码器模型                                                                            │
+│  ├─ tokenizer.py  RNA 序列分词器 (A/C/G/U 字母表)                                                                  │
+│  ├─ adapter.py    外部模型适配器 (ESM2 接口)                                                                        │
+│  ├─ config.py     编码器配置                                                                                        │
+│  └─ train.py      编码器训练脚本                                                                                    │
+└──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
+
+┌──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
+│  PK/PD 模块 (core/pk/)                                                                                             │
+│                                                                                                                     │
+│  rnactm.py — 六室 circRNA 药代动力学模型                                                                            │
+│  ┌─────────┐  k_ab   ┌─────────┐  k_dt   ┌──────────┐                                                             │
+│  │  Depot  │ ──────→ │  Blood  │ ──────→ │  Tissue  │                                                             │
+│  │ 给药部位 │         │ 血液循环 │         │ 组织分布  │                                                             │
+│  └─────────┘         └────┬────┘         └──────────┘                                                             │
+│                           │ k_be                                                                                     │
+│                           ▼                                                                                         │
+│                    ┌──────────┐  k_ec   ┌───────────┐  k_cp   ┌───────────┐                                       │
+│                    │ Endosome │ ──────→ │ Cytoplasm  │ ──────→ │  Protein  │                                       │
+│                    │  内体    │          │  细胞质    │         │ 表达蛋白   │                                       │
+│                    └──────────┘          └───────────┘         └───────────┘                                       │
+│                                                                                                                     │
+│  Output: AUC (药效面积), Cmax (峰浓度), t½ (半衰期), 峰蛋白量                                                       │
+│  infer_rna_ctm_params(): 从序列特征推断PK参数                                                                       │
+│  simulate_rna_ctm(): ODE 数值积分                                                                                   │
+│  summarize_rna_ctm_curve(): 曲线特征提取                                                                            │
+│                                                                                                                     │
+│  legacy_ctm.py — 遗留兼容层 (旧版三室模型)                                                                          │
+└──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
+
+┌──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
+│  进化优化模块 (core/evolution/)                                                                                     │
+│                                                                                                                     │
+│  cirrna_evolution.py — circRNA 序列进化                                                                              │
+│  ┌──────────────────────────────────────────────────────┐                                                           │
+│  │ REINFORCE 策略梯度 + Pareto 多目标优化               │                                                           │
+│  │                                                      │                                                           │
+│  │ 目标权重 (IPS 默认):                                 │                                                           │
+│  │   stability:       0.35  (环稳定性 + 闭合约束)       │                                                           │
+│  │   translation:     0.30  (IRES活性 + 翻译效率)       │                                                           │
+│  │   immune_evasion:  0.25  (四通路免疫逃逸)            │                                                           │
+│  │   delivery:        0.10  (长度/GC/修饰)              │                                                           │
+│  │                                                      │                                                           │
+│  │ 输出: best_sequence, best_reward, rounds_ran          │                                                           │
+│  └──────────────────────────────────────────────────────┘                                                           │
+│                                                                                                                     │
+│  molecule_evolution.py — 药物分子进化                                                                                │
+│  SMILES 字符串优化 + 反射学习 (Self-Reflection)                                                                     │
+│  输出: best_reward, rounds_ran, reflections                                                                         │
+│                                                                                                                     │
+│  actions.py — 进化动作空间 (突变/交叉/重组)                                                                         │
+│  pareto.py — Pareto 前沿计算 + 拥挤距离排序                                                                        │
+└──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
+
+┌──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
+│  Confluencia 桥接层 (core/confluencia/) — circRNA ↔ TNBC Simulacrum 双向耦合                                        │
+│                                                                                                                     │
+│  drug_bridge.py     circRNA 治疗药物 ↔ 化疗方案协同/拮抗检测                                                        │
+│  epitope_bridge.py  circRNA 疫苗抗原表位 → TME 免疫激活桥接                                                         │
+│  pk_bridge.py       RNACTM 药代曲线 → TME 药物浓度场耦合                                                            │
+│  joint_bridge.py    联合桥接: 多通路信号汇总 + 综合响应预测                                                          │
+└──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
+
+┌──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
+│  Pipeline 模块 (core/pipeline/)                                                                                     │
+│                                                                                                                     │
+│  circrna_pipeline.py — circRNA 设计全流程管道                                                                       │
+│  序列输入 → 免疫评估 → 结构预测 → PK模拟 → 序列进化 → 疫苗评估 → 临床预测                                          │
+└──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
+
+┌──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
+│  Experiment 模块 (experiments/)                                                                                     │
+│                                                                                                                     │
+│  experiment_circrna_therapy.py        circRNA 治疗方案评估实验                                                       │
+│  experiment_confluencia_pkpd.py       PK/PD 桥接验证实验                                                            │
+│  experiment_biomarker_stratified.py   分层分析实验 (BLIS/IM/M/LAR)                                                  │
+│  experiment_chemo_response.py         化疗响应预测实验                                                              │
+│  experiment_akt_pi3k.py               AKT/PI3K 通路靶向实验                                                         │
+│  experiment_ar_lar.py                 AR/LAR 亚型靶向实验                                                           │
+│  experiment_combination_chemo_immuno.py  联合化疗+免疫实验                                                          │
+│  experiment_combination_screening.py  联合方案筛选实验                                                              │
+│                                                                                                                     │
+│  experiment/ (高级封装)                                                                                             │
+│  ├─ sandbox.py                       沙盒实验环境                                                                  │
+│  ├─ clinical_trial.py                临床试验模拟                                                                  │
+│  ├─ biomarker_stratification.py      标志物分层实验                                                                │
+│  ├─ combination.py                   组合实验框架                                                                  │
+│  └─ resistance_evolution.py          耐药演化实验                                                                  │
+└──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
+
+┌──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
+│  Config 模块 (core/config.py)                                                                                       │
+│                                                                                                                     │
+│  Confluencia3Config                                                                                                 │
+│  ├─ molecular_subtype: BLIS | IM | M | LAR                                                                         │
+│  ├─ experiment.max_steps, .seed                                                                                     │
+│  ├─ circrna: CircRNAConfig                                                                                          │
+│  │   ├─ enabled: bool                                                                                               │
+│  │   ├─ immunogenicity_backend: heuristic | vienna | esm2                                                           │
+│  │   ├─ structure_mode: heuristic | simple | diffusion | physics_b | physics_ba                                     │
+│  │   ├─ enable_structure_prediction: bool                                                                           │
+│  │   ├─ enable_torusfold: bool (自动由 structure_mode 决定)                                                         │
+│  │   ├─ diffusion_steps: int = 100                                                                                  │
+│  │   ├─ solver_samples: int = 20                                                                                    │
+│  │   ├─ openmm_minimize_steps: int = 500                                                                            │
+│  │   └─ openmm_md_steps: int = 5000                                                                                 │
+│  ├─ tumor: TumorConfig                                                                                              │
+│  ├─ tme: TMEConfig                                                                                                  │
+│  ├─ treatment: TreatmentConfig                                                                                      │
+│  ├─ clinical: ClinicalConfig                                                                                        │
+│  └─ biomarker: BiomarkerConfig                                                                                      │
+└──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
+
+┌──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
+│  Tests (tests/)                                                                                                     │
+│                                                                                                                     │
+│  test_circrna_manager.py     CircRNAManager 单元测试 (免疫评估/结构预测/事件处理)                                    │
+│  test_rnactm.py              RNACTM 六室 PK 模型单元测试                                                            │
+│  test_molecule_evolution.py  分子进化单元测试                                                                       │
+└──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
+
+
+ ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════════
+                                              数据流总览
+ ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════════
+
+ 用户输入 (CLI)
+     │
+     ▼
+ main.py → Confluencia3Config → TNBCSimulacrum.__init__()
+     │
+     ├── 初始化 EventBus (event_bus.py)
+     ├── 初始化 StateSchema (state_schema.py)
+     ├── 初始化 6 个 Manager (subsystem_managers.py)
+     │   ├── TumorManager → growth_engine, heterogeneity, csc, angiogenesis, metastasis
+     │   ├── TMEManager → immune_dynamics, fibroblast, immune_evasion, immunoediting
+     │   ├── TreatmentManager → chemotherapy, immunotherapy, targeted, radiotherapy, circrna_therapy
+     │   ├── CircRNAManager → immune_sensing, structure_prediction, torusfold_scorer, rnactm, evolution
+     │   ├── ClinicalManager → recist, survival, toxicity
+     │   └── BiomarkerManager → subtype_classifier, resistance_detector, tracker
+     │
+     └── 每日循环:
+         │
+         ├── TumorManager.step()
+         │   ├── growth_engine.step() → 更新 tumor_volume, growth_rate
+         │   ├── heterogeneity.step() → 更新 clone_frequencies
+         │   ├── csc_pool.step() → 更新 csc_fraction
+         │   ├── angiogenesis.step() → 更新 vessel_density
+         │   └── metastasis_engine.step() → 更新 metastatic_sites
+         │
+         ├── TMEManager.step()
+         │   ├── immune.step() → 更新 cd8_count, treg_ratio, nk_activity
+         │   ├── fibroblast.step() → 更新 caf_activation, ecm_density
+         │   ├── evasion.step() → 更新 pd_l1_expression, mhc_i_downreg
+         │   └── immunoediting.step() → 更新 editing_phase
+         │
+         ├── TreatmentManager.step()
+         │   ├── chemotherapy.step() → 更新 chemo_response, dna_damage
+         │   ├── immunotherapy.step() → 更新 checkpoint_inhibition
+         │   ├── targeted.step() → 更新 pathway_inhibition
+         │   ├── radiotherapy.step() → 更新 radiation_damage
+         │   └── circrna_therapy.step() → 更新 circrna_effect
+         │
+         ├── CircRNAManager.step()
+         │   ├── assess_immunogenicity() ──→ immune_sensing.py ──→ Backend 三层降级
+         │   │   └── esm2 ──→ vienna ──→ heuristic
+         │   ├── predict_structure() ──→ structure_prediction.py ──→ ViennaRNA MFE
+         │   ├── assess_with_torusfold() ──→ torusfold_scorer.py ──→ TorusFold
+         │   │   ├── extract_signals() → tpe → equivariant_backbone → CircPairformer → IRS Pair → Structure Head
+         │   │   ├── compute_objectives() → [stability, translation, immune_evasion, delivery]
+         │   │   └── compute_immune_override() → DL 免疫头覆盖
+         │   └── simulate_pk() ──→ rnactm.py ──→ 六室 ODE → AUC, Cmax, t½
+         │
+         ├── ClinicalManager.step()
+         │   ├── recist.evaluate() → CR/PR/SD/PD
+         │   ├── survival_model.step() → 生存概率
+         │   └── toxicity_grader.step() → CTCAE 分级
+         │
+         └── BiomarkerManager.step()
+             ├── biomarker_tracker.step() → 标志物时序
+             └── subtype_classifier.step() → 亚型评分
+
+ ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════════
+                                             EventBus 事件类型
+ ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════════
+
+ CIRCRNA_IMMUNE_EVAL           circRNA 免疫原性评估请求
+ CIRCRNA_STRUCTURE_PREDICT     circRNA 结构预测请求
+ CIRCRNA_SEQUENCE_EVOLVE       circRNA 序列进化请求
+ CIRCRNA_VACCINE_ASSESS        circRNA 疫苗评估请求
+ CIRCRNA_FOLDING_KINETICS      circRNA 折叠动力学请求
+ CIRCRNA_DRUG_RESPONSE         circRNA 药物响应请求
+ CIRCRNA_PK_SIMULATE           circRNA PK 模拟请求
+ MOLECULE_EVOLUTION_REQUEST    药物分子进化请求
+ (10+ 其他事件类型用于肿瘤/TME/治疗/临床模块间通信)
+
+ ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════════
+                                             统计
+ ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════════
+
+ Python 文件:     75+
+ 子系统管理器:     6
+ 事件类型:        18
+ 状态键:         200+
+ TorusFold模式:   4  (simple / diffusion / physics_b / physics_ba)
+ Backend层级:     3  (ESM2 → ViennaRNA → Heuristic)
+ PK 室数:        6  (Depot → Blood → Tissue → Endosome → Cytoplasm → Protein)
+ 免疫通路:        4  (RIG-I / TLR7 / TLR8 / PKR)
+ 进化目标维度:    4  (stability / translation / immune_evasion / delivery)
