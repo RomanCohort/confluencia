@@ -208,3 +208,7 @@ class Confluencia3Config:
     # 患者基本信息
     patient_age: int = 55                  # 患者年龄
     tumor_stage: str = "II"                # I | II | III | IV
+
+
+# Backward-compatible alias — agent.py and experiments import this name
+TNBCSimulacrumConfig = Confluencia3Config
