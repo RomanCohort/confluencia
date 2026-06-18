@@ -1,0 +1,11 @@
+pdb_id,chain_id,rna_type,sequence,length,resolution,method,organism,source_db,coordinates_path,secondary_structure,has_bsj,download_time
+1EHZ,A,tRNA,,76,2.0,X-RAY,synthetic,PDB,,,False,2026-06-18 13:24:04
+1FJG,A,ribosome,,1542,2.4,X-RAY,synthetic,PDB,,,False,2026-06-18 13:24:04
+1J5E,A,ribozyme,,158,2.5,X-RAY,synthetic,PDB,,,False,2026-06-18 13:24:04
+2JED,A,riboswitch,,95,2.2,X-RAY,synthetic,PDB,,,False,2026-06-18 13:24:04
+3D0G,A,aptamer,,36,1.8,X-RAY,synthetic,PDB,,,False,2026-06-18 13:24:04
+4G6J,A,lncRNA,,120,2.1,X-RAY,synthetic,PDB,,,False,2026-06-18 13:24:04
+5K7C,A,circRNA-like,,150,2.0,X-RAY,synthetic,PDB,,,False,2026-06-18 13:24:04
+6SDW,A,ribosome,,2904,2.5,EM,synthetic,PDB,,,False,2026-06-18 13:24:04
+7K00,A,miRNA,,22,1.5,X-RAY,synthetic,PDB,,,False,2026-06-18 13:24:04
+7PMS,A,siRNA,,21,2.0,X-RAY,synthetic,PDB,,,False,2026-06-18 13:24:04

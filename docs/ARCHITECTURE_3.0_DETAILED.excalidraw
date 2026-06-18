@@ -1,0 +1,280 @@
+{
+  "type": "excalidraw",
+  "version": 2,
+  "source": "hermes-agent",
+  "elements": [
+    {"type": "rectangle", "id": "darkbg", "x": -200, "y": -200, "width": 2400, "height": 1800, "backgroundColor": "#1a1b26", "fillStyle": "solid", "strokeColor": "transparent", "strokeWidth": 0},
+
+    {"type": "text", "id": "title", "x": 850, "y": 10, "text": "CONFLUENCIA 3.0 ARCHITECTURE", "fontSize": 32, "fontFamily": 1, "strokeColor": "#e5e5e5", "originalText": "CONFLUENCIA 3.0 ARCHITECTURE", "autoResize": true},
+    {"type": "text", "id": "subtitle", "x": 780, "y": 50, "text": "circRNA Drug Discovery x TNBC Digital Twin x Intelligent Experiment Design", "fontSize": 16, "fontFamily": 1, "strokeColor": "#a0a0a0", "originalText": "circRNA Drug Discovery x TNBC Digital Twin x Intelligent Experiment Design", "autoResize": true},
+
+    {"type": "rectangle", "id": "entry_zone", "x": 20, "y": 90, "width": 400, "height": 200, "backgroundColor": "#1e3a5f", "fillStyle": "solid", "roundness": {"type": 3}, "strokeColor": "#4a9eed", "strokeWidth": 2, "opacity": 30},
+    {"type": "text", "id": "entry_label", "x": 30, "y": 95, "text": "[1] ENTRY LAYER", "fontSize": 16, "fontFamily": 1, "strokeColor": "#e5e5e5", "originalText": "[1] ENTRY LAYER", "autoResize": true},
+
+    {"type": "rectangle", "id": "cli", "x": 40, "y": 125, "width": 110, "height": 70, "backgroundColor": "#1e3a5f", "fillStyle": "solid", "roundness": {"type": 3}, "strokeColor": "#4a9eed", "strokeWidth": 2, "boundElements": [{"id": "cli_text", "type": "text"}]},
+    {"type": "text", "id": "cli_text", "x": 45, "y": 130, "width": 100, "height": 60, "text": "CLI\nmain.py\n\n命令行入口", "fontSize": 12, "fontFamily": 1, "strokeColor": "#e5e5e5", "textAlign": "center", "verticalAlign": "middle", "containerId": "cli", "originalText": "CLI\nmain.py\n\n命令行入口", "autoResize": true},
+
+    {"type": "rectangle", "id": "studio", "x": 165, "y": 125, "width": 110, "height": 70, "backgroundColor": "#4a9eed", "fillStyle": "solid", "roundness": {"type": 3}, "strokeColor": "#4a9eed", "strokeWidth": 2, "boundElements": [{"id": "studio_text", "type": "text"}]},
+    {"type": "text", "id": "studio_text", "x": 170, "y": 130, "width": 100, "height": 60, "text": "Studio\nHome.py\n\nWeb UI入口", "fontSize": 12, "fontFamily": 1, "strokeColor": "#1a1b26", "textAlign": "center", "verticalAlign": "middle", "containerId": "studio", "originalText": "Studio\nHome.py\n\nWeb UI入口", "autoResize": true},
+
+    {"type": "rectangle", "id": "app", "x": 290, "y": 125, "width": 110, "height": 70, "backgroundColor": "#4a9eed", "fillStyle": "solid", "roundness": {"type": 3}, "strokeColor": "#4a9eed", "strokeWidth": 2, "boundElements": [{"id": "app_text", "type": "text"}]},
+    {"type": "text", "id": "app_text", "x": 295, "y": 130, "width": 100, "height": 60, "text": "Frontend\napp.py\n\n多标签页应用", "fontSize": 12, "fontFamily": 1, "strokeColor": "#1a1b26", "textAlign": "center", "verticalAlign": "middle", "containerId": "app", "originalText": "Frontend\napp.py\n\n多标签页应用", "autoResize": true},
+
+    {"type": "text", "id": "entry_desc", "x": 40, "y": 210, "text": "三种入口方式: CLI命令行 / Streamlit Studio / 多标签页应用", "fontSize": 11, "fontFamily": 1, "strokeColor": "#a0a0a0", "originalText": "三种入口方式: CLI命令行 / Streamlit Studio / 多标签页应用", "autoResize": true},
+
+    {"type": "rectangle", "id": "orch_zone", "x": 450, "y": 90, "width": 380, "height": 200, "backgroundColor": "#1e3a5f", "fillStyle": "solid", "roundness": {"type": 3}, "strokeColor": "#4a9eed", "strokeWidth": 2, "opacity": 30},
+    {"type": "text", "id": "orch_label", "x": 460, "y": 95, "text": "[2] ORCHESTRATION (core/)", "fontSize": 16, "fontFamily": 1, "strokeColor": "#e5e5e5", "originalText": "[2] ORCHESTRATION (core/)", "autoResize": true},
+
+    {"type": "rectangle", "id": "agent", "x": 470, "y": 125, "width": 160, "height": 70, "backgroundColor": "#4a9eed", "fillStyle": "solid", "roundness": {"type": 3}, "strokeColor": "#4a9eed", "strokeWidth": 2, "boundElements": [{"id": "agent_text", "type": "text"}]},
+    {"type": "text", "id": "agent_text", "x": 475, "y": 130, "width": 150, "height": 60, "text": "TNBCSimulacrum\nagent.py\n\n主编排器", "fontSize": 12, "fontFamily": 1, "strokeColor": "#1a1b26", "textAlign": "center", "verticalAlign": "middle", "containerId": "agent", "originalText": "TNBCSimulacrum\nagent.py\n\n主编排器", "autoResize": true},
+
+    {"type": "rectangle", "id": "bus", "x": 650, "y": 125, "width": 160, "height": 70, "backgroundColor": "#1e3a5f", "fillStyle": "solid", "roundness": {"type": 3}, "strokeColor": "#4a9eed", "strokeWidth": 2, "boundElements": [{"id": "bus_text", "type": "text"}]},
+    {"type": "text", "id": "bus_text", "x": 655, "y": 130, "width": 150, "height": 60, "text": "EventBus\nevent_bus.py\n\nPub/Sub解耦", "fontSize": 12, "fontFamily": 1, "strokeColor": "#e5e5e5", "textAlign": "center", "verticalAlign": "middle", "containerId": "bus", "originalText": "EventBus\nevent_bus.py\n\nPub/Sub解耦", "autoResize": true},
+
+    {"type": "rectangle", "id": "schema", "x": 470, "y": 205, "width": 150, "height": 70, "backgroundColor": "#1e3a5f", "fillStyle": "solid", "roundness": {"type": 3}, "strokeColor": "#4a9eed", "strokeWidth": 2, "boundElements": [{"id": "schema_text", "type": "text"}]},
+    {"type": "text", "id": "schema_text", "x": 475, "y": 210, "width": 140, "height": 60, "text": "StateSchema\nstate_schema.py\n\n170+状态键", "fontSize": 12, "fontFamily": 1, "strokeColor": "#e5e5e5", "textAlign": "center", "verticalAlign": "middle", "containerId": "schema", "originalText": "StateSchema\nstate_schema.py\n\n170+状态键", "autoResize": true},
+
+    {"type": "rectangle", "id": "config", "x": 640, "y": 205, "width": 90, "height": 70, "backgroundColor": "#1e3a5f", "fillStyle": "solid", "roundness": {"type": 3}, "strokeColor": "#4a9eed", "strokeWidth": 2, "boundElements": [{"id": "config_text", "type": "text"}]},
+    {"type": "text", "id": "config_text", "x": 645, "y": 210, "width": 80, "height": 60, "text": "Config\nconfig.py\n12配置", "fontSize": 11, "fontFamily": 1, "strokeColor": "#e5e5e5", "textAlign": "center", "verticalAlign": "middle", "containerId": "config", "originalText": "Config\nconfig.py\n12配置", "autoResize": true},
+
+    {"type": "rectangle", "id": "events", "x": 745, "y": 205, "width": 70, "height": 70, "backgroundColor": "#1e3a5f", "fillStyle": "solid", "roundness": {"type": 3}, "strokeColor": "#4a9eed", "strokeWidth": 2, "boundElements": [{"id": "events_text", "type": "text"}]},
+    {"type": "text", "id": "events_text", "x": 750, "y": 210, "width": 60, "height": 60, "text": "Events\n40+", "fontSize": 11, "fontFamily": 1, "strokeColor": "#e5e5e5", "textAlign": "center", "verticalAlign": "middle", "containerId": "events", "originalText": "Events\n40+", "autoResize": true},
+
+    {"type": "rectangle", "id": "mgr_zone", "x": 860, "y": 90, "width": 530, "height": 200, "backgroundColor": "#2d1b69", "fillStyle": "solid", "roundness": {"type": 3}, "strokeColor": "#8b5cf6", "strokeWidth": 2, "opacity": 30},
+    {"type": "text", "id": "mgr_label", "x": 870, "y": 95, "text": "[3] SUBSYSTEM MANAGERS (subsystem_managers.py)", "fontSize": 16, "fontFamily": 1, "strokeColor": "#e5e5e5", "originalText": "[3] SUBSYSTEM MANAGERS (subsystem_managers.py)", "autoResize": true},
+
+    {"type": "rectangle", "id": "tumor_mgr", "x": 880, "y": 125, "width": 80, "height": 55, "backgroundColor": "#ef4444", "fillStyle": "solid", "roundness": {"type": 3}, "strokeColor": "#ef4444", "strokeWidth": 2, "boundElements": [{"id": "tumor_mgr_text", "type": "text"}]},
+    {"type": "text", "id": "tumor_mgr_text", "x": 885, "y": 130, "width": 70, "height": 45, "text": "TumorMgr\n肿瘤管理", "fontSize": 11, "fontFamily": 1, "strokeColor": "#1a1b26", "textAlign": "center", "verticalAlign": "middle", "containerId": "tumor_mgr", "originalText": "TumorMgr\n肿瘤管理", "autoResize": true},
+
+    {"type": "rectangle", "id": "tme_mgr", "x": 970, "y": 125, "width": 80, "height": 55, "backgroundColor": "#22c55e", "fillStyle": "solid", "roundness": {"type": 3}, "strokeColor": "#22c55e", "strokeWidth": 2, "boundElements": [{"id": "tme_mgr_text", "type": "text"}]},
+    {"type": "text", "id": "tme_mgr_text", "x": 975, "y": 130, "width": 70, "height": 45, "text": "TMEMgr\n微环境", "fontSize": 11, "fontFamily": 1, "strokeColor": "#1a1b26", "textAlign": "center", "verticalAlign": "middle", "containerId": "tme_mgr", "originalText": "TMEMgr\n微环境", "autoResize": true},
+
+    {"type": "rectangle", "id": "rx_mgr", "x": 1060, "y": 125, "width": 80, "height": 55, "backgroundColor": "#8b5cf6", "fillStyle": "solid", "roundness": {"type": 3}, "strokeColor": "#8b5cf6", "strokeWidth": 2, "boundElements": [{"id": "rx_mgr_text", "type": "text"}]},
+    {"type": "text", "id": "rx_mgr_text", "x": 1065, "y": 130, "width": 70, "height": 45, "text": "RxMgr\n治疗管理", "fontSize": 11, "fontFamily": 1, "strokeColor": "#1a1b26", "textAlign": "center", "verticalAlign": "middle", "containerId": "rx_mgr", "originalText": "RxMgr\n治疗管理", "autoResize": true},
+
+    {"type": "rectangle", "id": "bio_mgr", "x": 1150, "y": 125, "width": 80, "height": 55, "backgroundColor": "#06b6d4", "fillStyle": "solid", "roundness": {"type": 3}, "strokeColor": "#06b6d4", "strokeWidth": 2, "boundElements": [{"id": "bio_mgr_text", "type": "text"}]},
+    {"type": "text", "id": "bio_mgr_text", "x": 1155, "y": 130, "width": 70, "height": 45, "text": "BioMgr\n生物标志", "fontSize": 11, "fontFamily": 1, "strokeColor": "#1a1b26", "textAlign": "center", "verticalAlign": "middle", "containerId": "bio_mgr", "originalText": "BioMgr\n生物标志", "autoResize": true},
+
+    {"type": "rectangle", "id": "cli_mgr", "x": 1240, "y": 125, "width": 70, "height": 55, "backgroundColor": "#06b6d4", "fillStyle": "solid", "roundness": {"type": 3}, "strokeColor": "#06b6d4", "strokeWidth": 2, "boundElements": [{"id": "cli_mgr_text", "type": "text"}]},
+    {"type": "text", "id": "cli_mgr_text", "x": 1245, "y": 130, "width": 60, "height": 45, "text": "CliMgr\n临床", "fontSize": 11, "fontFamily": 1, "strokeColor": "#1a1b26", "textAlign": "center", "verticalAlign": "middle", "containerId": "cli_mgr", "originalText": "CliMgr\n临床", "autoResize": true},
+
+    {"type": "rectangle", "id": "crna_mgr", "x": 1320, "y": 125, "width": 60, "height": 55, "backgroundColor": "#f59e0b", "fillStyle": "solid", "roundness": {"type": 3}, "strokeColor": "#f59e0b", "strokeWidth": 2, "boundElements": [{"id": "crna_mgr_text", "type": "text"}]},
+    {"type": "text", "id": "crna_mgr_text", "x": 1325, "y": 130, "width": 50, "height": 45, "text": "crna*\ncircRNA", "fontSize": 10, "fontFamily": 1, "strokeColor": "#1a1b26", "textAlign": "center", "verticalAlign": "middle", "containerId": "crna_mgr", "originalText": "crna*\ncircRNA", "autoResize": true},
+
+    {"type": "text", "id": "mgr_desc", "x": 880, "y": 195, "text": "6个管理器统一调度各子系统，通过EventBus解耦通信", "fontSize": 12, "fontFamily": 1, "strokeColor": "#a0a0a0", "originalText": "6个管理器统一调度各子系统，通过EventBus解耦通信", "autoResize": true},
+
+    {"type": "rectangle", "id": "backend", "x": 880, "y": 220, "width": 480, "height": 60, "backgroundColor": "#1e3a5f", "fillStyle": "solid", "roundness": {"type": 3}, "strokeColor": "#4a9eed", "strokeWidth": 1, "boundElements": [{"id": "backend_text", "type": "text"}]},
+    {"type": "text", "id": "backend_text", "x": 885, "y": 225, "width": 470, "height": 50, "text": "Backend架构: immunogenicity[heuristic|vienna|esm2] mhc[local|netmhcpan] pk[rnactm|external]", "fontSize": 11, "fontFamily": 1, "strokeColor": "#e5e5e5", "textAlign": "center", "verticalAlign": "middle", "containerId": "backend", "originalText": "Backend架构: immunogenicity[heuristic|vienna|esm2] mhc[local|netmhcpan] pk[rnactm|external]", "autoResize": true},
+
+    {"type": "rectangle", "id": "tumor_zone", "x": 20, "y": 320, "width": 380, "height": 280, "backgroundColor": "#5c1a1a", "fillStyle": "solid", "roundness": {"type": 3}, "strokeColor": "#ef4444", "strokeWidth": 2, "opacity": 30},
+    {"type": "text", "id": "tumor_label", "x": 30, "y": 325, "text": "[4] TUMOR SUBSYSTEM (tumor/)", "fontSize": 16, "fontFamily": 1, "strokeColor": "#e5e5e5", "originalText": "[4] TUMOR SUBSYSTEM (tumor/)", "autoResize": true},
+
+    {"type": "rectangle", "id": "growth", "x": 40, "y": 355, "width": 170, "height": 65, "backgroundColor": "#ef4444", "fillStyle": "solid", "roundness": {"type": 3}, "strokeColor": "#ef4444", "strokeWidth": 2, "boundElements": [{"id": "growth_text", "type": "text"}]},
+    {"type": "text", "id": "growth_text", "x": 45, "y": 360, "width": 160, "height": 55, "text": "GrowthEngine\ngrowth_engine.py\n\nLogistic/Gompertz生长曲线", "fontSize": 11, "fontFamily": 1, "strokeColor": "#1a1b26", "textAlign": "center", "verticalAlign": "middle", "containerId": "growth", "originalText": "GrowthEngine\ngrowth_engine.py\n\nLogistic/Gompertz生长曲线", "autoResize": true},
+
+    {"type": "rectangle", "id": "het", "x": 220, "y": 355, "width": 170, "height": 65, "backgroundColor": "#ef4444", "fillStyle": "solid", "roundness": {"type": 3}, "strokeColor": "#ef4444", "strokeWidth": 2, "boundElements": [{"id": "het_text", "type": "text"}]},
+    {"type": "text", "id": "het_text", "x": 225, "y": 360, "width": 160, "height": 55, "text": "Heterogeneity\nheterogeneity.py\n\n亚克隆演化追踪", "fontSize": 11, "fontFamily": 1, "strokeColor": "#1a1b26", "textAlign": "center", "verticalAlign": "middle", "containerId": "het", "originalText": "Heterogeneity\nheterogeneity.py\n\n亚克隆演化追踪", "autoResize": true},
+
+    {"type": "rectangle", "id": "csc", "x": 40, "y": 430, "width": 170, "height": 65, "backgroundColor": "#ef4444", "fillStyle": "solid", "roundness": {"type": 3}, "strokeColor": "#ef4444", "strokeWidth": 2, "boundElements": [{"id": "csc_text", "type": "text"}]},
+    {"type": "text", "id": "csc_text", "x": 45, "y": 435, "width": 160, "height": 55, "text": "CSC Pool\ncancer_stem_cell.py\n\nCD44+/CD24- 干细胞池", "fontSize": 11, "fontFamily": 1, "strokeColor": "#1a1b26", "textAlign": "center", "verticalAlign": "middle", "containerId": "csc", "originalText": "CSC Pool\ncancer_stem_cell.py\n\nCD44+/CD24- 干细胞池", "autoResize": true},
+
+    {"type": "rectangle", "id": "angio", "x": 220, "y": 430, "width": 170, "height": 65, "backgroundColor": "#ef4444", "fillStyle": "solid", "roundness": {"type": 3}, "strokeColor": "#ef4444", "strokeWidth": 2, "boundElements": [{"id": "angio_text", "type": "text"}]},
+    {"type": "text", "id": "angio_text", "x": 225, "y": 435, "width": 160, "height": 55, "text": "Angiogenesis\nangiogenesis.py\n\nVEGF/MVD 血管生成", "fontSize": 11, "fontFamily": 1, "strokeColor": "#1a1b26", "textAlign": "center", "verticalAlign": "middle", "containerId": "angio", "originalText": "Angiogenesis\nangiogenesis.py\n\nVEGF/MVD 血管生成", "autoResize": true},
+
+    {"type": "rectangle", "id": "met", "x": 40, "y": 505, "width": 350, "height": 65, "backgroundColor": "#ef4444", "fillStyle": "solid", "roundness": {"type": 3}, "strokeColor": "#ef4444", "strokeWidth": 2, "boundElements": [{"id": "met_text", "type": "text"}]},
+    {"type": "text", "id": "met_text", "x": 45, "y": 510, "width": 340, "height": 55, "text": "Metastasis | metastasis.py\n\nEMT/MET转换 | 器官趋向性(Lung/Brain/Bone/Liver) | 迁移动力学", "fontSize": 11, "fontFamily": 1, "strokeColor": "#1a1b26", "textAlign": "center", "verticalAlign": "middle", "containerId": "met", "originalText": "Metastasis | metastasis.py\n\nEMT/MET转换 | 器官趋向性(Lung/Brain/Bone/Liver) | 迁移动力学", "autoResize": true},
+
+    {"type": "text", "id": "tumor_keys", "x": 40, "y": 580, "text": "状态键: tum_volume, tum_growth_rate, tum_apoptosis_rate, tum_necrosis_fraction... (10 keys)", "fontSize": 10, "fontFamily": 1, "strokeColor": "#a0a0a0", "originalText": "状态键: tum_volume, tum_growth_rate, tum_apoptosis_rate, tum_necrosis_fraction... (10 keys)", "autoResize": true},
+
+    {"type": "rectangle", "id": "tme_zone", "x": 420, "y": 320, "width": 380, "height": 280, "backgroundColor": "#1a4d2e", "fillStyle": "solid", "roundness": {"type": 3}, "strokeColor": "#22c55e", "strokeWidth": 2, "opacity": 30},
+    {"type": "text", "id": "tme_label", "x": 430, "y": 325, "text": "[5] TME SUBSYSTEM (tme/)", "fontSize": 16, "fontFamily": 1, "strokeColor": "#e5e5e5", "originalText": "[5] TME SUBSYSTEM (tme/)", "autoResize": true},
+
+    {"type": "rectangle", "id": "immune", "x": 440, "y": 355, "width": 170, "height": 65, "backgroundColor": "#22c55e", "fillStyle": "solid", "roundness": {"type": 3}, "strokeColor": "#22c55e", "strokeWidth": 2, "boundElements": [{"id": "immune_text", "type": "text"}]},
+    {"type": "text", "id": "immune_text", "x": 445, "y": 360, "width": 160, "height": 55, "text": "ImmuneDynamics\nimmune_dynamics.py\n\nCD8/CD4/NK/Treg动态", "fontSize": 11, "fontFamily": 1, "strokeColor": "#1a1b26", "textAlign": "center", "verticalAlign": "middle", "containerId": "immune", "originalText": "ImmuneDynamics\nimmune_dynamics.py\n\nCD8/CD4/NK/Treg动态", "autoResize": true},
+
+    {"type": "rectangle", "id": "evasion", "x": 620, "y": 355, "width": 170, "height": 65, "backgroundColor": "#22c55e", "fillStyle": "solid", "roundness": {"type": 3}, "strokeColor": "#22c55e", "strokeWidth": 2, "boundElements": [{"id": "evasion_text", "type": "text"}]},
+    {"type": "text", "id": "evasion_text", "x": 625, "y": 360, "width": 160, "height": 55, "text": "ImmuneEvasion\nimmune_evasion.py\n\nPD-L1/MHC-I逃逸", "fontSize": 11, "fontFamily": 1, "strokeColor": "#1a1b26", "textAlign": "center", "verticalAlign": "middle", "containerId": "evasion", "originalText": "ImmuneEvasion\nimmune_evasion.py\n\nPD-L1/MHC-I逃逸", "autoResize": true},
+
+    {"type": "rectangle", "id": "edit", "x": 440, "y": 430, "width": 170, "height": 65, "backgroundColor": "#22c55e", "fillStyle": "solid", "roundness": {"type": 3}, "strokeColor": "#22c55e", "strokeWidth": 2, "boundElements": [{"id": "edit_text", "type": "text"}]},
+    {"type": "text", "id": "edit_text", "x": 445, "y": 435, "width": 160, "height": 55, "text": "Immunoediting\nimmunoediting.py\n\n消除-平衡-逃逸三阶段", "fontSize": 11, "fontFamily": 1, "strokeColor": "#1a1b26", "textAlign": "center", "verticalAlign": "middle", "containerId": "edit", "originalText": "Immunoediting\nimmunoediting.py\n\n消除-平衡-逃逸三阶段", "autoResize": true},
+
+    {"type": "rectangle", "id": "caf", "x": 620, "y": 430, "width": 170, "height": 65, "backgroundColor": "#22c55e", "fillStyle": "solid", "roundness": {"type": 3}, "strokeColor": "#22c55e", "strokeWidth": 2, "boundElements": [{"id": "caf_text", "type": "text"}]},
+    {"type": "text", "id": "caf_text", "x": 625, "y": 435, "width": 160, "height": 55, "text": "Fibroblast\nfibroblast.py\n\nCAF激活/ECM重塑", "fontSize": 11, "fontFamily": 1, "strokeColor": "#1a1b26", "textAlign": "center", "verticalAlign": "middle", "containerId": "caf", "originalText": "Fibroblast\nfibroblast.py\n\nCAF激活/ECM重塑", "autoResize": true},
+
+    {"type": "text", "id": "tme_keys", "x": 440, "y": 510, "text": "状态键: imm_cd8_count, imm_treg_ratio, evs_pd_l1_level, ied_phase...", "fontSize": 10, "fontFamily": 1, "strokeColor": "#a0a0a0", "originalText": "状态键: imm_cd8_count, imm_treg_ratio, evs_pd_l1_level, ied_phase...", "autoResize": true},
+    {"type": "text", "id": "tme_keys2", "x": 440, "y": 530, "text": "imm_*(19) + evs_*(6) + ied_*(4) + caf_*(6) = 35 keys", "fontSize": 10, "fontFamily": 1, "strokeColor": "#a0a0a0", "originalText": "imm_*(19) + evs_*(6) + ied_*(4) + caf_*(6) = 35 keys", "autoResize": true},
+
+    {"type": "rectangle", "id": "rx_zone", "x": 820, "y": 320, "width": 380, "height": 280, "backgroundColor": "#2d1b69", "fillStyle": "solid", "roundness": {"type": 3}, "strokeColor": "#8b5cf6", "strokeWidth": 2, "opacity": 30},
+    {"type": "text", "id": "rx_label", "x": 830, "y": 325, "text": "[6] TREATMENT SUBSYSTEM (treatment/)", "fontSize": 16, "fontFamily": 1, "strokeColor": "#e5e5e5", "originalText": "[6] TREATMENT SUBSYSTEM (treatment/)", "autoResize": true},
+
+    {"type": "rectangle", "id": "chemo", "x": 840, "y": 355, "width": 110, "height": 55, "backgroundColor": "#8b5cf6", "fillStyle": "solid", "roundness": {"type": 3}, "strokeColor": "#8b5cf6", "strokeWidth": 2, "boundElements": [{"id": "chemo_text", "type": "text"}]},
+    {"type": "text", "id": "chemo_text", "x": 845, "y": 360, "width": 100, "height": 45, "text": "Chemotherapy\nchemo.py\n\n细胞毒性杀伤", "fontSize": 10, "fontFamily": 1, "strokeColor": "#1a1b26", "textAlign": "center", "verticalAlign": "middle", "containerId": "chemo", "originalText": "Chemotherapy\nchemo.py\n\n细胞毒性杀伤", "autoResize": true},
+
+    {"type": "rectangle", "id": "immuno_rx", "x": 960, "y": 355, "width": 110, "height": 55, "backgroundColor": "#8b5cf6", "fillStyle": "solid", "roundness": {"type": 3}, "strokeColor": "#8b5cf6", "strokeWidth": 2, "boundElements": [{"id": "immuno_rx_text", "type": "text"}]},
+    {"type": "text", "id": "immuno_rx_text", "x": 965, "y": 360, "width": 100, "height": 45, "text": "Immunotherapy\nimmuno.py\n\nPD-1/CTLA-4阻断", "fontSize": 10, "fontFamily": 1, "strokeColor": "#1a1b26", "textAlign": "center", "verticalAlign": "middle", "containerId": "immuno_rx", "originalText": "Immunotherapy\nimmuno.py\n\nPD-1/CTLA-4阻断", "autoResize": true},
+
+    {"type": "rectangle", "id": "target", "x": 1080, "y": 355, "width": 110, "height": 55, "backgroundColor": "#8b5cf6", "fillStyle": "solid", "roundness": {"type": 3}, "strokeColor": "#8b5cf6", "strokeWidth": 2, "boundElements": [{"id": "target_text", "type": "text"}]},
+    {"type": "text", "id": "target_text", "x": 1085, "y": 360, "width": 100, "height": 45, "text": "Targeted\ntarget.py\n\nPARP/AKT/AR", "fontSize": 10, "fontFamily": 1, "strokeColor": "#1a1b26", "textAlign": "center", "verticalAlign": "middle", "containerId": "target", "originalText": "Targeted\ntarget.py\n\nPARP/AKT/AR", "autoResize": true},
+
+    {"type": "rectangle", "id": "radio", "x": 840, "y": 420, "width": 110, "height": 55, "backgroundColor": "#8b5cf6", "fillStyle": "solid", "roundness": {"type": 3}, "strokeColor": "#8b5cf6", "strokeWidth": 2, "boundElements": [{"id": "radio_text", "type": "text"}]},
+    {"type": "text", "id": "radio_text", "x": 845, "y": 425, "width": 100, "height": 45, "text": "Radiotherapy\nradio.py\n\nDNA损伤/远隔效应", "fontSize": 10, "fontFamily": 1, "strokeColor": "#1a1b26", "textAlign": "center", "verticalAlign": "middle", "containerId": "radio", "originalText": "Radiotherapy\nradio.py\n\nDNA损伤/远隔效应", "autoResize": true},
+
+    {"type": "rectangle", "id": "crna_rx", "x": 960, "y": 420, "width": 230, "height": 55, "backgroundColor": "#f59e0b", "fillStyle": "solid", "roundness": {"type": 3}, "strokeColor": "#f59e0b", "strokeWidth": 2, "boundElements": [{"id": "crna_rx_text", "type": "text"}]},
+    {"type": "text", "id": "crna_rx_text", "x": 965, "y": 425, "width": 220, "height": 45, "text": "CircRNATherapy * | circrna_rx.py\n\ncircRNA药物载体/免疫激活", "fontSize": 10, "fontFamily": 1, "strokeColor": "#1a1b26", "textAlign": "center", "verticalAlign": "middle", "containerId": "crna_rx", "originalText": "CircRNATherapy * | circrna_rx.py\n\ncircRNA药物载体/免疫激活", "autoResize": true},
+
+    {"type": "text", "id": "rx_keys", "x": 840, "y": 490, "text": "状态键: drg_concentration, drg_effect_fraction, drg_kill_rate... (12 keys)", "fontSize": 10, "fontFamily": 1, "strokeColor": "#a0a0a0", "originalText": "状态键: drg_concentration, drg_effect_fraction, drg_kill_rate... (12 keys)", "autoResize": true},
+    {"type": "text", "id": "rx_desc", "x": 840, "y": 510, "text": "支持联合治疗: 化疗+免疫 / PARP+化疗 / 放疗+免疫", "fontSize": 10, "fontFamily": 1, "strokeColor": "#a0a0a0", "originalText": "支持联合治疗: 化疗+免疫 / PARP+化疗 / 放疗+免疫", "autoResize": true},
+
+    {"type": "rectangle", "id": "crna_zone", "x": 1220, "y": 320, "width": 400, "height": 280, "backgroundColor": "#5c3d1a", "fillStyle": "solid", "roundness": {"type": 3}, "strokeColor": "#f59e0b", "strokeWidth": 2, "strokeStyle": "dashed", "opacity": 30},
+    {"type": "text", "id": "crna_label", "x": 1230, "y": 325, "text": "[7] CIRCRNA SUBSYSTEM * (circrna/)", "fontSize": 16, "fontFamily": 1, "strokeColor": "#e5e5e5", "originalText": "[7] CIRCRNA SUBSYSTEM * (circrna/)", "autoResize": true},
+
+    {"type": "rectangle", "id": "sense", "x": 1240, "y": 355, "width": 180, "height": 60, "backgroundColor": "#f59e0b", "fillStyle": "solid", "roundness": {"type": 3}, "strokeColor": "#f59e0b", "strokeWidth": 2, "boundElements": [{"id": "sense_text", "type": "text"}]},
+    {"type": "text", "id": "sense_text", "x": 1245, "y": 360, "width": 170, "height": 50, "text": "ImmuneSensing\nimmune_sensing.py\n\nRIG-I/TLR/PKR信号通路", "fontSize": 10, "fontFamily": 1, "strokeColor": "#1a1b26", "textAlign": "center", "verticalAlign": "middle", "containerId": "sense", "originalText": "ImmuneSensing\nimmune_sensing.py\n\nRIG-I/TLR/PKR信号通路", "autoResize": true},
+
+    {"type": "rectangle", "id": "struct", "x": 1430, "y": 355, "width": 180, "height": 60, "backgroundColor": "#f59e0b", "fillStyle": "solid", "roundness": {"type": 3}, "strokeColor": "#f59e0b", "strokeWidth": 2, "boundElements": [{"id": "struct_text", "type": "text"}]},
+    {"type": "text", "id": "struct_text", "x": 1435, "y": 360, "width": 170, "height": 50, "text": "StructurePred\nstructure_pred.py\n\nViennaRNA二级结构预测", "fontSize": 10, "fontFamily": 1, "strokeColor": "#1a1b26", "textAlign": "center", "verticalAlign": "middle", "containerId": "struct", "originalText": "StructurePred\nstructure_pred.py\n\nViennaRNA二级结构预测", "autoResize": true},
+
+    {"type": "rectangle", "id": "torus_scorer", "x": 1240, "y": 425, "width": 180, "height": 60, "backgroundColor": "#ec4899", "fillStyle": "solid", "roundness": {"type": 3}, "strokeColor": "#ec4899", "strokeWidth": 2, "boundElements": [{"id": "torus_scorer_text", "type": "text"}]},
+    {"type": "text", "id": "torus_scorer_text", "x": 1245, "y": 430, "width": 170, "height": 50, "text": "TorusFoldScorer\ntorusfold_scorer.py\n\n深度学习结构打分", "fontSize": 10, "fontFamily": 1, "strokeColor": "#1a1b26", "textAlign": "center", "verticalAlign": "middle", "containerId": "torus_scorer", "originalText": "TorusFoldScorer\ntorusfold_scorer.py\n\n深度学习结构打分", "autoResize": true},
+
+    {"type": "rectangle", "id": "bsj", "x": 1430, "y": 425, "width": 180, "height": 60, "backgroundColor": "#f59e0b", "fillStyle": "solid", "roundness": {"type": 3}, "strokeColor": "#f59e0b", "strokeWidth": 2, "boundElements": [{"id": "bsj_text", "type": "text"}]},
+    {"type": "text", "id": "bsj_text", "x": 1435, "y": 430, "width": 170, "height": 50, "text": "BSJFeatures\nbsj_features.py\n\n反向剪接位点特征", "fontSize": 10, "fontFamily": 1, "strokeColor": "#1a1b26", "textAlign": "center", "verticalAlign": "middle", "containerId": "bsj", "originalText": "BSJFeatures\nbsj_features.py\n\n反向剪接位点特征", "autoResize": true},
+
+    {"type": "rectangle", "id": "crna_evo", "x": 1240, "y": 495, "width": 180, "height": 60, "backgroundColor": "#22c55e", "fillStyle": "solid", "roundness": {"type": 3}, "strokeColor": "#22c55e", "strokeWidth": 2, "boundElements": [{"id": "crna_evo_text", "type": "text"}]},
+    {"type": "text", "id": "crna_evo_text", "x": 1245, "y": 500, "width": 170, "height": 50, "text": "CircRNAEvolution\ncirrna_evo.py\n\n四维目标优化", "fontSize": 10, "fontFamily": 1, "strokeColor": "#1a1b26", "textAlign": "center", "verticalAlign": "middle", "containerId": "crna_evo", "originalText": "CircRNAEvolution\ncirrna_evo.py\n\n四维目标优化", "autoResize": true},
+
+    {"type": "rectangle", "id": "drug_resp", "x": 1430, "y": 495, "width": 180, "height": 60, "backgroundColor": "#f59e0b", "fillStyle": "solid", "roundness": {"type": 3}, "strokeColor": "#f59e0b", "strokeWidth": 2, "boundElements": [{"id": "drug_resp_text", "type": "text"}]},
+    {"type": "text", "id": "drug_resp_text", "x": 1435, "y": 500, "width": 170, "height": 50, "text": "DrugResponse\ndrug_resp.py\n\nTNBC响应耦合", "fontSize": 10, "fontFamily": 1, "strokeColor": "#1a1b26", "textAlign": "center", "verticalAlign": "middle", "containerId": "drug_resp", "originalText": "DrugResponse\ndrug_resp.py\n\nTNBC响应耦合", "autoResize": true},
+
+    {"type": "text", "id": "crna_keys", "x": 1240, "y": 565, "text": "crna_*: immunogenicity_score, structure_mfe, torusfold_score... (30+ keys)", "fontSize": 10, "fontFamily": 1, "strokeColor": "#a0a0a0", "originalText": "crna_*: immunogenicity_score, structure_mfe, torusfold_score... (30+ keys)", "autoResize": true},
+
+    {"type": "rectangle", "id": "bio_zone", "x": 20, "y": 620, "width": 250, "height": 200, "backgroundColor": "#1a4d4d", "fillStyle": "solid", "roundness": {"type": 3}, "strokeColor": "#06b6d4", "strokeWidth": 2, "opacity": 30},
+    {"type": "text", "id": "bio_label", "x": 30, "y": 625, "text": "[9] BIOMARKER", "fontSize": 14, "fontFamily": 1, "strokeColor": "#e5e5e5", "originalText": "[9] BIOMARKER", "autoResize": true},
+
+    {"type": "rectangle", "id": "tracker", "x": 35, "y": 650, "width": 220, "height": 50, "backgroundColor": "#06b6d4", "fillStyle": "solid", "roundness": {"type": 3}, "strokeColor": "#06b6d4", "strokeWidth": 2, "boundElements": [{"id": "tracker_text", "type": "text"}]},
+    {"type": "text", "id": "tracker_text", "x": 40, "y": 655, "width": 210, "height": 40, "text": "BiomarkerTracker | tracker.py\nPD-L1 CPS / TIL密度动态追踪", "fontSize": 10, "fontFamily": 1, "strokeColor": "#1a1b26", "textAlign": "center", "verticalAlign": "middle", "containerId": "tracker", "originalText": "BiomarkerTracker | tracker.py\nPD-L1 CPS / TIL密度动态追踪", "autoResize": true},
+
+    {"type": "rectangle", "id": "subtype", "x": 35, "y": 710, "width": 220, "height": 50, "backgroundColor": "#06b6d4", "fillStyle": "solid", "roundness": {"type": 3}, "strokeColor": "#06b6d4", "strokeWidth": 2, "boundElements": [{"id": "subtype_text", "type": "text"}]},
+    {"type": "text", "id": "subtype_text", "x": 40, "y": 715, "width": 210, "height": 40, "text": "SubtypeClassifier | subtype.py\nBLIS / IM / M / LAR四亚型", "fontSize": 10, "fontFamily": 1, "strokeColor": "#1a1b26", "textAlign": "center", "verticalAlign": "middle", "containerId": "subtype", "originalText": "SubtypeClassifier | subtype.py\nBLIS / IM / M / LAR四亚型", "autoResize": true},
+
+    {"type": "rectangle", "id": "resist", "x": 35, "y": 770, "width": 220, "height": 40, "backgroundColor": "#06b6d4", "fillStyle": "solid", "roundness": {"type": 3}, "strokeColor": "#06b6d4", "strokeWidth": 2, "boundElements": [{"id": "resist_text", "type": "text"}]},
+    {"type": "text", "id": "resist_text", "x": 40, "y": 775, "width": 210, "height": 30, "text": "ResistanceDetector | 耐药签名", "fontSize": 10, "fontFamily": 1, "strokeColor": "#1a1b26", "textAlign": "center", "verticalAlign": "middle", "containerId": "resist", "originalText": "ResistanceDetector | 耐药签名", "autoResize": true},
+
+    {"type": "rectangle", "id": "clin_zone", "x": 290, "y": 620, "width": 250, "height": 200, "backgroundColor": "#1a4d4d", "fillStyle": "solid", "roundness": {"type": 3}, "strokeColor": "#06b6d4", "strokeWidth": 2, "opacity": 30},
+    {"type": "text", "id": "clin_label", "x": 300, "y": 625, "text": "[10] CLINICAL", "fontSize": 14, "fontFamily": 1, "strokeColor": "#e5e5e5", "originalText": "[10] CLINICAL", "autoResize": true},
+
+    {"type": "rectangle", "id": "recist", "x": 305, "y": 650, "width": 220, "height": 50, "backgroundColor": "#06b6d4", "fillStyle": "solid", "roundness": {"type": 3}, "strokeColor": "#06b6d4", "strokeWidth": 2, "boundElements": [{"id": "recist_text", "type": "text"}]},
+    {"type": "text", "id": "recist_text", "x": 310, "y": 655, "width": 210, "height": 40, "text": "RECISTTracker | recist.py\nCR / PR / SD / PD疗效评估", "fontSize": 10, "fontFamily": 1, "strokeColor": "#1a1b26", "textAlign": "center", "verticalAlign": "middle", "containerId": "recist", "originalText": "RECISTTracker | recist.py\nCR / PR / SD / PD疗效评估", "autoResize": true},
+
+    {"type": "rectangle", "id": "surv", "x": 305, "y": 710, "width": 220, "height": 50, "backgroundColor": "#06b6d4", "fillStyle": "solid", "roundness": {"type": 3}, "strokeColor": "#06b6d4", "strokeWidth": 2, "boundElements": [{"id": "surv_text", "type": "text"}]},
+    {"type": "text", "id": "surv_text", "x": 310, "y": 715, "width": 210, "height": 40, "text": "SurvivalModel | survival.py\nPFS / OS生存预测", "fontSize": 10, "fontFamily": 1, "strokeColor": "#1a1b26", "textAlign": "center", "verticalAlign": "middle", "containerId": "surv", "originalText": "SurvivalModel | survival.py\nPFS / OS生存预测", "autoResize": true},
+
+    {"type": "rectangle", "id": "tox", "x": 305, "y": 770, "width": 220, "height": 40, "backgroundColor": "#06b6d4", "fillStyle": "solid", "roundness": {"type": 3}, "strokeColor": "#06b6d4", "strokeWidth": 2, "boundElements": [{"id": "tox_text", "type": "text"}]},
+    {"type": "text", "id": "tox_text", "x": 310, "y": 775, "width": 210, "height": 30, "text": "ToxicityGrader | CTCAE 5.0分级", "fontSize": 10, "fontFamily": 1, "strokeColor": "#1a1b26", "textAlign": "center", "verticalAlign": "middle", "containerId": "tox", "originalText": "ToxicityGrader | CTCAE 5.0分级", "autoResize": true},
+
+    {"type": "rectangle", "id": "pk_zone", "x": 560, "y": 620, "width": 250, "height": 200, "backgroundColor": "#1a4d4d", "fillStyle": "solid", "roundness": {"type": 3}, "strokeColor": "#06b6d4", "strokeWidth": 2, "opacity": 30},
+    {"type": "text", "id": "pk_label", "x": 570, "y": 625, "text": "[11] PK/PD (pk/)", "fontSize": 14, "fontFamily": 1, "strokeColor": "#e5e5e5", "originalText": "[11] PK/PD (pk/)", "autoResize": true},
+
+    {"type": "rectangle", "id": "rnactm", "x": 575, "y": 650, "width": 220, "height": 80, "backgroundColor": "#06b6d4", "fillStyle": "solid", "roundness": {"type": 3}, "strokeColor": "#06b6d4", "strokeWidth": 2, "boundElements": [{"id": "rnactm_text", "type": "text"}]},
+    {"type": "text", "id": "rnactm_text", "x": 580, "y": 655, "width": 210, "height": 70, "text": "RNACTM | rnactm.py\n\ncircRNA专属PK模型\nAUC药效 / 半衰期 / 蛋白表达峰值", "fontSize": 10, "fontFamily": 1, "strokeColor": "#1a1b26", "textAlign": "center", "verticalAlign": "middle", "containerId": "rnactm", "originalText": "RNACTM | rnactm.py\n\ncircRNA专属PK模型\nAUC药效 / 半衰期 / 蛋白表达峰值", "autoResize": true},
+
+    {"type": "rectangle", "id": "enc_zone", "x": 830, "y": 620, "width": 250, "height": 200, "backgroundColor": "#1a4d4d", "fillStyle": "solid", "roundness": {"type": 3}, "strokeColor": "#06b6d4", "strokeWidth": 2, "opacity": 30},
+    {"type": "text", "id": "enc_label", "x": 840, "y": 625, "text": "[13] ENCODER (encoder/)", "fontSize": 14, "fontFamily": 1, "strokeColor": "#e5e5e5", "originalText": "[13] ENCODER (encoder/)", "autoResize": true},
+
+    {"type": "rectangle", "id": "transformer", "x": 845, "y": 650, "width": 220, "height": 80, "backgroundColor": "#06b6d4", "fillStyle": "solid", "roundness": {"type": 3}, "strokeColor": "#06b6d4", "strokeWidth": 2, "boundElements": [{"id": "transformer_text", "type": "text"}]},
+    {"type": "text", "id": "transformer_text", "x": 850, "y": 655, "width": 210, "height": 70, "text": "RNATransformer | model.py\n\nBERT-style RNA编码器\nK-mer分词 / 预训练embedding", "fontSize": 10, "fontFamily": 1, "strokeColor": "#1a1b26", "textAlign": "center", "verticalAlign": "middle", "containerId": "transformer", "originalText": "RNATransformer | model.py\n\nBERT-style RNA编码器\nK-mer分词 / 预训练embedding", "autoResize": true},
+
+    {"type": "rectangle", "id": "torus_zone", "x": 1100, "y": 620, "width": 520, "height": 200, "backgroundColor": "#ec4899", "fillStyle": "solid", "roundness": {"type": 3}, "strokeColor": "#ec4899", "strokeWidth": 2, "opacity": 30},
+    {"type": "text", "id": "torus_label", "x": 1110, "y": 625, "text": "[8] TORUSFOLD DL (torusfold/)", "fontSize": 14, "fontFamily": 1, "strokeColor": "#e5e5e5", "originalText": "[8] TORUSFOLD DL (torusfold/)", "autoResize": true},
+
+    {"type": "rectangle", "id": "tf_main", "x": 1115, "y": 650, "width": 120, "height": 70, "backgroundColor": "#ec4899", "fillStyle": "solid", "roundness": {"type": 3}, "strokeColor": "#ec4899", "strokeWidth": 2, "boundElements": [{"id": "tf_main_text", "type": "text"}]},
+    {"type": "text", "id": "tf_main_text", "x": 1120, "y": 655, "width": 110, "height": 60, "text": "TorusFold\ntorusfold.py\n\n主模块", "fontSize": 10, "fontFamily": 1, "strokeColor": "#1a1b26", "textAlign": "center", "verticalAlign": "middle", "containerId": "tf_main", "originalText": "TorusFold\ntorusfold.py\n\n主模块", "autoResize": true},
+
+    {"type": "rectangle", "id": "diff", "x": 1245, "y": 650, "width": 120, "height": 70, "backgroundColor": "#ec4899", "fillStyle": "solid", "roundness": {"type": 3}, "strokeColor": "#ec4899", "strokeWidth": 2, "boundElements": [{"id": "diff_text", "type": "text"}]},
+    {"type": "text", "id": "diff_text", "x": 1250, "y": 655, "width": 110, "height": 60, "text": "Diffusion\ndiffusion.py\n\nAF3风格扩散", "fontSize": 10, "fontFamily": 1, "strokeColor": "#1a1b26", "textAlign": "center", "verticalAlign": "middle", "containerId": "diff", "originalText": "Diffusion\ndiffusion.py\n\nAF3风格扩散", "autoResize": true},
+
+    {"type": "rectangle", "id": "equiv", "x": 1375, "y": 650, "width": 120, "height": 70, "backgroundColor": "#ec4899", "fillStyle": "solid", "roundness": {"type": 3}, "strokeColor": "#ec4899", "strokeWidth": 2, "boundElements": [{"id": "equiv_text", "type": "text"}]},
+    {"type": "text", "id": "equiv_text", "x": 1380, "y": 655, "width": 110, "height": 60, "text": "Equivariant\nequivariant.py\n\nE3等变网络", "fontSize": 10, "fontFamily": 1, "strokeColor": "#1a1b26", "textAlign": "center", "verticalAlign": "middle", "containerId": "equiv", "originalText": "Equivariant\nequivariant.py\n\nE3等变网络", "autoResize": true},
+
+    {"type": "rectangle", "id": "physics", "x": 1505, "y": 650, "width": 100, "height": 70, "backgroundColor": "#ec4899", "fillStyle": "solid", "roundness": {"type": 3}, "strokeColor": "#ec4899", "strokeWidth": 2, "boundElements": [{"id": "physics_text", "type": "text"}]},
+    {"type": "text", "id": "physics_text", "x": 1510, "y": 655, "width": 90, "height": 60, "text": "PhysicsHead\nphysics.py\n\n几何约束", "fontSize": 9, "fontFamily": 1, "strokeColor": "#1a1b26", "textAlign": "center", "verticalAlign": "middle", "containerId": "physics", "originalText": "PhysicsHead\nphysics.py\n\n几何约束", "autoResize": true},
+
+    {"type": "text", "id": "torus_modes", "x": 1115, "y": 730, "text": "5种预测模式:", "fontSize": 12, "fontFamily": 1, "strokeColor": "#e5e5e5", "originalText": "5种预测模式:", "autoResize": true},
+    {"type": "text", "id": "mode1", "x": 1115, "y": 755, "text": "heuristic - 启发式快速推断", "fontSize": 11, "fontFamily": 1, "strokeColor": "#a0a0a0", "originalText": "heuristic - 启发式快速推断", "autoResize": true},
+    {"type": "text", "id": "mode2", "x": 1115, "y": 775, "text": "simple - MDS坐标降维", "fontSize": 11, "fontFamily": 1, "strokeColor": "#a0a0a0", "originalText": "simple - MDS坐标降维", "autoResize": true},
+    {"type": "text", "id": "mode3", "x": 1115, "y": 795, "text": "diffusion - AF3风格扩散模型", "fontSize": 11, "fontFamily": 1, "strokeColor": "#a0a0a0", "originalText": "diffusion - AF3风格扩散模型", "autoResize": true},
+    {"type": "text", "id": "mode4", "x": 1310, "y": 755, "text": "physics_b - 几何约束求解", "fontSize": 11, "fontFamily": 1, "strokeColor": "#a0a0a0", "originalText": "physics_b - 几何约束求解", "autoResize": true},
+    {"type": "text", "id": "mode5", "x": 1310, "y": 775, "text": "physics_ba - 几何+OpenMM精修", "fontSize": 11, "fontFamily": 1, "strokeColor": "#a0a0a0", "originalText": "physics_ba - 几何+OpenMM精修", "autoResize": true},
+
+    {"type": "rectangle", "id": "exp_zone", "x": 20, "y": 840, "width": 900, "height": 130, "backgroundColor": "#3a3a3a", "fillStyle": "solid", "roundness": {"type": 3}, "strokeColor": "#a0a0a0", "strokeWidth": 2, "opacity": 30},
+    {"type": "text", "id": "exp_label", "x": 30, "y": 845, "text": "[14] EXPERIMENTS (experiments/)", "fontSize": 14, "fontFamily": 1, "strokeColor": "#e5e5e5", "originalText": "[14] EXPERIMENTS (experiments/)", "autoResize": true},
+
+    {"type": "rectangle", "id": "exp1", "x": 35, "y": 870, "width": 140, "height": 45, "backgroundColor": "#555555", "fillStyle": "solid", "roundness": {"type": 3}, "strokeColor": "#a0a0a0", "strokeWidth": 1, "boundElements": [{"id": "exp1_text", "type": "text"}]},
+    {"type": "text", "id": "exp1_text", "x": 40, "y": 875, "width": 130, "height": 35, "text": "experiment_akt_pi3k.py\nAKT通路抑制", "fontSize": 9, "fontFamily": 1, "strokeColor": "#e5e5e5", "textAlign": "center", "verticalAlign": "middle", "containerId": "exp1", "originalText": "experiment_akt_pi3k.py\nAKT通路抑制", "autoResize": true},
+
+    {"type": "rectangle", "id": "exp2", "x": 185, "y": 870, "width": 140, "height": 45, "backgroundColor": "#555555", "fillStyle": "solid", "roundness": {"type": 3}, "strokeColor": "#a0a0a0", "strokeWidth": 1, "boundElements": [{"id": "exp2_text", "type": "text"}]},
+    {"type": "text", "id": "exp2_text", "x": 190, "y": 875, "width": 130, "height": 35, "text": "experiment_parp_brca.py\nPARP/BRCA合成致死", "fontSize": 9, "fontFamily": 1, "strokeColor": "#e5e5e5", "textAlign": "center", "verticalAlign": "middle", "containerId": "exp2", "originalText": "experiment_parp_brca.py\nPARP/BRCA合成致死", "autoResize": true},
+
+    {"type": "rectangle", "id": "exp3", "x": 335, "y": 870, "width": 140, "height": 45, "backgroundColor": "#555555", "fillStyle": "solid", "roundness": {"type": 3}, "strokeColor": "#a0a0a0", "strokeWidth": 1, "boundElements": [{"id": "exp3_text", "type": "text"}]},
+    {"type": "text", "id": "exp3_text", "x": 340, "y": 875, "width": 130, "height": 35, "text": "experiment_circrna_therapy.py\ncircRNA治疗", "fontSize": 9, "fontFamily": 1, "strokeColor": "#e5e5e5", "textAlign": "center", "verticalAlign": "middle", "containerId": "exp3", "originalText": "experiment_circrna_therapy.py\ncircRNA治疗", "autoResize": true},
+
+    {"type": "rectangle", "id": "exp4", "x": 485, "y": 870, "width": 140, "height": 45, "backgroundColor": "#555555", "fillStyle": "solid", "roundness": {"type": 3}, "strokeColor": "#a0a0a0", "strokeWidth": 1, "boundElements": [{"id": "exp4_text", "type": "text"}]},
+    {"type": "text", "id": "exp4_text", "x": 490, "y": 875, "width": 130, "height": 35, "text": "experiment_subtype.py\n亚型对比实验", "fontSize": 9, "fontFamily": 1, "strokeColor": "#e5e5e5", "textAlign": "center", "verticalAlign": "middle", "containerId": "exp4", "originalText": "experiment_subtype.py\n亚型对比实验", "autoResize": true},
+
+    {"type": "rectangle", "id": "exp5", "x": 635, "y": 870, "width": 140, "height": 45, "backgroundColor": "#555555", "fillStyle": "solid", "roundness": {"type": 3}, "strokeColor": "#a0a0a0", "strokeWidth": 1, "boundElements": [{"id": "exp5_text", "type": "text"}]},
+    {"type": "text", "id": "exp5_text", "x": 640, "y": 875, "width": 130, "height": 35, "text": "experiment_combo_chemo.py\n化疗+免疫联合", "fontSize": 9, "fontFamily": 1, "strokeColor": "#e5e5e5", "textAlign": "center", "verticalAlign": "middle", "containerId": "exp5", "originalText": "experiment_combo_chemo.py\n化疗+免疫联合", "autoResize": true},
+
+    {"type": "rectangle", "id": "exp6", "x": 785, "y": 870, "width": 130, "height": 45, "backgroundColor": "#555555", "fillStyle": "solid", "roundness": {"type": 3}, "strokeColor": "#a0a0a0", "strokeWidth": 1, "boundElements": [{"id": "exp6_text", "type": "text"}]},
+    {"type": "text", "id": "exp6_text", "x": 790, "y": 875, "width": 120, "height": 35, "text": "+ 8 more...\n共14个实验模板", "fontSize": 9, "fontFamily": 1, "strokeColor": "#a0a0a0", "textAlign": "center", "verticalAlign": "middle", "containerId": "exp6", "originalText": "+ 8 more...\n共14个实验模板", "autoResize": true},
+
+    {"type": "text", "id": "exp_desc", "x": 35, "y": 930, "text": "实验模板覆盖: AKT/PI3K | AR/LAR | PARP/BRCA | Chemo | Immuno | Radio | circRNA | Subtype | Resistance", "fontSize": 10, "fontFamily": 1, "strokeColor": "#a0a0a0", "originalText": "实验模板覆盖: AKT/PI3K | AR/LAR | PARP/BRCA | Chemo | Immuno | Radio | circRNA | Subtype | Resistance", "autoResize": true},
+
+    {"type": "rectangle", "id": "pages_zone", "x": 940, "y": 840, "width": 680, "height": 130, "backgroundColor": "#1e3a5f", "fillStyle": "solid", "roundness": {"type": 3}, "strokeColor": "#4a9eed", "strokeWidth": 2, "opacity": 30},
+    {"type": "text", "id": "pages_label", "x": 950, "y": 845, "text": "[15] STUDIO PAGES (streamlit_app/pages/)", "fontSize": 14, "fontFamily": 1, "strokeColor": "#e5e5e5", "originalText": "[15] STUDIO PAGES (streamlit_app/pages/)", "autoResize": true},
+
+    {"type": "rectangle", "id": "page1", "x": 955, "y": 870, "width": 100, "height": 50, "backgroundColor": "#f59e0b", "fillStyle": "solid", "roundness": {"type": 3}, "strokeColor": "#f59e0b", "strokeWidth": 1, "boundElements": [{"id": "page1_text", "type": "text"}]},
+    {"type": "text", "id": "page1_text", "x": 960, "y": 875, "width": 90, "height": 40, "text": "1_CircRNA\nAnalysis\n免疫原性", "fontSize": 9, "fontFamily": 1, "strokeColor": "#1a1b26", "textAlign": "center", "verticalAlign": "middle", "containerId": "page1", "originalText": "1_CircRNA\nAnalysis\n免疫原性", "autoResize": true},
+
+    {"type": "rectangle", "id": "page2", "x": 1065, "y": 870, "width": 100, "height": 50, "backgroundColor": "#8b5cf6", "fillStyle": "solid", "roundness": {"type": 3}, "strokeColor": "#8b5cf6", "strokeWidth": 1, "boundElements": [{"id": "page2_text", "type": "text"}]},
+    {"type": "text", "id": "page2_text", "x": 1070, "y": 875, "width": 90, "height": 40, "text": "2_Drug\nPrediction\nADMET预测", "fontSize": 9, "fontFamily": 1, "strokeColor": "#1a1b26", "textAlign": "center", "verticalAlign": "middle", "containerId": "page2", "originalText": "2_Drug\nPrediction\nADMET预测", "autoResize": true},
+
+    {"type": "rectangle", "id": "page3", "x": 1175, "y": 870, "width": 100, "height": 50, "backgroundColor": "#06b6d4", "fillStyle": "solid", "roundness": {"type": 3}, "strokeColor": "#06b6d4", "strokeWidth": 1, "boundElements": [{"id": "page3_text", "type": "text"}]},
+    {"type": "text", "id": "page3_text", "x": 1180, "y": 875, "width": 90, "height": 40, "text": "3_Epitope\nScreening\nMHC表位", "fontSize": 9, "fontFamily": 1, "strokeColor": "#1a1b26", "textAlign": "center", "verticalAlign": "middle", "containerId": "page3", "originalText": "3_Epitope\nScreening\nMHC表位", "autoResize": true},
+
+    {"type": "rectangle", "id": "page4", "x": 1285, "y": 870, "width": 100, "height": 50, "backgroundColor": "#ef4444", "fillStyle": "solid", "roundness": {"type": 3}, "strokeColor": "#ef4444", "strokeWidth": 1, "boundElements": [{"id": "page4_text", "type": "text"}]},
+    {"type": "text", "id": "page4_text", "x": 1290, "y": 875, "width": 90, "height": 40, "text": "4_TNBC\nSimulator\n数字孪生", "fontSize": 9, "fontFamily": 1, "strokeColor": "#1a1b26", "textAlign": "center", "verticalAlign": "middle", "containerId": "page4", "originalText": "4_TNBC\nSimulator\n数字孪生", "autoResize": true},
+
+    {"type": "rectangle", "id": "page5", "x": 1395, "y": 870, "width": 100, "height": 50, "backgroundColor": "#1e3a5f", "fillStyle": "solid", "roundness": {"type": 3}, "strokeColor": "#4a9eed", "strokeWidth": 1, "boundElements": [{"id": "page5_text", "type": "text"}]},
+    {"type": "text", "id": "page5_text", "x": 1400, "y": 875, "width": 90, "height": 40, "text": "5_Report\nExport\nHTML报告", "fontSize": 9, "fontFamily": 1, "strokeColor": "#e5e5e5", "textAlign": "center", "verticalAlign": "middle", "containerId": "page5", "originalText": "5_Report\nExport\nHTML报告", "autoResize": true},
+
+    {"type": "rectangle", "id": "page6", "x": 1505, "y": 870, "width": 100, "height": 50, "backgroundColor": "#8b5cf6", "fillStyle": "solid", "roundness": {"type": 3}, "strokeColor": "#8b5cf6", "strokeWidth": 1, "boundElements": [{"id": "page6_text", "type": "text"}]},
+    {"type": "text", "id": "page6_text", "x": 1510, "y": 875, "width": 90, "height": 40, "text": "6_Joint\nAnalysis\n联合分析", "fontSize": 9, "fontFamily": 1, "strokeColor": "#1a1b26", "textAlign": "center", "verticalAlign": "middle", "containerId": "page6", "originalText": "6_Joint\nAnalysis\n联合分析", "autoResize": true},
+
+    {"type": "text", "id": "pages_desc", "x": 955, "y": 930, "text": "无代码Web界面: 粘贴序列 -> 一键分析 -> 导出JSON/HTML报告", "fontSize": 10, "fontFamily": 1, "strokeColor": "#a0a0a0", "originalText": "无代码Web界面: 粘贴序列 -> 一键分析 -> 导出JSON/HTML报告", "autoResize": true},
+
+    {"type": "rectangle", "id": "ext_zone", "x": 1100, "y": 990, "width": 520, "height": 80, "backgroundColor": "#3a3a3a", "fillStyle": "solid", "roundness": {"type": 3}, "strokeColor": "#a0a0a0", "strokeWidth": 2, "opacity": 30},
+    {"type": "text", "id": "ext_label", "x": 1110, "y": 995, "text": "[16] EXTERNAL INTEGRATION", "fontSize": 14, "fontFamily": 1, "strokeColor": "#e5e5e5", "originalText": "[16] EXTERNAL INTEGRATION", "autoResize": true},
+
+    {"type": "rectangle", "id": "vienna", "x": 1115, "y": 1015, "width": 120, "height": 45, "backgroundColor": "#555555", "fillStyle": "solid", "roundness": {"type": 3}, "strokeColor": "#a0a0a0", "strokeWidth": 1, "boundElements": [{"id": "vienna_text", "type": "text"}]},
+    {"type": "text", "id": "vienna_text", "x": 1120, "y": 1020, "width": 110, "height": 35, "text": "ViennaRNA\n结构预测 ~150ms", "fontSize": 9, "fontFamily": 1, "strokeColor": "#e5e5e5", "textAlign": "center", "verticalAlign": "middle", "containerId": "vienna", "originalText": "ViennaRNA\n结构预测 ~150ms", "autoResize": true},
+
+    {"type": "rectangle", "id": "esm", "x": 1245, "y": 1015, "width": 120, "height": 45, "backgroundColor": "#555555", "fillStyle": "solid", "roundness": {"type": 3}, "strokeColor": "#a0a0a0", "strokeWidth": 1, "boundElements": [{"id": "esm_text", "type": "text"}]},
+    {"type": "text", "id": "esm_text", "x": 1250, "y": 1020, "width": 110, "height": 35, "text": "ESM-2\n蛋白LLM 2-5s GPU", "fontSize": 9, "fontFamily": 1, "strokeColor": "#e5e5e5", "textAlign": "center", "verticalAlign": "middle", "containerId": "esm", "originalText": "ESM-2\n蛋白LLM 2-5s GPU", "autoResize": true},
+
+    {"type": "rectangle", "id": "netmhc", "x": 1375, "y": 1015, "width": 120, "height": 45, "backgroundColor": "#555555", "fillStyle": "solid", "roundness": {"type": 3}, "strokeColor": "#a0a0a0", "strokeWidth": 1, "boundElements": [{"id": "netmhc_text", "type": "text"}]},
+    {"type": "text", "id": "netmhc_text", "x": 1380, "y": 1020, "width": 110, "height": 35, "text": "NetMHCpan\nMHC结合 AUC=0.92", "fontSize": 9, "fontFamily": 1, "strokeColor": "#e5e5e5", "textAlign": "center", "verticalAlign": "middle", "containerId": "netmhc", "originalText": "NetMHCpan\nMHC结合 AUC=0.92", "autoResize": true},
+
+    {"type": "rectangle", "id": "openmm", "x": 1505, "y": 1015, "width": 100, "height": 45, "backgroundColor": "#555555", "fillStyle": "solid", "roundness": {"type": 3}, "strokeColor": "#a0a0a0", "strokeWidth": 1, "boundElements": [{"id": "openmm_text", "type": "text"}]},
+    {"type": "text", "id": "openmm_text", "x": 1510, "y": 1020, "width": 90, "height": 35, "text": "OpenMM\nMD模拟", "fontSize": 9, "fontFamily": 1, "strokeColor": "#e5e5e5", "textAlign": "center", "verticalAlign": "middle", "containerId": "openmm", "originalText": "OpenMM\nMD模拟", "autoResize": true},
+
+    {"type": "text", "id": "stats", "x": 20, "y": 990, "text": "状态键统计:", "fontSize": 12, "fontFamily": 1, "strokeColor": "#e5e5e5", "originalText": "状态键统计:", "autoResize": true},
+    {"type": "text", "id": "stats_detail", "x": 20, "y": 1015, "text": "tum_*(10) + sub_*(8) + het_*(5) + csc_*(6) + vasc_*(6) + met_*(9) + imm_*(19) + evs_*(6) + ied_*(4) + caf_*(6) + drg_*(12) + bio_*(9) + cli_*(14) + crna_*(30+)", "fontSize": 10, "fontFamily": 1, "strokeColor": "#a0a0a0", "originalText": "tum_*(10) + sub_*(8) + het_*(5) + csc_*(6) + vasc_*(6) + met_*(9) + imm_*(19) + evs_*(6) + ied_*(4) + caf_*(6) + drg_*(12) + bio_*(9) + cli_*(14) + crna_*(30+)", "autoResize": true},
+    {"type": "text", "id": "total", "x": 20, "y": 1035, "text": "Total: ~170 State Keys | 17个Python包 | 14个实验模板 | 6个Studio页面", "fontSize": 11, "fontFamily": 1, "strokeColor": "#e5e5e5", "originalText": "Total: ~170 State Keys | 17个Python包 | 14个实验模板 | 6个Studio页面", "autoResize": true},
+
+    {"type": "text", "id": "version", "x": 600, "y": 1060, "text": "Version 3.0.0 | 2026-06-17 | Yan Ziyi | Jilin University", "fontSize": 12, "fontFamily": 1, "strokeColor": "#a0a0a0", "originalText": "Version 3.0.0 | 2026-06-17 | Yan Ziyi | Jilin University", "autoResize": true}
+  ],
+  "appState": {
+    "viewBackgroundColor": "#1a1b26",
+    "gridSize": null
+  }
+}
