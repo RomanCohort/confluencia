@@ -1,0 +1,220 @@
+{
+  "type": "excalidraw",
+  "version": 2,
+  "source": "hermes-agent",
+  "elements": [
+    {"type": "rectangle", "id": "darkbg", "x": -50, "y": -50, "width": 1800, "height": 1400, "backgroundColor": "#1a1b26", "fillStyle": "solid", "strokeColor": "transparent", "strokeWidth": 0},
+
+    {"type": "text", "id": "title", "x": 600, "y": 20, "text": "CONFLUENCIA 3.0", "fontSize": 32, "fontFamily": 1, "strokeColor": "#e5e5e5", "originalText": "CONFLUENCIA 3.0", "autoResize": true},
+    {"type": "text", "id": "subtitle", "x": 480, "y": 60, "text": "circRNA Drug Discovery Platform - TNBC Digital Twin", "fontSize": 16, "fontFamily": 1, "strokeColor": "#a0a0a0", "originalText": "circRNA Drug Discovery Platform - TNBC Digital Twin", "autoResize": true},
+
+    {"type": "rectangle", "id": "root", "x": 700, "y": 100, "width": 200, "height": 50, "backgroundColor": "#4a9eed", "fillStyle": "solid", "roundness": {"type": 3}, "strokeColor": "#4a9eed", "strokeWidth": 3, "boundElements": [{"id": "root_text", "type": "text"}]},
+    {"type": "text", "id": "root_text", "x": 705, "y": 110, "width": 190, "height": 30, "text": "Confluencia 3.0", "fontSize": 16, "fontFamily": 1, "strokeColor": "#1a1b26", "textAlign": "center", "verticalAlign": "middle", "containerId": "root", "originalText": "Confluencia 3.0", "autoResize": true},
+
+    {"type": "text", "id": "layer1", "x": 50, "y": 180, "text": "ENTRY", "fontSize": 12, "fontFamily": 1, "strokeColor": "#4a9eed", "originalText": "ENTRY", "autoResize": true},
+
+    {"type": "rectangle", "id": "cli", "x": 50, "y": 210, "width": 120, "height": 45, "backgroundColor": "#1e3a5f", "fillStyle": "solid", "roundness": {"type": 3}, "strokeColor": "#4a9eed", "strokeWidth": 2, "boundElements": [{"id": "cli_text", "type": "text"}]},
+    {"type": "text", "id": "cli_text", "x": 55, "y": 220, "width": 110, "height": 25, "text": "CLI main.py", "fontSize": 12, "fontFamily": 1, "strokeColor": "#e5e5e5", "textAlign": "center", "verticalAlign": "middle", "containerId": "cli", "originalText": "CLI main.py", "autoResize": true},
+
+    {"type": "rectangle", "id": "studio", "x": 200, "y": 210, "width": 120, "height": 45, "backgroundColor": "#4a9eed", "fillStyle": "solid", "roundness": {"type": 3}, "strokeColor": "#4a9eed", "strokeWidth": 2, "boundElements": [{"id": "studio_text", "type": "text"}]},
+    {"type": "text", "id": "studio_text", "x": 205, "y": 220, "width": 110, "height": 25, "text": "Studio Home.py", "fontSize": 11, "fontFamily": 1, "strokeColor": "#1a1b26", "textAlign": "center", "verticalAlign": "middle", "containerId": "studio", "originalText": "Studio Home.py", "autoResize": true},
+
+    {"type": "text", "id": "layer2", "x": 400, "y": 180, "text": "ORCHESTRATION", "fontSize": 12, "fontFamily": 1, "strokeColor": "#4a9eed", "originalText": "ORCHESTRATION", "autoResize": true},
+
+    {"type": "rectangle", "id": "agent", "x": 400, "y": 210, "width": 150, "height": 50, "backgroundColor": "#4a9eed", "fillStyle": "solid", "roundness": {"type": 3}, "strokeColor": "#4a9eed", "strokeWidth": 3, "boundElements": [{"id": "agent_text", "type": "text"}]},
+    {"type": "text", "id": "agent_text", "x": 405, "y": 220, "width": 140, "height": 30, "text": "TNBCSimulacrum\nagent.py", "fontSize": 11, "fontFamily": 1, "strokeColor": "#1a1b26", "textAlign": "center", "verticalAlign": "middle", "containerId": "agent", "originalText": "TNBCSimulacrum\nagent.py", "autoResize": true},
+
+    {"type": "rectangle", "id": "bus", "x": 580, "y": 210, "width": 100, "height": 50, "backgroundColor": "#1e3a5f", "fillStyle": "solid", "roundness": {"type": 3}, "strokeColor": "#4a9eed", "strokeWidth": 2, "boundElements": [{"id": "bus_text", "type": "text"}]},
+    {"type": "text", "id": "bus_text", "x": 585, "y": 220, "width": 90, "height": 30, "text": "EventBus\n40+ Events", "fontSize": 10, "fontFamily": 1, "strokeColor": "#e5e5e5", "textAlign": "center", "verticalAlign": "middle", "containerId": "bus", "originalText": "EventBus\n40+ Events", "autoResize": true},
+
+    {"type": "rectangle", "id": "schema", "x": 700, "y": 210, "width": 100, "height": 50, "backgroundColor": "#1e3a5f", "fillStyle": "solid", "roundness": {"type": 3}, "strokeColor": "#4a9eed", "strokeWidth": 2, "boundElements": [{"id": "schema_text", "type": "text"}]},
+    {"type": "text", "id": "schema_text", "x": 705, "y": 220, "width": 90, "height": 30, "text": "StateSchema\n170+ Keys", "fontSize": 10, "fontFamily": 1, "strokeColor": "#e5e5e5", "textAlign": "center", "verticalAlign": "middle", "containerId": "schema", "originalText": "StateSchema\n170+ Keys", "autoResize": true},
+
+    {"type": "rectangle", "id": "config", "x": 820, "y": 210, "width": 100, "height": 50, "backgroundColor": "#1e3a5f", "fillStyle": "solid", "roundness": {"type": 3}, "strokeColor": "#4a9eed", "strokeWidth": 2, "boundElements": [{"id": "config_text", "type": "text"}]},
+    {"type": "text", "id": "config_text", "x": 825, "y": 220, "width": 90, "height": 30, "text": "Config\n12 dataclass", "fontSize": 10, "fontFamily": 1, "strokeColor": "#e5e5e5", "textAlign": "center", "verticalAlign": "middle", "containerId": "config", "originalText": "Config\n12 dataclass", "autoResize": true},
+
+    {"type": "text", "id": "layer3", "x": 50, "y": 300, "text": "MANAGERS", "fontSize": 12, "fontFamily": 1, "strokeColor": "#8b5cf6", "originalText": "MANAGERS", "autoResize": true},
+
+    {"type": "rectangle", "id": "tumor_mgr", "x": 50, "y": 330, "width": 110, "height": 40, "backgroundColor": "#ef4444", "fillStyle": "solid", "roundness": {"type": 3}, "strokeColor": "#ef4444", "strokeWidth": 2, "boundElements": [{"id": "tumor_mgr_text", "type": "text"}]},
+    {"type": "text", "id": "tumor_mgr_text", "x": 55, "y": 340, "width": 100, "height": 20, "text": "TumorManager", "fontSize": 10, "fontFamily": 1, "strokeColor": "#1a1b26", "textAlign": "center", "verticalAlign": "middle", "containerId": "tumor_mgr", "originalText": "TumorManager", "autoResize": true},
+
+    {"type": "rectangle", "id": "tme_mgr", "x": 180, "y": 330, "width": 110, "height": 40, "backgroundColor": "#22c55e", "fillStyle": "solid", "roundness": {"type": 3}, "strokeColor": "#22c55e", "strokeWidth": 2, "boundElements": [{"id": "tme_mgr_text", "type": "text"}]},
+    {"type": "text", "id": "tme_mgr_text", "x": 185, "y": 340, "width": 100, "height": 20, "text": "TMEManager", "fontSize": 10, "fontFamily": 1, "strokeColor": "#1a1b26", "textAlign": "center", "verticalAlign": "middle", "containerId": "tme_mgr", "originalText": "TMEManager", "autoResize": true},
+
+    {"type": "rectangle", "id": "rx_mgr", "x": 310, "y": 330, "width": 110, "height": 40, "backgroundColor": "#8b5cf6", "fillStyle": "solid", "roundness": {"type": 3}, "strokeColor": "#8b5cf6", "strokeWidth": 2, "boundElements": [{"id": "rx_mgr_text", "type": "text"}]},
+    {"type": "text", "id": "rx_mgr_text", "x": 315, "y": 340, "width": 100, "height": 20, "text": "TreatmentMgr", "fontSize": 10, "fontFamily": 1, "strokeColor": "#1a1b26", "textAlign": "center", "verticalAlign": "middle", "containerId": "rx_mgr", "originalText": "TreatmentMgr", "autoResize": true},
+
+    {"type": "rectangle", "id": "bio_mgr", "x": 440, "y": 330, "width": 110, "height": 40, "backgroundColor": "#06b6d4", "fillStyle": "solid", "roundness": {"type": 3}, "strokeColor": "#06b6d4", "strokeWidth": 2, "boundElements": [{"id": "bio_mgr_text", "type": "text"}]},
+    {"type": "text", "id": "bio_mgr_text", "x": 445, "y": 340, "width": 100, "height": 20, "text": "BiomarkerMgr", "fontSize": 10, "fontFamily": 1, "strokeColor": "#1a1b26", "textAlign": "center", "verticalAlign": "middle", "containerId": "bio_mgr", "originalText": "BiomarkerMgr", "autoResize": true},
+
+    {"type": "rectangle", "id": "cli_mgr", "x": 570, "y": 330, "width": 110, "height": 40, "backgroundColor": "#06b6d4", "fillStyle": "solid", "roundness": {"type": 3}, "strokeColor": "#06b6d4", "strokeWidth": 2, "boundElements": [{"id": "cli_mgr_text", "type": "text"}]},
+    {"type": "text", "id": "cli_mgr_text", "x": 575, "y": 340, "width": 100, "height": 20, "text": "ClinicalMgr", "fontSize": 10, "fontFamily": 1, "strokeColor": "#1a1b26", "textAlign": "center", "verticalAlign": "middle", "containerId": "cli_mgr", "originalText": "ClinicalMgr", "autoResize": true},
+
+    {"type": "rectangle", "id": "crna_mgr", "x": 700, "y": 330, "width": 110, "height": 40, "backgroundColor": "#f59e0b", "fillStyle": "solid", "roundness": {"type": 3}, "strokeColor": "#f59e0b", "strokeWidth": 2, "boundElements": [{"id": "crna_mgr_text", "type": "text"}]},
+    {"type": "text", "id": "crna_mgr_text", "x": 705, "y": 340, "width": 100, "height": 20, "text": "CircRNAMgr*", "fontSize": 10, "fontFamily": 1, "strokeColor": "#1a1b26", "textAlign": "center", "verticalAlign": "middle", "containerId": "crna_mgr", "originalText": "CircRNAMgr*", "autoResize": true},
+
+    {"type": "text", "id": "layer4", "x": 50, "y": 400, "text": "TUMOR", "fontSize": 11, "fontFamily": 1, "strokeColor": "#ef4444", "originalText": "TUMOR", "autoResize": true},
+
+    {"type": "rectangle", "id": "growth", "x": 50, "y": 430, "width": 130, "height": 70, "backgroundColor": "#5c1a1a", "fillStyle": "solid", "roundness": {"type": 3}, "strokeColor": "#ef4444", "strokeWidth": 2, "boundElements": [{"id": "growth_text", "type": "text"}]},
+    {"type": "text", "id": "growth_text", "x": 55, "y": 440, "width": 120, "height": 50, "text": "growth_engine.py\ntum_volume\nGompertz生长", "fontSize": 9, "fontFamily": 1, "strokeColor": "#e5e5e5", "textAlign": "center", "verticalAlign": "top", "containerId": "growth", "originalText": "growth_engine.py\ntum_volume\nGompertz生长", "autoResize": true},
+
+    {"type": "rectangle", "id": "het", "x": 200, "y": 430, "width": 130, "height": 70, "backgroundColor": "#5c1a1a", "fillStyle": "solid", "roundness": {"type": 3}, "strokeColor": "#ef4444", "strokeWidth": 2, "boundElements": [{"id": "het_text", "type": "text"}]},
+    {"type": "text", "id": "het_text", "x": 205, "y": 440, "width": 120, "height": 50, "text": "heterogeneity.py\nhet_subclone\n亚克隆演化", "fontSize": 9, "fontFamily": 1, "strokeColor": "#e5e5e5", "textAlign": "center", "verticalAlign": "top", "containerId": "het", "originalText": "heterogeneity.py\nhet_subclone\n亚克隆演化", "autoResize": true},
+
+    {"type": "rectangle", "id": "csc", "x": 350, "y": 430, "width": 130, "height": 70, "backgroundColor": "#5c1a1a", "fillStyle": "solid", "roundness": {"type": 3}, "strokeColor": "#ef4444", "strokeWidth": 2, "boundElements": [{"id": "csc_text", "type": "text"}]},
+    {"type": "text", "id": "csc_text", "x": 355, "y": 440, "width": 120, "height": 50, "text": "cancer_stem_cell.py\ncsc_pool\nCD44+/CD24-", "fontSize": 9, "fontFamily": 1, "strokeColor": "#e5e5e5", "textAlign": "center", "verticalAlign": "top", "containerId": "csc", "originalText": "cancer_stem_cell.py\ncsc_pool\nCD44+/CD24-", "autoResize": true},
+
+    {"type": "rectangle", "id": "angio", "x": 500, "y": 430, "width": 130, "height": 70, "backgroundColor": "#5c1a1a", "fillStyle": "solid", "roundness": {"type": 3}, "strokeColor": "#ef4444", "strokeWidth": 2, "boundElements": [{"id": "angio_text", "type": "text"}]},
+    {"type": "text", "id": "angio_text", "x": 505, "y": 440, "width": 120, "height": 50, "text": "angiogenesis.py\nvasc_vegf\n血管生成", "fontSize": 9, "fontFamily": 1, "strokeColor": "#e5e5e5", "textAlign": "center", "verticalAlign": "top", "containerId": "angio", "originalText": "angiogenesis.py\nvasc_vegf\n血管生成", "autoResize": true},
+
+    {"type": "rectangle", "id": "met", "x": 650, "y": 430, "width": 130, "height": 70, "backgroundColor": "#5c1a1a", "fillStyle": "solid", "roundness": {"type": 3}, "strokeColor": "#ef4444", "strokeWidth": 2, "boundElements": [{"id": "met_text", "type": "text"}]},
+    {"type": "text", "id": "met_text", "x": 655, "y": 440, "width": 120, "height": 50, "text": "metastasis.py\nmet_sites\nEMT/MET转换", "fontSize": 9, "fontFamily": 1, "strokeColor": "#e5e5e5", "textAlign": "center", "verticalAlign": "top", "containerId": "met", "originalText": "metastasis.py\nmet_sites\nEMT/MET转换", "autoResize": true},
+
+    {"type": "text", "id": "layer5", "x": 50, "y": 530, "text": "TME", "fontSize": 11, "fontFamily": 1, "strokeColor": "#22c55e", "originalText": "TME", "autoResize": true},
+
+    {"type": "rectangle", "id": "immune", "x": 50, "y": 560, "width": 130, "height": 70, "backgroundColor": "#1a4d2e", "fillStyle": "solid", "roundness": {"type": 3}, "strokeColor": "#22c55e", "strokeWidth": 2, "boundElements": [{"id": "immune_text", "type": "text"}]},
+    {"type": "text", "id": "immune_text", "x": 55, "y": 570, "width": 120, "height": 50, "text": "immune_dynamics.py\nimm_cd8_count\nCD8/NK/Treg", "fontSize": 9, "fontFamily": 1, "strokeColor": "#e5e5e5", "textAlign": "center", "verticalAlign": "top", "containerId": "immune", "originalText": "immune_dynamics.py\nimm_cd8_count\nCD8/NK/Treg", "autoResize": true},
+
+    {"type": "rectangle", "id": "evasion", "x": 200, "y": 560, "width": 130, "height": 70, "backgroundColor": "#1a4d2e", "fillStyle": "solid", "roundness": {"type": 3}, "strokeColor": "#22c55e", "strokeWidth": 2, "boundElements": [{"id": "evasion_text", "type": "text"}]},
+    {"type": "text", "id": "evasion_text", "x": 205, "y": 570, "width": 120, "height": 50, "text": "immune_evasion.py\nevs_pd_l1_level\n逃逸机制", "fontSize": 9, "fontFamily": 1, "strokeColor": "#e5e5e5", "textAlign": "center", "verticalAlign": "top", "containerId": "evasion", "originalText": "immune_evasion.py\nevs_pd_l1_level\n逃逸机制", "autoResize": true},
+
+    {"type": "rectangle", "id": "edit", "x": 350, "y": 560, "width": 130, "height": 70, "backgroundColor": "#1a4d2e", "fillStyle": "solid", "roundness": {"type": 3}, "strokeColor": "#22c55e", "strokeWidth": 2, "boundElements": [{"id": "edit_text", "type": "text"}]},
+    {"type": "text", "id": "edit_text", "x": 355, "y": 570, "width": 120, "height": 50, "text": "immunoediting.py\nied_phase\n消除/平衡/逃逸", "fontSize": 9, "fontFamily": 1, "strokeColor": "#e5e5e5", "textAlign": "center", "verticalAlign": "top", "containerId": "edit", "originalText": "immunoediting.py\nied_phase\n消除/平衡/逃逸", "autoResize": true},
+
+    {"type": "rectangle", "id": "caf", "x": 500, "y": 560, "width": 130, "height": 70, "backgroundColor": "#1a4d2e", "fillStyle": "solid", "roundness": {"type": 3}, "strokeColor": "#22c55e", "strokeWidth": 2, "boundElements": [{"id": "caf_text", "type": "text"}]},
+    {"type": "text", "id": "caf_text", "x": 505, "y": 570, "width": 120, "height": 50, "text": "fibroblast.py\ncaf_activation\nCAF/ECM密度", "fontSize": 9, "fontFamily": 1, "strokeColor": "#e5e5e5", "textAlign": "center", "verticalAlign": "top", "containerId": "caf", "originalText": "fibroblast.py\ncaf_activation\nCAF/ECM密度", "autoResize": true},
+
+    {"type": "text", "id": "layer6", "x": 50, "y": 660, "text": "TREATMENT", "fontSize": 11, "fontFamily": 1, "strokeColor": "#8b5cf6", "originalText": "TREATMENT", "autoResize": true},
+
+    {"type": "rectangle", "id": "chemo", "x": 50, "y": 690, "width": 110, "height": 65, "backgroundColor": "#2d1b69", "fillStyle": "solid", "roundness": {"type": 3}, "strokeColor": "#8b5cf6", "strokeWidth": 2, "boundElements": [{"id": "chemo_text", "type": "text"}]},
+    {"type": "text", "id": "chemo_text", "x": 55, "y": 700, "width": 100, "height": 45, "text": "chemo.py\ndrg_chemo_conc\n化疗杀伤", "fontSize": 9, "fontFamily": 1, "strokeColor": "#e5e5e5", "textAlign": "center", "verticalAlign": "top", "containerId": "chemo", "originalText": "chemo.py\ndrg_chemo_conc\n化疗杀伤", "autoResize": true},
+
+    {"type": "rectangle", "id": "immuno_rx", "x": 180, "y": 690, "width": 110, "height": 65, "backgroundColor": "#2d1b69", "fillStyle": "solid", "roundness": {"type": 3}, "strokeColor": "#8b5cf6", "strokeWidth": 2, "boundElements": [{"id": "immuno_rx_text", "type": "text"}]},
+    {"type": "text", "id": "immuno_rx_text", "x": 185, "y": 700, "width": 100, "height": 45, "text": "immuno.py\ndrg_immuno_block\nPD-1阻断", "fontSize": 9, "fontFamily": 1, "strokeColor": "#e5e5e5", "textAlign": "center", "verticalAlign": "top", "containerId": "immuno_rx", "originalText": "immuno.py\ndrg_immuno_block\nPD-1阻断", "autoResize": true},
+
+    {"type": "rectangle", "id": "target", "x": 310, "y": 690, "width": 110, "height": 65, "backgroundColor": "#2d1b69", "fillStyle": "solid", "roundness": {"type": 3}, "strokeColor": "#8b5cf6", "strokeWidth": 2, "boundElements": [{"id": "target_text", "type": "text"}]},
+    {"type": "text", "id": "target_text", "x": 315, "y": 700, "width": 100, "height": 45, "text": "target.py\ndrg_parp_inhibit\nPARP/AKT", "fontSize": 9, "fontFamily": 1, "strokeColor": "#e5e5e5", "textAlign": "center", "verticalAlign": "top", "containerId": "target", "originalText": "target.py\ndrg_parp_inhibit\nPARP/AKT", "autoResize": true},
+
+    {"type": "rectangle", "id": "radio", "x": 440, "y": 690, "width": 110, "height": 65, "backgroundColor": "#2d1b69", "fillStyle": "solid", "roundness": {"type": 3}, "strokeColor": "#8b5cf6", "strokeWidth": 2, "boundElements": [{"id": "radio_text", "type": "text"}]},
+    {"type": "text", "id": "radio_text", "x": 445, "y": 700, "width": 100, "height": 45, "text": "radio.py\ndrg_radio_dose\n远隔效应", "fontSize": 9, "fontFamily": 1, "strokeColor": "#e5e5e5", "textAlign": "center", "verticalAlign": "top", "containerId": "radio", "originalText": "radio.py\ndrg_radio_dose\n远隔效应", "autoResize": true},
+
+    {"type": "rectangle", "id": "crna_rx", "x": 570, "y": 690, "width": 120, "height": 65, "backgroundColor": "#5c3d1a", "fillStyle": "solid", "roundness": {"type": 3}, "strokeColor": "#f59e0b", "strokeWidth": 2, "boundElements": [{"id": "crna_rx_text", "type": "text"}]},
+    {"type": "text", "id": "crna_rx_text", "x": 575, "y": 700, "width": 110, "height": 45, "text": "circrna_rx.py *\ndrg_crna_delivered\ncircRNA载体", "fontSize": 9, "fontFamily": 1, "strokeColor": "#e5e5e5", "textAlign": "center", "verticalAlign": "top", "containerId": "crna_rx", "originalText": "circrna_rx.py *\ndrg_crna_delivered\ncircRNA载体", "autoResize": true},
+
+    {"type": "text", "id": "layer7", "x": 50, "y": 780, "text": "CIRCRNA *", "fontSize": 11, "fontFamily": 1, "strokeColor": "#f59e0b", "originalText": "CIRCRNA *", "autoResize": true},
+
+    {"type": "rectangle", "id": "sense", "x": 50, "y": 810, "width": 120, "height": 70, "backgroundColor": "#5c3d1a", "fillStyle": "solid", "roundness": {"type": 3}, "strokeColor": "#f59e0b", "strokeWidth": 2, "boundElements": [{"id": "sense_text", "type": "text"}]},
+    {"type": "text", "id": "sense_text", "x": 55, "y": 820, "width": 110, "height": 50, "text": "immune_sensing.py\ncrna_immuno_score\nRIG-I/TLR/PKR", "fontSize": 9, "fontFamily": 1, "strokeColor": "#e5e5e5", "textAlign": "center", "verticalAlign": "top", "containerId": "sense", "originalText": "immune_sensing.py\ncrna_immuno_score\nRIG-I/TLR/PKR", "autoResize": true},
+
+    {"type": "rectangle", "id": "struct", "x": 190, "y": 810, "width": 120, "height": 70, "backgroundColor": "#5c3d1a", "fillStyle": "solid", "roundness": {"type": 3}, "strokeColor": "#f59e0b", "strokeWidth": 2, "boundElements": [{"id": "struct_text", "type": "text"}]},
+    {"type": "text", "id": "struct_text", "x": 195, "y": 820, "width": 110, "height": 50, "text": "structure_pred.py\ncrna_structure_mfe\nViennaRNA", "fontSize": 9, "fontFamily": 1, "strokeColor": "#e5e5e5", "textAlign": "center", "verticalAlign": "top", "containerId": "struct", "originalText": "structure_pred.py\ncrna_structure_mfe\nViennaRNA", "autoResize": true},
+
+    {"type": "rectangle", "id": "torus_s", "x": 330, "y": 810, "width": 120, "height": 70, "backgroundColor": "#ec4899", "fillStyle": "solid", "roundness": {"type": 3}, "strokeColor": "#ec4899", "strokeWidth": 2, "boundElements": [{"id": "torus_s_text", "type": "text"}]},
+    {"type": "text", "id": "torus_s_text", "x": 335, "y": 820, "width": 110, "height": 50, "text": "torusfold_scorer.py\ncrna_torus_score\n深度学习评分", "fontSize": 9, "fontFamily": 1, "strokeColor": "#1a1b26", "textAlign": "center", "verticalAlign": "top", "containerId": "torus_s", "originalText": "torusfold_scorer.py\ncrna_torus_score\n深度学习评分", "autoResize": true},
+
+    {"type": "rectangle", "id": "bsj", "x": 470, "y": 810, "width": 120, "height": 70, "backgroundColor": "#5c3d1a", "fillStyle": "solid", "roundness": {"type": 3}, "strokeColor": "#f59e0b", "strokeWidth": 2, "boundElements": [{"id": "bsj_text", "type": "text"}]},
+    {"type": "text", "id": "bsj_text", "x": 475, "y": 820, "width": 110, "height": 50, "text": "bsj_features.py\ncrna_bsj_type\n反向剪接位点", "fontSize": 9, "fontFamily": 1, "strokeColor": "#e5e5e5", "textAlign": "center", "verticalAlign": "top", "containerId": "bsj", "originalText": "bsj_features.py\ncrna_bsj_type\n反向剪接位点", "autoResize": true},
+
+    {"type": "rectangle", "id": "crna_evo", "x": 610, "y": 810, "width": 120, "height": 70, "backgroundColor": "#1a4d2e", "fillStyle": "solid", "roundness": {"type": 3}, "strokeColor": "#22c55e", "strokeWidth": 2, "boundElements": [{"id": "crna_evo_text", "type": "text"}]},
+    {"type": "text", "id": "crna_evo_text", "x": 615, "y": 820, "width": 110, "height": 50, "text": "cirrna_evo.py\ncrna_evo_fitness\n四维目标优化", "fontSize": 9, "fontFamily": 1, "strokeColor": "#e5e5e5", "textAlign": "center", "verticalAlign": "top", "containerId": "crna_evo", "originalText": "cirrna_evo.py\ncrna_evo_fitness\n四维目标优化", "autoResize": true},
+
+    {"type": "text", "id": "layer8", "x": 50, "y": 910, "text": "TORUSFOLD DL", "fontSize": 11, "fontFamily": 1, "strokeColor": "#ec4899", "originalText": "TORUSFOLD DL", "autoResize": true},
+
+    {"type": "rectangle", "id": "tf_main", "x": 50, "y": 940, "width": 100, "height": 55, "backgroundColor": "#ec4899", "fillStyle": "solid", "roundness": {"type": 3}, "strokeColor": "#ec4899", "strokeWidth": 2, "boundElements": [{"id": "tf_main_text", "type": "text"}]},
+    {"type": "text", "id": "tf_main_text", "x": 55, "y": 950, "width": 90, "height": 35, "text": "torusfold.py\n主模块5模式", "fontSize": 9, "fontFamily": 1, "strokeColor": "#1a1b26", "textAlign": "center", "verticalAlign": "top", "containerId": "tf_main", "originalText": "torusfold.py\n主模块5模式", "autoResize": true},
+
+    {"type": "rectangle", "id": "diff", "x": 170, "y": 940, "width": 100, "height": 55, "backgroundColor": "#ec4899", "fillStyle": "solid", "roundness": {"type": 3}, "strokeColor": "#ec4899", "strokeWidth": 2, "boundElements": [{"id": "diff_text", "type": "text"}]},
+    {"type": "text", "id": "diff_text", "x": 175, "y": 950, "width": 90, "height": 35, "text": "diffusion.py\nAF3扩散模型", "fontSize": 9, "fontFamily": 1, "strokeColor": "#1a1b26", "textAlign": "center", "verticalAlign": "top", "containerId": "diff", "originalText": "diffusion.py\nAF3扩散模型", "autoResize": true},
+
+    {"type": "rectangle", "id": "equiv", "x": 290, "y": 940, "width": 100, "height": 55, "backgroundColor": "#ec4899", "fillStyle": "solid", "roundness": {"type": 3}, "strokeColor": "#ec4899", "strokeWidth": 2, "boundElements": [{"id": "equiv_text", "type": "text"}]},
+    {"type": "text", "id": "equiv_text", "x": 295, "y": 950, "width": 90, "height": 35, "text": "equivariant.py\nE3等变网络", "fontSize": 9, "fontFamily": 1, "strokeColor": "#1a1b26", "textAlign": "center", "verticalAlign": "top", "containerId": "equiv", "originalText": "equivariant.py\nE3等变网络", "autoResize": true},
+
+    {"type": "rectangle", "id": "physics", "x": 410, "y": 940, "width": 100, "height": 55, "backgroundColor": "#ec4899", "fillStyle": "solid", "roundness": {"type": 3}, "strokeColor": "#ec4899", "strokeWidth": 2, "boundElements": [{"id": "physics_text", "type": "text"}]},
+    {"type": "text", "id": "physics_text", "x": 415, "y": 950, "width": 90, "height": 35, "text": "physics_head.py\n几何约束求解", "fontSize": 9, "fontFamily": 1, "strokeColor": "#1a1b26", "textAlign": "center", "verticalAlign": "top", "containerId": "physics", "originalText": "physics_head.py\n几何约束求解", "autoResize": true},
+
+    {"type": "text", "id": "layer9", "x": 50, "y": 1020, "text": "OTHERS", "fontSize": 11, "fontFamily": 1, "strokeColor": "#06b6d4", "originalText": "OTHERS", "autoResize": true},
+
+    {"type": "rectangle", "id": "tracker", "x": 50, "y": 1050, "width": 100, "height": 55, "backgroundColor": "#1a4d4d", "fillStyle": "solid", "roundness": {"type": 3}, "strokeColor": "#06b6d4", "strokeWidth": 2, "boundElements": [{"id": "tracker_text", "type": "text"}]},
+    {"type": "text", "id": "tracker_text", "x": 55, "y": 1060, "width": 90, "height": 35, "text": "tracker.py\nbio_pd_l1_cps", "fontSize": 9, "fontFamily": 1, "strokeColor": "#e5e5e5", "textAlign": "center", "verticalAlign": "top", "containerId": "tracker", "originalText": "tracker.py\nbio_pd_l1_cps", "autoResize": true},
+
+    {"type": "rectangle", "id": "subtype", "x": 170, "y": 1050, "width": 100, "height": 55, "backgroundColor": "#1a4d4d", "fillStyle": "solid", "roundness": {"type": 3}, "strokeColor": "#06b6d4", "strokeWidth": 2, "boundElements": [{"id": "subtype_text", "type": "text"}]},
+    {"type": "text", "id": "subtype_text", "x": 175, "y": 1060, "width": 90, "height": 35, "text": "subtype.py\nbio_subtype", "fontSize": 9, "fontFamily": 1, "strokeColor": "#e5e5e5", "textAlign": "center", "verticalAlign": "top", "containerId": "subtype", "originalText": "subtype.py\nbio_subtype", "autoResize": true},
+
+    {"type": "rectangle", "id": "recist", "x": 290, "y": 1050, "width": 100, "height": 55, "backgroundColor": "#1a4d4d", "fillStyle": "solid", "roundness": {"type": 3}, "strokeColor": "#06b6d4", "strokeWidth": 2, "boundElements": [{"id": "recist_text", "type": "text"}]},
+    {"type": "text", "id": "recist_text", "x": 295, "y": 1060, "width": 90, "height": 35, "text": "recist.py\ncli_recist", "fontSize": 9, "fontFamily": 1, "strokeColor": "#e5e5e5", "textAlign": "center", "verticalAlign": "top", "containerId": "recist", "originalText": "recist.py\ncli_recist", "autoResize": true},
+
+    {"type": "rectangle", "id": "rnactm", "x": 410, "y": 1050, "width": 100, "height": 55, "backgroundColor": "#1a4d4d", "fillStyle": "solid", "roundness": {"type": 3}, "strokeColor": "#06b6d4", "strokeWidth": 2, "boundElements": [{"id": "rnactm_text", "type": "text"}]},
+    {"type": "text", "id": "rnactm_text", "x": 415, "y": 1060, "width": 90, "height": 35, "text": "rnactm.py\ncrna_pk_auc", "fontSize": 9, "fontFamily": 1, "strokeColor": "#e5e5e5", "textAlign": "center", "verticalAlign": "top", "containerId": "rnactm", "originalText": "rnactm.py\ncrna_pk_auc", "autoResize": true},
+
+    {"type": "rectangle", "id": "enc", "x": 530, "y": 1050, "width": 100, "height": 55, "backgroundColor": "#1a4d4d", "fillStyle": "solid", "roundness": {"type": 3}, "strokeColor": "#06b6d4", "strokeWidth": 2, "boundElements": [{"id": "enc_text", "type": "text"}]},
+    {"type": "text", "id": "enc_text", "x": 535, "y": 1060, "width": 90, "height": 35, "text": "model.py\nBERT编码器", "fontSize": 9, "fontFamily": 1, "strokeColor": "#e5e5e5", "textAlign": "center", "verticalAlign": "top", "containerId": "enc", "originalText": "model.py\nBERT编码器", "autoResize": true},
+
+    {"type": "text", "id": "layer10", "x": 760, "y": 180, "text": "EXTERNAL", "fontSize": 12, "fontFamily": 1, "strokeColor": "#a0a0a0", "originalText": "EXTERNAL", "autoResize": true},
+
+    {"type": "rectangle", "id": "vienna", "x": 760, "y": 210, "width": 80, "height": 50, "backgroundColor": "#3a3a3a", "fillStyle": "solid", "roundness": {"type": 3}, "strokeColor": "#a0a0a0", "strokeWidth": 2, "boundElements": [{"id": "vienna_text", "type": "text"}]},
+    {"type": "text", "id": "vienna_text", "x": 765, "y": 220, "width": 70, "height": 30, "text": "ViennaRNA", "fontSize": 9, "fontFamily": 1, "strokeColor": "#e5e5e5", "textAlign": "center", "verticalAlign": "middle", "containerId": "vienna", "originalText": "ViennaRNA", "autoResize": true},
+
+    {"type": "rectangle", "id": "esm", "x": 860, "y": 210, "width": 80, "height": 50, "backgroundColor": "#3a3a3a", "fillStyle": "solid", "roundness": {"type": 3}, "strokeColor": "#a0a0a0", "strokeWidth": 2, "boundElements": [{"id": "esm_text", "type": "text"}]},
+    {"type": "text", "id": "esm_text", "x": 865, "y": 220, "width": 70, "height": 30, "text": "ESM-2", "fontSize": 9, "fontFamily": 1, "strokeColor": "#e5e5e5", "textAlign": "center", "verticalAlign": "middle", "containerId": "esm", "originalText": "ESM-2", "autoResize": true},
+
+    {"type": "rectangle", "id": "netmhc", "x": 960, "y": 210, "width": 80, "height": 50, "backgroundColor": "#3a3a3a", "fillStyle": "solid", "roundness": {"type": 3}, "strokeColor": "#a0a0a0", "strokeWidth": 2, "boundElements": [{"id": "netmhc_text", "type": "text"}]},
+    {"type": "text", "id": "netmhc_text", "x": 965, "y": 220, "width": 70, "height": 30, "text": "NetMHCpan", "fontSize": 9, "fontFamily": 1, "strokeColor": "#e5e5e5", "textAlign": "center", "verticalAlign": "middle", "containerId": "netmhc", "originalText": "NetMHCpan", "autoResize": true},
+
+    {"type": "rectangle", "id": "openmm", "x": 1060, "y": 210, "width": 80, "height": 50, "backgroundColor": "#3a3a3a", "fillStyle": "solid", "roundness": {"type": 3}, "strokeColor": "#a0a0a0", "strokeWidth": 2, "boundElements": [{"id": "openmm_text", "type": "text"}]},
+    {"type": "text", "id": "openmm_text", "x": 1065, "y": 220, "width": 70, "height": 30, "text": "OpenMM", "fontSize": 9, "fontFamily": 1, "strokeColor": "#e5e5e5", "textAlign": "center", "verticalAlign": "middle", "containerId": "openmm", "originalText": "OpenMM", "autoResize": true},
+
+    {"type": "text", "id": "layer11", "x": 760, "y": 400, "text": "STUDIO PAGES", "fontSize": 11, "fontFamily": 1, "strokeColor": "#4a9eed", "originalText": "STUDIO PAGES", "autoResize": true},
+
+    {"type": "rectangle", "id": "page1", "x": 760, "y": 430, "width": 80, "height": 50, "backgroundColor": "#f59e0b", "fillStyle": "solid", "roundness": {"type": 3}, "strokeColor": "#f59e0b", "strokeWidth": 2, "boundElements": [{"id": "page1_text", "type": "text"}]},
+    {"type": "text", "id": "page1_text", "x": 765, "y": 440, "width": 70, "height": 30, "text": "1_CircRNA", "fontSize": 9, "fontFamily": 1, "strokeColor": "#1a1b26", "textAlign": "center", "verticalAlign": "middle", "containerId": "page1", "originalText": "1_CircRNA", "autoResize": true},
+
+    {"type": "rectangle", "id": "page2", "x": 860, "y": 430, "width": 80, "height": 50, "backgroundColor": "#8b5cf6", "fillStyle": "solid", "roundness": {"type": 3}, "strokeColor": "#8b5cf6", "strokeWidth": 2, "boundElements": [{"id": "page2_text", "type": "text"}]},
+    {"type": "text", "id": "page2_text", "x": 865, "y": 440, "width": 70, "height": 30, "text": "2_Drug", "fontSize": 9, "fontFamily": 1, "strokeColor": "#1a1b26", "textAlign": "center", "verticalAlign": "middle", "containerId": "page2", "originalText": "2_Drug", "autoResize": true},
+
+    {"type": "rectangle", "id": "page3", "x": 960, "y": 430, "width": 80, "height": 50, "backgroundColor": "#06b6d4", "fillStyle": "solid", "roundness": {"type": 3}, "strokeColor": "#06b6d4", "strokeWidth": 2, "boundElements": [{"id": "page3_text", "type": "text"}]},
+    {"type": "text", "id": "page3_text", "x": 965, "y": 440, "width": 70, "height": 30, "text": "3_Epitope", "fontSize": 9, "fontFamily": 1, "strokeColor": "#1a1b26", "textAlign": "center", "verticalAlign": "middle", "containerId": "page3", "originalText": "3_Epitope", "autoResize": true},
+
+    {"type": "rectangle", "id": "page4", "x": 1060, "y": 430, "width": 80, "height": 50, "backgroundColor": "#ef4444", "fillStyle": "solid", "roundness": {"type": 3}, "strokeColor": "#ef4444", "strokeWidth": 2, "boundElements": [{"id": "page4_text", "type": "text"}]},
+    {"type": "text", "id": "page4_text", "x": 1065, "y": 440, "width": 70, "height": 30, "text": "4_TNBC", "fontSize": 9, "fontFamily": 1, "strokeColor": "#1a1b26", "textAlign": "center", "verticalAlign": "middle", "containerId": "page4", "originalText": "4_TNBC", "autoResize": true},
+
+    {"type": "rectangle", "id": "page5", "x": 760, "y": 500, "width": 80, "height": 50, "backgroundColor": "#1e3a5f", "fillStyle": "solid", "roundness": {"type": 3}, "strokeColor": "#4a9eed", "strokeWidth": 2, "boundElements": [{"id": "page5_text", "type": "text"}]},
+    {"type": "text", "id": "page5_text", "x": 765, "y": 510, "width": 70, "height": 30, "text": "5_Report", "fontSize": 9, "fontFamily": 1, "strokeColor": "#e5e5e5", "textAlign": "center", "verticalAlign": "middle", "containerId": "page5", "originalText": "5_Report", "autoResize": true},
+
+    {"type": "rectangle", "id": "page6", "x": 860, "y": 500, "width": 80, "height": 50, "backgroundColor": "#8b5cf6", "fillStyle": "solid", "roundness": {"type": 3}, "strokeColor": "#8b5cf6", "strokeWidth": 2, "boundElements": [{"id": "page6_text", "type": "text"}]},
+    {"type": "text", "id": "page6_text", "x": 865, "y": 510, "width": 70, "height": 30, "text": "6_Joint", "fontSize": 9, "fontFamily": 1, "strokeColor": "#1a1b26", "textAlign": "center", "verticalAlign": "middle", "containerId": "page6", "originalText": "6_Joint", "autoResize": true},
+
+    {"type": "text", "id": "legend", "x": 50, "y": 1140, "text": "Legend:", "fontSize": 10, "fontFamily": 1, "strokeColor": "#e5e5e5", "originalText": "Legend:", "autoResize": true},
+
+    {"type": "rectangle", "id": "leg1", "x": 120, "y": 1140, "width": 20, "height": 15, "backgroundColor": "#4a9eed", "fillStyle": "solid", "strokeColor": "#4a9eed"},
+    {"type": "text", "id": "leg1t", "x": 145, "y": 1140, "text": "Core", "fontSize": 10, "fontFamily": 1, "strokeColor": "#e5e5e5", "originalText": "Core", "autoResize": true},
+
+    {"type": "rectangle", "id": "leg2", "x": 200, "y": 1140, "width": 20, "height": 15, "backgroundColor": "#ef4444", "fillStyle": "solid", "strokeColor": "#ef4444"},
+    {"type": "text", "id": "leg2t", "x": 225, "y": 1140, "text": "Tumor", "fontSize": 10, "fontFamily": 1, "strokeColor": "#e5e5e5", "originalText": "Tumor", "autoResize": true},
+
+    {"type": "rectangle", "id": "leg3", "x": 290, "y": 1140, "width": 20, "height": 15, "backgroundColor": "#22c55e", "fillStyle": "solid", "strokeColor": "#22c55e"},
+    {"type": "text", "id": "leg3t", "x": 315, "y": 1140, "text": "TME", "fontSize": 10, "fontFamily": 1, "strokeColor": "#e5e5e5", "originalText": "TME", "autoResize": true},
+
+    {"type": "rectangle", "id": "leg4", "x": 370, "y": 1140, "width": 20, "height": 15, "backgroundColor": "#8b5cf6", "fillStyle": "solid", "strokeColor": "#8b5cf6"},
+    {"type": "text", "id": "leg4t", "x": 395, "y": 1140, "text": "Treatment", "fontSize": 10, "fontFamily": 1, "strokeColor": "#e5e5e5", "originalText": "Treatment", "autoResize": true},
+
+    {"type": "rectangle", "id": "leg5", "x": 480, "y": 1140, "width": 20, "height": 15, "backgroundColor": "#f59e0b", "fillStyle": "solid", "strokeColor": "#f59e0b"},
+    {"type": "text", "id": "leg5t", "x": 505, "y": 1140, "text": "circRNA*", "fontSize": 10, "fontFamily": 1, "strokeColor": "#e5e5e5", "originalText": "circRNA*", "autoResize": true},
+
+    {"type": "rectangle", "id": "leg6", "x": 590, "y": 1140, "width": 20, "height": 15, "backgroundColor": "#ec4899", "fillStyle": "solid", "strokeColor": "#ec4899"},
+    {"type": "text", "id": "leg6t", "x": 615, "y": 1140, "text": "TorusFold", "fontSize": 10, "fontFamily": 1, "strokeColor": "#e5e5e5", "originalText": "TorusFold", "autoResize": true},
+
+    {"type": "rectangle", "id": "leg7", "x": 700, "y": 1140, "width": 20, "height": 15, "backgroundColor": "#06b6d4", "fillStyle": "solid", "strokeColor": "#06b6d4"},
+    {"type": "text", "id": "leg7t", "x": 725, "y": 1140, "text": "Bio/Clin", "fontSize": 10, "fontFamily": 1, "strokeColor": "#e5e5e5", "originalText": "Bio/Clin", "autoResize": true},
+
+    {"type": "rectangle", "id": "leg8", "x": 800, "y": 1140, "width": 20, "height": 15, "backgroundColor": "#3a3a3a", "fillStyle": "solid", "strokeColor": "#a0a0a0"},
+    {"type": "text", "id": "leg8t", "x": 825, "y": 1140, "text": "External", "fontSize": 10, "fontFamily": 1, "strokeColor": "#e5e5e5", "originalText": "External", "autoResize": true},
+
+    {"type": "text", "id": "stats", "x": 50, "y": 1170, "text": "State Keys: tum_*(10) | het_*(5) | csc_*(6) | vasc_*(6) | met_*(9) | imm_*(19) | evs_*(6) | ied_*(4) | caf_*(6) | drg_*(12) | bio_*(9) | cli_*(14) | crna_*(30+) = ~170 Keys", "fontSize": 9, "fontFamily": 1, "strokeColor": "#a0a0a0", "originalText": "State Keys: tum_*(10) | het_*(5) | csc_*(6) | vasc_*(6) | met_*(9) | imm_*(19) | evs_*(6) | ied_*(4) | caf_*(6) | drg_*(12) | bio_*(9) | cli_*(14) | crna_*(30+) = ~170 Keys", "autoResize": true},
+
+    {"type": "text", "id": "version", "x": 700, "y": 1170, "text": "v3.0.0 | 2026-06-17 | Yan Ziyi", "fontSize": 10, "fontFamily": 1, "strokeColor": "#a0a0a0", "originalText": "v3.0.0 | 2026-06-17 | Yan Ziyi", "autoResize": true}
+  ],
+  "appState": {
+    "viewBackgroundColor": "#1a1b26",
+    "gridSize": null
+  }
+}

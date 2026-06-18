@@ -1,0 +1,91 @@
+{
+  "type": "excalidraw",
+  "version": 2,
+  "source": "hermes-agent",
+  "elements": [
+    {"type": "rectangle", "id": "darkbg", "x": -200, "y": -200, "width": 1600, "height": 1200, "backgroundColor": "#1a1b26", "fillStyle": "solid", "strokeColor": "transparent", "strokeWidth": 0},
+
+    {"type": "text", "id": "title", "x": 550, "y": 20, "text": "CONFLUENCIA 3.0", "fontSize": 36, "fontFamily": 1, "strokeColor": "#e5e5e5", "originalText": "CONFLUENCIA 3.0", "autoResize": true},
+    {"type": "text", "id": "subtitle", "x": 480, "y": 60, "text": "circRNA Drug Discovery Platform", "fontSize": 20, "fontFamily": 1, "strokeColor": "#a0a0a0", "originalText": "circRNA Drug Discovery Platform", "autoResize": true},
+
+    {"type": "rectangle", "id": "root", "x": 600, "y": 120, "width": 200, "height": 60, "backgroundColor": "#4a9eed", "fillStyle": "solid", "roundness": {"type": 3}, "strokeColor": "#4a9eed", "strokeWidth": 3, "boundElements": [{"id": "root_text", "type": "text"}, {"id": "arr_cli", "type": "arrow"}, {"id": "arr_studio", "type": "arrow"}, {"id": "arr_agent", "type": "arrow"}]},
+    {"type": "text", "id": "root_text", "x": 610, "y": 135, "width": 180, "height": 30, "text": "Confluencia 3.0", "fontSize": 20, "fontFamily": 1, "strokeColor": "#1a1b26", "textAlign": "center", "verticalAlign": "middle", "containerId": "root", "originalText": "Confluencia 3.0", "autoResize": true},
+
+    {"type": "rectangle", "id": "cli", "x": 150, "y": 220, "width": 160, "height": 50, "backgroundColor": "#1e3a5f", "fillStyle": "solid", "roundness": {"type": 3}, "strokeColor": "#4a9eed", "strokeWidth": 2, "boundElements": [{"id": "cli_text", "type": "text"}, {"id": "arr_cli", "type": "arrow"}]},
+    {"type": "text", "id": "cli_text", "x": 160, "y": 230, "width": 140, "height": 30, "text": "CLI\nmain.py", "fontSize": 16, "fontFamily": 1, "strokeColor": "#e5e5e5", "textAlign": "center", "verticalAlign": "middle", "containerId": "cli", "originalText": "CLI\nmain.py", "autoResize": true},
+    {"type": "arrow", "id": "arr_cli", "x": 310, "y": 245, "width": 290, "height": -85, "points": [[0,0],[290,-85]], "strokeColor": "#4a9eed", "strokeWidth": 2, "endArrowhead": "arrow", "startBinding": {"elementId": "cli", "fixedPoint": [1, 0.5]}, "endBinding": {"elementId": "root", "fixedPoint": [0, 0.5]}},
+
+    {"type": "rectangle", "id": "studio", "x": 350, "y": 220, "width": 160, "height": 50, "backgroundColor": "#4a9eed", "fillStyle": "solid", "roundness": {"type": 3}, "strokeColor": "#4a9eed", "strokeWidth": 2, "boundElements": [{"id": "studio_text", "type": "text"}, {"id": "arr_studio", "type": "arrow"}]},
+    {"type": "text", "id": "studio_text", "x": 360, "y": 230, "width": 140, "height": 30, "text": "Studio\nHome.py", "fontSize": 16, "fontFamily": 1, "strokeColor": "#1a1b26", "textAlign": "center", "verticalAlign": "middle", "containerId": "studio", "originalText": "Studio\nHome.py", "autoResize": true},
+    {"type": "arrow", "id": "arr_studio", "x": 430, "y": 220, "width": 170, "height": -40, "points": [[0,0],[170,-40]], "strokeColor": "#4a9eed", "strokeWidth": 2, "endArrowhead": "arrow", "startBinding": {"elementId": "studio", "fixedPoint": [0.5, 0]}, "endBinding": {"elementId": "root", "fixedPoint": [0, 0.5]}},
+
+    {"type": "rectangle", "id": "agent", "x": 550, "y": 220, "width": 300, "height": 60, "backgroundColor": "#4a9eed", "fillStyle": "solid", "roundness": {"type": 3}, "strokeColor": "#4a9eed", "strokeWidth": 3, "boundElements": [{"id": "agent_text", "type": "text"}, {"id": "arr_agent", "type": "arrow"}, {"id": "arr_event", "type": "arrow"}, {"id": "arr_mgr", "type": "arrow"}]},
+    {"type": "text", "id": "agent_text", "x": 560, "y": 230, "width": 280, "height": 40, "text": "TNBCSimulacrum\nagent.py", "fontSize": 18, "fontFamily": 1, "strokeColor": "#1a1b26", "textAlign": "center", "verticalAlign": "middle", "containerId": "agent", "originalText": "TNBCSimulacrum\nagent.py", "autoResize": true},
+    {"type": "arrow", "id": "arr_agent", "x": 700, "y": 220, "width": 0, "height": -40, "points": [[0,0],[0,-40]], "strokeColor": "#4a9eed", "strokeWidth": 2, "endArrowhead": "arrow", "startBinding": {"elementId": "agent", "fixedPoint": [0.5, 0]}, "endBinding": {"elementId": "root", "fixedPoint": [0.5, 1]}},
+
+    {"type": "rectangle", "id": "event", "x": 900, "y": 220, "width": 180, "height": 60, "backgroundColor": "#1e3a5f", "fillStyle": "solid", "roundness": {"type": 3}, "strokeColor": "#4a9eed", "strokeWidth": 2, "boundElements": [{"id": "event_text", "type": "text"}, {"id": "arr_event", "type": "arrow"}]},
+    {"type": "text", "id": "event_text", "x": 910, "y": 230, "width": 160, "height": 40, "text": "EventBus\n40+ Events", "fontSize": 16, "fontFamily": 1, "strokeColor": "#e5e5e5", "textAlign": "center", "verticalAlign": "middle", "containerId": "event", "originalText": "EventBus\n40+ Events", "autoResize": true},
+    {"type": "arrow", "id": "arr_event", "x": 850, "y": 250, "width": 50, "height": 0, "points": [[0,0],[50,0]], "strokeColor": "#4a9eed", "strokeWidth": 2, "endArrowhead": "arrow", "startBinding": {"elementId": "agent", "fixedPoint": [1, 0.5]}, "endBinding": {"elementId": "event", "fixedPoint": [0, 0.5]}},
+
+    {"type": "rectangle", "id": "schema", "x": 1100, "y": 220, "width": 180, "height": 60, "backgroundColor": "#1e3a5f", "fillStyle": "solid", "roundness": {"type": 3}, "strokeColor": "#4a9eed", "strokeWidth": 2, "boundElements": [{"id": "schema_text", "type": "text"}]},
+    {"type": "text", "id": "schema_text", "x": 1110, "y": 230, "width": 160, "height": 40, "text": "StateSchema\n170+ Keys", "fontSize": 16, "fontFamily": 1, "strokeColor": "#e5e5e5", "textAlign": "center", "verticalAlign": "middle", "containerId": "schema", "originalText": "StateSchema\n170+ Keys", "autoResize": true},
+
+    {"type": "rectangle", "id": "mgr", "x": 400, "y": 340, "width": 600, "height": 80, "backgroundColor": "#8b5cf6", "fillStyle": "solid", "roundness": {"type": 3}, "strokeColor": "#8b5cf6", "strokeWidth": 3, "boundElements": [{"id": "mgr_text", "type": "text"}, {"id": "arr_mgr", "type": "arrow"}, {"id": "arr_tumor", "type": "arrow"}, {"id": "arr_tme", "type": "arrow"}, {"id": "arr_rx", "type": "arrow"}, {"id": "arr_crna", "type": "arrow"}]},
+    {"type": "text", "id": "mgr_text", "x": 420, "y": 350, "width": 560, "height": 60, "text": "Subsystem Managers\nTumor | TME | Treatment | Biomarker | Clinical | CircRNA", "fontSize": 16, "fontFamily": 1, "strokeColor": "#1a1b26", "textAlign": "center", "verticalAlign": "middle", "containerId": "mgr", "originalText": "Subsystem Managers\nTumor | TME | Treatment | Biomarker | Clinical | CircRNA", "autoResize": true},
+    {"type": "arrow", "id": "arr_mgr", "x": 700, "y": 280, "width": 0, "height": 60, "points": [[0,0],[0,60]], "strokeColor": "#8b5cf6", "strokeWidth": 2, "endArrowhead": "arrow", "startBinding": {"elementId": "agent", "fixedPoint": [0.5, 1]}, "endBinding": {"elementId": "mgr", "fixedPoint": [0.5, 0]}},
+
+    {"type": "rectangle", "id": "tumor", "x": 50, "y": 480, "width": 200, "height": 180, "backgroundColor": "#5c1a1a", "fillStyle": "solid", "roundness": {"type": 3}, "strokeColor": "#ef4444", "strokeWidth": 3, "opacity": 40, "boundElements": [{"id": "tumor_text", "type": "text"}, {"id": "arr_tumor", "type": "arrow"}]},
+    {"type": "text", "id": "tumor_text", "x": 60, "y": 490, "width": 180, "height": 160, "text": "TUMOR\n\nGrowthEngine\nHeterogeneity\nCSC Pool\nAngiogenesis\nMetastasis\n\n10 keys", "fontSize": 14, "fontFamily": 1, "strokeColor": "#e5e5e5", "textAlign": "center", "verticalAlign": "top", "containerId": "tumor", "originalText": "TUMOR\n\nGrowthEngine\nHeterogeneity\nCSC Pool\nAngiogenesis\nMetastasis\n\n10 keys", "autoResize": true},
+    {"type": "arrow", "id": "arr_tumor", "x": 250, "y": 420, "width": 150, "height": 60, "points": [[0,0],[150,60]], "strokeColor": "#ef4444", "strokeWidth": 2, "endArrowhead": "arrow", "startBinding": {"elementId": "mgr", "fixedPoint": [0, 0.5]}, "endBinding": {"elementId": "tumor", "fixedPoint": [0, 0.3]}},
+
+    {"type": "rectangle", "id": "tme", "x": 280, "y": 480, "width": 200, "height": 180, "backgroundColor": "#1a4d2e", "fillStyle": "solid", "roundness": {"type": 3}, "strokeColor": "#22c55e", "strokeWidth": 3, "opacity": 40, "boundElements": [{"id": "tme_text", "type": "text"}, {"id": "arr_tme", "type": "arrow"}]},
+    {"type": "text", "id": "tme_text", "x": 290, "y": 490, "width": 180, "height": 160, "text": "TME\n\nImmuneDynamics\nImmuneEvasion\nImmunoediting\nFibroblast\n\n35 keys", "fontSize": 14, "fontFamily": 1, "strokeColor": "#e5e5e5", "textAlign": "center", "verticalAlign": "top", "containerId": "tme", "originalText": "TME\n\nImmuneDynamics\nImmuneEvasion\nImmunoediting\nFibroblast\n\n35 keys", "autoResize": true},
+    {"type": "arrow", "id": "arr_tme", "x": 450, "y": 420, "width": 0, "height": 60, "points": [[0,0],[0,60]], "strokeColor": "#22c55e", "strokeWidth": 2, "endArrowhead": "arrow", "startBinding": {"elementId": "mgr", "fixedPoint": [0.2, 1]}, "endBinding": {"elementId": "tme", "fixedPoint": [0.5, 0]}},
+
+    {"type": "rectangle", "id": "rx", "x": 510, "y": 480, "width": 200, "height": 180, "backgroundColor": "#2d1b69", "fillStyle": "solid", "roundness": {"type": 3}, "strokeColor": "#8b5cf6", "strokeWidth": 3, "opacity": 40, "boundElements": [{"id": "rx_text", "type": "text"}, {"id": "arr_rx", "type": "arrow"}]},
+    {"type": "text", "id": "rx_text", "x": 520, "y": 490, "width": 180, "height": 160, "text": "TREATMENT\n\nChemotherapy\nImmunotherapy\nTargeted\nRadiotherapy\nCircRNA Rx\n\n12 keys", "fontSize": 14, "fontFamily": 1, "strokeColor": "#e5e5e5", "textAlign": "center", "verticalAlign": "top", "containerId": "rx", "originalText": "TREATMENT\n\nChemotherapy\nImmunotherapy\nTargeted\nRadiotherapy\nCircRNA Rx\n\n12 keys", "autoResize": true},
+    {"type": "arrow", "id": "arr_rx", "x": 600, "y": 420, "width": 0, "height": 60, "points": [[0,0],[0,60]], "strokeColor": "#8b5cf6", "strokeWidth": 2, "endArrowhead": "arrow", "startBinding": {"elementId": "mgr", "fixedPoint": [0.5, 1]}, "endBinding": {"elementId": "rx", "fixedPoint": [0.5, 0]}},
+
+    {"type": "rectangle", "id": "crna", "x": 740, "y": 480, "width": 260, "height": 180, "backgroundColor": "#5c3d1a", "fillStyle": "solid", "roundness": {"type": 3}, "strokeColor": "#f59e0b", "strokeWidth": 3, "strokeStyle": "dashed", "opacity": 40, "boundElements": [{"id": "crna_text", "type": "text"}, {"id": "arr_crna", "type": "arrow"}, {"id": "arr_torus", "type": "arrow"}]},
+    {"type": "text", "id": "crna_text", "x": 750, "y": 490, "width": 240, "height": 160, "text": "CIRCRNA *\n\nImmuneSensing\nStructurePred\nBSJ Features\nDrugResponse\nCircRNAEvo\n\n30+ keys", "fontSize": 14, "fontFamily": 1, "strokeColor": "#e5e5e5", "textAlign": "center", "verticalAlign": "top", "containerId": "crna", "originalText": "CIRCRNA *\n\nImmuneSensing\nStructurePred\nBSJ Features\nDrugResponse\nCircRNAEvo\n\n30+ keys", "autoResize": true},
+    {"type": "arrow", "id": "arr_crna", "x": 850, "y": 420, "width": 0, "height": 60, "points": [[0,0],[0,60]], "strokeColor": "#f59e0b", "strokeWidth": 2, "endArrowhead": "arrow", "startBinding": {"elementId": "mgr", "fixedPoint": [0.8, 1]}, "endBinding": {"elementId": "crna", "fixedPoint": [0.5, 0]}},
+
+    {"type": "rectangle", "id": "torus", "x": 750, "y": 700, "width": 250, "height": 100, "backgroundColor": "#ec4899", "fillStyle": "solid", "roundness": {"type": 3}, "strokeColor": "#ec4899", "strokeWidth": 3, "boundElements": [{"id": "torus_text", "type": "text"}, {"id": "arr_torus", "type": "arrow"}]},
+    {"type": "text", "id": "torus_text", "x": 760, "y": 710, "width": 230, "height": 80, "text": "TorusFold DL\n\nheuristic | diffusion | physics", "fontSize": 16, "fontFamily": 1, "strokeColor": "#1a1b26", "textAlign": "center", "verticalAlign": "middle", "containerId": "torus", "originalText": "TorusFold DL\n\nheuristic | diffusion | physics", "autoResize": true},
+    {"type": "arrow", "id": "arr_torus", "x": 870, "y": 660, "width": 0, "height": 40, "points": [[0,0],[0,40]], "strokeColor": "#ec4899", "strokeWidth": 2, "endArrowhead": "arrow", "startBinding": {"elementId": "crna", "fixedPoint": [0.5, 1]}, "endBinding": {"elementId": "torus", "fixedPoint": [0.5, 0]}},
+
+    {"type": "rectangle", "id": "pk", "x": 1040, "y": 480, "width": 160, "height": 100, "backgroundColor": "#1a4d4d", "fillStyle": "solid", "roundness": {"type": 3}, "strokeColor": "#06b6d4", "strokeWidth": 2, "opacity": 40, "boundElements": [{"id": "pk_text", "type": "text"}]},
+    {"type": "text", "id": "pk_text", "x": 1050, "y": 490, "width": 140, "height": 80, "text": "PK/PD\n\nRNACTM\ncircRNA PK", "fontSize": 14, "fontFamily": 1, "strokeColor": "#e5e5e5", "textAlign": "center", "verticalAlign": "top", "containerId": "pk", "originalText": "PK/PD\n\nRNACTM\ncircRNA PK", "autoResize": true},
+
+    {"type": "rectangle", "id": "encoder", "x": 1040, "y": 600, "width": 160, "height": 80, "backgroundColor": "#1a4d4d", "fillStyle": "solid", "roundness": {"type": 3}, "strokeColor": "#06b6d4", "strokeWidth": 2, "opacity": 40, "boundElements": [{"id": "encoder_text", "type": "text"}]},
+    {"type": "text", "id": "encoder_text", "x": 1050, "y": 610, "width": 140, "height": 60, "text": "ENCODER\n\nTransformer", "fontSize": 14, "fontFamily": 1, "strokeColor": "#e5e5e5", "textAlign": "center", "verticalAlign": "top", "containerId": "encoder", "originalText": "ENCODER\n\nTransformer", "autoResize": true},
+
+    {"type": "rectangle", "id": "pages", "x": 50, "y": 700, "width": 660, "height": 100, "backgroundColor": "#1e3a5f", "fillStyle": "solid", "roundness": {"type": 3}, "strokeColor": "#4a9eed", "strokeWidth": 2, "opacity": 40, "boundElements": [{"id": "pages_text", "type": "text"}]},
+    {"type": "text", "id": "pages_text", "x": 60, "y": 710, "width": 640, "height": 80, "text": "STUDIO PAGES\n\n1_CircRNA Analysis | 2_Drug Prediction | 3_Epitope Screening\n4_TNBC Simulator | 5_Report Export | 6_Joint Analysis", "fontSize": 14, "fontFamily": 1, "strokeColor": "#e5e5e5", "textAlign": "center", "verticalAlign": "middle", "containerId": "pages", "originalText": "STUDIO PAGES\n\n1_CircRNA Analysis | 2_Drug Prediction | 3_Epitope Screening\n4_TNBC Simulator | 5_Report Export | 6_Joint Analysis", "autoResize": true},
+
+    {"type": "rectangle", "id": "ext", "x": 1040, "y": 700, "width": 160, "height": 100, "backgroundColor": "#3a3a3a", "fillStyle": "solid", "roundness": {"type": 3}, "strokeColor": "#a0a0a0", "strokeWidth": 2, "opacity": 40, "boundElements": [{"id": "ext_text", "type": "text"}]},
+    {"type": "text", "id": "ext_text", "x": 1050, "y": 710, "width": 140, "height": 80, "text": "EXTERNAL\n\nViennaRNA\nESM-2\nNetMHCpan", "fontSize": 14, "fontFamily": 1, "strokeColor": "#e5e5e5", "textAlign": "center", "verticalAlign": "top", "containerId": "ext", "originalText": "EXTERNAL\n\nViennaRNA\nESM-2\nNetMHCpan", "autoResize": true},
+
+    {"type": "text", "id": "legend", "x": 50, "y": 830, "text": "Legend:", "fontSize": 14, "fontFamily": 1, "strokeColor": "#e5e5e5", "originalText": "Legend:", "autoResize": true},
+    {"type": "rectangle", "id": "leg1", "x": 120, "y": 830, "width": 25, "height": 20, "backgroundColor": "#4a9eed", "fillStyle": "solid", "strokeColor": "#4a9eed"},
+    {"type": "text", "id": "leg1t", "x": 150, "y": 830, "text": "Core", "fontSize": 12, "fontFamily": 1, "strokeColor": "#e5e5e5", "originalText": "Core", "autoResize": true},
+    {"type": "rectangle", "id": "leg2", "x": 200, "y": 830, "width": 25, "height": 20, "backgroundColor": "#ef4444", "fillStyle": "solid", "strokeColor": "#ef4444"},
+    {"type": "text", "id": "leg2t", "x": 230, "y": 830, "text": "Tumor", "fontSize": 12, "fontFamily": 1, "strokeColor": "#e5e5e5", "originalText": "Tumor", "autoResize": true},
+    {"type": "rectangle", "id": "leg3", "x": 290, "y": 830, "width": 25, "height": 20, "backgroundColor": "#22c55e", "fillStyle": "solid", "strokeColor": "#22c55e"},
+    {"type": "text", "id": "leg3t", "x": 320, "y": 830, "text": "TME", "fontSize": 12, "fontFamily": 1, "strokeColor": "#e5e5e5", "originalText": "TME", "autoResize": true},
+    {"type": "rectangle", "id": "leg4", "x": 370, "y": 830, "width": 25, "height": 20, "backgroundColor": "#8b5cf6", "fillStyle": "solid", "strokeColor": "#8b5cf6"},
+    {"type": "text", "id": "leg4t", "x": 400, "y": 830, "text": "Treatment", "fontSize": 12, "fontFamily": 1, "strokeColor": "#e5e5e5", "originalText": "Treatment", "autoResize": true},
+    {"type": "rectangle", "id": "leg5", "x": 480, "y": 830, "width": 25, "height": 20, "backgroundColor": "#f59e0b", "fillStyle": "solid", "strokeColor": "#f59e0b"},
+    {"type": "text", "id": "leg5t", "x": 510, "y": 830, "text": "circRNA *", "fontSize": 12, "fontFamily": 1, "strokeColor": "#e5e5e5", "originalText": "circRNA *", "autoResize": true},
+    {"type": "rectangle", "id": "leg6", "x": 600, "y": 830, "width": 25, "height": 20, "backgroundColor": "#ec4899", "fillStyle": "solid", "strokeColor": "#ec4899"},
+    {"type": "text", "id": "leg6t", "x": 630, "y": 830, "text": "TorusFold", "fontSize": 12, "fontFamily": 1, "strokeColor": "#e5e5e5", "originalText": "TorusFold", "autoResize": true},
+    {"type": "rectangle", "id": "leg7", "x": 720, "y": 830, "width": 25, "height": 20, "backgroundColor": "#06b6d4", "fillStyle": "solid", "strokeColor": "#06b6d4"},
+    {"type": "text", "id": "leg7t", "x": 750, "y": 830, "text": "PK/Encoder", "fontSize": 12, "fontFamily": 1, "strokeColor": "#e5e5e5", "originalText": "PK/Encoder", "autoResize": true},
+
+    {"type": "text", "id": "version", "x": 600, "y": 860, "text": "Version 3.0.0 | 2026-06-17 | Yan Ziyi", "fontSize": 12, "fontFamily": 1, "strokeColor": "#a0a0a0", "originalText": "Version 3.0.0 | 2026-06-17 | Yan Ziyi", "autoResize": true}
+  ],
+  "appState": {
+    "viewBackgroundColor": "#1a1b26",
+    "gridSize": null
+  }
+}
