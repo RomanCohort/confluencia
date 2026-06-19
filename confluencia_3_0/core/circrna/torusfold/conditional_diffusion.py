@@ -21,6 +21,9 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+# Lazy import to avoid circular dependency
+# from .experimental_conditions import ExperimentalConditions, ConditionEncoder
+
 
 class CircRNADiffusion(nn.Module):
     """Diffusion model with circRNA-specific conditioning.
@@ -62,9 +65,12 @@ class CircRNADiffusion(nn.Module):
         # Pair representation projection
         self.pair_proj = nn.Linear(d_pair, d_model, bias=False)
 
-        # Combine all conditions
+        # Experimental condition encoder (pH, Mg²⁺, Na⁺, temperature)
+        self.cond_proj = nn.Linear(d_model, d_model)  # Projects condition embedding
+
+        # Combine all conditions (now includes experimental conditions)
         self.condition_merger = nn.Sequential(
-            nn.Linear(d_model * 2 + d_model // 4, d_model),
+            nn.Linear(d_model * 2 + d_model // 4 + d_model, d_model),  # +d_model for exp conditions
             nn.LayerNorm(d_model),
             nn.GELU(),
         )
@@ -106,11 +112,17 @@ class CircRNADiffusion(nn.Module):
         pair_repr: torch.Tensor,        # (B, L, L, d_pair)
         ss_tokens: Optional[torch.Tensor] = None,  # (B, L) secondary structure
         coords_target: Optional[torch.Tensor] = None,  # (B, L, 3) for training
+        exp_condition_emb: Optional[torch.Tensor] = None,  # (B, d_model) experimental conditions
     ) -> Dict[str, torch.Tensor]:
         """Training forward pass.
 
         If coords_target provided: train diffusion
         Else: sample new structure
+
+        Args:
+            exp_condition_emb: (B, d_model) from ConditionEncoder, injects
+                experimental conditions (pH, Mg²⁺, temperature, ionic strength)
+                into the diffusion process as classifier-free guidance.
         """
         B, L = seq_tokens.shape
         device = seq_tokens.device
@@ -125,8 +137,15 @@ class CircRNADiffusion(nn.Module):
         topo_emb = self.topo_embed(L, device)  # (L, d_model)
         topo_emb = topo_emb.unsqueeze(0).expand(B, -1, -1)
 
-        # Merge conditions
-        cond_input = torch.cat([seq_emb, topo_emb, ss_emb], dim=-1)
+        # Experimental condition embedding (pH, Mg²⁺, temperature)
+        exp_emb = torch.zeros(B, L, self.d_model, device=device)
+        if exp_condition_emb is not None:
+            # Project and broadcast to all positions
+            exp_projected = self.cond_proj(exp_condition_emb)  # (B, d_model)
+            exp_emb = exp_projected.unsqueeze(1).expand(-1, L, -1)  # (B, L, d_model)
+
+        # Merge conditions (now includes experimental conditions)
+        cond_input = torch.cat([seq_emb, topo_emb, ss_emb, exp_emb], dim=-1)
         cond = self.condition_merger(cond_input)  # (B, L, d_model)
 
         # Add pair representation
@@ -184,8 +203,16 @@ class CircRNADiffusion(nn.Module):
         L: int,
         cond: torch.Tensor,
         device: torch.device,
+        guidance_scale: float = 1.5,
     ) -> Dict[str, torch.Tensor]:
-        """Sample from diffusion model (inference)."""
+        """Sample from diffusion model with classifier-free guidance.
+
+        Args:
+            guidance_scale: >1.0 amplifies condition influence.
+                1.0 = standard conditional sampling
+                0.0 = unconditional sampling
+                3.0+ = strong condition guidance (more pH/Mg/T effect)
+        """
         # Start from pure noise
         coords = torch.randn(B, L, 3, device=device)
 
@@ -194,8 +221,19 @@ class CircRNADiffusion(nn.Module):
             t_tensor = torch.full((B,), t, device=device, dtype=torch.float)
             t_emb = self.time_embed(t_tensor)
 
-            # Predict noise
-            noise_pred = self.denoiser(coords, cond, t_emb)
+            if guidance_scale != 1.0 and self.training:
+                # Classifier-free guidance: interpolate conditional and unconditional
+                noise_cond = self.denoiser(coords, cond, t_emb)
+
+                # Unconditional (zero out condition)
+                cond_null = torch.zeros_like(cond)
+                noise_uncond = self.denoiser(coords, cond_null, t_emb)
+
+                # Guided prediction
+                noise_pred = noise_uncond + guidance_scale * (noise_cond - noise_uncond)
+            else:
+                # Standard conditional sampling
+                noise_pred = self.denoiser(coords, cond, t_emb)
 
             # Denoise step
             alpha = self.alphas[t]
