@@ -209,10 +209,11 @@ class TriangleAttention(nn.Module):
         nn.init.zeros_(self.linear_g.weight)
         nn.init.ones_(self.linear_g.bias)
 
-    def forward(self, z: torch.Tensor) -> torch.Tensor:
+    def forward(self, z: torch.Tensor, physics_bias: Optional[torch.Tensor] = None) -> torch.Tensor:
         """
         Args:
             z: (B, L, L, c_z) pair representation
+            physics_bias: (B, n_heads, L, L) optional physics attention bias
 
         Returns:
             (B, L, L, c_z) updated pair representation
@@ -243,6 +244,13 @@ class TriangleAttention(nn.Module):
             # Each of the B*L "rows" gets the same bias
             circ_bias = self.circ_bias(L)  # (1, H, L, L)
             attn = attn + circ_bias  # broadcasting: (B*L, H, L, L) + (1, H, L, L)
+
+            # Add physics bias if provided
+            if physics_bias is not None:
+                # physics_bias: (B, H, L, L) → (B*L, H, L, L)
+                phys = physics_bias.unsqueeze(1).expand(-1, L, -1, -1, -1)
+                phys = phys.reshape(B * L, self.n_heads, L, L)
+                attn = attn + phys
 
             attn = F.softmax(attn, dim=-1)
 
@@ -329,11 +337,18 @@ class CircPairformerBlock(nn.Module):
 
     All with circular topology adaptations.
 
+    Scheme 5 extension: Physics constraint embedding as attention bias.
+    - Electrostatic repulsion (phosphate backbone -1 charge)
+    - Base stacking energy (π-π interaction along helix)
+    - Van der Waals clash penalty
+    - BSJ closure distance penalty
+
     Args:
         c_z: Pair representation dimension (default: 128)
         c_hidden_tri: Hidden dim for triangle updates
         n_heads_tri: Heads for triangle attention
         max_circ_dist: Max circular distance for bias
+        use_physics_bias: Enable physics constraint embedding (Scheme 5)
     """
 
     def __init__(
@@ -342,6 +357,7 @@ class CircPairformerBlock(nn.Module):
         c_hidden_tri: Optional[int] = None,
         n_heads_tri: int = 4,
         max_circ_dist: int = 128,
+        use_physics_bias: bool = True,
     ):
         super().__init__()
         c_hidden_tri = c_hidden_tri or c_z
@@ -361,21 +377,146 @@ class CircPairformerBlock(nn.Module):
         # Transition
         self.pair_transition = PairTransition(c_z)
 
-    def forward(self, z: torch.Tensor) -> torch.Tensor:
+        # Physics constraint embedding (Scheme 5)
+        self.use_physics_bias = use_physics_bias
+        if use_physics_bias:
+            self.physics_bias = PhysicsConstraintBias(
+                n_heads=n_heads_tri,
+                max_circ_dist=max_circ_dist,
+            )
+
+    def forward(
+        self,
+        z: torch.Tensor,
+        coords: Optional[torch.Tensor] = None,
+        sequence: Optional[torch.Tensor] = None,
+    ) -> torch.Tensor:
         """
         Args:
             z: (B, L, L, c_z) pair representation
+            coords: (B, L, 3) optional coordinates for physics bias
+            sequence: (B, L) optional sequence for physics bias
 
         Returns:
             (B, L, L, c_z) updated pair representation
         """
+        # Compute physics bias if enabled and coords provided
+        physics_attn_bias = None
+        if self.use_physics_bias and coords is not None:
+            physics_attn_bias = self.physics_bias(coords, sequence)
+
         z = self.tri_mul_out(z)
         z = self.tri_mul_in(z)
-        z = self.tri_att_start(z)
-        z = self.tri_att_end(z)
+        z = self.tri_att_start(z, physics_attn_bias)
+        z = self.tri_att_end(z, physics_attn_bias)
         z = self.pair_transition(z)
 
         return z
+
+
+class PhysicsConstraintBias(nn.Module):
+    """
+    Physics constraint embedding as attention bias (Scheme 5).
+
+    Computes physics-based attention bias from coordinates:
+    - Electrostatic: q²/d for phosphate repulsion
+    - Stacking: penalty for non-optimal stacking distance
+    - Clash: penalty for steric overlap
+    - Closure: reward for positions near BSJ
+
+    This enables the model to learn physics-compliant predictions
+    during training, reducing post-processing dependency.
+    """
+
+    def __init__(
+        self,
+        n_heads: int = 4,
+        max_circ_dist: int = 128,
+        bond_length: float = 5.9,
+        stack_distance: float = 3.4,
+        clash_distance: float = 3.0,
+    ):
+        super().__init__()
+        self.n_heads = n_heads
+        self.bond_length = bond_length
+        self.stack_distance = stack_distance
+        self.clash_distance = clash_distance
+
+        # Physics bias weights (learnable)
+        self.w_elec = nn.Parameter(torch.tensor(0.05))
+        self.w_stack = nn.Parameter(torch.tensor(0.3))
+        self.w_clash = nn.Parameter(torch.tensor(10.0))
+        self.w_closure = nn.Parameter(torch.tensor(1.0))
+
+        # Project physics features to attention bias
+        self.physics_to_bias = nn.Linear(4, n_heads)
+
+    def forward(
+        self,
+        coords: torch.Tensor,       # (B, L, 3)
+        sequence: Optional[torch.Tensor] = None,  # (B, L)
+    ) -> torch.Tensor:
+        """Compute physics-based attention bias.
+
+        Returns:
+            (B, n_heads, L, L) attention bias tensor
+        """
+        B, L, _ = coords.shape
+        device = coords.device
+
+        # Distance matrix
+        diff = coords.unsqueeze(2) - coords.unsqueeze(1)  # (B, L, L, 3)
+        distances = torch.norm(diff, dim=-1)  # (B, L, L)
+
+        # Avoid zero distances (self-pairs)
+        distances = distances + 1e-8
+
+        # 1. Electrostatic repulsion (phosphate backbone)
+        # Simplified: q²/d for non-adjacent pairs
+        elec_bias = torch.zeros(B, L, L, device=device)
+        # Only apply to non-adjacent (|i-j| > 1) and within cutoff
+        for i in range(L):
+            for j in range(L):
+                if abs(i - j) > 1 and distances[0, i, j] < 20.0:
+                    elec_bias[:, i, j] = self.w_elec / distances[:, i, j]
+
+        # 2. Base stacking (prefer ~3.4Å vertical separation)
+        # Adjacent bases should have consistent z-offset
+        stack_bias = torch.zeros(B, L, L, device=device)
+        for i in range(L):
+            j = (i + 1) % L
+            dz = torch.abs(coords[:, i, 2] - coords[:, j, 2])
+            stack_bias[:, i, j] = self.w_stack * (dz - self.stack_distance) ** 2
+            stack_bias[:, j, i] = stack_bias[:, i, j]
+
+        # 3. Clash penalty (too close)
+        clash_bias = torch.zeros(B, L, L, device=device)
+        clash_mask = (distances < self.clash_distance) & \
+                     (torch.abs(torch.arange(L, device=device).unsqueeze(0) - \
+                      torch.arange(L, device=device).unsqueeze(1)) > 1)
+        clash_bias = self.w_clash * torch.where(
+            clash_mask,
+            (self.clash_distance - distances) ** 2,
+            torch.zeros_like(distances)
+        )
+
+        # 4. Closure reward (BSJ region should be close)
+        closure_bias = torch.zeros(B, L, L, device=device)
+        # Reward connections near BSJ (positions 0 and L-1)
+        bsj_dist = distances[:, 0, L-1]
+        closure_bias[:, 0, L-1] = -self.w_closure * (bsj_dist - self.bond_length) ** 2
+        closure_bias[:, L-1, 0] = closure_bias[:, 0, L-1]
+
+        # Stack physics features
+        physics_features = torch.stack([
+            elec_bias, stack_bias, clash_bias, closure_bias
+        ], dim=-1)  # (B, L, L, 4)
+
+        # Project to attention bias
+        attn_bias = self.physics_to_bias(physics_features)  # (B, L, L, n_heads)
+        attn_bias = attn_bias.permute(0, 3, 1, 2)  # (B, n_heads, L, L)
+
+        return attn_bias
 
 
 class CircPairformerStack(nn.Module):
