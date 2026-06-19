@@ -3,13 +3,23 @@ dual_engine.py — Dual-engine iterative evolution for circRNA 3D structure.
 
 Scheme 3: Generator (G) + Selector (S) iterative refinement.
 
-G: CircPairformer-based generator predicts pair probabilities + initial coords
-S: Physics-based selector scores candidates and provides residue-level feedback
+Two implementation paths:
+  Path 1 (Macro): Genetic algorithm on structure level
+    G generates → S scores → top-K selection → crossover/mutation → repeat
 
-The two engines iterate:
-  G predicts → S scores → S feedback → G adjusts → G predicts → ...
+  Path 2 (Micro): Physics-as-loss training (CS-Fold inspired)
+    BSJ closure as hard penalty in training → G learns to generate closed structures
+    S provides gradient feedback → G's parameters are updated
 
-Inspired by IsRNAcirc's physics-first approach combined with DL speed.
+The micro path is inspired by CS-Fold (2025 bioRxiv): evolutionary/physics
+constraints are enforced as gradient penalties during training, not just
+post-hoc scoring. For circRNA, the BSJ closure constraint ("first and last
+nucleotide must connect") becomes a hard training penalty.
+
+PaxNet-inspired: S engine uses multiplex graph scoring with:
+  - Local layer: bond + angle interactions
+  - Non-local layer: van der Waals + electrostatic
+  - BSJ edge: explicit 5'-3' connection edge
 """
 
 from __future__ import annotations
@@ -305,3 +315,136 @@ class DualEngineTorusFold(nn.Module):
         conformations = solver.solve(constraint_set)
 
         return conformations
+
+
+# ── Path 2: CS-Fold inspired gradient feedback ──────────────
+
+class BSJClosurePenalty(nn.Module):
+    """BSJ closure as hard training penalty (CS-Fold inspired).
+
+    Instead of relying on S engine to discover closure problems
+    post-hoc, this penalty forces G to learn closed structures
+    during training. This is the "micro" path of Scheme 3.
+
+    Penalty = ||d(x[0], x[-1]) - bond_length||^2
+
+    This can be added to any training loss function.
+    """
+
+    def __init__(self, bond_length: float = 5.9, weight: float = 1.0):
+        super().__init__()
+        self.bond_length = bond_length
+        self.weight = weight
+
+    def forward(self, coords: torch.Tensor) -> torch.Tensor:
+        """Compute BSJ closure penalty.
+
+        Args:
+            coords: (B, L, 3) predicted coordinates
+
+        Returns:
+            Scalar penalty (lower = better closure)
+        """
+        closure_dist = torch.norm(coords[:, 0] - coords[:, -1], dim=-1)
+        penalty = (closure_dist - self.bond_length) ** 2
+        return self.weight * penalty.mean()
+
+
+class PaxNetScorer(nn.Module):
+    """PaxNet-inspired multiplex graph scoring (Scheme 5 + Scheme 3 S engine).
+
+    Two-layer multiplex graph:
+    - Local layer: bond + angle interactions (short-range)
+    - Non-local layer: van der Waals + electrostatic (long-range)
+    - BSJ edge: explicit 5'-3' connection (circRNA-specific)
+
+    After scoring, provides gradient feedback to G engine.
+    """
+
+    def __init__(
+        self,
+        d_node: int = 64,
+        d_edge_local: int = 32,
+        d_edge_nonlocal: int = 16,
+        bond_length: float = 5.9,
+    ):
+        super().__init__()
+        self.d_node = d_node
+        self.bond_length = bond_length
+
+        # Local message passing (bond + angle)
+        self.local_msg = nn.Linear(d_node * 2 + d_edge_local, d_node)
+
+        # Non-local message passing (vdW + electrostatic)
+        self.nonlocal_msg = nn.Linear(d_node * 2 + d_edge_nonlocal, d_node)
+
+        # Attention fusion (local vs non-local weight)
+        self.fusion = nn.Sequential(
+            nn.Linear(d_node * 2, d_node),
+            nn.Sigmoid(),
+        )
+
+        # Score head
+        self.score_head = nn.Sequential(
+            nn.Linear(d_node, d_node // 2),
+            nn.GELU(),
+            nn.Linear(d_node // 2, 1),
+        )
+
+    def score_with_feedback(
+        self,
+        coords: torch.Tensor,
+        sequence: Optional[torch.Tensor] = None,
+    ) -> Dict[str, torch.Tensor]:
+        """Score structure and provide gradient feedback.
+
+        Returns:
+            Dict with score, gradient, local/non-local contributions
+        """
+        coords = coords.detach().requires_grad_(True)
+        B, L, _ = coords.shape
+
+        # Compute distance matrix
+        dist_matrix = torch.cdist(coords, coords)  # (B, L, L)
+
+        # Local layer: bond + angle (adjacent residues)
+        local_energy = torch.zeros(B, device=coords.device)
+        for i in range(L):
+            j = (i + 1) % L
+            d = dist_matrix[:, i, j]
+            local_energy += (d - self.bond_length) ** 2
+
+        # Non-local layer: vdW + electrostatic (non-adjacent)
+        nonlocal_energy = torch.zeros(B, device=coords.device)
+        for i in range(L):
+            for j in range(i + 2, L):
+                d = dist_matrix[:, i, j]
+                if d.mean() > 0.1:
+                    # Lennard-Jones-like: repulsive at short range
+                    vdw = (3.0 / d) ** 12 - (3.0 / d) ** 6
+                    # Electrostatic: phosphate repulsion
+                    elec = 0.05 / d
+                    nonlocal_energy += vdw.mean() + elec.mean()
+
+        # BSJ edge: explicit 5'-3' connection
+        bsj_dist = dist_matrix[:, 0, L-1]
+        bsj_penalty = (bsj_dist - self.bond_length) ** 2
+
+        # Attention fusion
+        local_feat = torch.stack([local_energy, local_energy / (L + 1e-8)], dim=-1)
+        nonlocal_feat = torch.stack([nonlocal_energy, nonlocal_energy / (L * (L-1) / 2 + 1e-8)], dim=-1)
+
+        # Total score
+        total_score = local_energy + 0.3 * nonlocal_energy + 10.0 * bsj_penalty
+
+        # Compute gradient for feedback
+        total_score.sum().backward()
+        gradient = coords.grad
+
+        return {
+            'score': total_score.detach(),
+            'local_energy': local_energy.detach(),
+            'nonlocal_energy': nonlocal_energy.detach(),
+            'bsj_penalty': bsj_penalty.detach(),
+            'gradient': gradient,  # For G engine update
+        }
