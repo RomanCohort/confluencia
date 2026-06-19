@@ -174,22 +174,22 @@ def run_scheme_3(sequence: str, n_iterations: int = 3) -> dict:
 
 
 def run_scheme_4(sequence: str) -> dict:
-    """Scheme 4: Conditional diffusion (untrained, test architecture)."""
+    """Scheme 4: DDPM + EGNN + Guided Diffusion."""
     import torch
-    from confluencia_3_0.core.circrna.torusfold.conditional_diffusion import CircRNADiffusion
+    from confluencia_3_0.core.circrna.torusfold.circrna_diffusion import (
+        CircRNADiffusionModel, CircDiffusionConfig
+    )
 
     L = len(sequence)
-    model = CircRNADiffusion(n_diffusion_steps=20)  # Fewer steps for speed
+    config = CircDiffusionConfig(n_diffusion_steps=20)
+    model = CircRNADiffusionModel(config)
 
     # Tokenize sequence
     token_map = {'A': 0, 'C': 1, 'G': 2, 'U': 3}
     tokens = torch.tensor([[token_map.get(c, 4) for c in sequence]])
 
-    # Dummy pair representation
-    pair_repr = torch.randn(1, L, L, 128) * 0.01
-
     with torch.no_grad():
-        result = model(tokens, pair_repr)
+        result = model(tokens, temperature=310.0, pH=7.4, Mg_conc=1.0, Na_conc=150.0)
 
     coords = result['coords'][0].numpy()
     return {'coords': coords}
