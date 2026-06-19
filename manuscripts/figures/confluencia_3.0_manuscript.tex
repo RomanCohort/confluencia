@@ -420,7 +420,11 @@ ViennaRNA pseudo-labels & 0.041 & 0.071 & $-$41\% vs baseline \\
 
 \subsection{The circRNA Data Challenge}
 
-No circRNA crystal structures exist in PDB. Fewer than two dozen structural annotations appear in literature. TorusFold targets 3D atomic coordinate prediction, a task ViennaRNA cannot perform (ViennaRNA predicts secondary structure only). The transfer learning strategy (frozen backbone + trainable TPE/CircPairformer on ViennaRNA pseudo-labels) provides a practical path: secondary structure supervision teaches circular topology while the architecture prepares for 3D prediction. The diffusion-based structure head awaits circRNA 3D data. We propose circRNA-CASP as community validation.
+circRNA 3D structure data is extremely scarce. \textbf{Experimental structures}: PDB contains one cryo-EM circRNA dimer (PDB: 9H8A, 9.60 Å resolution) and several bacterial type II introns related to circularization (PDB: 8xtp, 8xtq, 8xtr, 8xts, 9is7; 2.5-2.9 Å). \textbf{Computational predictions}: IsRNAcirc \citep{jiang2024isrnacirc} provides 34 predicted circRNA 3D structures with physics-validated quality. \textbf{Sequence databases}: circBank, CropCircDB provide sequences, annotations, and miRNA binding sites, but not 3D structures.
+
+TorusFold's data strategy: (1) Use PDB 9H8A as gold-standard validation (the only experimental circRNA structure); (2) Use IsRNAcirc's 34 structures as high-quality pseudo-labels for transfer learning; (3) Generate custom pseudo-labels via ViennaRNA secondary structure + physics refinement for sequences from circBank. This multi-tier approach addresses data scarcity while maintaining quality control.
+
+\textbf{Note}: With only pseudo-labels available, TorusFold's 3D predictions cannot be validated against ground truth. The CASP-style internal evaluation (6 schemes competing on physics consistency) provides quality assessment, but this only validates ``physical plausibility'' not ``structural correctness''. The best achievable outcome with current data is approaching the pseudo-label source quality (ViennaRNA secondary structure accuracy $\sim$0.85 AUC). True 3D validation awaits circRNA-CASP or experimental structure determination.
 
 \subsection{Power Analysis}
 
@@ -468,7 +472,16 @@ The small-sample problem ($N=42$ drug, $N=7$ immunogenicity) is endemic to circR
 %----------------------------------------------------------------------
 \section{Data Availability Statement}
 
-TNBC subtype parameters derived from Jiang et al. \citep{jiang2019} Supplementary Table S2 (publicly available). Pharmacokinetic validation uses Wesselhoeft et al. \citep{wesselhoeft2018} published half-life data. Immunogenicity validation uses Chen et al. \citep{chen2019} published IFN-$\beta$ measurements. circRNA 3D structure data: not available (no public database exists).
+TNBC subtype parameters derived from Jiang et al. \citep{jiang2019} Supplementary Table S2 (publicly available). Pharmacokinetic validation uses Wesselhoeft et al. \citep{wesselhoeft2018} published half-life data. Immunogenicity validation uses Chen et al. \citep{chen2019} published IFN-$\beta$ measurements.
+
+\textbf{circRNA 3D structure data sources:}
+\begin{enumerate}
+\item \textbf{Experimental}: PDB 9H8A (cryo-EM circRNA dimer, 9.60 Å) -- available at \url{https://www.rcsb.org/structure/9H8A}. Bacterial type II introns (8xtp, 8xtq, 8xtr, 8xts, 9is7) available at RCSB PDB.
+\item \textbf{Computational}: IsRNAcirc 34-structure test set -- available at \url{https://github.com/ChunXiangTang/IsRNAcirc} (predicted structures with physics validation).
+\item \textbf{Sequence only}: circBank \url{http://www.circbank.cn/} (sequences, annotations, miRNA binding); CropCircDB for plant circRNAs.
+\end{enumerate}
+
+\textbf{Note}: TorusFold 3D predictions are validated only for physical consistency (energy, closure, clashes), not structural correctness against ground truth. The only experimental circRNA structure (9H8A) will be used for final validation when circRNA-CASP is established.
 
 \textbf{Wet-lab validation.} In collaboration with The First Bethune Hospital of Jilin University (FBHJU) as part of the 2025 IGEM competition, we generated experimental data: (1) ELISPOT IFN-$\gamma$ measurements for 17 candidate CTL epitopes and Combined circRNA vaccine in PBMC-derived DC-T coculture (Figure 7), (2) flow cytometry for DC maturation (CD80/CD86) and T cell activation (CD69, CD28, CD45RO/CCR7), (3) in vivo anti-tumor efficacy in 4T1/TROP2 tumor-bearing mouse model with CD8+ TIL and Granzyme B assessment. All protocols approved by institutional IRB. Additional validation (m6A pathway calibration, circRNA-LNP endosomal escape, half-life quantification) is ongoing.
 
