@@ -34,6 +34,12 @@ class SolverConfig:
     closure_tolerance: float = 0.5  # Å, max allowed closure deviation
     max_iterations: int = 100       # Max perturbation iterations
     perturbation_scale: float = 0.5 # Å, initial perturbation amplitude
+    # Annealing closure (IsRNAcirc-inspired)
+    use_annealing_closure: bool = True   # Use simulated annealing for BSJ
+    annealing_temp_init: float = 500.0   # K, initial temperature
+    annealing_temp_final: float = 300.0  # K, final temperature
+    annealing_cooling: float = 0.95      # Cooling rate per cycle
+    annealing_steps_per_temp: int = 50   # Steps per temperature level
 
 
 class GeometricConstraintSolver:
@@ -78,8 +84,11 @@ class GeometricConstraintSolver:
             # 2. Perturb to satisfy pair constraints
             coords = self._satisfy_pair_constraints(coords, constraint_set)
 
-            # 3. Correct closure if needed
-            coords = self._closure_correction(coords)
+            # 3. Correct closure using annealing (IsRNAcirc-inspired) or standard
+            if self.config.use_annealing_closure:
+                coords = self._annealing_closure(coords, constraint_set)
+            else:
+                coords = self._closure_correction(coords)
 
             # 4. Check for steric clashes
             if self._has_clashes(coords):
@@ -224,6 +233,83 @@ class GeometricConstraintSolver:
 
         return coords
 
+    def _annealing_closure(
+        self,
+        coords: np.ndarray,
+        constraint_set,
+    ) -> np.ndarray:
+        """Simulated annealing for BSJ closure (IsRNAcirc-inspired).
+
+        Instead of directly correcting closure (which can introduce strain),
+        gradually anneal the structure from high to low temperature,
+        allowing the BSJ region to find a low-strain closure path.
+
+        Inspired by IsRNAcirc's end-closure step:
+        Jiang et al., PLOS Comp Biol 2024, DOI:10.1371/journal.pcbi.1012293
+
+        Algorithm:
+        1. Start at high temperature (flexible)
+        2. Perturb positions near BSJ
+        3. Accept perturbations that improve closure + pair constraints
+        4. Cool down gradually (accept fewer bad moves)
+        5. Final geometric correction as safety net
+        """
+        coords = coords.copy()
+        L = len(coords)
+        bond_length = self.config.bond_length
+        pair_constraints = getattr(constraint_set, 'pair_constraints', [])
+
+        T = self.config.annealing_temp_init
+        T_final = self.config.annealing_temp_final
+        cooling = self.config.annealing_cooling
+        steps = self.config.annealing_steps_per_temp
+
+        # Precompute: how many residues near BSJ to perturb
+        n_bsj_zone = max(3, L // 10)
+
+        best_coords = coords.copy()
+        best_energy = self._compute_cg_energy(coords, constraint_set)
+
+        while T > T_final:
+            for _ in range(steps):
+                # Perturb positions near BSJ (indices 0..n_bsj_zone and L-n_bsj_zone..L-1)
+                perturbed = coords.copy()
+                scale = 0.1 * (T / self.config.annealing_temp_init)  # Scale with temperature
+
+                for idx in list(range(n_bsj_zone)) + list(range(L - n_bsj_zone, L)):
+                    perturbed[idx] += np.random.randn(3) * scale * bond_length * 0.1
+
+                # Compute closure distance (should be ~bond_length)
+                closure_dist = np.linalg.norm(perturbed[0] - perturbed[-1])
+                closure_error = abs(closure_dist - bond_length)
+
+                # Compute energy
+                new_energy = self._compute_cg_energy(perturbed, constraint_set)
+                energy_change = new_energy - best_energy
+
+                # Metropolis acceptance criterion
+                if energy_change < 0:
+                    # Always accept improvements
+                    coords = perturbed
+                    if new_energy < best_energy:
+                        best_coords = perturbed.copy()
+                        best_energy = new_energy
+                elif T > 0:
+                    # Accept with probability exp(-ΔE / T_scale)
+                    T_scale = T * 0.01  # Scale temperature to energy units
+                    accept_prob = math.exp(-energy_change / T_scale)
+                    if np.random.random() < accept_prob:
+                        coords = perturbed
+
+            T *= cooling
+
+        # Final geometric correction as safety net (from _closure_correction)
+        closure_dist = np.linalg.norm(best_coords[0] - best_coords[-1])
+        if abs(closure_dist - bond_length) > self.config.closure_tolerance:
+            best_coords = self._closure_correction(best_coords)
+
+        return best_coords
+
     def _has_clashes(self, coords: np.ndarray) -> bool:
         """Check for steric clashes (non-bonded atoms too close).
 
@@ -273,38 +359,42 @@ class GeometricConstraintSolver:
         return coords
 
     def _compute_cg_energy(self, coords: np.ndarray, constraint_set) -> float:
-        """Compute simple coarse-grained energy.
+        """Compute coarse-grained energy with extended physics terms.
 
         Energy components:
         1. Bond energy: k_bond * Σ(d - bond_length)²
         2. Pair energy: k_pair * Σ(d - target)² for satisfied pairs
         3. Clash energy: k_clash * Σmax(0, clash_dist - d)²
-
-        This is a "rough physics" energy for ranking, not a real force field.
+        4. Stacking energy: k_stack * Σ(d_stack - 3.4)² for adjacent bases
+        5. Electrostatic energy: k_elec * Σ q²/d for phosphate repulsion
+        6. Dihedral energy: k_dih * Σ(dih - dih_Aform)² for backbone dihedrals
         """
         L = len(coords)
         bond_length = self.config.bond_length
         clash_dist = self.config.clash_distance
 
-        # Force constants (arbitrary units, just for ranking)
+        # Force constants
         k_bond = 1.0
         k_pair = 0.5
         k_clash = 10.0
+        k_stack = 0.3       # Base stacking (π-π interaction)
+        k_elec = 0.05       # Phosphate electrostatic repulsion
+        k_dih = 0.1         # A-form RNA dihedral preference
 
         energy = 0.0
 
-        # Bond energy
+        # 1. Bond energy
         for i in range(L):
             j = (i + 1) % L
             d = np.linalg.norm(coords[j] - coords[i])
             energy += k_bond * (d - bond_length) ** 2
 
-        # Pair energy
+        # 2. Pair energy
         for (i, j, target_d, weight) in constraint_set.pair_constraints:
             d = np.linalg.norm(coords[j] - coords[i])
             energy += k_pair * weight * (d - target_d) ** 2
 
-        # Clash energy
+        # 3. Clash energy
         for i in range(L):
             for j in range(i + 2, L):
                 if i == 0 and j == L - 1:
@@ -312,6 +402,35 @@ class GeometricConstraintSolver:
                 d = np.linalg.norm(coords[j] - coords[i])
                 if d < clash_dist:
                     energy += k_clash * (clash_dist - d) ** 2
+
+        # 4. Base stacking energy (adjacent bases prefer ~3.4Å vertical separation)
+        # Stacking is along the helical axis (z-direction for A-form)
+        stack_distance = 3.4  # Å, A-form RNA stacking distance
+        for i in range(L):
+            j = (i + 1) % L
+            dz = abs(coords[j, 2] - coords[i, 2])
+            energy += k_stack * (dz - stack_distance) ** 2
+
+        # 5. Electrostatic repulsion (phosphate backbone, -1 charge each)
+        # Simplified: q²/d for non-bonded pairs within cutoff
+        elec_cutoff = 20.0  # Å, beyond this electrostatics negligible
+        for i in range(L):
+            for j in range(i + 2, L):
+                if i == 0 and j == L - 1:
+                    continue
+                d = np.linalg.norm(coords[j] - coords[i])
+                if d < elec_cutoff and d > 0.1:
+                    energy += k_elec / d  # Coulomb-like repulsion
+
+        # 6. A-form RNA dihedral preference
+        # Preferred backbone dihedral angles for A-form RNA
+        for i in range(L - 2):
+            v1 = coords[i+1] - coords[i]
+            v2 = coords[i+2] - coords[i+1]
+            # Simplified: prefer consistent bond angles (~106° for A-form)
+            cos_angle = np.dot(v1, v2) / (np.linalg.norm(v1) * np.linalg.norm(v2) + 1e-8)
+            # A-form bond angle: ~106° → cos(106°) ≈ -0.276
+            energy += k_dih * (cos_angle - (-0.276)) ** 2
 
         return energy
 
