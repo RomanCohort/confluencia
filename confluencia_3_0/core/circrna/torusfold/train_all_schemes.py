@@ -38,8 +38,93 @@ from confluencia_3_0.core.circrna.torusfold.constraint_solver import (
 
 
 # ═══════════════════════════════════════════════════════════════
-# Common: 3D Pseudo-label Generation
+# Common: 3D Pseudo-label Loading
 # ═══════════════════════════════════════════════════════════════
+
+def load_pseudo_labels(labels_dir, n_seqs=None):
+    """Load 3D pseudo-labels from disk.
+
+    Expected structure:
+        labels_dir/
+            sequences.json  # {id, sequence, secondary_structure, pair_constraints}
+            coords/
+                pseudo_0000.npy
+                pseudo_0001.npy
+                ...
+            metadata.json  # summary + per-sample info
+    """
+    import glob
+
+    # Load sequences
+    seq_path = os.path.join(labels_dir, 'sequences.json')
+    if not os.path.exists(seq_path):
+        raise FileNotFoundError(f"sequences.json not found in {labels_dir}")
+
+    with open(seq_path, 'r') as f:
+        seq_data = json.load(f)
+
+    if n_seqs is not None:
+        seq_data = seq_data[:n_seqs]
+
+    # Load coordinates
+    coords_files = glob.glob(os.path.join(labels_dir, 'coords', '*.npy'))
+    coords_files.sort()
+
+    if len(coords_files) != len(seq_data):
+        raise ValueError(f"Mismatch: {len(coords_files)} .npy files, "
+                         f"{len(seq_data)} sequences")
+
+    sequences = []
+    coords_labels = []
+    pair_labels = []  # For schemes needing pair probs
+    metadata = []
+
+    for i, item in enumerate(seq_data):
+        seq = item['sequence']
+        sequences.append(seq)
+
+        # Load coords
+        coords = np.load(coords_files[i])  # (L, 3)
+        coords_labels.append(coords)
+
+        # Parse pairs from constraints
+        pair_list = item['pair_constraints']
+
+        # Build pair probability matrix
+        L = len(seq)
+        pair_prob = np.zeros((L, L))
+        complement = {'A': 'U', 'U': 'A', 'G': 'C', 'C': 'G'}
+
+        # From explicit constraints (high probability)
+        for p1, p2 in pair_list:
+            if p1 < p2:
+                pair_prob[p1, p2] = 0.85
+                pair_prob[p2, p1] = 0.85
+
+        # Fill loops with heuristic pairing
+        for j in range(L):
+            for k in range(j + 4, min(j + 20, L)):
+                if pair_prob[j, k] == 0:
+                    b1, b2 = seq[j], seq[k]
+                    if (b1 == 'G' and b2 == 'U') or (b1 == 'U' and b2 == 'G'):
+                        pair_prob[j, k] = 0.3
+                        pair_prob[k, j] = 0.3
+                    elif complement.get(b1) == b2:
+                        pair_prob[j, k] = 0.15
+                        pair_prob[k, j] = 0.15
+
+        pair_labels.append(pair_prob)
+
+        # Add to metadata
+        metadata.append({
+            'id': item['id'],
+            'length': L,
+        })
+
+    print(f"  Loaded {len(sequences)} pseudo-labels from {labels_dir}")
+
+    return sequences, coords_labels, pair_labels, metadata
+
 
 def generate_3d_pseudo_labels(n_seqs=500, min_len=30, max_len=500, seed=42):
     """Generate 3D coordinate pseudo-labels using ViennaRNA + Physics Solver."""
@@ -48,25 +133,20 @@ def generate_3d_pseudo_labels(n_seqs=500, min_len=30, max_len=500, seed=42):
 
     sequences = []
     coords_labels = []
-    pair_labels = []  # For schemes that need pair constraints
+    pair_labels = []
     metadata = []
 
-    print(f"Generating {n_seqs} 3D pseudo-labels...")
+    print(f"  Generating {n_seqs} pseudo-labels...")
 
     try:
         import RNA
         has_vienna = True
-        print("  ViennaRNA available, using circ mode")
+        print("  ViennaRNA: available (circ mode)")
     except ImportError:
         has_vienna = False
-        print("  ViennaRNA NOT available, using random pairing")
+        print("  ViennaRNA: NOT available")
 
-    config = SolverConfig(
-        n_samples=10,
-        use_annealing_closure=True,
-        bond_length=5.9,
-        pair_distance=10.6,
-    )
+    config = SolverConfig(n_samples=10, use_annealing_closure=True)
     solver = GeometricConstraintSolver(config)
 
     for i in range(n_seqs):
@@ -81,14 +161,12 @@ def generate_3d_pseudo_labels(n_seqs=500, min_len=30, max_len=500, seed=42):
                 md.circ = True
                 fc = RNA.fold_compound(seq, md)
                 structure, mfe = fc.mfe()
-
                 stack = []
                 for pos, char in enumerate(structure):
                     if char == '(':
                         stack.append(pos)
                     elif char == ')' and stack:
-                        j = stack.pop()
-                        pair_constraints.append((j, pos, 10.6, 1.0))
+                        pair_constraints.append((stack.pop(), pos, 10.6, 1.0))
             except Exception:
                 pass
 
@@ -115,24 +193,18 @@ def generate_3d_pseudo_labels(n_seqs=500, min_len=30, max_len=500, seed=42):
                 sequences.append(seq)
                 coords_labels.append(best_coords)
 
-                # Build pair probability matrix
                 pair_prob = np.zeros((L, L))
                 for (p1, p2, _, _) in pair_constraints:
                     pair_prob[p1, p2] = 0.85
                     pair_prob[p2, p1] = 0.85
                 pair_labels.append(pair_prob)
 
-                metadata.append({
-                    'id': f'pseudo_{i:04d}',
-                    'length': L,
-                    'n_pairs': len(pair_constraints),
-                    'closure_error': closure_err,
-                })
+                metadata.append({'id': f'pseudo_{i:04d}', 'length': L})
 
-                if (i + 1) % 100 == 0:
-                    print(f"  {i+1}/{n_seqs} - L={L}, pairs={len(pair_constraints)}")
+                if len(sequences) % 100 == 0:
+                    print(f"    {len(sequences)}/{n_seqs}")
 
-    print(f"  Successfully generated: {len(sequences)}/{n_seqs}")
+    print(f"  Generated: {len(sequences)}/{n_seqs}")
     return sequences, coords_labels, pair_labels, metadata
 
 
@@ -460,7 +532,10 @@ def train_scheme3(args):
 def main():
     parser = argparse.ArgumentParser(description='Train all TorusFold schemes')
     parser.add_argument('--schemes', type=int, nargs='+', default=[1, 2, 3, 4, 5, 6])
-    parser.add_argument('--n-train', type=int, default=500)
+    parser.add_argument('--labels', type=str, default='',
+                        help='Path to pre-generated pseudo-labels directory')
+    parser.add_argument('--n-train', type=int, default=500,
+                        help='Number of samples (used if no --labels)')
     parser.add_argument('--min-len', type=int, default=30)
     parser.add_argument('--max-len', type=int, default=500)
     parser.add_argument('--epochs', type=int, default=50)
@@ -483,22 +558,27 @@ def main():
     print("  TorusFold Multi-Scheme Training")
     print("="*60)
     print(f"  Schemes: {args.schemes}")
-    print(f"  Training samples: {args.n_train}")
-    print(f"  Length range: {args.min_len}-{args.max_len}")
-    print(f"  Epochs: {args.epochs}")
-    print(f"  Device: {args.device}")
 
-    # Generate pseudo-labels (shared across all schemes)
-    sequences, coords_labels, pair_labels, metadata = generate_3d_pseudo_labels(
-        n_seqs=args.n_train,
-        min_len=args.min_len,
-        max_len=args.max_len,
-        seed=args.seed
-    )
+    # Load pseudo-labels
+    if args.labels and os.path.exists(args.labels):
+        print(f"  Loading from: {args.labels}")
+        sequences, coords_labels, pair_labels, metadata = load_pseudo_labels(args.labels)
+    else:
+        print(f"  Generating pseudo-labels (n={args.n_train})")
+        sequences, coords_labels, pair_labels, metadata = generate_3d_pseudo_labels(
+            n_seqs=args.n_train,
+            min_len=args.min_len,
+            max_len=args.max_len,
+            seed=args.seed
+        )
 
     if len(sequences) < 10:
-        print("ERROR: Not enough pseudo-labels generated.")
+        print("ERROR: Not enough pseudo-labels.")
         return
+
+    print(f"  Training samples: {len(sequences)}")
+    print(f"  Epochs: {args.epochs}")
+    print(f"  Device: {args.device}")
 
     # Split train/val
     split = int(0.9 * len(sequences))
