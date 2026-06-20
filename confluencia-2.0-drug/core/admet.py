@@ -426,7 +426,7 @@ class ADMETPredictor:
             results.append(r.to_dict())
 
         result_df = pd.DataFrame(results)
-        return df.assign(**{f"admet_{k}": v for k, v in result_df.to_dict("list").items()}})
+        return df.assign(**{f"admet_{k}": v for k, v in result_df.to_dict("list").items()})
 
     def get_risk_category(self, risk: float) -> Tuple[str, str]:
         """Get risk category and color for visualization."""

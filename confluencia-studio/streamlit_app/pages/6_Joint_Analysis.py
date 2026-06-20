@@ -1,36 +1,22 @@
 """Joint Analysis Page - Streamlit UI.
 
-Combined circRNA + Drug therapeutic candidate assessment.
+Combined circRNA + Drug evaluation for synergistic therapy design.
+Uses confluencia skill API for all backend computation.
 """
 
 import streamlit as st
-import sys
-from pathlib import Path
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 import numpy as np
-
-# Add paths - NOTE: confluencia_3_0 uses underscores!
-PROJECT_ROOT = Path(r"D:\IGEM集成方案")
-sys.path.insert(0, str(PROJECT_ROOT / "confluencia-2.0-drug"))
-sys.path.insert(0, str(PROJECT_ROOT / "confluencia_3_0"))
-
-# Add visualization module
-import importlib.util
-import sys as _sys
-VIS_PATH = Path(r"C:\Users\LENOVO\.claude\skills\confluencia")
-_spec = importlib.util.spec_from_file_location(
-    "visualization",
-    str(VIS_PATH / "visualization.py")
-)
-visualization = importlib.util.module_from_spec(_spec)
-_sys.modules["visualization"] = visualization  # Critical fix for dataclass
-_spec.loader.exec_module(visualization)
-generate_nature_html_report = visualization.generate_nature_html_report
-
 from datetime import datetime
+import json
 
-st.set_page_config(page_title="Joint Analysis - Confluencia", page_icon="🧪", layout="wide")
+from utils import (
+    joint_evaluate, generate_html_report, save_html_report,
+    get_drug_smiles_mapping,
+)
+
+st.set_page_config(page_title="Joint Analysis - Confluencia", page_icon="🔗", layout="wide")
 
 st.markdown("""
 <style>
@@ -48,181 +34,127 @@ st.markdown("""
 
 st.markdown("""
 <div class="section-header">
-    <h2>🧪 circRNA + 药物联合分析</h2>
-    <p style="color: #7f8c8d;">综合评估 circRNA 疫苗候选与药物的协同效应</p>
+    <h2>🔗 联合分析</h2>
+    <p style="color: #7f8c8d;">circRNA疫苗 + 药物联合治疗方案评估</p>
 </div>
 """, unsafe_allow_html=True)
 
-st.markdown("""
-### 📋 输入区域
-
-请同时输入 circRNA 序列和药物信息，系统将评估两者的联合治疗效果。
-""")
-
-# Input columns
+# Input section
 col_circrna, col_drug = st.columns(2)
 
 with col_circrna:
-    st.markdown("#### 🔬 circRNA 序列")
+    st.markdown("#### 🧬 circRNA疫苗")
 
-    circrna_seq = st.text_area(
-        "粘贴 circRNA 序列:",
+    circrna_input = st.text_area(
+        "circRNA 序列:",
+        placeholder="例如: AUGCGCGCGUAUAGCGCGCG...",
         height=100,
-        placeholder="例如: AUGCGCGCGUAUAGCGCGCG..."
+        help="输入 circRNA 疫苗序列"
     )
 
+    # Examples
     st.markdown("**示例序列:**")
-    seq_examples = {
-        "低免疫原性": "AUGCGCGCGUAUAGCGCGCGAUGCGCGCGUAUAGCGCGCG",
-        "随机序列": "AUGAUCAAAAAAAGGGUAGCUUAUCAACGGAUC"
+    circrna_examples = {
+        "GC平衡": "AUGCGCGCGUAUAGCGCGCGAUGCGCGCGUAUAGCGCGCG",
+        "高GC": "GCGCGCGCGCGCGCGCGCGCGCGCGCGCGCGCGCGCGCGC",
+        "富AU": "AUAUAUAUAUAUAUAUAUAUAUAUAUAUAUAUAUAUAUAU"
     }
-    for name, seq in seq_examples.items():
-        if st.button(name, key=f"seq_{name}"):
-            circrna_seq = seq
-            st.rerun()
+
+    cols = st.columns(3)
+    for i, (name, seq) in enumerate(circrna_examples.items()):
+        with cols[i]:
+            if st.button(name, key=f"circrna_{i}", use_container_width=True):
+                st.session_state["joint_circrna"] = seq
+                st.rerun()
+
+    # Restore from session state
+    if st.session_state.get("joint_circrna"):
+        circrna_input = st.session_state["joint_circrna"]
+        st.session_state["joint_circrna"] = None
 
 with col_drug:
-    st.markdown("#### 💊 药物信息")
+    st.markdown("#### 💊 化疗药物")
 
     drug_input = st.text_input(
         "药物名或 SMILES:",
-        placeholder="例如: doxorubicin 或 CC(=O)Oc1ccccc1C(=O)O"
+        placeholder="例如: gemcitabine 或 SMILES字符串"
     )
 
+    # Examples
     st.markdown("**示例药物:**")
     drug_examples = {
-        "阿霉素": "doxorubicin",
+        "吉西他滨": "gemcitabine",
         "紫杉醇": "paclitaxel",
+        "阿霉素": "doxorubicin",
         "顺铂": "cisplatin"
     }
-    for name, smiles in drug_examples.items():
-        if st.button(name, key=f"drug_{name}"):
-            drug_input = smiles
-            st.rerun()
 
-# Analysis options
-st.markdown("---")
-st.markdown("#### ⚙️ 分析选项")
+    cols = st.columns(4)
+    for i, (name, drug) in enumerate(drug_examples.items()):
+        with cols[i]:
+            if st.button(name, key=f"drug_{i}", use_container_width=True):
+                st.session_state["joint_drug"] = drug
+                st.rerun()
 
-col_opt1, col_opt2, col_opt3 = st.columns(3)
+    # Restore from session state
+    if st.session_state.get("joint_drug"):
+        drug_input = st.session_state["joint_drug"]
+        st.session_state["joint_drug"] = None
 
-with col_opt1:
-    synergy_mode = st.radio(
-        "协同模式",
-        ["加性效应", "协同增效", "拮抗效应"],
-        horizontal=True
-    )
+# Sidebar info
+with st.sidebar:
+    st.markdown("### 📚 联合治疗说明")
 
-with col_opt2:
-    pk_model = st.radio(
-        "PK模型",
-        ["CTM (经典)", "RNACTM (RNA专用)"],
-        horizontal=True
-    )
+    with st.expander("为什么联合治疗？"):
+        st.markdown("""
+        **circRNA疫苗 + 化疗药物** 联合治疗优势：
 
-with col_opt3:
-    include_simulation = st.checkbox("包含TNBC仿真模拟", value=True)
+        1. **免疫激活**: circRNA疫苗激活抗肿瘤免疫
+        2. **直接杀伤**: 化疗药物直接杀死肿瘤细胞
+        3. **协同效应**: 免疫系统清除化疗后残留病灶
+        4. **降低耐药**: 多途径攻击降低肿瘤逃逸
+        """)
 
-# Run analysis
-st.markdown("")
+    with st.expander("协同评分解释"):
+        st.markdown("""
+        **Combined Score** 联合评分考虑：
+
+        - circRNA 免疫安全性
+        - 药物 ADMET 风险
+        - 治疗机制互补性
+        - PK 参数匹配度
+
+        > 0.7 = HIGH synergy (推荐)
+        > 0.5 = MODERATE (可考虑)
+        < 0.5 = LOW (不推荐)
+        """)
+
+# Run joint analysis
 col_btn1, col_btn2, col_btn3 = st.columns([1, 2, 1])
 with col_btn2:
-    run_btn = st.button("🚀 开始联合分析", type="primary", use_container_width=True,
-                        disabled=not (circrna_seq and drug_input))
+    run_btn = st.button("🚀 开始联合评估", type="primary", use_container_width=True,
+                        disabled=not (circrna_input and drug_input))
 
-if run_btn and circrna_seq and drug_input:
-    with st.spinner("正在进行联合分析..."):
+if run_btn and circrna_input and drug_input:
+    with st.spinner("评估中..."):
         try:
-            # Use utility helper for Python 3.13 dataclass compatibility
-            from utils import get_innate_immune, get_admet, PROJECT_ROOT
+            # Resolve SMILES from drug name
+            drug_mapping = get_drug_smiles_mapping()
+            drug_smiles = drug_mapping.get(drug_input.lower(), drug_input)
 
-            # Process circRNA
-            seq_clean = circrna_seq.upper().replace(" ", "").replace("\n", "")
+            # Clean circRNA sequence
+            seq_clean = circrna_input.upper().replace(" ", "").replace("\n", "")
             seq_clean = "".join(c for c in seq_clean if c in "AUGC")
 
-            gc = sum(1 for b in seq_clean if b in "GC") / len(seq_clean) if seq_clean else 0
+            data = joint_evaluate(seq_clean, drug_smiles)
 
-            # Map drug names
-            drug_smiles = {
-                "doxorubicin": "CC1C(C(CC(O1)C2C3C(C4C(=C(C(=O)C5=C(C4=CC(=C(C5C(=O)C6=C(C=C3C=C2OC6=O)O)O)O)O)O)C(=O)O)O)O)O",
-                "paclitaxel": "CC1=C2C(=O)C(C(=O)C2C(C1=O)O)O",
-                "cisplatin": "N.N.Cl[Pt]Cl"
-            }
-            smiles = drug_smiles.get(drug_input.lower(), drug_input)
-
-            # Run actual circRNA immune assessment
-            innate_immune_mod = get_innate_immune()
-            immune = innate_immune_mod.assess_innate_immune(seq_clean)
-            circrna_safety = immune.net_safety_score
-
-            # Run actual drug ADMET prediction
-            admet_mod = get_admet()
-            drug_predictor = admet_mod.ADMETPredictor()
-            drug_result = drug_predictor.predict(smiles)
-            drug_risk = drug_result.overall_risk
-
-            # Synergy score based on actual backend mode
-            if synergy_mode == "协同增效":
-                synergy_score = min(0.95, 0.6 + circrna_safety * 0.3 - drug_risk * 0.2)
-            elif synergy_mode == "拮抗效应":
-                synergy_score = max(0.1, 0.3 - circrna_safety * 0.1 + drug_risk * 0.2)
-            else:
-                synergy_score = 0.5
-
-            # Joint efficacy
-            joint_efficacy = (circrna_safety + (1 - drug_risk)) * synergy_score / 2
-
-            # PK simulation
-            ka = 0.8
-            ke = 0.1
-            t = np.linspace(0, 72, 144)
-
-            # Drug curve
-            c_drug = 0.5 * ka / (50 * (ka - ke)) * (np.exp(-ke * t) - np.exp(-ka * t))
-
-            # circRNA curve (slower kinetics)
-            c_rna = 0.3 * 0.5 / (50 * (0.5 - 0.05)) * (np.exp(-0.05 * t) - np.exp(-0.5 * t))
-
-            # Combined effect
-            c_combined = c_drug + c_rna * synergy_score
-
-            joint_data = {
-                "module": "joint",
-                "backend": "local",
-                "circrna": {
-                    "sequence": seq_clean,
-                    "length": len(seq_clean),
-                    "gc_content": gc,
-                    "safety_score": circrna_safety,
-                    "immune_evasion": immune.modification_evasion if hasattr(immune, 'modification_evasion') else 0.5
-                },
-                "drug": {
-                    "input": drug_input,
-                    "smiles": smiles,
-                    "overall_risk": drug_risk,
-                    "hERG_risk": drug_result.hERG_risk,
-                    "hepatotoxicity": drug_result.hepatotoxicity_risk
-                },
-                "synergy": {
-                    "mode": synergy_mode,
-                    "score": synergy_score,
-                    "joint_efficacy": joint_efficacy
-                },
-                "pk": {
-                    "time": t.tolist(),
-                    "drug_concentration": c_drug.tolist(),
-                    "rna_concentration": c_rna.tolist(),
-                    "combined_concentration": c_combined.tolist()
-                }
-            }
-
-            st.session_state["joint_data"] = joint_data
+            st.session_state["joint_data"] = data
             st.session_state["joint_done"] = True
-            st.success("✅ 联合分析完成！")
+            st.success("评估完成！")
 
         except Exception as e:
             import traceback
-            st.error(f"分析出错: {e}")
+            st.error(f"评估出错: {e}")
             with st.expander("详细错误信息"):
                 st.code(traceback.format_exc())
 
@@ -233,86 +165,136 @@ if st.session_state.get("joint_done") and st.session_state.get("joint_data"):
     st.markdown("---")
     st.markdown("""
     <div class="section-header">
-        <h3>📊 联合分析结果</h3>
+        <h3>📊 联合评估结果</h3>
     </div>
     """, unsafe_allow_html=True)
 
     # Key metrics
-    col1, col2, col3, col4, col5 = st.columns(5)
+    joint = data.get("joint", {})
+    circrna = data.get("circrna", {})
+    drug = data.get("drug", {})
+
+    col1, col2, col3, col4 = st.columns(4)
 
     with col1:
-        st.metric("circRNA 安全评分", f"{data['circrna']['safety_score']:.2f}")
+        combined = joint.get("combined_score", 0)
+        st.metric("联合评分", f"{combined:.3f}")
 
     with col2:
-        st.metric("药物风险", f"{data['drug']['overall_risk']:.2f}")
+        synergy = joint.get("synergy", "LOW")
+        syn_color = "🟢" if synergy == "HIGH" else "🟡" if synergy == "MODERATE" else "🔴"
+        st.metric(f"{syn_color} 协同等级", synergy)
 
     with col3:
-        synergy_color = "🟢" if data['synergy']['score'] > 0.6 else "🟡" if data['synergy']['score'] > 0.3 else "🔴"
-        st.metric(f"{synergy_color} 协同评分", f"{data['synergy']['score']:.2f}")
+        circrna_safety = circrna.get("safety_score", circrna.get("immune", {}).get("safety_score", 0))
+        st.metric("circRNA安全性", f"{circrna_safety:.2f}")
 
     with col4:
-        st.metric("联合疗效", f"{data['synergy']['joint_efficacy']:.2f}")
+        drug_risk = drug.get("overall_risk", drug.get("admet", {}).get("overall_risk", 0))
+        st.metric("药物风险", f"{drug_risk:.2f}")
 
-    with col5:
-        rec = "推荐" if data['synergy']['joint_efficacy'] > 0.5 else "待优化"
-        st.metric("候选评估", rec)
+    # Visualization
+    st.markdown("#### 📈 综合评分可视化")
 
-    # PK curves
-    st.markdown("#### ⏱️ 联合PK曲线")
+    chart_col1, chart_col2 = st.columns(2)
 
-    pk = data["pk"]
-    t = pk["time"]
-    c_drug = pk["drug_concentration"]
-    c_rna = pk["rna_concentration"]
-    c_combined = pk["combined_concentration"]
+    with chart_col1:
+        # Radar chart comparing components
+        radar_fig = go.Figure()
 
-    pk_fig = go.Figure()
-    pk_fig.add_trace(go.Scatter(
-        x=t, y=c_drug, mode='lines', name='药物',
-        line=dict(color='#e74c3c', width=2)
-    ))
-    pk_fig.add_trace(go.Scatter(
-        x=t, y=c_rna, mode='lines', name='circRNA',
-        line=dict(color='#27ae60', width=2)
-    ))
-    pk_fig.add_trace(go.Scatter(
-        x=t, y=c_combined, mode='lines', name='联合效应',
-        line=dict(color='#c41e3a', width=3, dash='dot')
-    ))
-    pk_fig.update_layout(
-        xaxis_title='时间 (h)',
-        yaxis_title='效应强度',
-        paper_bgcolor='rgba(0,0,0,0)',
-        font_color='#ecf0f1',
-        height=400,
-        legend=dict(yanchor="top", y=0.99, xanchor="left", x=0.01)
-    )
-    st.plotly_chart(pk_fig, use_container_width=True)
+        # circRNA scores
+        immune = circrna.get("immune", {})
+        radar_fig.add_trace(go.Scatterpolar(
+            r=[circrna_safety, immune.get("innate_score", 0.5), 1-immune.get("tlr_combined", 0.3),
+               circrna.get("torusfold", {}).get("stability", 0.5), circrna.get("torusfold", {}).get("translation", 0.5)],
+            theta=['安全性', '免疫评分', 'TLR抑制', '稳定性', '翻译效率'],
+            fill='toself',
+            name='circRNA',
+            marker_color='#27ae60'
+        ))
 
-    # Synergy interpretation
-    st.markdown("#### 📝 协同效应解读")
+        # Drug scores
+        admet = drug.get("admet", {})
+        radar_fig.add_trace(go.Scatterpolar(
+            r=[1-drug_risk, admet.get("druglikeness", 0.8), 1-admet.get("hERG_risk", 0.3),
+               1-admet.get("hepatotoxicity", 0.3), 1-admet.get("cyp_total_risk", 0.3)],
+            theta=['低风险', '药物性', '无心脏毒', '无肝毒', '无CYP抑制'],
+            fill='toself',
+            name='药物',
+            marker_color='#3498db'
+        ))
 
-    synergy = data["synergy"]["score"]
-    if synergy > 0.6:
-        st.success("""
-        ✅ **强协同效应**
-        - circRNA 与药物联合使用效果显著优于单独使用
-        - 建议作为优先候选方案
-        - 可进入临床试验评估阶段
+        radar_fig.update_layout(
+            polar=dict(radialaxis=dict(visible=True, range=[0, 1])),
+            paper_bgcolor='rgba(0,0,0,0)',
+            font_color='#ecf0f1',
+            height=400,
+            showlegend=True
+        )
+        st.plotly_chart(radar_fig, use_container_width=True)
+
+    with chart_col2:
+        # Combined score bar
+        bar_fig = go.Figure(data=[
+            go.Bar(
+                name='circRNA贡献',
+                x=['联合评分'],
+                y=[circrna_safety * 0.4],
+                marker_color='#27ae60'
+            ),
+            go.Bar(
+                name='药物贡献',
+                x=['联合评分'],
+                y=[(1-drug_risk) * 0.4],
+                marker_color='#3498db'
+            ),
+            go.Bar(
+                name='协同加成',
+                x=['联合评分'],
+                y=[combined - circrna_safety * 0.4 - (1-drug_risk) * 0.4],
+                marker_color='#f39c12'
+            )
+        ])
+        bar_fig.update_layout(
+            barmode='stack',
+            paper_bgcolor='rgba(0,0,0,0)',
+            font_color='#ecf0f1',
+            height=400,
+            yaxis=dict(range=[0, 1])
+        )
+        st.plotly_chart(bar_fig, use_container_width=True)
+
+    # Recommendation
+    st.markdown("#### 📝 治疗建议")
+
+    recommendation = data.get("recommendation", "")
+    if synergy == "HIGH":
+        st.success(f"""
+        ✅ **推荐联合治疗**
+
+        {recommendation}
+
+        - circRNA疫苗安全性高 (评分: {circrna_safety:.2f})
+        - 药物风险低 (评分: {drug_risk:.2f})
+        - 协同效应强，建议推进临床试验
         """)
-    elif synergy > 0.3:
-        st.warning("""
-        ⚠️ **中等协同效应**
-        - 联合使用有一定增效，但不显著
-        - 建议优化 circRNA 序列或药物剂量
-        - 可作为备选方案
+    elif synergy == "MODERATE":
+        st.warning(f"""
+        ⚠️ **可考虑联合治疗**
+
+        {recommendation}
+
+        - 需优化 circRNA 序列或选择替代药物
+        - 监控免疫反应和药物毒性
         """)
     else:
-        st.error("""
-        ❌ **拮抗效应**
-        - circRNA 与药物联合可能降低各自效果
-        - 不推荐联合使用
-        - 建议单独评估各成分
+        st.error(f"""
+        ❌ **不推荐联合治疗**
+
+        {recommendation}
+
+        - 建议单独评估各组分
+        - 考虑其他治疗组合
         """)
 
     # Export
@@ -320,19 +302,17 @@ if st.session_state.get("joint_done") and st.session_state.get("joint_data"):
     col_exp1, col_exp2 = st.columns(2)
 
     with col_exp1:
-        if st.button("📄 生成HTML报告", use_container_width=True):
-            html = generate_nature_html_report(data)
-            filename = f"joint_report_{datetime.now().strftime('%Y%m%d_%H%M%S')}.html"
-            Path(filename).write_text(html, encoding="utf-8")
-            st.success(f"✅ 报告已保存: {filename}")
-            with open(filename, "r", encoding="utf-8") as f:
-                st.download_button("⬇️ 下载HTML", f.read(), file_name=filename, mime="text/html")
+        if st.button("📄 生成HTML报告", key="joint_html", use_container_width=True):
+            html = generate_html_report(data)
+            filepath = save_html_report(html)
+            with open(filepath, "r", encoding="utf-8") as f:
+                st.download_button("下载HTML报告", f.read(),
+                                   file_name=Path(filepath).name, mime="text/html")
 
     with col_exp2:
-        import json
         st.download_button(
-            "⬇️ 下载JSON数据",
-            json.dumps(data, indent=2, ensure_ascii=False),
+            "下载JSON数据",
+            json.dumps(data, indent=2, ensure_ascii=False, default=str),
             file_name=f"joint_data_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json",
             mime="application/json"
         )
@@ -344,5 +324,5 @@ with col_nav1:
     if st.button("🏠 返回首页", use_container_width=True):
         st.switch_page("Home.py")
 with col_nav3:
-    if st.button("🎮 TNBC仿真 →", use_container_width=True):
-        st.switch_page("pages/4_TNBC_Simulator.py")
+    if st.button("📄 报告导出 →", use_container_width=True):
+        st.switch_page("pages/5_Report_Export.py")

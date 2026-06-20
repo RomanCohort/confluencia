@@ -123,13 +123,19 @@ if PYQT_AVAILABLE:
             layout.addWidget(branch_frame)
 
             # Status lists
+            modified_label = QLabel("Modified")
+            modified_label.setFont(QFont("Arial", 9))
+            modified_label.setStyleSheet("QLabel { color: #888; }")
+            layout.addWidget(modified_label)
+
             self.modified_list = QListWidget()
             self.modified_list.setFont(QFont("Consolas", 9))
             self.modified_list.setStyleSheet(
                 "QListWidget { background-color: #1e1e1e; color: #d4d4d4; max-height: 80px; }"
                 "QListWidget::item { padding: 2px; }"
             )
-            self.modified_list.setHeaderLabel("Modified")
+            layout.addWidget(self.modified_list)
+
             staged_list_label = QLabel("Staged")
             staged_list_label.setFont(QFont("Arial", 9))
             staged_list_label.setStyleSheet("QLabel { color: #888; }")

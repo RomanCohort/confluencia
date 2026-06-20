@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Optional
 
 try:
-    from PyQt6.QtCore import QSize, pyqtSignal
+    from PyQt6.QtCore import QSize, Qt, pyqtSignal
     from PyQt6.QtGui import QFont, QPixmap
     from PyQt6.QtWidgets import (
         QFileDialog, QHBoxLayout, QLabel, QPushButton,
@@ -65,12 +65,12 @@ if PYQT_AVAILABLE:
 
             self.chart_container = QWidget()
             self.chart_layout = QVBoxLayout(self.chart_container)
-            self.chart_layout.setAlignment(0x84)  # Qt.AlignTop | Qt.AlignHCenter
+            self.chart_layout.setAlignment(Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignHCenter)
             self.chart_layout.setSpacing(8)
 
             # Image label
             self.image_label = QLabel("No image")
-            self.image_label.setAlignment(0x84)  # Qt.AlignTop | Qt.AlignHCenter
+            self.image_label.setAlignment(Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignHCenter)
             self.image_label.setScaledContents(False)
             self.chart_layout.addWidget(self.image_label)
             self.chart_layout.addStretch()
@@ -125,9 +125,8 @@ if PYQT_AVAILABLE:
 
         def _set_pixmap(self, pixmap: QPixmap) -> None:
             """Set pixmap with proper scaling."""
-            available = self.image_label.size()
             scaled = pixmap.scaled(
-                available, 1, 1,  # KeepAspectRatio, SmoothTransformation
+                self.image_label.size(),
                 Qt.AspectRatioMode.KeepAspectRatio,
                 Qt.TransformationMode.SmoothTransformation
             )

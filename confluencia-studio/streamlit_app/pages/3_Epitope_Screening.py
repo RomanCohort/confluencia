@@ -1,30 +1,18 @@
 """Epitope Screening Page - Streamlit UI.
 
 MHC binding prediction for vaccine design.
+Uses confluencia skill API for all backend computation.
 """
 
 import streamlit as st
-import sys
-from pathlib import Path
 import plotly.graph_objects as go
-
-PROJECT_ROOT = Path(r"D:\IGEM集成方案")
-sys.path.insert(0, str(PROJECT_ROOT / "confluencia-2.0-epitope"))
-
-# Add visualization module
-import importlib.util
-import sys as _sys
-VIS_PATH = Path(r"C:\Users\LENOVO\.claude\skills\confluencia")
-_spec = importlib.util.spec_from_file_location(
-    "visualization",
-    str(VIS_PATH / "visualization.py")
-)
-visualization = importlib.util.module_from_spec(_spec)
-_sys.modules["visualization"] = visualization  # Critical fix for dataclass
-_spec.loader.exec_module(visualization)
-generate_nature_html_report = visualization.generate_nature_html_report
-
 from datetime import datetime
+import json
+
+from utils import (
+    epitope_predict, generate_html_report, save_html_report,
+    set_backend, get_backend,
+)
 
 st.set_page_config(page_title="Epitope Screening - Confluencia", page_icon="🧬", layout="wide")
 
@@ -63,6 +51,10 @@ with st.sidebar:
         "预测引擎",
         ["本地模型", "NetMHCpan API"]
     )
+
+    # Map UI to backend setting
+    backend_name = "local" if backend == "本地模型" else "netmhcpan"
+    set_backend("epitope", backend_name)
 
     st.markdown("---")
     st.markdown("### 📚 MHC基础知识")
@@ -107,10 +99,15 @@ cols = st.columns(5)
 for i, (name, seq) in enumerate(examples.items()):
     with cols[i]:
         if st.button(name, key=f"ep_{i}", use_container_width=True):
-            sequence = seq
+            st.session_state["epitope_sequence"] = seq
             st.rerun()
 
-# Run prediction
+# Restore from session state
+if st.session_state.get("epitope_sequence"):
+    sequence = st.session_state["epitope_sequence"]
+    st.session_state["epitope_sequence"] = None
+
+# Run prediction via skill API
 col_btn1, col_btn2, col_btn3 = st.columns([1, 2, 1])
 with col_btn2:
     run_btn = st.button("🚀 开始预测", type="primary", use_container_width=True, disabled=not sequence)
@@ -118,48 +115,13 @@ with col_btn2:
 if run_btn and sequence:
     with st.spinner("预测中..."):
         try:
-            # Use heuristic model (pre-trained model loading is complex)
-            # Score based on amino acid composition and allele matching
-
-            # Amino acid weights for MHC binding (hydrophobic preferred)
-            aa_weights = {
-                'A': 1.2, 'I': 1.5, 'L': 1.5, 'M': 1.4, 'F': 1.4, 'W': 1.3, 'Y': 1.3, 'V': 1.2,  # hydrophobic
-                'T': 0.8, 'S': 0.7, 'N': 0.6, 'Q': 0.6,  # polar
-                'D': 0.4, 'E': 0.4,  # negative
-                'K': 0.5, 'R': 0.5, 'H': 0.6,  # positive
-                'G': 0.7, 'P': 0.5, 'C': 0.8  # special
-            }
-
-            # Calculate base score
-            base_score = sum(aa_weights.get(aa, 0.5) for aa in sequence) / len(sequence) if sequence else 0
-
-            # Allele-specific adjustment
-            allele_boost = {
-                "HLA-A*02:01": 0.15 if 'L' in sequence or 'V' in sequence else 0,
-                "HLA-A*03:01": 0.15 if 'K' in sequence or 'R' in sequence else 0,
-                "HLA-B*07:02": 0.15 if 'P' in sequence else 0,
-                "HLA-B*08:01": 0.15 if 'A' in sequence else 0,
-                "HLA-C*07:01": 0.10,
-                "HLA-DRB1*01:01": 0.20 if len(sequence) >= 13 else 0,
-                "HLA-DRB1*04:01": 0.15
-            }
-
-            score = min(1.0, base_score + allele_boost.get(allele, 0))
-
-            data = {
-                "module": "epitope",
-                "backend": "heuristic",
-                "sequence": sequence,
-                "length": len(sequence),
-                "allele": allele,
-                "binding_score": score,
-                "binding_affinity": "STRONG" if score > 0.8 else "MODERATE" if score > 0.5 else "WEAK",
-                "binding_class": "BINDER" if score > 0.5 else "NON-BINDER"
-            }
+            data = epitope_predict(sequence, allele)
 
             st.session_state["epitope_data"] = data
             st.session_state["epitope_done"] = True
-            st.success("预测完成 (使用启发式模型)")
+
+            backend_used = data.get("backend", "local")
+            st.success(f"预测完成 (引擎: {backend_used})")
 
         except Exception as e:
             import traceback
@@ -180,8 +142,8 @@ if st.session_state.get("epitope_done") and st.session_state.get("epitope_data")
 
     col1, col2, col3, col4 = st.columns(4)
 
-    score = data["binding_score"]
-    aff_class = data["binding_affinity"]
+    score = data.get("binding_score", 0)
+    aff_class = data.get("binding_affinity", "WEAK")
 
     with col1:
         st.metric("结合评分", f"{score:.3f}")
@@ -191,10 +153,10 @@ if st.session_state.get("epitope_done") and st.session_state.get("epitope_data")
         st.metric(f"{aff_color} 结合亲和力", aff_class)
 
     with col3:
-        st.metric("MHC等位基因", allele)
+        st.metric("MHC等位基因", data.get("allele", allele))
 
     with col4:
-        st.metric("序列长度", f"{len(sequence)} aa")
+        st.metric("序列长度", f"{data.get('length', len(sequence))} aa")
 
     # Binding gauge
     st.markdown("#### 📊 结合评分仪表")
@@ -223,44 +185,45 @@ if st.session_state.get("epitope_done") and st.session_state.get("epitope_data")
     # Interpretation
     st.markdown("#### 📝 结果解读")
 
+    allele_name = data.get("allele", allele)
     if score > 0.8:
-        st.success("""
+        st.success(f"""
         ✅ **强结合表位**
-        - 该肽段与 {allele} 具有高亲和力结合
+        - 该肽段与 {allele_name} 具有高亲和力结合
         - 预测IC50 < 50 nM
         - 推荐作为疫苗候选
-        """.format(allele=allele))
+        """)
     elif score > 0.5:
-        st.warning("""
+        st.warning(f"""
         ⚠️ **中等结合表位**
-        - 该肽段与 {allele} 具有中等亲和力结合
+        - 该肽段与 {allele_name} 具有中等亲和力结合
         - 预测IC50 50-500 nM
         - 可作为备选候选
-        """.format(allele=allele))
+        """)
     else:
-        st.error("""
+        st.error(f"""
         ❌ **弱/无结合表位**
-        - 该肽段与 {allele} 结合亲和力低
+        - 该肽段与 {allele_name} 结合亲和力低
         - 不推荐作为疫苗候选
         - 建议寻找替代表位
-        """.format(allele=allele))
+        """)
 
     # Export
     st.markdown("---")
     col_exp1, col_exp2 = st.columns(2)
 
     with col_exp1:
-        if st.button("📄 生成HTML报告", use_container_width=True):
-            html = generate_nature_html_report(data)
-            filename = f"epitope_report_{datetime.now().strftime('%Y%m%d_%H%M%S')}.html"
-            Path(filename).write_text(html, encoding="utf-8")
-            st.success(f"✅ 报告已保存: {filename}")
+        if st.button("📄 生成HTML报告", key="epi_html", use_container_width=True):
+            html = generate_html_report(data)
+            filepath = save_html_report(html)
+            with open(filepath, "r", encoding="utf-8") as f:
+                st.download_button("下载HTML报告", f.read(),
+                                   file_name=Path(filepath).name, mime="text/html")
 
     with col_exp2:
-        import json
         st.download_button(
             "⬇️ 下载JSON数据",
-            json.dumps(data, indent=2, ensure_ascii=False),
+            json.dumps(data, indent=2, ensure_ascii=False, default=str),
             file_name=f"epitope_data_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json",
             mime="application/json"
         )

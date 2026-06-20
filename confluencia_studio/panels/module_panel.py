@@ -81,6 +81,14 @@ MODULES: Dict[str, Dict[str, Dict[str, str]]] = {
         "evaluate": {"help": "Joint evaluation"},
         "batch": {"help": "Batch processing"},
     },
+    "simulacrum": {
+        "init": {"help": "Initialize TNBC digital twin (BLIS/IM/LAR/BLIA)"},
+        "step": {"help": "Advance simulation by N days"},
+        "drug": {"help": "Administer drug treatment"},
+        "report": {"help": "Generate full simulation report"},
+        "reset": {"help": "Reset simulation"},
+        "status": {"help": "Get current simulation status"},
+    },
     "bench": {
         "run-all": {"help": "Run all benchmarks"},
         "ablation": {"help": "Ablation study"},
