@@ -87,8 +87,8 @@ def load_pseudo_labels(labels_dir, n_seqs=None):
         coords = np.load(coords_files[i])  # (L, 3)
         coords_labels.append(coords)
 
-        # Parse pairs from constraints
-        pair_list = item['pair_constraints']
+        # Parse pairs from constraints (optional field)
+        pair_list = item.get('pair_constraints', [])
 
         # Build pair probability matrix
         L = len(seq)
