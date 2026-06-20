@@ -301,7 +301,7 @@ def train_scheme1(train_loader, val_loader, args, device):
     print("="*60)
 
     model = Scheme1Model(d_hidden=args.d_hidden, n_layers=args.n_layers).to(device)
-    optimizer = torch.optim.AdamW(model.parameters(), lr=args.lr)
+    optimizer = torch.optim.AdamW(model.parameters(), lr=args.lr * 0.1)  # Lower lr for EGNN stability
     scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
         optimizer, mode='min', factor=0.5, patience=5
     )
@@ -340,10 +340,20 @@ def train_scheme1(train_loader, val_loader, args, device):
             loss /= B
 
             loss.backward()
-            torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=5.0)
+            # Check for NaN gradients
+            has_nan = False
+            for p in model.parameters():
+                if p.grad is not None and torch.isnan(p.grad).any():
+                    has_nan = True
+                    break
+            if has_nan:
+                optimizer.zero_grad()
+                continue  # Skip this batch
+            torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
             optimizer.step()
             optimizer.zero_grad()
-            train_loss += loss.item()
+            if not torch.isnan(loss):
+                train_loss += loss.item()
 
         # Validation: RMSD in Å
         model.eval()
