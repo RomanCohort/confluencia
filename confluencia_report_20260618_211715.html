@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Confluencia Report</title>
+    <link href="https://fonts.googleapis.com/css2?family=Merriweather:wght@400;700&family=Source+Code+Pro:wght@400;600&family=Source+Sans+Pro:wght@400;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Source Sans Pro', sans-serif; line-height: 1.6; color: #ecf0f1; background: linear-gradient(135deg, #1a1a2e 0%, #2d3a4f 100%); min-height: 100vh; }
+        .container { max-width: 1400px; margin: 0 auto; padding: 20px; }
+        .nature-header { background: linear-gradient(135deg, #1a1a2e 0%, #2c3e50 100%); border-left: 5px solid #c41e3a; padding: 30px 40px; margin-bottom: 30px; border-radius: 0 8px 8px 0; }
+        .nature-header h1 { font-family: 'Merriweather', Georgia, serif; font-size: 2.2em; font-weight: 700; color: #ecf0f1; margin-bottom: 8px; }
+        .nature-header .subtitle { font-size: 1.1em; color: #7f8c8d; font-style: italic; }
+        .nature-header .meta { margin-top: 15px; display: flex; flex-wrap: wrap; gap: 25px; font-size: 0.9em; }
+        .nature-header .meta-item { display: flex; align-items: center; gap: 8px; }
+        .nature-header .meta-label { color: #7f8c8d; }
+        .nature-header .meta-value { color: #ecf0f1; font-weight: 600; }
+        .card { background: #161b22; border: 1px solid #30363d; border-radius: 8px; margin-bottom: 20px; overflow: hidden; }
+        .card-header { background: rgba(196, 30, 58, 0.1); border-bottom: 1px solid #30363d; padding: 15px 20px; font-weight: 600; color: #c41e3a; font-size: 1.1em; }
+        .card-body { padding: 20px; }
+        .row { display: flex; flex-wrap: wrap; margin: 0 -10px; }
+        .col-12 { width: 100%; padding: 0 10px; }
+        .col-6 { width: 50%; padding: 0 10px; }
+        .col-4 { width: 33.333%; padding: 0 10px; }
+        @media (max-width: 768px) { .col-6, .col-4 { width: 100%; } }
+        .stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 20px; }
+        .stat-box { background: rgba(255, 255, 255, 0.03); border: 1px solid #30363d; border-radius: 8px; padding: 20px; text-align: center; }
+        .stat-box.success { border-left: 4px solid #27ae60; }
+        .stat-box.warning { border-left: 4px solid #f39c12; }
+        .stat-box.danger { border-left: 4px solid #e74c3c; }
+        .stat-value { font-size: 2.5em; font-weight: 700; font-family: 'Source Code Pro', monospace; }
+        .stat-value.success { color: #27ae60; }
+        .stat-value.warning { color: #f39c12; }
+        .stat-value.danger { color: #e74c3c; }
+        .stat-label { font-size: 0.85em; color: #7f8c8d; margin-top: 5px; text-transform: uppercase; letter-spacing: 0.5px; }
+        .chart-container { height: 350px; position: relative; }
+        .chart-small { height: 280px; }
+        table { width: 100%; border-collapse: collapse; font-size: 0.9em; }
+        th, td { padding: 12px 15px; text-align: left; border-bottom: 1px solid #30363d; }
+        th { background: rgba(255, 255, 255, 0.05); font-weight: 600; color: #7f8c8d; text-transform: uppercase; font-size: 0.8em; letter-spacing: 0.5px; }
+        tr:hover { background: rgba(255, 255, 255, 0.02); }
+        .badge { display: inline-block; padding: 4px 12px; border-radius: 20px; font-size: 0.75em; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
+        .badge-success { background: rgba(39, 174, 96, 0.2); color: #27ae60; }
+        .badge-warning { background: rgba(243, 156, 18, 0.2); color: #f39c12; }
+        .badge-danger { background: rgba(231, 76, 60, 0.2); color: #e74c3c; }
+        .badge-info { background: rgba(41, 128, 185, 0.2); color: #2980b9; }
+        .sequence-display { font-family: 'Source Code Pro', monospace; font-size: 1.1em; background: rgba(0, 0, 0, 0.3); padding: 15px 20px; border-radius: 6px; letter-spacing: 2px; overflow-x: auto; }
+        .base-A { color: #3498db; }
+        .base-U { color: #e74c3c; }
+        .base-G { color: #27ae60; }
+        .base-C { color: #f39c12; }
+        .footer { text-align: center; padding: 30px; color: #7f8c8d; font-size: 0.85em; border-top: 1px solid #30363d; margin-top: 40px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        
+    <div class="nature-header">
+        <h1>circRNA Analysis Report</h1>
+        <div class="subtitle">Comprehensive characterization of circular RNA therapeutic candidate</div>
+        <div class="meta">
+            <div class="meta-item"><span class="meta-label">Sequence:</span><span class="meta-value">0 nt</span></div>
+            <div class="meta-item"><span class="meta-label">GC:</span><span class="meta-value">0.0%</span></div>
+            <div class="meta-item"><span class="meta-label">Safety:</span><span class="meta-value">0.95</span></div>
+            <div class="meta-item"><span class="meta-label">Backend:</span><span class="meta-value">HEURISTIC</span></div>
+        </div>
+    </div>
+    <div class="card">
+        <div class="card-header">Sequence</div>
+        <div class="card-body"><div class="sequence-display"><span class="base-C">C</span><span class="base-G">G</span><span class="base-C">C</span><span class="base-G">G</span><span class="base-C">C</span><span class="base-G">G</span><span class="base-C">C</span><span class="base-G">G</span><span class="base-C">C</span><span class="base-G">G</span><span class="base-C">C</span><span class="base-G">G</span><span class="base-C">C</span><span class="base-G">G</span><span class="base-C">C</span><span class="base-G">G</span><span class="base-C">C</span><span class="base-G">G</span><span class="base-C">C</span><span class="base-G">G</span></div></div>
+    </div>
+    <div class="stat-grid">
+        <div class="stat-box warning"><div class="stat-value warning">0%</div><div class="stat-label">GC Content</div></div>
+        <div class="stat-box success"><div class="stat-value success">0.95</div><div class="stat-label">SAFE</div></div>
+        <div class="stat-box"><div class="stat-value">0.119</div><div class="stat-label">Immune Score</div></div>
+        <div class="stat-box"><div class="stat-value">0</div><div class="stat-label">Length (nt)</div></div>
+    </div>
+    <div class="row">
+        <div class="col-4">
+            <div class="card"><div class="card-header">Nucleotide Composition</div>
+            <div class="card-body"><div id="nucleotidePie" class="chart-small"></div></div></div>
+        </div>
+        <div class="col-4">
+            <div class="card"><div class="card-header">Innate Immune</div>
+            <div class="card-body"><div id="immuneRadar" class="chart-small"></div></div></div>
+        </div>
+        <div class="col-4">
+            <div class="card"><div class="card-header">TorusFold</div>
+            <div class="card-body"><div id="torusRadar" class="chart-small"></div></div></div>
+        </div>
+    </div>
+    
+    
+    <div class="row">
+        <div class="col-6">
+            <div class="card">
+                <div class="card-header">Circular RNA Ring Structure</div>
+                <div class="card-body" style="text-align:center;">
+                    <svg width="500" height="500" xmlns="http://www.w3.org/2000/svg"><rect width="500" height="500" fill="#1a1b26" rx="12"/><text x="250" y="30" text-anchor="middle" fill="#c0caf5" font-size="14" font-weight="bold">circRNA Ring Structure</text><text x="250" y="50" text-anchor="middle" fill="#a9b1d6" font-size="11">20 nt | Circular conformation</text><circle cx="250" cy="250" r="170" fill="none" stroke="#bb9af7" stroke-width="3" opacity="0.6"/><circle cx="250.0" cy="80.0" r="4" fill="#f39c12"/><circle cx="302.5" cy="88.3" r="4" fill="#27ae60"/><circle cx="349.9" cy="112.5" r="4" fill="#f39c12"/><circle cx="387.5" cy="150.1" r="4" fill="#27ae60"/><circle cx="411.7" cy="197.5" r="4" fill="#f39c12"/><circle cx="420.0" cy="250.0" r="4" fill="#27ae60"/><circle cx="411.7" cy="302.5" r="4" fill="#f39c12"/><circle cx="387.5" cy="349.9" r="4" fill="#27ae60"/><circle cx="349.9" cy="387.5" r="4" fill="#f39c12"/><circle cx="302.5" cy="411.7" r="4" fill="#27ae60"/><circle cx="250.0" cy="420.0" r="4" fill="#f39c12"/><circle cx="197.5" cy="411.7" r="4" fill="#27ae60"/><circle cx="150.1" cy="387.5" r="4" fill="#f39c12"/><circle cx="112.5" cy="349.9" r="4" fill="#27ae60"/><circle cx="88.3" cy="302.5" r="4" fill="#f39c12"/><circle cx="80.0" cy="250.0" r="4" fill="#27ae60"/><circle cx="88.3" cy="197.5" r="4" fill="#f39c12"/><circle cx="112.5" cy="150.1" r="4" fill="#27ae60"/><circle cx="150.1" cy="112.5" r="4" fill="#f39c12"/><circle cx="197.5" cy="88.3" r="4" fill="#27ae60"/><rect x="170" y="440" width="160" height="50" fill="#24283b" rx="6"/><circle cx="190" cy="458" r="6" fill="#3498db"/><text x="190" y="478" text-anchor="middle" fill="#a9b1d6" font-size="10">A</text><circle cx="230" cy="458" r="6" fill="#e74c3c"/><text x="230" y="478" text-anchor="middle" fill="#a9b1d6" font-size="10">U</text><circle cx="270" cy="458" r="6" fill="#27ae60"/><text x="270" y="478" text-anchor="middle" fill="#a9b1d6" font-size="10">G</text><circle cx="310" cy="458" r="6" fill="#f39c12"/><text x="310" y="478" text-anchor="middle" fill="#a9b1d6" font-size="10">C</text><circle cx="250.0" cy="80.0" r="8" fill="none" stroke="#7dcfff" stroke-width="2"/><text x="250.0" y="65.0" text-anchor="middle" fill="#7dcfff" font-size="9">5'-3'</text></svg>
+                </div>
+            </div>
+        </div>
+        <div class="col-6">
+            
+    <div class="card">
+        <div class="card-header">Base Pairing Matrix</div>
+        <div class="card-body">
+            <div id="pairingMatrix" style="height:350px;"></div>
+        </div>
+    </div>
+    <script>
+    Plotly.newPlot('pairingMatrix', [{
+        type: 'heatmap',
+        z: [[0.1, 0.3, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0], [0.3, 0.1, 0.3, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0], [0.0, 0.3, 0.1, 0.3, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0], [0.0, 0.0, 0.3, 0.1, 0.3, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0], [0.0, 0.0, 0.0, 0.3, 0.1, 0.3, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0], [0.0, 0.0, 0.0, 0.0, 0.3, 0.1, 0.3, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0], [0.0, 0.0, 0.0, 0.0, 0.0, 0.3, 0.1, 0.3, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0], [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.3, 0.1, 0.3, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0], [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.3, 0.1, 0.3, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0], [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.3, 0.1, 0.3, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0], [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.3, 0.1, 0.3, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0], [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.3, 0.1, 0.3, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0], [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.3, 0.1, 0.3, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0], [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.3, 0.1, 0.3, 0.0, 0.0, 0.0, 0.0, 0.0], [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.3, 0.1, 0.3, 0.0, 0.0, 0.0, 0.0], [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.3, 0.1, 0.3, 0.0, 0.0, 0.0], [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.3, 0.1, 0.3, 0.0, 0.0], [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.3, 0.1, 0.3, 0.0], [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.3, 0.1, 0.3], [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.3, 0.1]],
+        colorscale: [[0, '#1a1b26'], [0.3, '#24283b'], [0.7, '#73daca'], [1, '#27ae60']],
+        showscale: true,
+        colorbar: {title: 'Pairing', titlefont: {color: '#7f8c8d'}, tickfont: {color: '#7f8c8d'}}
+    }], {
+        paper_bgcolor: 'rgba(0,0,0,0)',
+        font: {color: '#ecf0f1'},
+        xaxis: {title: 'Position', gridcolor: '#30363d'},
+        yaxis: {title: 'Position', gridcolor: '#30363d'}
+    });
+    </script>
+    
+        </div>
+    </div>
+    
+    <div class="card">
+        <div class="card-header">3D Structure Visualization</div>
+        <div class="card-body">
+            <div id="structure3d" style="height:500px;"></div>
+            <div style="margin-top:15px;padding:15px;background:rgba(0,0,0,0.3);border-radius:6px;">
+                <p style="color:#7f8c8d;font-size:0.85em;margin-bottom:8px;">
+                    <strong style="color:#c41e3a;">Interaction Guide:</strong>
+                </p>
+                <ul style="color:#a9b1d6;font-size:0.85em;margin-left:20px;line-height:1.8;">
+                    <li><span style="color:#3498db;">●</span> Adenine | <span style="color:#e74c3c;">●</span> Uracil | <span style="color:#27ae60;">●</span> Guanine | <span style="color:#f39c12;">●</span> Cytosine</li>
+                    <li><span style="color:#73daca;">—</span> Watson-Crick base pairs (G-C, A-U)</li>
+                    <li><span style="color:#7dcfff;">◆</span> 5'-3' junction (circular connection)</li>
+                    <li>Drag to rotate | Scroll to zoom | Hover for details</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+    <script>
+    Plotly.newPlot('structure3d', [{"type": "scatter3d", "x": [14.0, 12.757675219469757, 9.70820393249937, 6.222169151954771, 3.0901699437494745, 6.481924738648625e-16, -3.708203932499368, -7.884676903064582, -11.326237921249263, -12.757675219469757, -12.0, -10.06768117161393, -8.090169943749475, -6.222169151954772, -3.7082039324993707, -2.464151055335883e-15, 4.326237921249261, 7.884676903064581, 9.70820393249937, 10.06768117161393, 14.0], "y": [0.0, 4.14521995694819, 7.053423027509678, 8.564081126864, 9.510565162951535, 10.585786437626904, 11.412678195541844, 10.852326738134737, 8.228993532094625, 4.145219956948192, 1.4695761589768238e-15, -3.271187908050547, -5.87785252292473, -8.564081126864, -11.412678195541842, -13.414213562373092, -13.314791228132151, -10.852326738134739, -7.053423027509681, -3.2711879080505515, 0.0], "z": [0.0, 1.4142135623730951, 2.0, 1.4142135623730951, 2.4492935982947064e-16, -1.414213562373095, -2.0, -1.4142135623730954, -4.898587196589413e-16, 1.4142135623730947, 2.0, 1.4142135623730967, 7.347880794884119e-16, -1.4142135623730958, -2.0, -1.414213562373097, -9.797174393178826e-16, 1.4142135623730956, 2.0, 1.4142135623730971, 0.0], "mode": "lines", "line": {"color": "#bb9af7", "width": 6, "opacity": 0.4}, "hoverinfo": "skip", "name": "Backbone", "showlegend": false}, {"type": "scatter3d", "x": [14.0], "y": [0.0], "z": [0.0], "mode": "markers", "marker": {"size": 8, "color": "#f39c12", "opacity": 1.0, "line": {"color": "#ecf0f1", "width": 1}}, "hovertemplate": "Position 1<br>Base: C (Cytosine)<extra></extra>", "showlegend": false}, {"type": "scatter3d", "x": [12.757675219469757], "y": [4.14521995694819], "z": [1.4142135623730951], "mode": "markers", "marker": {"size": 8, "color": "#27ae60", "opacity": 1.0, "line": {"color": "#ecf0f1", "width": 1}}, "hovertemplate": "Position 2<br>Base: G (Guanine)<extra></extra>", "showlegend": false}, {"type": "scatter3d", "x": [9.70820393249937], "y": [7.053423027509678], "z": [2.0], "mode": "markers", "marker": {"size": 8, "color": "#f39c12", "opacity": 1.0, "line": {"color": "#ecf0f1", "width": 1}}, "hovertemplate": "Position 3<br>Base: C (Cytosine)<extra></extra>", "showlegend": false}, {"type": "scatter3d", "x": [6.222169151954771], "y": [8.564081126864], "z": [1.4142135623730951], "mode": "markers", "marker": {"size": 8, "color": "#27ae60", "opacity": 1.0, "line": {"color": "#ecf0f1", "width": 1}}, "hovertemplate": "Position 4<br>Base: G (Guanine)<extra></extra>", "showlegend": false}, {"type": "scatter3d", "x": [3.0901699437494745], "y": [9.510565162951535], "z": [2.4492935982947064e-16], "mode": "markers", "marker": {"size": 8, "color": "#f39c12", "opacity": 1.0, "line": {"color": "#ecf0f1", "width": 1}}, "hovertemplate": "Position 5<br>Base: C (Cytosine)<extra></extra>", "showlegend": false}, {"type": "scatter3d", "x": [6.481924738648625e-16], "y": [10.585786437626904], "z": [-1.414213562373095], "mode": "markers", "marker": {"size": 8, "color": "#27ae60", "opacity": 1.0, "line": {"color": "#ecf0f1", "width": 1}}, "hovertemplate": "Position 6<br>Base: G (Guanine)<extra></extra>", "showlegend": false}, {"type": "scatter3d", "x": [-3.708203932499368], "y": [11.412678195541844], "z": [-2.0], "mode": "markers", "marker": {"size": 8, "color": "#f39c12", "opacity": 1.0, "line": {"color": "#ecf0f1", "width": 1}}, "hovertemplate": "Position 7<br>Base: C (Cytosine)<extra></extra>", "showlegend": false}, {"type": "scatter3d", "x": [-7.884676903064582], "y": [10.852326738134737], "z": [-1.4142135623730954], "mode": "markers", "marker": {"size": 8, "color": "#27ae60", "opacity": 1.0, "line": {"color": "#ecf0f1", "width": 1}}, "hovertemplate": "Position 8<br>Base: G (Guanine)<extra></extra>", "showlegend": false}, {"type": "scatter3d", "x": [-11.326237921249263], "y": [8.228993532094625], "z": [-4.898587196589413e-16], "mode": "markers", "marker": {"size": 8, "color": "#f39c12", "opacity": 1.0, "line": {"color": "#ecf0f1", "width": 1}}, "hovertemplate": "Position 9<br>Base: C (Cytosine)<extra></extra>", "showlegend": false}, {"type": "scatter3d", "x": [-12.757675219469757], "y": [4.145219956948192], "z": [1.4142135623730947], "mode": "markers", "marker": {"size": 8, "color": "#27ae60", "opacity": 1.0, "line": {"color": "#ecf0f1", "width": 1}}, "hovertemplate": "Position 10<br>Base: G (Guanine)<extra></extra>", "showlegend": false}, {"type": "scatter3d", "x": [-12.0], "y": [1.4695761589768238e-15], "z": [2.0], "mode": "markers", "marker": {"size": 8, "color": "#f39c12", "opacity": 1.0, "line": {"color": "#ecf0f1", "width": 1}}, "hovertemplate": "Position 11<br>Base: C (Cytosine)<extra></extra>", "showlegend": false}, {"type": "scatter3d", "x": [-10.06768117161393], "y": [-3.271187908050547], "z": [1.4142135623730967], "mode": "markers", "marker": {"size": 8, "color": "#27ae60", "opacity": 1.0, "line": {"color": "#ecf0f1", "width": 1}}, "hovertemplate": "Position 12<br>Base: G (Guanine)<extra></extra>", "showlegend": false}, {"type": "scatter3d", "x": [-8.090169943749475], "y": [-5.87785252292473], "z": [7.347880794884119e-16], "mode": "markers", "marker": {"size": 8, "color": "#f39c12", "opacity": 1.0, "line": {"color": "#ecf0f1", "width": 1}}, "hovertemplate": "Position 13<br>Base: C (Cytosine)<extra></extra>", "showlegend": false}, {"type": "scatter3d", "x": [-6.222169151954772], "y": [-8.564081126864], "z": [-1.4142135623730958], "mode": "markers", "marker": {"size": 8, "color": "#27ae60", "opacity": 1.0, "line": {"color": "#ecf0f1", "width": 1}}, "hovertemplate": "Position 14<br>Base: G (Guanine)<extra></extra>", "showlegend": false}, {"type": "scatter3d", "x": [-3.7082039324993707], "y": [-11.412678195541842], "z": [-2.0], "mode": "markers", "marker": {"size": 8, "color": "#f39c12", "opacity": 1.0, "line": {"color": "#ecf0f1", "width": 1}}, "hovertemplate": "Position 15<br>Base: C (Cytosine)<extra></extra>", "showlegend": false}, {"type": "scatter3d", "x": [-2.464151055335883e-15], "y": [-13.414213562373092], "z": [-1.414213562373097], "mode": "markers", "marker": {"size": 8, "color": "#27ae60", "opacity": 1.0, "line": {"color": "#ecf0f1", "width": 1}}, "hovertemplate": "Position 16<br>Base: G (Guanine)<extra></extra>", "showlegend": false}, {"type": "scatter3d", "x": [4.326237921249261], "y": [-13.314791228132151], "z": [-9.797174393178826e-16], "mode": "markers", "marker": {"size": 8, "color": "#f39c12", "opacity": 1.0, "line": {"color": "#ecf0f1", "width": 1}}, "hovertemplate": "Position 17<br>Base: C (Cytosine)<extra></extra>", "showlegend": false}, {"type": "scatter3d", "x": [7.884676903064581], "y": [-10.852326738134739], "z": [1.4142135623730956], "mode": "markers", "marker": {"size": 8, "color": "#27ae60", "opacity": 1.0, "line": {"color": "#ecf0f1", "width": 1}}, "hovertemplate": "Position 18<br>Base: G (Guanine)<extra></extra>", "showlegend": false}, {"type": "scatter3d", "x": [9.70820393249937], "y": [-7.053423027509681], "z": [2.0], "mode": "markers", "marker": {"size": 8, "color": "#f39c12", "opacity": 1.0, "line": {"color": "#ecf0f1", "width": 1}}, "hovertemplate": "Position 19<br>Base: C (Cytosine)<extra></extra>", "showlegend": false}, {"type": "scatter3d", "x": [10.06768117161393], "y": [-3.2711879080505515], "z": [1.4142135623730971], "mode": "markers", "marker": {"size": 8, "color": "#27ae60", "opacity": 1.0, "line": {"color": "#ecf0f1", "width": 1}}, "hovertemplate": "Position 20<br>Base: G (Guanine)<extra></extra>", "showlegend": false}, {"type": "scatter3d", "x": [14.0], "y": [0.0], "z": [0.0], "mode": "markers", "marker": {"size": 14, "color": "#7dcfff", "symbol": "diamond", "line": {"color": "#c0caf5", "width": 2}}, "hovertemplate": "5'-3' Junction<br>Circular connection point<extra></extra>", "name": "Junction"}, {"type": "scatter3d", "x": [null], "y": [null], "z": [null], "mode": "markers", "marker": {"size": 8, "color": "#3498db"}, "name": "Adenine (A)", "showlegend": true}, {"type": "scatter3d", "x": [null], "y": [null], "z": [null], "mode": "markers", "marker": {"size": 8, "color": "#e74c3c"}, "name": "Uracil (U)", "showlegend": true}, {"type": "scatter3d", "x": [null], "y": [null], "z": [null], "mode": "markers", "marker": {"size": 8, "color": "#27ae60"}, "name": "Guanine (G)", "showlegend": true}, {"type": "scatter3d", "x": [null], "y": [null], "z": [null], "mode": "markers", "marker": {"size": 8, "color": "#f39c12"}, "name": "Cytosine (C)", "showlegend": true}, {"type": "scatter3d", "x": [null], "y": [null], "z": [null], "mode": "markers", "marker": {"size": 8, "color": "#73daca"}, "name": "WC Base Pair", "showlegend": true}, {"type": "scatter3d", "x": [null], "y": [null], "z": [null], "mode": "markers", "marker": {"size": 8, "color": "#7dcfff"}, "name": "Junction", "showlegend": true}], {"paper_bgcolor": "rgba(0,0,0,0)", "plot_bgcolor": "rgba(0,0,0,0)", "font": {"color": "#ecf0f1", "family": "Source Sans Pro, sans-serif"}, "margin": {"l": 0, "r": 0, "t": 40, "b": 0}, "title": {"text": "3D circRNA Structure (20 nt)", "font": {"color": "#c41e3a", "size": 14}, "x": 0.5}, "scene": {"xaxis": {"visible": false, "range": [-15, 15]}, "yaxis": {"visible": false, "range": [-15, 15]}, "zaxis": {"visible": false, "range": [-5, 5]}, "camera": {"eye": {"x": 1.8, "y": 1.8, "z": 0.8}, "center": {"x": 0, "y": 0, "z": 0}}, "aspectmode": "data", "bgcolor": "rgba(0,0,0,0)"}, "showlegend": true, "legend": {"x": 0.02, "y": 0.98, "bgcolor": "rgba(22, 27, 34, 0.8)", "bordercolor": "#30363d", "borderwidth": 1, "font": {"size": 10, "color": "#a9b1d6"}}, "hovermode": "closest"});
+    </script>
+    
+    <div class="row">
+        <div class="col-6">
+            <div class="card"><div class="card-header">Immune Sensor Activation</div>
+            <div class="card-body">
+                <table><thead><tr><th>Sensor</th><th>Score</th><th>Status</th></tr></thead><tbody>
+                    <tr><td>TLR3</td><td>0.3400</td><td><span class="badge badge-warning">MOD</span></td></tr>
+                    <tr><td>TLR7</td><td>0.0000</td><td><span class="badge badge-success">LOW</span></td></tr>
+                    <tr><td>TLR8</td><td>0.0300</td><td><span class="badge badge-success">LOW</span></td></tr>
+                    <tr><td>RIG-I</td><td>0.0421</td><td><span class="badge badge-success">LOW</span></td></tr>
+                    <tr><td>MDA5</td><td>0.0140</td><td><span class="badge badge-success">LOW</span></td></tr>
+                    <tr><td>PKR</td><td>0.0000</td><td><span class="badge badge-success">LOW</span></td></tr>
+                </tbody></table>
+            </div></div>
+        </div>
+        <div class="col-6">
+            <div class="card"><div class="card-header">TorusFold Metrics</div>
+            <div class="card-body">
+                <table><thead><tr><th>Metric</th><th>Score</th><th>Interpretation</th></tr></thead><tbody>
+                    <tr><td>Stability</td><td>0.00</td><td>Structural integrity</td></tr>
+                    <tr><td>Translation</td><td>0.00</td><td>Protein expression</td></tr>
+                    <tr><td>Evasion</td><td>0.00</td><td>Avoid detection</td></tr>
+                    <tr><td>Delivery</td><td>0.00</td><td>Cellular uptake</td></tr>
+                </tbody></table>
+            </div></div>
+        </div>
+    </div>
+    <script>
+    Plotly.newPlot('nucleotidePie', [{type:'pie', labels:['A','U','G','C'], values:[0,0,10,10], marker:{colors:['#3498db','#e74c3c','#27ae60','#f39c12']}, hole:0.4}],
+        {paper_bgcolor:'rgba(0,0,0,0)', font:{color:'#ecf0f1'}, legend:{orientation:'h', y:-0.1}});
+    Plotly.newPlot('immuneRadar', [{type:'scatterpolar', r:[0.33999999999999997,0.0,0.03,0.0421,0.013999999999999999,0.0], theta:['TLR3','TLR7','TLR8','RIG-I','MDA5','PKR'], fill:'toself', marker:{color:'#c41e3a'}}],
+        {polar:{radialaxis:{visible:true,range:[0,1],gridcolor:'#30363d'}}, paper_bgcolor:'rgba(0,0,0,0)', font:{color:'#ecf0f1'}});
+    Plotly.newPlot('torusRadar', [{type:'scatterpolar', r:[0,0,0,0], theta:['Stability','Translation','Evasion','Delivery'], fill:'toself', marker:{color:'#27ae60'}}],
+        {polar:{radialaxis:{visible:true,range:[0,1],gridcolor:'#30363d'}}, paper_bgcolor:'rgba(0,0,0,0)', font:{color:'#ecf0f1'}});
+    </script>
+        <div class="footer">
+            <p>Generated by <strong>Confluencia</strong> | 2026-06-18 21:17:15</p>
+            <p><em>Nature journal style visualization</em></p>
+        </div>
+    </div>
+    <script>
+        function exportJSON() {
+            const data = {
+  "module": "circrna",
+  "sequence": "CGCGCGCGCGCGCGCGCGCG",
+  "immune": {
+    "tlr3": 0.33999999999999997,
+    "tlr7": 0.0,
+    "tlr8": 0.03,
+    "rigi": 0.0421,
+    "mda5": 0.013999999999999999,
+    "pkr": 0.0,
+    "innate_score": 0.11894819999999999,
+    "safety_score": 0.94512097
+  }
+};
+            const blob = new Blob([JSON.stringify(data, null, 2)], {type: 'application/json'});
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'confluencia_data.json';
+            a.click();
+        }
+    </script>
+</body>
+</html>
