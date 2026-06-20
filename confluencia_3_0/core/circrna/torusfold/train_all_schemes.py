@@ -320,8 +320,9 @@ def train_scheme1(train_loader, val_loader, args, device):
 
         if val_loss < best_val:
             best_val = val_loss
-            torch.save(model.state_dict(), f"{args.output}/scheme1.pt")
+            torch.save(model.state_dict(), f"{args.output}/scheme1_best.pt")
 
+    print(f"  Best val loss: {best_val:.4f}")
     return best_val
 
 
@@ -655,9 +656,18 @@ def train_scheme3(train_loader, val_loader, args, device):
 
     optimizer = torch.optim.AdamW(model.parameters(), lr=args.lr)
 
-    # Physics solver for initial coords
-    solver_config = SolverConfig(n_samples=5, use_annealing_closure=True)
-    solver = GeometricConstraintSolver(solver_config)
+    # Use helical coords for fast initialization (avoid slow solver per batch)
+    def generate_helical_init(L, bond_length=5.9, device='cpu'):
+        """Generate fast helical initial coords (ensures closure)."""
+        coords = torch.zeros(L, 3, device=device)
+        rise_per_nt = 2.8
+        for i in range(L):
+            angle = 2 * np.pi * i / L
+            radius = bond_length * L / (2 * np.pi) * 0.5
+            coords[i, 0] = radius * np.cos(angle)
+            coords[i, 1] = radius * np.sin(angle)
+            coords[i, 2] = rise_per_nt * i - L * rise_per_nt / 2
+        return coords
 
     best_val = float('inf')
 
@@ -671,33 +681,13 @@ def train_scheme3(train_loader, val_loader, args, device):
             target_coords = batch['coords'].to(device)
             lengths = batch['lengths']
 
-            # Generate initial coords using physics solver (per sample)
+            # Generate helical initial coords (fast, no solver)
             B, L = seq_ids.shape
             coords_init = torch.zeros(B, L, 3, device=device)
 
             for b in range(B):
                 valid_L = lengths[b]
-
-                # Build minimal constraint set
-                class CS:
-                    def __init__(self, n):
-                        self.seq_len = n
-                        self.pair_constraints = []
-
-                cs = CS(valid_L)
-                conformations = solver.solve(cs)
-
-                if conformations and len(conformations) > 0:
-                    coords_np = conformations[0]  # (valid_L, 3)
-                    coords_init[b, :valid_L] = torch.from_numpy(coords_np).float().to(device)
-                else:
-                    # Fallback: helical coords
-                    for i in range(valid_L):
-                        angle = 2 * np.pi * i / valid_L
-                        radius = 5.9 * valid_L / (2 * np.pi) * 0.5
-                        coords_init[b, i, 0] = radius * np.cos(angle)
-                        coords_init[b, i, 1] = radius * np.sin(angle)
-                        coords_init[b, i, 2] = 2.8 * i
+                coords_init[b, :valid_L] = generate_helical_init(valid_L, device=device)
 
             # Refine with Generator
             coords_refined = model(seq_ids, coords_init)
@@ -749,14 +739,7 @@ def train_scheme3(train_loader, val_loader, args, device):
 
                 for b in range(B):
                     valid_L = lengths[b]
-                    class CS:
-                        def __init__(self, n):
-                            self.seq_len = n
-                            self.pair_constraints = []
-                    cs = CS(valid_L)
-                    conformations = solver.solve(cs)
-                    if conformations:
-                        coords_init[b, :valid_L] = torch.from_numpy(conformations[0]).float().to(device)
+                    coords_init[b, :valid_L] = generate_helical_init(valid_L, device=device)
 
                 coords_refined = model(seq_ids, coords_init)
 

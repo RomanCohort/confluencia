@@ -407,32 +407,43 @@ class PaxNetScorer(nn.Module):
         # Compute distance matrix
         dist_matrix = torch.cdist(coords, coords)  # (B, L, L)
 
-        # Local layer: bond + angle (adjacent residues)
-        local_energy = torch.zeros(B, device=coords.device)
+        # Local layer: bond + angle (adjacent residues, circular)
+        idx_i = torch.arange(L, device=coords.device)
+        idx_j = (idx_i + 1) % L
+        bond_dists = dist_matrix[:, idx_i, idx_j]  # (B, L)
+        local_energy = ((bond_dists - self.bond_length) ** 2).sum(dim=1)  # (B,)
+
+        # Non-local layer: vdW + electrostatic (vectorized)
+        # Build mask for non-adjacent pairs (|i-j| >= 2, excluding BSJ pair)
+        mask = torch.ones(L, L, device=coords.device, dtype=torch.bool)
         for i in range(L):
             j = (i + 1) % L
-            d = dist_matrix[:, i, j]
-            local_energy += (d - self.bond_length) ** 2
+            mask[i, j] = False
+            mask[j, i] = False
+            mask[i, i] = False
+        # Exclude BSJ pair (0, L-1)
+        if L > 2:
+            mask[0, L-1] = False
+            mask[L-1, 0] = False
 
-        # Non-local layer: vdW + electrostatic (non-adjacent)
-        nonlocal_energy = torch.zeros(B, device=coords.device)
-        for i in range(L):
-            for j in range(i + 2, L):
-                d = dist_matrix[:, i, j]
-                if d.mean() > 0.1:
-                    # Lennard-Jones-like: repulsive at short range
-                    vdw = (3.0 / d) ** 12 - (3.0 / d) ** 6
-                    # Electrostatic: phosphate repulsion
-                    elec = 0.05 / d
-                    nonlocal_energy += vdw.mean() + elec.mean()
+        # Upper triangle only to avoid double counting
+        mask = mask & torch.triu(torch.ones(L, L, device=coords.device, dtype=torch.bool), diagonal=2)
+
+        # Safe inverse distance (clamp to avoid division by zero)
+        safe_dist = dist_matrix.clamp(min=0.5)
+
+        # vdW: simplified Lennard-Jones (only repulsive part matters for training)
+        vdw = (3.0 / safe_dist) ** 6  # Use r^-6 instead of full LJ for stability
+        # Electrostatic: phosphate repulsion
+        elec = 0.05 / safe_dist
+
+        # Apply mask and sum
+        nonlocal_per_pair = (vdw + elec) * mask.unsqueeze(0).float()  # (B, L, L)
+        nonlocal_energy = nonlocal_per_pair.sum(dim=(1, 2))  # (B,)
 
         # BSJ edge: explicit 5'-3' connection
         bsj_dist = dist_matrix[:, 0, L-1]
         bsj_penalty = (bsj_dist - self.bond_length) ** 2
-
-        # Attention fusion
-        local_feat = torch.stack([local_energy, local_energy / (L + 1e-8)], dim=-1)
-        nonlocal_feat = torch.stack([nonlocal_energy, nonlocal_energy / (L * (L-1) / 2 + 1e-8)], dim=-1)
 
         # Total score
         total_score = local_energy + 0.3 * nonlocal_energy + 10.0 * bsj_penalty
@@ -446,5 +457,5 @@ class PaxNetScorer(nn.Module):
             'local_energy': local_energy.detach(),
             'nonlocal_energy': nonlocal_energy.detach(),
             'bsj_penalty': bsj_penalty.detach(),
-            'gradient': gradient,  # For G engine update
+            'gradient': gradient,
         }
