@@ -40,7 +40,12 @@ def fetch_pdb(pdb_id: str, output_dir: str) -> bool:
 
     try:
         import urllib.request
-        urllib.request.urlretrieve(pdb_url, out_path)
+        # Download as binary to avoid encoding issues (CIF files contain Å symbols)
+        req = urllib.request.Request(pdb_url)
+        with urllib.request.urlopen(req) as response:
+            content = response.read()
+        with open(out_path, 'wb') as f:
+            f.write(content)
         print(f"  {pdb_id}: downloaded ({CIRCRNA_PDB_IDS.get(pdb_id, '')})")
         return True
     except Exception as e:

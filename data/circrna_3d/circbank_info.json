@@ -1,0 +1,6 @@
+{
+  "url": "http://www.circbank.cn/",
+  "description": "circBank 2.0: circRNA sequences, annotations, miRNA binding",
+  "note": "No direct API. Use web interface to download sequences by species/filter.",
+  "usage": "Download circRNA sequences \u2192 ViennaRNA pseudo-labels \u2192 TorusFold training"
+}
