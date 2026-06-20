@@ -476,12 +476,26 @@ def train_scheme5(train_loader, val_loader, args, device):
             optimizer.zero_grad()
             train_loss += loss.item()
 
-        print(f"  Epoch {epoch+1}/{args.epochs} train={train_loss/len(train_loader):.4f}")
+        avg_train = train_loss / len(train_loader)
+        print(f"  Epoch {epoch+1}/{args.epochs} train={avg_train:.4f}")
 
-        if train_loss < best_val:
-            best_val = train_loss
-            torch.save(model.state_dict(), f"{args.output}/scheme5.pt")
+        # Validation
+        model.eval()
+        val_loss = 0
+        with torch.no_grad():
+            for batch in val_loader:
+                out = model(batch['seq_ids'].to(device))
+                diff = out['coords'] - batch['coords'].to(device)
+                val_loss += torch.mean(torch.sum(diff**2, dim=-1)).item()
 
+        avg_val = val_loss / len(val_loader)
+        print(f"  Val loss: {avg_val:.4f}")
+
+        if avg_val < best_val:
+            best_val = avg_val
+            torch.save(model.state_dict(), f"{args.output}/scheme5_best.pt")
+
+    print(f"  Best val loss: {best_val:.4f}")
     return best_val
 
 
@@ -524,12 +538,26 @@ def train_scheme6(train_loader, val_loader, args, device):
             optimizer.zero_grad()
             train_loss += loss.item()
 
-        print(f"  Epoch {epoch+1}/{args.epochs} train={train_loss/len(train_loader):.4f}")
+        avg_train = train_loss / len(train_loader)
+        print(f"  Epoch {epoch+1}/{args.epochs} train={avg_train:.4f}")
 
-        if train_loss < best_val:
-            best_val = train_loss
-            torch.save(model.state_dict(), f"{args.output}/scheme6.pt")
+        # Validation
+        model.eval()
+        val_loss = 0
+        with torch.no_grad():
+            for batch in val_loader:
+                out = model(batch['seq_ids'].to(device), mode='sample')
+                diff = out['coords'] - batch['coords'].to(device)
+                val_loss += torch.mean(torch.sum(diff**2, dim=-1)).item()
 
+        avg_val = val_loss / len(val_loader)
+        print(f"  Val loss: {avg_val:.4f}")
+
+        if avg_val < best_val:
+            best_val = avg_val
+            torch.save(model.state_dict(), f"{args.output}/scheme6_best.pt")
+
+    print(f"  Best val loss: {best_val:.4f}")
     return best_val
 
 
@@ -547,14 +575,211 @@ def train_scheme2(args):
     return 0.0
 
 
-def train_scheme3(args):
-    """Scheme 3 uses dual-engine, trained separately."""
+def train_scheme3(train_loader, val_loader, args, device):
+    """Scheme 3: Dual-Engine Iterative (CS-Fold gradient-based training).
+
+    Uses BSJClosurePenalty + PaxNetScorer for gradient feedback.
+    Generator (G) learns to produce closed structures via:
+    1. Physics solver generates initial coords
+    2. G refines with gradient descent under closure penalty
+    3. PaxNetScorer provides physics-based energy feedback
+    """
     print("\n" + "="*60)
-    print("  Scheme 3: Dual-Engine Iterative")
+    print("  Training Scheme 3: Dual-Engine Iterative (CS-Fold)")
     print("="*60)
-    print("  CS-Fold + PaxNet architecture.")
-    print("  Using pre-configured dual_engine module.")
-    return 0.0
+
+    from confluencia_3_0.core.circrna.torusfold.dual_engine import (
+        BSJClosurePenalty, PaxNetScorer,
+    )
+
+    # Build trainable Generator model
+    class Scheme3Generator(nn.Module):
+        """Trainable coordinate refinement network.
+
+        Takes initial coords from physics solver → outputs refined coords.
+        Trained with BSJ closure penalty + energy scoring.
+        """
+        def __init__(self, d_model=128, n_layers=3):
+            super().__init__()
+            self.embed = nn.Embedding(5, d_model)
+            self.coord_proj = nn.Linear(3, d_model)
+
+            # Transformer for coordinate refinement
+            self.layers = nn.ModuleList([
+                nn.TransformerEncoderLayer(
+                    d_model=d_model,
+                    nhead=4,
+                    dim_feedforward=d_model * 2,
+                    dropout=0.1,
+                    batch_first=True,
+                )
+                for _ in range(n_layers)
+            ])
+
+            self.coord_out = nn.Linear(d_model, 3)
+
+        def forward(self, seq_ids, coords_init):
+            """
+            Args:
+                seq_ids: (B, L) sequence tokens
+                coords_init: (B, L, 3) initial coordinates from solver
+
+            Returns:
+                coords_refined: (B, L, 3)
+            """
+            B, L, _ = coords_init.shape
+
+            # Combine sequence + coordinate features
+            seq_feat = self.embed(seq_ids)  # (B, L, D)
+            coord_feat = self.coord_proj(coords_init)  # (B, L, D)
+            h = seq_feat + coord_feat  # (B, L, D)
+
+            # Transformer refinement
+            for layer in self.layers:
+                h = layer(h)
+
+            # Output refined coordinates (delta prediction)
+            delta = self.coord_out(h)  # (B, L, 3)
+            coords_refined = coords_init + delta
+
+            return coords_refined
+
+    # Initialize model and losses
+    model = Scheme3Generator(
+        d_model=args.d_hidden,
+        n_layers=args.n_layers,
+    ).to(device)
+
+    bsj_penalty = BSJClosurePenalty(bond_length=5.9, weight=1.0)
+    paxnet_scorer = PaxNetScorer(d_node=args.d_hidden)
+
+    optimizer = torch.optim.AdamW(model.parameters(), lr=args.lr)
+
+    # Physics solver for initial coords
+    solver_config = SolverConfig(n_samples=5, use_annealing_closure=True)
+    solver = GeometricConstraintSolver(solver_config)
+
+    best_val = float('inf')
+
+    for epoch in range(args.epochs):
+        model.train()
+        train_loss = 0
+        train_metrics = {'coord': 0, 'closure': 0, 'energy': 0}
+
+        for batch in train_loader:
+            seq_ids = batch['seq_ids'].to(device)
+            target_coords = batch['coords'].to(device)
+            lengths = batch['lengths']
+
+            # Generate initial coords using physics solver (per sample)
+            B, L = seq_ids.shape
+            coords_init = torch.zeros(B, L, 3, device=device)
+
+            for b in range(B):
+                valid_L = lengths[b]
+
+                # Build minimal constraint set
+                class CS:
+                    def __init__(self, n):
+                        self.seq_len = n
+                        self.pair_constraints = []
+
+                cs = CS(valid_L)
+                conformations = solver.solve(cs)
+
+                if conformations and len(conformations) > 0:
+                    coords_np = conformations[0]  # (valid_L, 3)
+                    coords_init[b, :valid_L] = torch.from_numpy(coords_np).float().to(device)
+                else:
+                    # Fallback: helical coords
+                    for i in range(valid_L):
+                        angle = 2 * np.pi * i / valid_L
+                        radius = 5.9 * valid_L / (2 * np.pi) * 0.5
+                        coords_init[b, i, 0] = radius * np.cos(angle)
+                        coords_init[b, i, 1] = radius * np.sin(angle)
+                        coords_init[b, i, 2] = 2.8 * i
+
+            # Refine with Generator
+            coords_refined = model(seq_ids, coords_init)
+
+            # Compute losses
+            # 1. Coordinate matching loss (only valid positions)
+            coord_loss = 0
+            for b in range(B):
+                valid_L = lengths[b]
+                diff = coords_refined[b, :valid_L] - target_coords[b, :valid_L]
+                coord_loss += torch.mean(torch.sum(diff ** 2, dim=-1))
+            coord_loss /= B
+
+            # 2. BSJ closure penalty
+            closure_loss = bsj_penalty(coords_refined)
+
+            # 3. PaxNet energy score (gradient feedback)
+            energy_out = paxnet_scorer.score_with_feedback(coords_refined)
+            energy_loss = energy_out['score'].mean()
+
+            # Combined loss
+            loss = coord_loss + 0.5 * closure_loss + 0.05 * energy_loss
+
+            loss.backward()
+            optimizer.step()
+            optimizer.zero_grad()
+
+            train_loss += loss.item()
+            train_metrics['coord'] += coord_loss.item()
+            train_metrics['closure'] += closure_loss.item()
+            train_metrics['energy'] += energy_loss.item()
+
+        train_loss /= len(train_loader)
+        for k in train_metrics:
+            train_metrics[k] /= len(train_loader)
+
+        # Validation
+        model.eval()
+        val_loss = 0
+
+        with torch.no_grad():
+            for batch in val_loader:
+                seq_ids = batch['seq_ids'].to(device)
+                target_coords = batch['coords'].to(device)
+                lengths = batch['lengths']
+
+                B, L = seq_ids.shape
+                coords_init = torch.zeros(B, L, 3, device=device)
+
+                for b in range(B):
+                    valid_L = lengths[b]
+                    class CS:
+                        def __init__(self, n):
+                            self.seq_len = n
+                            self.pair_constraints = []
+                    cs = CS(valid_L)
+                    conformations = solver.solve(cs)
+                    if conformations:
+                        coords_init[b, :valid_L] = torch.from_numpy(conformations[0]).float().to(device)
+
+                coords_refined = model(seq_ids, coords_init)
+
+                val_coord_loss = 0
+                for b in range(B):
+                    valid_L = lengths[b]
+                    diff = coords_refined[b, :valid_L] - target_coords[b, :valid_L]
+                    val_coord_loss += torch.mean(torch.sum(diff ** 2, dim=-1))
+                val_loss += val_coord_loss.item() / B
+
+        val_loss /= len(val_loader)
+
+        print(f"  Epoch {epoch+1}/{args.epochs} "
+              f"train={train_loss:.4f} (coord={train_metrics['coord']:.3f}, "
+              f"closure={train_metrics['closure']:.3f}, energy={train_metrics['energy']:.3f}) "
+              f"val={val_loss:.4f}")
+
+        if val_loss < best_val:
+            best_val = val_loss
+            torch.save(model.state_dict(), f"{args.output}/scheme3.pt")
+
+    print(f"  Scheme 3 training complete: best_val={best_val:.4f}")
+    return best_val
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -680,7 +905,7 @@ def main():
         if scheme_id == 1:
             val_loss = train_scheme1(train_loader, val_loader, args, device)
         elif scheme_id == 3:
-            val_loss = train_scheme3(args)
+            val_loss = train_scheme3(train_loader, val_loader, args, device)
         elif scheme_id == 4:
             val_loss = train_scheme4(train_loader, val_loader, args, device)
         elif scheme_id == 5:
