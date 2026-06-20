@@ -165,6 +165,59 @@ def evaluate_single(
     }
 
 
+def check_compute_compliance(submission_dir: str) -> Dict:
+    """检查算力合规性。"""
+    info_path = os.path.join(submission_dir, 'compute_info.json')
+
+    if not os.path.exists(info_path):
+        return {
+            'compliant': False,
+            'reason': 'Missing compute_info.json',
+        }
+
+    with open(info_path, 'r') as f:
+        info = json.load(f)
+
+    # 检查必需字段
+    required = ['gpu_model', 'gpu_hours', 'inference_time_per_target', 'method_type']
+    missing = [k for k in required if k not in info]
+    if missing:
+        return {
+            'compliant': False,
+            'reason': f'Missing fields: {missing}',
+        }
+
+    # 检查限制
+    violations = []
+
+    # 单目标推理时间限制
+    max_inference_time = max(info.get('inference_time_per_target', [0]))
+    if max_inference_time > 600:  # 10 分钟
+        violations.append(f'Inference time {max_inference_time}s > 600s limit')
+
+    # GPU 显存限制
+    gpu_memory = info.get('gpu_memory_gb', 0)
+    if gpu_memory > 24:
+        violations.append(f'GPU memory {gpu_memory}GB > 24GB limit')
+
+    # 物理模拟步数限制
+    physics_steps = info.get('physics_simulation_steps', 0)
+    if physics_steps > 10000:
+        violations.append(f'Physics steps {physics_steps} > 10000 limit')
+
+    # 方法类型检查
+    method_type = info.get('method_type', '')
+    banned_methods = ['rosetta', 'isrnacirc', 'md_simulation', 'molecular_dynamics']
+    if any(banned in method_type.lower() for banned in banned_methods):
+        violations.append(f'Banned method type: {method_type}')
+
+    return {
+        'compliant': len(violations) == 0,
+        'violations': violations,
+        'info': info,
+    }
+
+
 def evaluate_submission(
     pred_dir: str,
     truth_dir: str,
@@ -246,11 +299,32 @@ def main():
     print(f"  Predictions: {args.predictions}")
     print(f"  Ground truth: {args.ground_truth}")
 
+    # 1. Check compute compliance
+    print("\n  [1/2] Checking compute compliance...")
+    compliance = check_compute_compliance(args.predictions)
+    if not compliance['compliant']:
+        print(f"  ❌ NOT COMPLIANT: {compliance.get('reason', compliance.get('violations'))}")
+        print(f"  Results will be marked as DISQUALIFIED")
+    else:
+        print(f"  ✅ Compliant")
+
+    # 2. Evaluate predictions
+    print("\n  [2/2] Evaluating predictions...")
     results = evaluate_submission(args.predictions, args.ground_truth)
 
+    # Add compliance info
+    results['compute_compliance'] = compliance
+    if not compliance['compliant']:
+        results['disqualified'] = True
+        results['disqualification_reason'] = compliance.get('reason', str(compliance.get('violations')))
+
     print(f"\n{'='*60}")
-    print(f"  Mean Score: {results['mean_score']:.2f}")
-    print(f"  Median Score: {results['median_score']:.2f}")
+    if compliance['compliant']:
+        print(f"  ✅ Mean Score: {results['mean_score']:.2f}")
+        print(f"  ✅ Median Score: {results['median_score']:.2f}")
+    else:
+        print(f"  ❌ DISQUALIFIED: {compliance.get('reason', compliance.get('violations'))}")
+        print(f"  (Raw score: {results['mean_score']:.2f})")
     print(f"  Std Score: {results['std_score']:.2f}")
     print(f"  Targets Evaluated: {results['n_evaluated']}/{results['n_targets']}")
     print(f"{'='*60}")
