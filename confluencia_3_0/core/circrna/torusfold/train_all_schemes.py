@@ -331,36 +331,33 @@ def train_scheme1(train_loader, val_loader, args, device):
             optimizer.zero_grad()
             train_loss += loss.item()
 
-        # Validation
+        # Validation: RMSD in Å
         model.eval()
-        val_loss = 0
+        val_rmsd = 0
         with torch.no_grad():
             for batch in val_loader:
                 seq_ids = batch['seq_ids'].to(device)
                 target = batch['coords'].to(device)
                 lengths = batch['lengths']
 
-                B, L, _ = target.shape
-                target_centered = target - target.mean(dim=1, keepdim=True)
-                target_scale = torch.norm(target_centered, dim=(1,2), keepdim=True).clamp(min=1.0)
-                target_norm = target_centered / target_scale
-
                 out = model(seq_ids)
                 pred = out['coords']
-                pred_centered = pred - pred.mean(dim=1, keepdim=True)
-                pred_scale = torch.norm(pred_centered, dim=(1,2), keepdim=True).clamp(min=1.0)
-                pred_norm = pred_centered / pred_scale
 
+                B = len(lengths)
                 for b in range(B):
                     valid_L = lengths[b]
-                    diff = pred_norm[b, :valid_L] - target_norm[b, :valid_L]
-                    val_loss += torch.mean(diff ** 2).item()
-                val_loss /= B
+                    p = pred[b, :valid_L]
+                    t = target[b, :valid_L]
+                    p_c = p - p.mean(dim=0)
+                    t_c = t - t.mean(dim=0)
+                    rmsd = torch.sqrt(torch.mean(torch.sum((p_c - t_c) ** 2, dim=1)))
+                    val_rmsd += rmsd.item()
+                val_rmsd /= B
 
-        val_loss /= len(val_loader)
-        scheduler.step(val_loss)
+        avg_val = val_rmsd / len(val_loader)
+        scheduler.step(avg_val)
 
-        if val_loss < best_val:
+        if avg_val < best_val:
             best_val = val_loss
             patience_counter = 0
             torch.save(model.state_dict(), f"{args.output}/scheme1_best.pt")
@@ -596,33 +593,31 @@ def train_scheme5(train_loader, val_loader, args, device):
 
         avg_train = train_loss / len(train_loader)
 
-        # Validation
+        # Validation: use RMSD in Å (not normalized MSE)
         model.eval()
-        val_loss = 0
+        val_rmsd = 0
         with torch.no_grad():
             for batch in val_loader:
                 seq_ids = batch['seq_ids'].to(device)
                 target = batch['coords'].to(device)
                 lengths = batch['lengths']
 
-                B, L, _ = target.shape
-                target_centered = target - target.mean(dim=1, keepdim=True)
-                target_scale = torch.norm(target_centered, dim=(1,2), keepdim=True).clamp(min=1.0)
-                target_norm = target_centered / target_scale
-
                 out = model(seq_ids)
                 pred = out['coords']
-                pred_centered = pred - pred.mean(dim=1, keepdim=True)
-                pred_scale = torch.norm(pred_centered, dim=(1,2), keepdim=True).clamp(min=1.0)
-                pred_norm = pred_centered / pred_scale
 
+                B = len(lengths)
                 for b in range(B):
                     valid_L = lengths[b]
-                    diff = pred_norm[b, :valid_L] - target_norm[b, :valid_L]
-                    val_loss += torch.mean(diff ** 2).item()
-                val_loss /= B
+                    p = pred[b, :valid_L]
+                    t = target[b, :valid_L]
+                    # Center both for fair RMSD
+                    p_c = p - p.mean(dim=0)
+                    t_c = t - t.mean(dim=0)
+                    rmsd = torch.sqrt(torch.mean(torch.sum((p_c - t_c) ** 2, dim=1)))
+                    val_rmsd += rmsd.item()
+                val_rmsd /= B
 
-        avg_val = val_loss / len(val_loader)
+        avg_val = val_rmsd / len(val_loader)
         scheduler.step(avg_val)
 
         if avg_val < best_val:
@@ -709,30 +704,30 @@ def train_scheme6(train_loader, val_loader, args, device):
         # Validation
         model.eval()
         val_loss = 0
+        # Validation: RMSD in Å
+        model.eval()
+        val_rmsd = 0
         with torch.no_grad():
             for batch in val_loader:
                 seq_ids = batch['seq_ids'].to(device)
                 target = batch['coords'].to(device)
                 lengths = batch['lengths']
 
-                B, L, _ = target.shape
-                target_centered = target - target.mean(dim=1, keepdim=True)
-                target_scale = torch.norm(target_centered, dim=(1,2), keepdim=True).clamp(min=1.0)
-                target_norm = target_centered / target_scale
-
                 out = model(seq_ids, mode='sample')
                 pred = out['coords']
-                pred_centered = pred - pred.mean(dim=1, keepdim=True)
-                pred_scale = torch.norm(pred_centered, dim=(1,2), keepdim=True).clamp(min=1.0)
-                pred_norm = pred_centered / pred_scale
 
+                B = len(lengths)
                 for b in range(B):
                     valid_L = lengths[b]
-                    diff = pred_norm[b, :valid_L] - target_norm[b, :valid_L]
-                    val_loss += torch.mean(diff ** 2).item()
-                val_loss /= B
+                    p = pred[b, :valid_L]
+                    t = target[b, :valid_L]
+                    p_c = p - p.mean(dim=0)
+                    t_c = t - t.mean(dim=0)
+                    rmsd = torch.sqrt(torch.mean(torch.sum((p_c - t_c) ** 2, dim=1)))
+                    val_rmsd += rmsd.item()
+                val_rmsd /= B
 
-        avg_val = val_loss / len(val_loader)
+        avg_val = val_rmsd / len(val_loader)
         scheduler.step(avg_val)
 
         if avg_val < best_val:
