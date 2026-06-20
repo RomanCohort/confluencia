@@ -287,21 +287,46 @@ def train_scheme1(train_loader, val_loader, args, device):
     print("="*60)
 
     model = Scheme1Model(d_hidden=args.d_hidden, n_layers=args.n_layers).to(device)
-    optimizer = torch.optim.AdamW(model.parameters(), lr=args.lr)
+    optimizer = torch.optim.AdamW(model.parameters(), lr=args.lr * 0.01)
+    scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
+        optimizer, mode='min', factor=0.5, patience=5
+    )
 
     best_val = float('inf')
+    patience_counter = 0
+
     for epoch in range(args.epochs):
         model.train()
         train_loss = 0
         for batch in train_loader:
             seq_ids = batch['seq_ids'].to(device)
             target = batch['coords'].to(device)
+            lengths = batch['lengths']
+
+            # Normalize coords (center + scale) to prevent numerical explosion
+            B, L, _ = target.shape
+            target_centered = target - target.mean(dim=1, keepdim=True)
+            target_scale = torch.norm(target_centered, dim=(1,2), keepdim=True).clamp(min=1.0)
+            target_norm = target_centered / target_scale
 
             out = model(seq_ids)
-            diff = out['coords'] - target
-            loss = torch.mean(torch.sum(diff**2, dim=-1))
+            pred = out['coords']
+
+            # Normalize prediction similarly
+            pred_centered = pred - pred.mean(dim=1, keepdim=True)
+            pred_scale = torch.norm(pred_centered, dim=(1,2), keepdim=True).clamp(min=1.0)
+            pred_norm = pred_centered / pred_scale
+
+            # MSE on normalized coords (per-residue)
+            loss = 0
+            for b in range(B):
+                valid_L = lengths[b]
+                diff = pred_norm[b, :valid_L] - target_norm[b, :valid_L]
+                loss += torch.mean(diff ** 2)
+            loss /= B
 
             loss.backward()
+            torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=0.5)
             optimizer.step()
             optimizer.zero_grad()
             train_loss += loss.item()
@@ -311,16 +336,43 @@ def train_scheme1(train_loader, val_loader, args, device):
         val_loss = 0
         with torch.no_grad():
             for batch in val_loader:
-                out = model(batch['seq_ids'].to(device))
-                diff = out['coords'] - batch['coords'].to(device)
-                val_loss += torch.mean(torch.sum(diff**2, dim=-1)).item()
+                seq_ids = batch['seq_ids'].to(device)
+                target = batch['coords'].to(device)
+                lengths = batch['lengths']
 
-        print(f"  Epoch {epoch+1}/{args.epochs} train={train_loss/len(train_loader):.4f} "
-              f"val={val_loss/len(val_loader):.4f}")
+                B, L, _ = target.shape
+                target_centered = target - target.mean(dim=1, keepdim=True)
+                target_scale = torch.norm(target_centered, dim=(1,2), keepdim=True).clamp(min=1.0)
+                target_norm = target_centered / target_scale
+
+                out = model(seq_ids)
+                pred = out['coords']
+                pred_centered = pred - pred.mean(dim=1, keepdim=True)
+                pred_scale = torch.norm(pred_centered, dim=(1,2), keepdim=True).clamp(min=1.0)
+                pred_norm = pred_centered / pred_scale
+
+                for b in range(B):
+                    valid_L = lengths[b]
+                    diff = pred_norm[b, :valid_L] - target_norm[b, :valid_L]
+                    val_loss += torch.mean(diff ** 2).item()
+                val_loss /= B
+
+        val_loss /= len(val_loader)
+        scheduler.step(val_loss)
 
         if val_loss < best_val:
             best_val = val_loss
+            patience_counter = 0
             torch.save(model.state_dict(), f"{args.output}/scheme1_best.pt")
+        else:
+            patience_counter += 1
+
+        print(f"  Epoch {epoch+1}/{args.epochs} train={train_loss/len(train_loader):.4f} "
+              f"val={val_loss:.4f} pat={patience_counter}/10")
+
+        if patience_counter >= 10:
+            print(f"  Early stopping at epoch {epoch+1}")
+            break
 
     print(f"  Best val loss: {best_val:.4f}")
     return best_val
@@ -458,43 +510,93 @@ def train_scheme5(train_loader, val_loader, args, device):
             return {'coords': coords}
 
     model = Scheme5Model(d_model=args.d_hidden, n_blocks=args.n_layers).to(device)
-    optimizer = torch.optim.AdamW(model.parameters(), lr=args.lr)
+    optimizer = torch.optim.AdamW(model.parameters(), lr=args.lr * 0.1)
+    scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
+        optimizer, mode='min', factor=0.5, patience=5
+    )
 
     best_val = float('inf')
+    patience_counter = 0
+
     for epoch in range(args.epochs):
         model.train()
         train_loss = 0
         for batch in train_loader:
             seq_ids = batch['seq_ids'].to(device)
             target = batch['coords'].to(device)
+            lengths = batch['lengths']
+
+            # Normalize target coords
+            B, L, _ = target.shape
+            target_centered = target - target.mean(dim=1, keepdim=True)
+            target_scale = torch.norm(target_centered, dim=(1,2), keepdim=True).clamp(min=1.0)
+            target_norm = target_centered / target_scale
 
             out = model(seq_ids)
-            diff = out['coords'] - target
-            loss = torch.mean(torch.sum(diff**2, dim=-1))
+            pred = out['coords']
+
+            # Normalize prediction
+            pred_centered = pred - pred.mean(dim=1, keepdim=True)
+            pred_scale = torch.norm(pred_centered, dim=(1,2), keepdim=True).clamp(min=1.0)
+            pred_norm = pred_centered / pred_scale
+
+            loss = 0
+            for b in range(B):
+                valid_L = lengths[b]
+                diff = pred_norm[b, :valid_L] - target_norm[b, :valid_L]
+                loss += torch.mean(diff ** 2)
+            loss /= B
 
             loss.backward()
+            torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
             optimizer.step()
             optimizer.zero_grad()
             train_loss += loss.item()
 
         avg_train = train_loss / len(train_loader)
-        print(f"  Epoch {epoch+1}/{args.epochs} train={avg_train:.4f}")
 
         # Validation
         model.eval()
         val_loss = 0
         with torch.no_grad():
             for batch in val_loader:
-                out = model(batch['seq_ids'].to(device))
-                diff = out['coords'] - batch['coords'].to(device)
-                val_loss += torch.mean(torch.sum(diff**2, dim=-1)).item()
+                seq_ids = batch['seq_ids'].to(device)
+                target = batch['coords'].to(device)
+                lengths = batch['lengths']
+
+                B, L, _ = target.shape
+                target_centered = target - target.mean(dim=1, keepdim=True)
+                target_scale = torch.norm(target_centered, dim=(1,2), keepdim=True).clamp(min=1.0)
+                target_norm = target_centered / target_scale
+
+                out = model(seq_ids)
+                pred = out['coords']
+                pred_centered = pred - pred.mean(dim=1, keepdim=True)
+                pred_scale = torch.norm(pred_centered, dim=(1,2), keepdim=True).clamp(min=1.0)
+                pred_norm = pred_centered / pred_scale
+
+                for b in range(B):
+                    valid_L = lengths[b]
+                    diff = pred_norm[b, :valid_L] - target_norm[b, :valid_L]
+                    val_loss += torch.mean(diff ** 2).item()
+                val_loss /= B
 
         avg_val = val_loss / len(val_loader)
-        print(f"  Val loss: {avg_val:.4f}")
+        scheduler.step(avg_val)
 
         if avg_val < best_val:
             best_val = avg_val
+            patience_counter = 0
             torch.save(model.state_dict(), f"{args.output}/scheme5_best.pt")
+        else:
+            patience_counter += 1
+
+        print(f"  Epoch {epoch+1}/{args.epochs} train={avg_train:.4f} "
+              f"val={avg_val:.4f} pat={patience_counter}/10")
+
+        if patience_counter >= 10:
+            print(f"  Early stopping at epoch {epoch+1}")
+            break
 
     print(f"  Best val loss: {best_val:.4f}")
     return best_val
@@ -518,45 +620,93 @@ def train_scheme6(train_loader, val_loader, args, device):
         d_node=args.d_hidden,
     )
     model = GNNLatentDiffusionModel(config).to(device)
-    optimizer = torch.optim.AdamW(model.parameters(), lr=args.lr)
+    optimizer = torch.optim.AdamW(model.parameters(), lr=args.lr * 0.1)
+    scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
+        optimizer, mode='min', factor=0.5, patience=5
+    )
 
     best_val = float('inf')
+    patience_counter = 0
+
     for epoch in range(args.epochs):
         model.train()
         train_loss = 0
         for batch in train_loader:
             seq_ids = batch['seq_ids'].to(device)
             target = batch['coords'].to(device)
+            lengths = batch['lengths']
+
+            # Normalize target coords
+            B, L, _ = target.shape
+            target_centered = target - target.mean(dim=1, keepdim=True)
+            target_scale = torch.norm(target_centered, dim=(1,2), keepdim=True).clamp(min=1.0)
+            target_norm = target_centered / target_scale
 
             out = model(seq_ids, mode='train')
             pred_coords = out['coords']
 
-            diff = pred_coords - target
-            loss = torch.mean(torch.sum(diff**2, dim=-1))
+            # Normalize prediction
+            pred_centered = pred_coords - pred_coords.mean(dim=1, keepdim=True)
+            pred_scale = torch.norm(pred_centered, dim=(1,2), keepdim=True).clamp(min=1.0)
+            pred_norm = pred_centered / pred_scale
+
+            loss = 0
+            for b in range(B):
+                valid_L = lengths[b]
+                diff = pred_norm[b, :valid_L] - target_norm[b, :valid_L]
+                loss += torch.mean(diff ** 2)
+            loss /= B
 
             loss.backward()
+            torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
             optimizer.step()
             optimizer.zero_grad()
             train_loss += loss.item()
 
         avg_train = train_loss / len(train_loader)
-        print(f"  Epoch {epoch+1}/{args.epochs} train={avg_train:.4f}")
 
         # Validation
         model.eval()
         val_loss = 0
         with torch.no_grad():
             for batch in val_loader:
-                out = model(batch['seq_ids'].to(device), mode='sample')
-                diff = out['coords'] - batch['coords'].to(device)
-                val_loss += torch.mean(torch.sum(diff**2, dim=-1)).item()
+                seq_ids = batch['seq_ids'].to(device)
+                target = batch['coords'].to(device)
+                lengths = batch['lengths']
+
+                B, L, _ = target.shape
+                target_centered = target - target.mean(dim=1, keepdim=True)
+                target_scale = torch.norm(target_centered, dim=(1,2), keepdim=True).clamp(min=1.0)
+                target_norm = target_centered / target_scale
+
+                out = model(seq_ids, mode='sample')
+                pred = out['coords']
+                pred_centered = pred - pred.mean(dim=1, keepdim=True)
+                pred_scale = torch.norm(pred_centered, dim=(1,2), keepdim=True).clamp(min=1.0)
+                pred_norm = pred_centered / pred_scale
+
+                for b in range(B):
+                    valid_L = lengths[b]
+                    diff = pred_norm[b, :valid_L] - target_norm[b, :valid_L]
+                    val_loss += torch.mean(diff ** 2).item()
+                val_loss /= B
 
         avg_val = val_loss / len(val_loader)
-        print(f"  Val loss: {avg_val:.4f}")
+        scheduler.step(avg_val)
 
         if avg_val < best_val:
             best_val = avg_val
+            patience_counter = 0
             torch.save(model.state_dict(), f"{args.output}/scheme6_best.pt")
+        else:
+            patience_counter += 1
+
+        print(f"  Epoch {epoch+1}/{args.epochs} train={avg_train:.4f} "
+              f"val={avg_val:.4f} pat={patience_counter}/10")
+
+        if patience_counter >= 10:
+            print(f"  Early stopping at epoch {epoch+1}")
+            break
 
     print(f"  Best val loss: {best_val:.4f}")
     return best_val
