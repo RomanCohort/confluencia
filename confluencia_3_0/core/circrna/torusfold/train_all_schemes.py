@@ -529,7 +529,7 @@ def train_scheme5(train_loader, val_loader, args, device):
             B, L = seq_ids.shape
             device = seq_ids.device
 
-            # Circular positional indices (0..L-1 repeating)
+            # Circular positional indices
             pos = torch.arange(L, device=device) % 512
             h = self.embed(seq_ids) + self.circ_pos(pos)  # (B, L, D)
 
@@ -538,47 +538,15 @@ def train_scheme5(train_loader, val_loader, args, device):
 
             coords = self.coord_head(h)  # (B, L, 3)
 
-            # Physics-informed closure correction
+            # Physics-informed closure correction (soft, differentiable)
+            # Shift first and last atoms toward each other slightly
             closure_dist = torch.norm(coords[:, 0] - coords[:, -1], dim=-1, keepdim=True)
-            correction = 0.1 * (closure_dist - self.bond_length)
-            # Distribute closure correction across all atoms
-            coords = coords - correction.unsqueeze(-1) / L
-
-            return {'coords': coords}
-
-        def forward(self, seq_ids, coords_init=None):
-            B, L = seq_ids.shape
-            h = self.embed(seq_ids)  # (B, L, D)
-
-            # Init coords
-            if coords_init is None:
-                coords = torch.zeros(B, L, 3, device=seq_ids.device)
-            else:
-                coords = coords_init
-
-            # Convert sequence embedding to pair representation using simple heuristic:
-            # For circRNA, pair (i,j) gets features from positions i and j
-            # or from their identity embeddings
-            seq_emb = h  # (B, L, D)
-
-            # Use first order linear approximation for pair initialization
-            # This is consistent with AF2: z[i,j] = linear(seq[i] || seq[j])
-            seq_emb_expanded_i = seq_emb.unsqueeze(2).expand(-1, -1, L, -1)  # (B, L, L, D)
-            seq_emb_expanded_j = seq_emb.unsqueeze(1).expand(-1, L, -1, -1)  # (B, L, L, D)
-
-            # Simple concatenation (can be replaced with learnable linear transformation)
-            z = torch.cat([seq_emb_expanded_i, seq_emb_expanded_j], dim=-1)  # (B, L, L, 2D)
-            z = self.pair_proj(z)  # (B, L, L, D)
-
-            for block in self.blocks:
-                z = block(z, coords=coords)
-
-            # Extract single representation from pair representation
-            # Standard AF2 approach: sum over j or mean pooling
-            single = z.mean(dim=2)  # (B, L, D) - average over pairs
-
-            # Project to coordinates
-            coords = self.coord_head(single)  # (B, L, 3)
+            # Clamp to prevent gradient explosion
+            closure_error = (closure_dist - self.bond_length).clamp(-20, 20)
+            correction = 0.05 * closure_error
+            mid_point = (coords[:, 0] + coords[:, -1]) / 2
+            coords[:, 0] = coords[:, 0] - correction * (coords[:, 0] - mid_point) / closure_dist.clamp(min=1.0)
+            coords[:, -1] = coords[:, -1] - correction * (coords[:, -1] - mid_point) / closure_dist.clamp(min=1.0)
 
             return {'coords': coords}
 
@@ -1127,9 +1095,11 @@ def main():
             sequences[split:n_use], coords_labels[split:n_use], pair_labels[split:n_use])
 
         train_loader = DataLoader(train_ds, batch_size=args.batch_size,
-                                  shuffle=True, collate_fn=collate_fn)
+                                  shuffle=True, collate_fn=collate_fn,
+                                  num_workers=2, pin_memory=True, prefetch_factor=2)
         val_loader = DataLoader(val_ds, batch_size=args.batch_size,
-                                shuffle=False, collate_fn=collate_fn)
+                                shuffle=False, collate_fn=collate_fn,
+                                num_workers=2, pin_memory=True, prefetch_factor=2)
 
         # Use scheme-specific epochs if not overridden
         scheme_epochs = args.epochs
