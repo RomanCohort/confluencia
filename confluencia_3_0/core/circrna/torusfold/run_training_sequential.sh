@@ -10,8 +10,8 @@
 set -e
 
 # ── 默认参数 ──
-LABELS_DIR="${LABELS_DIR:-data/pseudo_labels}"
-OUTPUT_DIR="${OUTPUT_DIR:-models/torusfold}"
+LABELS_DIR="${LABELS_DIR:-data/circbase_real_3d}"
+OUTPUT_DIR="${OUTPUT_DIR:-models/torusfold_real}"
 DEVICE="${DEVICE:-cuda}"
 BATCH_SIZE="${BATCH_SIZE:-4}"
 D_HIDDEN="${D_HIDDEN:-128}"
