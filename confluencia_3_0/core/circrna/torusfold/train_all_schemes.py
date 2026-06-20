@@ -1016,6 +1016,11 @@ def train_scheme3(train_loader, val_loader, args, device):
         scheduler.step(val_loss)
 
         if val_loss < best_val:
+            best_val = val_loss
+            patience_counter = 0
+            torch.save(model.state_dict(), f"{args.output}/scheme3.pt")
+        else:
+            patience_counter += 1
 
         if patience_counter >= 10:
             print(f"  Early stopping at epoch {epoch+1}")
