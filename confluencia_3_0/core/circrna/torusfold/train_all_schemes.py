@@ -461,9 +461,9 @@ def train_scheme4(train_loader, val_loader, args, device):
 
         avg_train = train_loss / max(len(train_loader) - nan_batches, 1)
 
-        # Validation
+        # Validation: RMSD in Å
         model.eval()
-        val_loss = 0
+        val_rmsd = 0
         with torch.no_grad():
             for batch in val_loader:
                 seq_ids = batch['seq_ids'].to(device)
@@ -478,9 +478,21 @@ def train_scheme4(train_loader, val_loader, args, device):
                 coords_norm = coords_centered / coords_scale
 
                 out = model(seq_tokens=seq_ids, coords_target=coords_norm, pair_probs=pair_probs)
-                val_loss += out.get('total_loss', torch.tensor(0.0)).item()
+                # Use model's own coords prediction for RMSD
+                pred_coords = out.get('coords', None)
+                if pred_coords is not None:
+                    for b in range(B):
+                        p = pred_coords[b]
+                        t = coords_target[b]
+                        p_c = p - p.mean(dim=0)
+                        t_c = t - t.mean(dim=0)
+                        rmsd = torch.sqrt(torch.mean(torch.sum((p_c - t_c) ** 2, dim=1)))
+                        val_rmsd += rmsd.item()
+                    val_rmsd /= B
+                else:
+                    val_rmsd += out.get('total_loss', torch.tensor(0.0)).item()
 
-        avg_val = val_loss / len(val_loader)
+        avg_val = val_rmsd / len(val_loader)
         scheduler.step(avg_val)
 
         if avg_val < best_val:
@@ -968,21 +980,17 @@ def train_scheme3(train_loader, val_loader, args, device):
 
                 coords_refined = model(seq_ids, coords_init)
 
-                # Normalize for fair comparison
-                val_coord_loss = 0
+                # RMSD in Å
+                val_rmsd = 0
                 for b in range(B):
                     valid_L = lengths[b]
-                    pred = coords_refined[b, :valid_L]
-                    target = target_coords[b, :valid_L]
-                    # Center and scale
-                    pred_c = pred - pred.mean(dim=0)
-                    target_c = target - target.mean(dim=0)
-                    pred_s = torch.norm(pred_c).clamp(min=1.0)
-                    target_s = torch.norm(target_c).clamp(min=1.0)
-                    pred_n = pred_c / pred_s
-                    target_n = target_c / target_s
-                    val_coord_loss += torch.mean((pred_n - target_n) ** 2)
-                val_loss += val_coord_loss.item() / B
+                    p = coords_refined[b, :valid_L]
+                    t = target_coords[b, :valid_L]
+                    p_c = p - p.mean(dim=0)
+                    t_c = t - t.mean(dim=0)
+                    rmsd = torch.sqrt(torch.mean(torch.sum((p_c - t_c) ** 2, dim=1)))
+                    val_rmsd += rmsd.item()
+                val_loss += val_rmsd / B
 
         val_loss /= len(val_loader)
         scheduler.step(val_loss)
