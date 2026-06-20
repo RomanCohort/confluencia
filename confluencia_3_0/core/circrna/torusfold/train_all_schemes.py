@@ -652,9 +652,11 @@ def train_scheme3(train_loader, val_loader, args, device):
     ).to(device)
 
     bsj_penalty = BSJClosurePenalty(bond_length=5.9, weight=1.0)
-    paxnet_scorer = PaxNetScorer(d_node=args.d_hidden)
 
-    optimizer = torch.optim.AdamW(model.parameters(), lr=args.lr)
+    optimizer = torch.optim.AdamW(model.parameters(), lr=args.lr * 0.1)
+    scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
+        optimizer, mode='min', factor=0.5, patience=5
+    )
 
     # Use helical coords for fast initialization (avoid slow solver per batch)
     def generate_helical_init(L, bond_length=5.9, device='cpu'):
@@ -670,55 +672,73 @@ def train_scheme3(train_loader, val_loader, args, device):
         return coords
 
     best_val = float('inf')
+    patience_counter = 0
 
     for epoch in range(args.epochs):
         model.train()
         train_loss = 0
-        train_metrics = {'coord': 0, 'closure': 0, 'energy': 0}
+        train_metrics = {'coord': 0, 'closure': 0, 'bond': 0}
 
         for batch in train_loader:
             seq_ids = batch['seq_ids'].to(device)
             target_coords = batch['coords'].to(device)
             lengths = batch['lengths']
 
-            # Generate helical initial coords (fast, no solver)
+            # Use target coords as init (teacher forcing) for first half,
+            # then switch to helical init for generalization
             B, L = seq_ids.shape
-            coords_init = torch.zeros(B, L, 3, device=device)
-
-            for b in range(B):
-                valid_L = lengths[b]
-                coords_init[b, :valid_L] = generate_helical_init(valid_L, device=device)
+            if epoch < args.epochs // 2:
+                # Teacher forcing: start from target + small noise
+                coords_init = target_coords + torch.randn_like(target_coords) * 1.0
+            else:
+                # Helical init: start from scratch
+                coords_init = torch.zeros(B, L, 3, device=device)
+                for b in range(B):
+                    valid_L = lengths[b]
+                    coords_init[b, :valid_L] = generate_helical_init(valid_L, device=device)
 
             # Refine with Generator
             coords_refined = model(seq_ids, coords_init)
 
-            # Compute losses
-            # 1. Coordinate matching loss (only valid positions)
+            # 1. Coordinate MSE loss (per-residue, only valid positions)
             coord_loss = 0
+            n_valid = 0
             for b in range(B):
                 valid_L = lengths[b]
                 diff = coords_refined[b, :valid_L] - target_coords[b, :valid_L]
-                coord_loss += torch.mean(torch.sum(diff ** 2, dim=-1))
-            coord_loss /= B
+                coord_loss += torch.mean(diff ** 2)  # MSE per atom
+                n_valid += 1
+            coord_loss /= max(n_valid, 1)
 
-            # 2. BSJ closure penalty
-            closure_loss = bsj_penalty(coords_refined)
+            # 2. BSJ closure penalty (per-sample, then mean)
+            closure_dists = torch.norm(coords_refined[:, 0] - coords_refined[:, -1], dim=-1)
+            closure_loss = torch.mean((closure_dists - 5.9) ** 2)
 
-            # 3. PaxNet energy score (gradient feedback)
-            energy_out = paxnet_scorer.score_with_feedback(coords_refined)
-            energy_loss = energy_out['score'].mean()
+            # 3. Bond length consistency (vectorized)
+            bond_loss = 0
+            for b in range(B):
+                valid_L = lengths[b]
+                if valid_L > 1:
+                    cr = coords_refined[b, :valid_L]
+                    # Circular bond: include BSJ
+                    indices = torch.arange(valid_L, device=device)
+                    next_indices = (indices + 1) % valid_L
+                    bond_dists = torch.norm(cr[next_indices] - cr[indices], dim=-1)
+                    bond_loss += torch.mean((bond_dists - 5.9) ** 2)
+            bond_loss /= max(n_valid, 1)
 
-            # Combined loss
-            loss = coord_loss + 0.5 * closure_loss + 0.05 * energy_loss
+            # Combined loss: coord dominant, closure and bond as regularization
+            loss = coord_loss + 0.1 * closure_loss + 0.05 * bond_loss
 
             loss.backward()
+            torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
             optimizer.step()
             optimizer.zero_grad()
 
             train_loss += loss.item()
             train_metrics['coord'] += coord_loss.item()
             train_metrics['closure'] += closure_loss.item()
-            train_metrics['energy'] += energy_loss.item()
+            train_metrics['bond'] += bond_loss.item()
 
         train_loss /= len(train_loader)
         for k in train_metrics:
@@ -736,7 +756,6 @@ def train_scheme3(train_loader, val_loader, args, device):
 
                 B, L = seq_ids.shape
                 coords_init = torch.zeros(B, L, 3, device=device)
-
                 for b in range(B):
                     valid_L = lengths[b]
                     coords_init[b, :valid_L] = generate_helical_init(valid_L, device=device)
@@ -747,19 +766,28 @@ def train_scheme3(train_loader, val_loader, args, device):
                 for b in range(B):
                     valid_L = lengths[b]
                     diff = coords_refined[b, :valid_L] - target_coords[b, :valid_L]
-                    val_coord_loss += torch.mean(torch.sum(diff ** 2, dim=-1))
+                    val_coord_loss += torch.mean(diff ** 2)
                 val_loss += val_coord_loss.item() / B
 
         val_loss /= len(val_loader)
+        scheduler.step(val_loss)
+
+        # Early stopping
+        if val_loss < best_val:
+            best_val = val_loss
+            patience_counter = 0
+            torch.save(model.state_dict(), f"{args.output}/scheme3.pt")
+        else:
+            patience_counter += 1
 
         print(f"  Epoch {epoch+1}/{args.epochs} "
               f"train={train_loss:.4f} (coord={train_metrics['coord']:.3f}, "
-              f"closure={train_metrics['closure']:.3f}, energy={train_metrics['energy']:.3f}) "
-              f"val={val_loss:.4f}")
+              f"closure={train_metrics['closure']:.3f}, bond={train_metrics['bond']:.3f}) "
+              f"val={val_loss:.4f} pat={patience_counter}/10")
 
-        if val_loss < best_val:
-            best_val = val_loss
-            torch.save(model.state_dict(), f"{args.output}/scheme3.pt")
+        if patience_counter >= 10:
+            print(f"  Early stopping at epoch {epoch+1}")
+            break
 
     print(f"  Scheme 3 training complete: best_val={best_val:.4f}")
     return best_val
