@@ -1002,10 +1002,8 @@ def train_scheme3(train_loader, val_loader, args, device):
                 lengths = batch['lengths']
 
                 B, L = seq_ids.shape
-                coords_init = torch.zeros(B, L, 3, device=device)
-                for b in range(B):
-                    valid_L = lengths[b]
-                    coords_init[b, :valid_L] = generate_helical_init(valid_L, device=device)
+                # Use target + noise for validation (matches training distribution)
+                coords_init = target_coords + torch.randn_like(target_coords) * 2.0
 
                 coords_refined = model(seq_ids, coords_init)
 
