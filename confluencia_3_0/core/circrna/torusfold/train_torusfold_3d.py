@@ -40,7 +40,7 @@ class EGNNLayer(nn.Module):
     def __init__(self, d_hidden=64):
         super().__init__()
         self.edge_mlp = nn.Sequential(
-            nn.Linear(d_hidden + 1, d_hidden),
+            nn.Linear(2 * d_hidden + 1, d_hidden),
             nn.SiLU(),
             nn.Linear(d_hidden, d_hidden)
         )
@@ -50,7 +50,7 @@ class EGNNLayer(nn.Module):
             nn.Linear(d_hidden, 1)
         )
         self.node_mlp = nn.Sequential(
-            nn.Linear(d_hidden + 5, d_hidden),
+            nn.Linear(d_hidden + d_hidden, d_hidden),
             nn.SiLU(),
             nn.Linear(d_hidden, d_hidden)
         )
@@ -59,27 +59,24 @@ class EGNNLayer(nn.Module):
         """h: (B, L, D), x: (B, L, 3)"""
         B, L, D = h.shape
 
-        # Compute distances
+        # Compute pairwise differences and distances
         diff = x.unsqueeze(2) - x.unsqueeze(1)  # (B, L, L, 3)
         dist = torch.norm(diff, dim=-1, keepdim=True)  # (B, L, L, 1)
 
-        # Edge features
-        edge_feat = torch.cat([h.unsqueeze(2).expand(-1, -1, L, -1),
-                               h.unsqueeze(1).expand(-1, L, -1, -1),
-                               dist], dim=-1)  # (B, L, L, 2D+1)
+        # Edge features: h_i + h_j + dist_ij → (B, L, L, 2D+1)
+        h_i = h.unsqueeze(2).expand(-1, -1, L, -1)
+        h_j = h.unsqueeze(1).expand(-1, L, -1, -1)
+        edge_feat = torch.cat([h_i, h_j, dist], dim=-1)
         edge_out = self.edge_mlp(edge_feat)  # (B, L, L, D)
 
         # Coordinate update (equivariant)
-        coord_update = self.coord_mlp(edge_out) * diff  # (B, L, L, D) * (B, L, L, 3)
-        coord_update = coord_update.sum(dim=2)  # (B, L, D)
-        coord_delta = self.coord_mlp(coord_update).squeeze(-1) * 0.01  # (B, L, 1)
-        x_new = x + coord_delta.unsqueeze(-1).expand(-1, -1, 3)
+        coord_weight = self.coord_mlp(edge_out)  # (B, L, L, 1)
+        coord_update = (coord_weight * diff).sum(dim=2)  # (B, L, 3)
+        x_new = x + 0.01 * coord_update
 
-        # Node update
+        # Node update: aggregate edge messages
         node_agg = edge_out.mean(dim=2)  # (B, L, D)
-        # Concatenate with one-hot sequence embedding
-        seq_embed = torch.zeros(B, L, 5, device=h.device)  # placeholder
-        node_feat = torch.cat([h, node_agg, seq_embed], dim=-1)  # (B, L, D+5)
+        node_feat = torch.cat([h, node_agg], dim=-1)  # (B, L, 2D)
         h_new = h + self.node_mlp(node_feat)
 
         return h_new, x_new
