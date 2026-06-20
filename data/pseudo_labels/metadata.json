@@ -1,0 +1,6012 @@
+{
+  "total": 1000,
+  "length_range": [
+    30,
+    499
+  ],
+  "mean_closure_error": 0.0,
+  "mean_n_pairs": 0.0,
+  "vienna_used": true,
+  "samples": [
+    {
+      "id": "pseudo_0000",
+      "length": 132,
+      "source": "ViennaRNA+Helical",
+      "mfe": -30.100000381469727
+    },
+    {
+      "id": "pseudo_0001",
+      "length": 186,
+      "source": "ViennaRNA+Helical",
+      "mfe": -46.900001525878906
+    },
+    {
+      "id": "pseudo_0002",
+      "length": 309,
+      "source": "ViennaRNA+Helical",
+      "mfe": -81.19999694824219
+    },
+    {
+      "id": "pseudo_0003",
+      "length": 422,
+      "source": "ViennaRNA+Helical",
+      "mfe": -83.30000305175781
+    },
+    {
+      "id": "pseudo_0004",
+      "length": 414,
+      "source": "ViennaRNA+Helical",
+      "mfe": -131.89999389648438
+    },
+    {
+      "id": "pseudo_0005",
+      "length": 118,
+      "source": "ViennaRNA+Helical",
+      "mfe": -28.799999237060547
+    },
+    {
+      "id": "pseudo_0006",
+      "length": 140,
+      "source": "ViennaRNA+Helical",
+      "mfe": -25.200000762939453
+    },
+    {
+      "id": "pseudo_0007",
+      "length": 251,
+      "source": "ViennaRNA+Helical",
+      "mfe": -70.80000305175781
+    },
+    {
+      "id": "pseudo_0008",
+      "length": 137,
+      "source": "ViennaRNA+Helical",
+      "mfe": -40.5
+    },
+    {
+      "id": "pseudo_0009",
+      "length": 301,
+      "source": "ViennaRNA+Helical",
+      "mfe": -65.69999694824219
+    },
+    {
+      "id": "pseudo_0010",
+      "length": 128,
+      "source": "ViennaRNA+Helical",
+      "mfe": -21.600000381469727
+    },
+    {
+      "id": "pseudo_0011",
+      "length": 117,
+      "source": "ViennaRNA+Helical",
+      "mfe": -29.299999237060547
+    },
+    {
+      "id": "pseudo_0012",
+      "length": 390,
+      "source": "ViennaRNA+Helical",
+      "mfe": -107.4000015258789
+    },
+    {
+      "id": "pseudo_0013",
+      "length": 165,
+      "source": "ViennaRNA+Helical",
+      "mfe": -35.900001525878906
+    },
+    {
+      "id": "pseudo_0014",
+      "length": 329,
+      "source": "ViennaRNA+Helical",
+      "mfe": -70.9000015258789
+    },
+    {
+      "id": "pseudo_0015",
+      "length": 77,
+      "source": "ViennaRNA+Helical",
+      "mfe": -7.900000095367432
+    },
+    {
+      "id": "pseudo_0016",
+      "length": 165,
+      "source": "ViennaRNA+Helical",
+      "mfe": -41.400001525878906
+    },
+    {
+      "id": "pseudo_0017",
+      "length": 422,
+      "source": "ViennaRNA+Helical",
+      "mfe": -111.9000015258789
+    },
+    {
+      "id": "pseudo_0018",
+      "length": 158,
+      "source": "ViennaRNA+Helical",
+      "mfe": -28.600000381469727
+    },
+    {
+      "id": "pseudo_0019",
+      "length": 144,
+      "source": "ViennaRNA+Helical",
+      "mfe": -32.599998474121094
+    },
+    {
+      "id": "pseudo_0020",
+      "length": 122,
+      "source": "ViennaRNA+Helical",
+      "mfe": -17.5
+    },
+    {
+      "id": "pseudo_0021",
+      "length": 119,
+      "source": "ViennaRNA+Helical",
+      "mfe": -28.100000381469727
+    },
+    {
+      "id": "pseudo_0022",
+      "length": 104,
+      "source": "ViennaRNA+Helical",
+      "mfe": -16.899999618530273
+    },
+    {
+      "id": "pseudo_0023",
+      "length": 307,
+      "source": "ViennaRNA+Helical",
+      "mfe": -87.5
+    },
+    {
+      "id": "pseudo_0024",
+      "length": 364,
+      "source": "ViennaRNA+Helical",
+      "mfe": -83.4000015258789
+    },
+    {
+      "id": "pseudo_0025",
+      "length": 231,
+      "source": "ViennaRNA+Helical",
+      "mfe": -55.5
+    },
+    {
+      "id": "pseudo_0026",
+      "length": 218,
+      "source": "ViennaRNA+Helical",
+      "mfe": -53.5
+    },
+    {
+      "id": "pseudo_0027",
+      "length": 51,
+      "source": "ViennaRNA+Helical",
+      "mfe": -7.300000190734863
+    },
+    {
+      "id": "pseudo_0028",
+      "length": 196,
+      "source": "ViennaRNA+Helical",
+      "mfe": -54.70000076293945
+    },
+    {
+      "id": "pseudo_0029",
+      "length": 480,
+      "source": "ViennaRNA+Helical",
+      "mfe": -134.60000610351562
+    },
+    {
+      "id": "pseudo_0030",
+      "length": 480,
+      "source": "ViennaRNA+Helical",
+      "mfe": -148.5
+    },
+    {
+      "id": "pseudo_0031",
+      "length": 266,
+      "source": "ViennaRNA+Helical",
+      "mfe": -67.5999984741211
+    },
+    {
+      "id": "pseudo_0032",
+      "length": 389,
+      "source": "ViennaRNA+Helical",
+      "mfe": -115.19999694824219
+    },
+    {
+      "id": "pseudo_0033",
+      "length": 98,
+      "source": "ViennaRNA+Helical",
+      "mfe": -26.100000381469727
+    },
+    {
+      "id": "pseudo_0034",
+      "length": 405,
+      "source": "ViennaRNA+Helical",
+      "mfe": -103.19999694824219
+    },
+    {
+      "id": "pseudo_0035",
+      "length": 192,
+      "source": "ViennaRNA+Helical",
+      "mfe": -51.79999923706055
+    },
+    {
+      "id": "pseudo_0036",
+      "length": 247,
+      "source": "ViennaRNA+Helical",
+      "mfe": -70.0
+    },
+    {
+      "id": "pseudo_0037",
+      "length": 47,
+      "source": "ViennaRNA+Helical",
+      "mfe": -3.799999952316284
+    },
+    {
+      "id": "pseudo_0038",
+      "length": 330,
+      "source": "ViennaRNA+Helical",
+      "mfe": -84.5
+    },
+    {
+      "id": "pseudo_0039",
+      "length": 496,
+      "source": "ViennaRNA+Helical",
+      "mfe": -154.89999389648438
+    },
+    {
+      "id": "pseudo_0040",
+      "length": 248,
+      "source": "ViennaRNA+Helical",
+      "mfe": -69.19999694824219
+    },
+    {
+      "id": "pseudo_0041",
+      "length": 315,
+      "source": "ViennaRNA+Helical",
+      "mfe": -73.69999694824219
+    },
+    {
+      "id": "pseudo_0042",
+      "length": 314,
+      "source": "ViennaRNA+Helical",
+      "mfe": -96.30000305175781
+    },
+    {
+      "id": "pseudo_0043",
+      "length": 473,
+      "source": "ViennaRNA+Helical",
+      "mfe": -127.19999694824219
+    },
+    {
+      "id": "pseudo_0044",
+      "length": 307,
+      "source": "ViennaRNA+Helical",
+      "mfe": -89.5999984741211
+    },
+    {
+      "id": "pseudo_0045",
+      "length": 288,
+      "source": "ViennaRNA+Helical",
+      "mfe": -69.80000305175781
+    },
+    {
+      "id": "pseudo_0046",
+      "length": 329,
+      "source": "ViennaRNA+Helical",
+      "mfe": -92.5999984741211
+    },
+    {
+      "id": "pseudo_0047",
+      "length": 256,
+      "source": "ViennaRNA+Helical",
+      "mfe": -64.5999984741211
+    },
+    {
+      "id": "pseudo_0048",
+      "length": 166,
+      "source": "ViennaRNA+Helical",
+      "mfe": -46.5
+    },
+    {
+      "id": "pseudo_0049",
+      "length": 185,
+      "source": "ViennaRNA+Helical",
+      "mfe": -51.400001525878906
+    },
+    {
+      "id": "pseudo_0050",
+      "length": 228,
+      "source": "ViennaRNA+Helical",
+      "mfe": -50.79999923706055
+    },
+    {
+      "id": "pseudo_0051",
+      "length": 421,
+      "source": "ViennaRNA+Helical",
+      "mfe": -125.80000305175781
+    },
+    {
+      "id": "pseudo_0052",
+      "length": 108,
+      "source": "ViennaRNA+Helical",
+      "mfe": -24.0
+    },
+    {
+      "id": "pseudo_0053",
+      "length": 482,
+      "source": "ViennaRNA+Helical",
+      "mfe": -134.5
+    },
+    {
+      "id": "pseudo_0054",
+      "length": 82,
+      "source": "ViennaRNA+Helical",
+      "mfe": -6.0
+    },
+    {
+      "id": "pseudo_0055",
+      "length": 45,
+      "source": "ViennaRNA+Helical",
+      "mfe": -8.0
+    },
+    {
+      "id": "pseudo_0056",
+      "length": 467,
+      "source": "ViennaRNA+Helical",
+      "mfe": -149.60000610351562
+    },
+    {
+      "id": "pseudo_0057",
+      "length": 77,
+      "source": "ViennaRNA+Helical",
+      "mfe": -11.600000381469727
+    },
+    {
+      "id": "pseudo_0058",
+      "length": 286,
+      "source": "ViennaRNA+Helical",
+      "mfe": -61.599998474121094
+    },
+    {
+      "id": "pseudo_0059",
+      "length": 466,
+      "source": "ViennaRNA+Helical",
+      "mfe": -117.30000305175781
+    },
+    {
+      "id": "pseudo_0060",
+      "length": 463,
+      "source": "ViennaRNA+Helical",
+      "mfe": -137.39999389648438
+    },
+    {
+      "id": "pseudo_0061",
+      "length": 407,
+      "source": "ViennaRNA+Helical",
+      "mfe": -124.80000305175781
+    },
+    {
+      "id": "pseudo_0062",
+      "length": 469,
+      "source": "ViennaRNA+Helical",
+      "mfe": -119.0999984741211
+    },
+    {
+      "id": "pseudo_0063",
+      "length": 330,
+      "source": "ViennaRNA+Helical",
+      "mfe": -94.19999694824219
+    },
+    {
+      "id": "pseudo_0064",
+      "length": 338,
+      "source": "ViennaRNA+Helical",
+      "mfe": -84.5999984741211
+    },
+    {
+      "id": "pseudo_0065",
+      "length": 136,
+      "source": "ViennaRNA+Helical",
+      "mfe": -35.599998474121094
+    },
+    {
+      "id": "pseudo_0066",
+      "length": 243,
+      "source": "ViennaRNA+Helical",
+      "mfe": -52.099998474121094
+    },
+    {
+      "id": "pseudo_0067",
+      "length": 232,
+      "source": "ViennaRNA+Helical",
+      "mfe": -47.599998474121094
+    },
+    {
+      "id": "pseudo_0068",
+      "length": 459,
+      "source": "ViennaRNA+Helical",
+      "mfe": -116.9000015258789
+    },
+    {
+      "id": "pseudo_0069",
+      "length": 91,
+      "source": "ViennaRNA+Helical",
+      "mfe": -20.200000762939453
+    },
+    {
+      "id": "pseudo_0070",
+      "length": 467,
+      "source": "ViennaRNA+Helical",
+      "mfe": -128.60000610351562
+    },
+    {
+      "id": "pseudo_0071",
+      "length": 45,
+      "source": "ViennaRNA+Helical",
+      "mfe": 2.0
+    },
+    {
+      "id": "pseudo_0072",
+      "length": 418,
+      "source": "ViennaRNA+Helical",
+      "mfe": -120.0999984741211
+    },
+    {
+      "id": "pseudo_0073",
+      "length": 495,
+      "source": "ViennaRNA+Helical",
+      "mfe": -122.80000305175781
+    },
+    {
+      "id": "pseudo_0074",
+      "length": 284,
+      "source": "ViennaRNA+Helical",
+      "mfe": -90.5
+    },
+    {
+      "id": "pseudo_0075",
+      "length": 191,
+      "source": "ViennaRNA+Helical",
+      "mfe": -40.099998474121094
+    },
+    {
+      "id": "pseudo_0076",
+      "length": 490,
+      "source": "ViennaRNA+Helical",
+      "mfe": -136.3000030517578
+    },
+    {
+      "id": "pseudo_0077",
+      "length": 236,
+      "source": "ViennaRNA+Helical",
+      "mfe": -65.0
+    },
+    {
+      "id": "pseudo_0078",
+      "length": 175,
+      "source": "ViennaRNA+Helical",
+      "mfe": -43.29999923706055
+    },
+    {
+      "id": "pseudo_0079",
+      "length": 302,
+      "source": "ViennaRNA+Helical",
+      "mfe": -59.29999923706055
+    },
+    {
+      "id": "pseudo_0080",
+      "length": 301,
+      "source": "ViennaRNA+Helical",
+      "mfe": -77.4000015258789
+    },
+    {
+      "id": "pseudo_0081",
+      "length": 259,
+      "source": "ViennaRNA+Helical",
+      "mfe": -78.4000015258789
+    },
+    {
+      "id": "pseudo_0082",
+      "length": 34,
+      "source": "ViennaRNA+Helical",
+      "mfe": 2.4000000953674316
+    },
+    {
+      "id": "pseudo_0083",
+      "length": 319,
+      "source": "ViennaRNA+Helical",
+      "mfe": -88.69999694824219
+    },
+    {
+      "id": "pseudo_0084",
+      "length": 386,
+      "source": "ViennaRNA+Helical",
+      "mfe": -131.39999389648438
+    },
+    {
+      "id": "pseudo_0085",
+      "length": 258,
+      "source": "ViennaRNA+Helical",
+      "mfe": -65.5999984741211
+    },
+    {
+      "id": "pseudo_0086",
+      "length": 381,
+      "source": "ViennaRNA+Helical",
+      "mfe": -116.0999984741211
+    },
+    {
+      "id": "pseudo_0087",
+      "length": 334,
+      "source": "ViennaRNA+Helical",
+      "mfe": -84.80000305175781
+    },
+    {
+      "id": "pseudo_0088",
+      "length": 77,
+      "source": "ViennaRNA+Helical",
+      "mfe": -7.599999904632568
+    },
+    {
+      "id": "pseudo_0089",
+      "length": 418,
+      "source": "ViennaRNA+Helical",
+      "mfe": -129.6999969482422
+    },
+    {
+      "id": "pseudo_0090",
+      "length": 301,
+      "source": "ViennaRNA+Helical",
+      "mfe": -79.9000015258789
+    },
+    {
+      "id": "pseudo_0091",
+      "length": 52,
+      "source": "ViennaRNA+Helical",
+      "mfe": -10.699999809265137
+    },
+    {
+      "id": "pseudo_0092",
+      "length": 190,
+      "source": "ViennaRNA+Helical",
+      "mfe": -39.70000076293945
+    },
+    {
+      "id": "pseudo_0093",
+      "length": 219,
+      "source": "ViennaRNA+Helical",
+      "mfe": -56.0
+    },
+    {
+      "id": "pseudo_0094",
+      "length": 252,
+      "source": "ViennaRNA+Helical",
+      "mfe": -54.400001525878906
+    },
+    {
+      "id": "pseudo_0095",
+      "length": 41,
+      "source": "ViennaRNA+Helical",
+      "mfe": -3.799999952316284
+    },
+    {
+      "id": "pseudo_0096",
+      "length": 475,
+      "source": "ViennaRNA+Helical",
+      "mfe": -162.89999389648438
+    },
+    {
+      "id": "pseudo_0097",
+      "length": 349,
+      "source": "ViennaRNA+Helical",
+      "mfe": -99.4000015258789
+    },
+    {
+      "id": "pseudo_0098",
+      "length": 106,
+      "source": "ViennaRNA+Helical",
+      "mfe": -27.299999237060547
+    },
+    {
+      "id": "pseudo_0099",
+      "length": 80,
+      "source": "ViennaRNA+Helical",
+      "mfe": -9.800000190734863
+    },
+    {
+      "id": "pseudo_0100",
+      "length": 286,
+      "source": "ViennaRNA+Helical",
+      "mfe": -69.19999694824219
+    },
+    {
+      "id": "pseudo_0101",
+      "length": 383,
+      "source": "ViennaRNA+Helical",
+      "mfe": -95.19999694824219
+    },
+    {
+      "id": "pseudo_0102",
+      "length": 260,
+      "source": "ViennaRNA+Helical",
+      "mfe": -72.5
+    },
+    {
+      "id": "pseudo_0103",
+      "length": 37,
+      "source": "ViennaRNA+Helical",
+      "mfe": 1.600000023841858
+    },
+    {
+      "id": "pseudo_0104",
+      "length": 140,
+      "source": "ViennaRNA+Helical",
+      "mfe": -38.0
+    },
+    {
+      "id": "pseudo_0105",
+      "length": 196,
+      "source": "ViennaRNA+Helical",
+      "mfe": -39.599998474121094
+    },
+    {
+      "id": "pseudo_0106",
+      "length": 63,
+      "source": "ViennaRNA+Helical",
+      "mfe": -9.0
+    },
+    {
+      "id": "pseudo_0107",
+      "length": 299,
+      "source": "ViennaRNA+Helical",
+      "mfe": -70.19999694824219
+    },
+    {
+      "id": "pseudo_0108",
+      "length": 126,
+      "source": "ViennaRNA+Helical",
+      "mfe": -20.5
+    },
+    {
+      "id": "pseudo_0109",
+      "length": 461,
+      "source": "ViennaRNA+Helical",
+      "mfe": -154.8000030517578
+    },
+    {
+      "id": "pseudo_0110",
+      "length": 492,
+      "source": "ViennaRNA+Helical",
+      "mfe": -139.1999969482422
+    },
+    {
+      "id": "pseudo_0111",
+      "length": 499,
+      "source": "ViennaRNA+Helical",
+      "mfe": -136.6999969482422
+    },
+    {
+      "id": "pseudo_0112",
+      "length": 383,
+      "source": "ViennaRNA+Helical",
+      "mfe": -97.5
+    },
+    {
+      "id": "pseudo_0113",
+      "length": 127,
+      "source": "ViennaRNA+Helical",
+      "mfe": -27.700000762939453
+    },
+    {
+      "id": "pseudo_0114",
+      "length": 257,
+      "source": "ViennaRNA+Helical",
+      "mfe": -68.4000015258789
+    },
+    {
+      "id": "pseudo_0115",
+      "length": 493,
+      "source": "ViennaRNA+Helical",
+      "mfe": -152.10000610351562
+    },
+    {
+      "id": "pseudo_0116",
+      "length": 329,
+      "source": "ViennaRNA+Helical",
+      "mfe": -80.4000015258789
+    },
+    {
+      "id": "pseudo_0117",
+      "length": 432,
+      "source": "ViennaRNA+Helical",
+      "mfe": -141.39999389648438
+    },
+    {
+      "id": "pseudo_0118",
+      "length": 404,
+      "source": "ViennaRNA+Helical",
+      "mfe": -83.4000015258789
+    },
+    {
+      "id": "pseudo_0119",
+      "length": 368,
+      "source": "ViennaRNA+Helical",
+      "mfe": -89.0999984741211
+    },
+    {
+      "id": "pseudo_0120",
+      "length": 100,
+      "source": "ViennaRNA+Helical",
+      "mfe": -10.699999809265137
+    },
+    {
+      "id": "pseudo_0121",
+      "length": 498,
+      "source": "ViennaRNA+Helical",
+      "mfe": -146.1999969482422
+    },
+    {
+      "id": "pseudo_0122",
+      "length": 198,
+      "source": "ViennaRNA+Helical",
+      "mfe": -52.79999923706055
+    },
+    {
+      "id": "pseudo_0123",
+      "length": 494,
+      "source": "ViennaRNA+Helical",
+      "mfe": -143.1999969482422
+    },
+    {
+      "id": "pseudo_0124",
+      "length": 126,
+      "source": "ViennaRNA+Helical",
+      "mfe": -37.599998474121094
+    },
+    {
+      "id": "pseudo_0125",
+      "length": 127,
+      "source": "ViennaRNA+Helical",
+      "mfe": -34.599998474121094
+    },
+    {
+      "id": "pseudo_0126",
+      "length": 60,
+      "source": "ViennaRNA+Helical",
+      "mfe": -4.300000190734863
+    },
+    {
+      "id": "pseudo_0127",
+      "length": 56,
+      "source": "ViennaRNA+Helical",
+      "mfe": 3.6600000858306885
+    },
+    {
+      "id": "pseudo_0128",
+      "length": 252,
+      "source": "ViennaRNA+Helical",
+      "mfe": -70.30000305175781
+    },
+    {
+      "id": "pseudo_0129",
+      "length": 270,
+      "source": "ViennaRNA+Helical",
+      "mfe": -85.69999694824219
+    },
+    {
+      "id": "pseudo_0130",
+      "length": 85,
+      "source": "ViennaRNA+Helical",
+      "mfe": -5.5
+    },
+    {
+      "id": "pseudo_0131",
+      "length": 473,
+      "source": "ViennaRNA+Helical",
+      "mfe": -107.0
+    },
+    {
+      "id": "pseudo_0132",
+      "length": 244,
+      "source": "ViennaRNA+Helical",
+      "mfe": -51.20000076293945
+    },
+    {
+      "id": "pseudo_0133",
+      "length": 457,
+      "source": "ViennaRNA+Helical",
+      "mfe": -113.80000305175781
+    },
+    {
+      "id": "pseudo_0134",
+      "length": 480,
+      "source": "ViennaRNA+Helical",
+      "mfe": -123.19999694824219
+    },
+    {
+      "id": "pseudo_0135",
+      "length": 176,
+      "source": "ViennaRNA+Helical",
+      "mfe": -46.599998474121094
+    },
+    {
+      "id": "pseudo_0136",
+      "length": 74,
+      "source": "ViennaRNA+Helical",
+      "mfe": -6.199999809265137
+    },
+    {
+      "id": "pseudo_0137",
+      "length": 88,
+      "source": "ViennaRNA+Helical",
+      "mfe": -8.300000190734863
+    },
+    {
+      "id": "pseudo_0138",
+      "length": 356,
+      "source": "ViennaRNA+Helical",
+      "mfe": -87.5
+    },
+    {
+      "id": "pseudo_0139",
+      "length": 421,
+      "source": "ViennaRNA+Helical",
+      "mfe": -133.1999969482422
+    },
+    {
+      "id": "pseudo_0140",
+      "length": 499,
+      "source": "ViennaRNA+Helical",
+      "mfe": -161.39999389648438
+    },
+    {
+      "id": "pseudo_0141",
+      "length": 461,
+      "source": "ViennaRNA+Helical",
+      "mfe": -156.89999389648438
+    },
+    {
+      "id": "pseudo_0142",
+      "length": 432,
+      "source": "ViennaRNA+Helical",
+      "mfe": -110.80000305175781
+    },
+    {
+      "id": "pseudo_0143",
+      "length": 166,
+      "source": "ViennaRNA+Helical",
+      "mfe": -33.20000076293945
+    },
+    {
+      "id": "pseudo_0144",
+      "length": 209,
+      "source": "ViennaRNA+Helical",
+      "mfe": -67.0999984741211
+    },
+    {
+      "id": "pseudo_0145",
+      "length": 78,
+      "source": "ViennaRNA+Helical",
+      "mfe": -4.699999809265137
+    },
+    {
+      "id": "pseudo_0146",
+      "length": 131,
+      "source": "ViennaRNA+Helical",
+      "mfe": -26.5
+    },
+    {
+      "id": "pseudo_0147",
+      "length": 420,
+      "source": "ViennaRNA+Helical",
+      "mfe": -127.5
+    },
+    {
+      "id": "pseudo_0148",
+      "length": 55,
+      "source": "ViennaRNA+Helical",
+      "mfe": -7.800000190734863
+    },
+    {
+      "id": "pseudo_0149",
+      "length": 153,
+      "source": "ViennaRNA+Helical",
+      "mfe": -41.79999923706055
+    },
+    {
+      "id": "pseudo_0150",
+      "length": 66,
+      "source": "ViennaRNA+Helical",
+      "mfe": -8.899999618530273
+    },
+    {
+      "id": "pseudo_0151",
+      "length": 421,
+      "source": "ViennaRNA+Helical",
+      "mfe": -140.1999969482422
+    },
+    {
+      "id": "pseudo_0152",
+      "length": 175,
+      "source": "ViennaRNA+Helical",
+      "mfe": -53.70000076293945
+    },
+    {
+      "id": "pseudo_0153",
+      "length": 48,
+      "source": "ViennaRNA+Helical",
+      "mfe": 0.699999988079071
+    },
+    {
+      "id": "pseudo_0154",
+      "length": 263,
+      "source": "ViennaRNA+Helical",
+      "mfe": -52.70000076293945
+    },
+    {
+      "id": "pseudo_0155",
+      "length": 36,
+      "source": "ViennaRNA+Helical",
+      "mfe": 0.8999999761581421
+    },
+    {
+      "id": "pseudo_0156",
+      "length": 378,
+      "source": "ViennaRNA+Helical",
+      "mfe": -100.4000015258789
+    },
+    {
+      "id": "pseudo_0157",
+      "length": 341,
+      "source": "ViennaRNA+Helical",
+      "mfe": -88.0
+    },
+    {
+      "id": "pseudo_0158",
+      "length": 83,
+      "source": "ViennaRNA+Helical",
+      "mfe": -22.600000381469727
+    },
+    {
+      "id": "pseudo_0159",
+      "length": 377,
+      "source": "ViennaRNA+Helical",
+      "mfe": -90.0
+    },
+    {
+      "id": "pseudo_0160",
+      "length": 95,
+      "source": "ViennaRNA+Helical",
+      "mfe": -14.5
+    },
+    {
+      "id": "pseudo_0161",
+      "length": 348,
+      "source": "ViennaRNA+Helical",
+      "mfe": -93.0999984741211
+    },
+    {
+      "id": "pseudo_0162",
+      "length": 74,
+      "source": "ViennaRNA+Helical",
+      "mfe": -3.799999952316284
+    },
+    {
+      "id": "pseudo_0163",
+      "length": 305,
+      "source": "ViennaRNA+Helical",
+      "mfe": -65.80000305175781
+    },
+    {
+      "id": "pseudo_0164",
+      "length": 213,
+      "source": "ViennaRNA+Helical",
+      "mfe": -42.0
+    },
+    {
+      "id": "pseudo_0165",
+      "length": 382,
+      "source": "ViennaRNA+Helical",
+      "mfe": -81.30000305175781
+    },
+    {
+      "id": "pseudo_0166",
+      "length": 142,
+      "source": "ViennaRNA+Helical",
+      "mfe": -26.100000381469727
+    },
+    {
+      "id": "pseudo_0167",
+      "length": 261,
+      "source": "ViennaRNA+Helical",
+      "mfe": -79.4000015258789
+    },
+    {
+      "id": "pseudo_0168",
+      "length": 295,
+      "source": "ViennaRNA+Helical",
+      "mfe": -68.5
+    },
+    {
+      "id": "pseudo_0169",
+      "length": 305,
+      "source": "ViennaRNA+Helical",
+      "mfe": -64.19999694824219
+    },
+    {
+      "id": "pseudo_0170",
+      "length": 337,
+      "source": "ViennaRNA+Helical",
+      "mfe": -101.9000015258789
+    },
+    {
+      "id": "pseudo_0171",
+      "length": 402,
+      "source": "ViennaRNA+Helical",
+      "mfe": -114.0999984741211
+    },
+    {
+      "id": "pseudo_0172",
+      "length": 157,
+      "source": "ViennaRNA+Helical",
+      "mfe": -28.799999237060547
+    },
+    {
+      "id": "pseudo_0173",
+      "length": 225,
+      "source": "ViennaRNA+Helical",
+      "mfe": -54.0
+    },
+    {
+      "id": "pseudo_0174",
+      "length": 153,
+      "source": "ViennaRNA+Helical",
+      "mfe": -34.20000076293945
+    },
+    {
+      "id": "pseudo_0175",
+      "length": 43,
+      "source": "ViennaRNA+Helical",
+      "mfe": 0.800000011920929
+    },
+    {
+      "id": "pseudo_0176",
+      "length": 152,
+      "source": "ViennaRNA+Helical",
+      "mfe": -26.899999618530273
+    },
+    {
+      "id": "pseudo_0177",
+      "length": 255,
+      "source": "ViennaRNA+Helical",
+      "mfe": -61.5
+    },
+    {
+      "id": "pseudo_0178",
+      "length": 160,
+      "source": "ViennaRNA+Helical",
+      "mfe": -43.599998474121094
+    },
+    {
+      "id": "pseudo_0179",
+      "length": 313,
+      "source": "ViennaRNA+Helical",
+      "mfe": -83.9000015258789
+    },
+    {
+      "id": "pseudo_0180",
+      "length": 42,
+      "source": "ViennaRNA+Helical",
+      "mfe": -2.9000000953674316
+    },
+    {
+      "id": "pseudo_0181",
+      "length": 451,
+      "source": "ViennaRNA+Helical",
+      "mfe": -122.69999694824219
+    },
+    {
+      "id": "pseudo_0182",
+      "length": 145,
+      "source": "ViennaRNA+Helical",
+      "mfe": -44.20000076293945
+    },
+    {
+      "id": "pseudo_0183",
+      "length": 109,
+      "source": "ViennaRNA+Helical",
+      "mfe": -32.20000076293945
+    },
+    {
+      "id": "pseudo_0184",
+      "length": 300,
+      "source": "ViennaRNA+Helical",
+      "mfe": -88.30000305175781
+    },
+    {
+      "id": "pseudo_0185",
+      "length": 232,
+      "source": "ViennaRNA+Helical",
+      "mfe": -49.79999923706055
+    },
+    {
+      "id": "pseudo_0186",
+      "length": 343,
+      "source": "ViennaRNA+Helical",
+      "mfe": -115.69999694824219
+    },
+    {
+      "id": "pseudo_0187",
+      "length": 444,
+      "source": "ViennaRNA+Helical",
+      "mfe": -123.4000015258789
+    },
+    {
+      "id": "pseudo_0188",
+      "length": 288,
+      "source": "ViennaRNA+Helical",
+      "mfe": -82.9000015258789
+    },
+    {
+      "id": "pseudo_0189",
+      "length": 450,
+      "source": "ViennaRNA+Helical",
+      "mfe": -128.1999969482422
+    },
+    {
+      "id": "pseudo_0190",
+      "length": 79,
+      "source": "ViennaRNA+Helical",
+      "mfe": -8.300000190734863
+    },
+    {
+      "id": "pseudo_0191",
+      "length": 178,
+      "source": "ViennaRNA+Helical",
+      "mfe": -34.70000076293945
+    },
+    {
+      "id": "pseudo_0192",
+      "length": 351,
+      "source": "ViennaRNA+Helical",
+      "mfe": -96.0
+    },
+    {
+      "id": "pseudo_0193",
+      "length": 45,
+      "source": "ViennaRNA+Helical",
+      "mfe": -7.599999904632568
+    },
+    {
+      "id": "pseudo_0194",
+      "length": 95,
+      "source": "ViennaRNA+Helical",
+      "mfe": -9.600000381469727
+    },
+    {
+      "id": "pseudo_0195",
+      "length": 428,
+      "source": "ViennaRNA+Helical",
+      "mfe": -113.9000015258789
+    },
+    {
+      "id": "pseudo_0196",
+      "length": 433,
+      "source": "ViennaRNA+Helical",
+      "mfe": -143.0
+    },
+    {
+      "id": "pseudo_0197",
+      "length": 352,
+      "source": "ViennaRNA+Helical",
+      "mfe": -94.0999984741211
+    },
+    {
+      "id": "pseudo_0198",
+      "length": 447,
+      "source": "ViennaRNA+Helical",
+      "mfe": -135.1999969482422
+    },
+    {
+      "id": "pseudo_0199",
+      "length": 64,
+      "source": "ViennaRNA+Helical",
+      "mfe": -10.5
+    },
+    {
+      "id": "pseudo_0200",
+      "length": 485,
+      "source": "ViennaRNA+Helical",
+      "mfe": -142.89999389648438
+    },
+    {
+      "id": "pseudo_0201",
+      "length": 159,
+      "source": "ViennaRNA+Helical",
+      "mfe": -30.200000762939453
+    },
+    {
+      "id": "pseudo_0202",
+      "length": 253,
+      "source": "ViennaRNA+Helical",
+      "mfe": -53.900001525878906
+    },
+    {
+      "id": "pseudo_0203",
+      "length": 57,
+      "source": "ViennaRNA+Helical",
+      "mfe": -8.300000190734863
+    },
+    {
+      "id": "pseudo_0204",
+      "length": 236,
+      "source": "ViennaRNA+Helical",
+      "mfe": -66.5999984741211
+    },
+    {
+      "id": "pseudo_0205",
+      "length": 331,
+      "source": "ViennaRNA+Helical",
+      "mfe": -86.4000015258789
+    },
+    {
+      "id": "pseudo_0206",
+      "length": 372,
+      "source": "ViennaRNA+Helical",
+      "mfe": -90.19999694824219
+    },
+    {
+      "id": "pseudo_0207",
+      "length": 135,
+      "source": "ViennaRNA+Helical",
+      "mfe": -24.799999237060547
+    },
+    {
+      "id": "pseudo_0208",
+      "length": 171,
+      "source": "ViennaRNA+Helical",
+      "mfe": -37.79999923706055
+    },
+    {
+      "id": "pseudo_0209",
+      "length": 399,
+      "source": "ViennaRNA+Helical",
+      "mfe": -109.5999984741211
+    },
+    {
+      "id": "pseudo_0210",
+      "length": 406,
+      "source": "ViennaRNA+Helical",
+      "mfe": -111.69999694824219
+    },
+    {
+      "id": "pseudo_0211",
+      "length": 361,
+      "source": "ViennaRNA+Helical",
+      "mfe": -118.0999984741211
+    },
+    {
+      "id": "pseudo_0212",
+      "length": 354,
+      "source": "ViennaRNA+Helical",
+      "mfe": -90.4000015258789
+    },
+    {
+      "id": "pseudo_0213",
+      "length": 388,
+      "source": "ViennaRNA+Helical",
+      "mfe": -119.69999694824219
+    },
+    {
+      "id": "pseudo_0214",
+      "length": 452,
+      "source": "ViennaRNA+Helical",
+      "mfe": -130.39999389648438
+    },
+    {
+      "id": "pseudo_0215",
+      "length": 471,
+      "source": "ViennaRNA+Helical",
+      "mfe": -123.0
+    },
+    {
+      "id": "pseudo_0216",
+      "length": 211,
+      "source": "ViennaRNA+Helical",
+      "mfe": -61.70000076293945
+    },
+    {
+      "id": "pseudo_0217",
+      "length": 370,
+      "source": "ViennaRNA+Helical",
+      "mfe": -105.69999694824219
+    },
+    {
+      "id": "pseudo_0218",
+      "length": 202,
+      "source": "ViennaRNA+Helical",
+      "mfe": -51.20000076293945
+    },
+    {
+      "id": "pseudo_0219",
+      "length": 490,
+      "source": "ViennaRNA+Helical",
+      "mfe": -146.10000610351562
+    },
+    {
+      "id": "pseudo_0220",
+      "length": 253,
+      "source": "ViennaRNA+Helical",
+      "mfe": -67.4000015258789
+    },
+    {
+      "id": "pseudo_0221",
+      "length": 98,
+      "source": "ViennaRNA+Helical",
+      "mfe": -22.0
+    },
+    {
+      "id": "pseudo_0222",
+      "length": 33,
+      "source": "ViennaRNA+Helical",
+      "mfe": -3.0
+    },
+    {
+      "id": "pseudo_0223",
+      "length": 446,
+      "source": "ViennaRNA+Helical",
+      "mfe": -136.3000030517578
+    },
+    {
+      "id": "pseudo_0224",
+      "length": 86,
+      "source": "ViennaRNA+Helical",
+      "mfe": -10.899999618530273
+    },
+    {
+      "id": "pseudo_0225",
+      "length": 204,
+      "source": "ViennaRNA+Helical",
+      "mfe": -67.5
+    },
+    {
+      "id": "pseudo_0226",
+      "length": 63,
+      "source": "ViennaRNA+Helical",
+      "mfe": -7.0
+    },
+    {
+      "id": "pseudo_0227",
+      "length": 165,
+      "source": "ViennaRNA+Helical",
+      "mfe": -40.70000076293945
+    },
+    {
+      "id": "pseudo_0228",
+      "length": 290,
+      "source": "ViennaRNA+Helical",
+      "mfe": -84.30000305175781
+    },
+    {
+      "id": "pseudo_0229",
+      "length": 250,
+      "source": "ViennaRNA+Helical",
+      "mfe": -64.19999694824219
+    },
+    {
+      "id": "pseudo_0230",
+      "length": 359,
+      "source": "ViennaRNA+Helical",
+      "mfe": -78.4000015258789
+    },
+    {
+      "id": "pseudo_0231",
+      "length": 80,
+      "source": "ViennaRNA+Helical",
+      "mfe": -13.300000190734863
+    },
+    {
+      "id": "pseudo_0232",
+      "length": 88,
+      "source": "ViennaRNA+Helical",
+      "mfe": -11.600000381469727
+    },
+    {
+      "id": "pseudo_0233",
+      "length": 257,
+      "source": "ViennaRNA+Helical",
+      "mfe": -68.69999694824219
+    },
+    {
+      "id": "pseudo_0234",
+      "length": 366,
+      "source": "ViennaRNA+Helical",
+      "mfe": -108.0
+    },
+    {
+      "id": "pseudo_0235",
+      "length": 263,
+      "source": "ViennaRNA+Helical",
+      "mfe": -68.5999984741211
+    },
+    {
+      "id": "pseudo_0236",
+      "length": 193,
+      "source": "ViennaRNA+Helical",
+      "mfe": -50.5
+    },
+    {
+      "id": "pseudo_0237",
+      "length": 436,
+      "source": "ViennaRNA+Helical",
+      "mfe": -119.9000015258789
+    },
+    {
+      "id": "pseudo_0238",
+      "length": 254,
+      "source": "ViennaRNA+Helical",
+      "mfe": -86.9000015258789
+    },
+    {
+      "id": "pseudo_0239",
+      "length": 343,
+      "source": "ViennaRNA+Helical",
+      "mfe": -79.30000305175781
+    },
+    {
+      "id": "pseudo_0240",
+      "length": 379,
+      "source": "ViennaRNA+Helical",
+      "mfe": -110.5
+    },
+    {
+      "id": "pseudo_0241",
+      "length": 128,
+      "source": "ViennaRNA+Helical",
+      "mfe": -14.800000190734863
+    },
+    {
+      "id": "pseudo_0242",
+      "length": 253,
+      "source": "ViennaRNA+Helical",
+      "mfe": -59.0
+    },
+    {
+      "id": "pseudo_0243",
+      "length": 53,
+      "source": "ViennaRNA+Helical",
+      "mfe": -4.0
+    },
+    {
+      "id": "pseudo_0244",
+      "length": 196,
+      "source": "ViennaRNA+Helical",
+      "mfe": -63.0
+    },
+    {
+      "id": "pseudo_0245",
+      "length": 156,
+      "source": "ViennaRNA+Helical",
+      "mfe": -33.0
+    },
+    {
+      "id": "pseudo_0246",
+      "length": 266,
+      "source": "ViennaRNA+Helical",
+      "mfe": -79.30000305175781
+    },
+    {
+      "id": "pseudo_0247",
+      "length": 269,
+      "source": "ViennaRNA+Helical",
+      "mfe": -68.5999984741211
+    },
+    {
+      "id": "pseudo_0248",
+      "length": 492,
+      "source": "ViennaRNA+Helical",
+      "mfe": -137.3000030517578
+    },
+    {
+      "id": "pseudo_0249",
+      "length": 133,
+      "source": "ViennaRNA+Helical",
+      "mfe": -28.200000762939453
+    },
+    {
+      "id": "pseudo_0250",
+      "length": 104,
+      "source": "ViennaRNA+Helical",
+      "mfe": -18.399999618530273
+    },
+    {
+      "id": "pseudo_0251",
+      "length": 488,
+      "source": "ViennaRNA+Helical",
+      "mfe": -132.1999969482422
+    },
+    {
+      "id": "pseudo_0252",
+      "length": 187,
+      "source": "ViennaRNA+Helical",
+      "mfe": -37.70000076293945
+    },
+    {
+      "id": "pseudo_0253",
+      "length": 492,
+      "source": "ViennaRNA+Helical",
+      "mfe": -149.1999969482422
+    },
+    {
+      "id": "pseudo_0254",
+      "length": 208,
+      "source": "ViennaRNA+Helical",
+      "mfe": -51.29999923706055
+    },
+    {
+      "id": "pseudo_0255",
+      "length": 55,
+      "source": "ViennaRNA+Helical",
+      "mfe": -3.799999952316284
+    },
+    {
+      "id": "pseudo_0256",
+      "length": 260,
+      "source": "ViennaRNA+Helical",
+      "mfe": -55.599998474121094
+    },
+    {
+      "id": "pseudo_0257",
+      "length": 98,
+      "source": "ViennaRNA+Helical",
+      "mfe": -16.700000762939453
+    },
+    {
+      "id": "pseudo_0258",
+      "length": 316,
+      "source": "ViennaRNA+Helical",
+      "mfe": -94.4000015258789
+    },
+    {
+      "id": "pseudo_0259",
+      "length": 148,
+      "source": "ViennaRNA+Helical",
+      "mfe": -34.20000076293945
+    },
+    {
+      "id": "pseudo_0260",
+      "length": 177,
+      "source": "ViennaRNA+Helical",
+      "mfe": -28.600000381469727
+    },
+    {
+      "id": "pseudo_0261",
+      "length": 261,
+      "source": "ViennaRNA+Helical",
+      "mfe": -73.30000305175781
+    },
+    {
+      "id": "pseudo_0262",
+      "length": 134,
+      "source": "ViennaRNA+Helical",
+      "mfe": -29.299999237060547
+    },
+    {
+      "id": "pseudo_0263",
+      "length": 489,
+      "source": "ViennaRNA+Helical",
+      "mfe": -137.60000610351562
+    },
+    {
+      "id": "pseudo_0264",
+      "length": 357,
+      "source": "ViennaRNA+Helical",
+      "mfe": -86.19999694824219
+    },
+    {
+      "id": "pseudo_0265",
+      "length": 464,
+      "source": "ViennaRNA+Helical",
+      "mfe": -148.6999969482422
+    },
+    {
+      "id": "pseudo_0266",
+      "length": 173,
+      "source": "ViennaRNA+Helical",
+      "mfe": -39.29999923706055
+    },
+    {
+      "id": "pseudo_0267",
+      "length": 467,
+      "source": "ViennaRNA+Helical",
+      "mfe": -164.0
+    },
+    {
+      "id": "pseudo_0268",
+      "length": 79,
+      "source": "ViennaRNA+Helical",
+      "mfe": -13.199999809265137
+    },
+    {
+      "id": "pseudo_0269",
+      "length": 448,
+      "source": "ViennaRNA+Helical",
+      "mfe": -115.9000015258789
+    },
+    {
+      "id": "pseudo_0270",
+      "length": 258,
+      "source": "ViennaRNA+Helical",
+      "mfe": -84.4000015258789
+    },
+    {
+      "id": "pseudo_0271",
+      "length": 252,
+      "source": "ViennaRNA+Helical",
+      "mfe": -66.80000305175781
+    },
+    {
+      "id": "pseudo_0272",
+      "length": 424,
+      "source": "ViennaRNA+Helical",
+      "mfe": -117.69999694824219
+    },
+    {
+      "id": "pseudo_0273",
+      "length": 386,
+      "source": "ViennaRNA+Helical",
+      "mfe": -123.0
+    },
+    {
+      "id": "pseudo_0274",
+      "length": 440,
+      "source": "ViennaRNA+Helical",
+      "mfe": -126.0999984741211
+    },
+    {
+      "id": "pseudo_0275",
+      "length": 54,
+      "source": "ViennaRNA+Helical",
+      "mfe": -9.199999809265137
+    },
+    {
+      "id": "pseudo_0276",
+      "length": 395,
+      "source": "ViennaRNA+Helical",
+      "mfe": -127.69999694824219
+    },
+    {
+      "id": "pseudo_0277",
+      "length": 493,
+      "source": "ViennaRNA+Helical",
+      "mfe": -136.89999389648438
+    },
+    {
+      "id": "pseudo_0278",
+      "length": 398,
+      "source": "ViennaRNA+Helical",
+      "mfe": -93.69999694824219
+    },
+    {
+      "id": "pseudo_0279",
+      "length": 455,
+      "source": "ViennaRNA+Helical",
+      "mfe": -111.0
+    },
+    {
+      "id": "pseudo_0280",
+      "length": 69,
+      "source": "ViennaRNA+Helical",
+      "mfe": -6.699999809265137
+    },
+    {
+      "id": "pseudo_0281",
+      "length": 401,
+      "source": "ViennaRNA+Helical",
+      "mfe": -101.19999694824219
+    },
+    {
+      "id": "pseudo_0282",
+      "length": 95,
+      "source": "ViennaRNA+Helical",
+      "mfe": -20.700000762939453
+    },
+    {
+      "id": "pseudo_0283",
+      "length": 110,
+      "source": "ViennaRNA+Helical",
+      "mfe": -19.299999237060547
+    },
+    {
+      "id": "pseudo_0284",
+      "length": 43,
+      "source": "ViennaRNA+Helical",
+      "mfe": -1.899999976158142
+    },
+    {
+      "id": "pseudo_0285",
+      "length": 447,
+      "source": "ViennaRNA+Helical",
+      "mfe": -127.0
+    },
+    {
+      "id": "pseudo_0286",
+      "length": 433,
+      "source": "ViennaRNA+Helical",
+      "mfe": -117.69999694824219
+    },
+    {
+      "id": "pseudo_0287",
+      "length": 206,
+      "source": "ViennaRNA+Helical",
+      "mfe": -64.9000015258789
+    },
+    {
+      "id": "pseudo_0288",
+      "length": 231,
+      "source": "ViennaRNA+Helical",
+      "mfe": -53.79999923706055
+    },
+    {
+      "id": "pseudo_0289",
+      "length": 266,
+      "source": "ViennaRNA+Helical",
+      "mfe": -61.79999923706055
+    },
+    {
+      "id": "pseudo_0290",
+      "length": 427,
+      "source": "ViennaRNA+Helical",
+      "mfe": -134.60000610351562
+    },
+    {
+      "id": "pseudo_0291",
+      "length": 440,
+      "source": "ViennaRNA+Helical",
+      "mfe": -98.5
+    },
+    {
+      "id": "pseudo_0292",
+      "length": 307,
+      "source": "ViennaRNA+Helical",
+      "mfe": -72.9000015258789
+    },
+    {
+      "id": "pseudo_0293",
+      "length": 76,
+      "source": "ViennaRNA+Helical",
+      "mfe": -15.699999809265137
+    },
+    {
+      "id": "pseudo_0294",
+      "length": 426,
+      "source": "ViennaRNA+Helical",
+      "mfe": -115.0
+    },
+    {
+      "id": "pseudo_0295",
+      "length": 457,
+      "source": "ViennaRNA+Helical",
+      "mfe": -144.0
+    },
+    {
+      "id": "pseudo_0296",
+      "length": 422,
+      "source": "ViennaRNA+Helical",
+      "mfe": -110.4000015258789
+    },
+    {
+      "id": "pseudo_0297",
+      "length": 94,
+      "source": "ViennaRNA+Helical",
+      "mfe": -17.100000381469727
+    },
+    {
+      "id": "pseudo_0298",
+      "length": 55,
+      "source": "ViennaRNA+Helical",
+      "mfe": -6.300000190734863
+    },
+    {
+      "id": "pseudo_0299",
+      "length": 61,
+      "source": "ViennaRNA+Helical",
+      "mfe": -4.900000095367432
+    },
+    {
+      "id": "pseudo_0300",
+      "length": 111,
+      "source": "ViennaRNA+Helical",
+      "mfe": -24.700000762939453
+    },
+    {
+      "id": "pseudo_0301",
+      "length": 253,
+      "source": "ViennaRNA+Helical",
+      "mfe": -73.80000305175781
+    },
+    {
+      "id": "pseudo_0302",
+      "length": 306,
+      "source": "ViennaRNA+Helical",
+      "mfe": -94.0
+    },
+    {
+      "id": "pseudo_0303",
+      "length": 31,
+      "source": "ViennaRNA+Helical",
+      "mfe": -0.20000000298023224
+    },
+    {
+      "id": "pseudo_0304",
+      "length": 77,
+      "source": "ViennaRNA+Helical",
+      "mfe": -6.099999904632568
+    },
+    {
+      "id": "pseudo_0305",
+      "length": 80,
+      "source": "ViennaRNA+Helical",
+      "mfe": -19.5
+    },
+    {
+      "id": "pseudo_0306",
+      "length": 138,
+      "source": "ViennaRNA+Helical",
+      "mfe": -23.899999618530273
+    },
+    {
+      "id": "pseudo_0307",
+      "length": 421,
+      "source": "ViennaRNA+Helical",
+      "mfe": -125.5999984741211
+    },
+    {
+      "id": "pseudo_0308",
+      "length": 221,
+      "source": "ViennaRNA+Helical",
+      "mfe": -86.69999694824219
+    },
+    {
+      "id": "pseudo_0309",
+      "length": 365,
+      "source": "ViennaRNA+Helical",
+      "mfe": -92.4000015258789
+    },
+    {
+      "id": "pseudo_0310",
+      "length": 54,
+      "source": "ViennaRNA+Helical",
+      "mfe": -0.4000000059604645
+    },
+    {
+      "id": "pseudo_0311",
+      "length": 377,
+      "source": "ViennaRNA+Helical",
+      "mfe": -108.30000305175781
+    },
+    {
+      "id": "pseudo_0312",
+      "length": 459,
+      "source": "ViennaRNA+Helical",
+      "mfe": -125.80000305175781
+    },
+    {
+      "id": "pseudo_0313",
+      "length": 248,
+      "source": "ViennaRNA+Helical",
+      "mfe": -43.599998474121094
+    },
+    {
+      "id": "pseudo_0314",
+      "length": 151,
+      "source": "ViennaRNA+Helical",
+      "mfe": -38.70000076293945
+    },
+    {
+      "id": "pseudo_0315",
+      "length": 440,
+      "source": "ViennaRNA+Helical",
+      "mfe": -112.0999984741211
+    },
+    {
+      "id": "pseudo_0316",
+      "length": 172,
+      "source": "ViennaRNA+Helical",
+      "mfe": -22.5
+    },
+    {
+      "id": "pseudo_0317",
+      "length": 174,
+      "source": "ViennaRNA+Helical",
+      "mfe": -51.900001525878906
+    },
+    {
+      "id": "pseudo_0318",
+      "length": 377,
+      "source": "ViennaRNA+Helical",
+      "mfe": -95.5
+    },
+    {
+      "id": "pseudo_0319",
+      "length": 325,
+      "source": "ViennaRNA+Helical",
+      "mfe": -101.69999694824219
+    },
+    {
+      "id": "pseudo_0320",
+      "length": 144,
+      "source": "ViennaRNA+Helical",
+      "mfe": -33.0
+    },
+    {
+      "id": "pseudo_0321",
+      "length": 282,
+      "source": "ViennaRNA+Helical",
+      "mfe": -77.5999984741211
+    },
+    {
+      "id": "pseudo_0322",
+      "length": 332,
+      "source": "ViennaRNA+Helical",
+      "mfe": -73.0999984741211
+    },
+    {
+      "id": "pseudo_0323",
+      "length": 462,
+      "source": "ViennaRNA+Helical",
+      "mfe": -144.6999969482422
+    },
+    {
+      "id": "pseudo_0324",
+      "length": 38,
+      "source": "ViennaRNA+Helical",
+      "mfe": -2.799999952316284
+    },
+    {
+      "id": "pseudo_0325",
+      "length": 30,
+      "source": "ViennaRNA+Helical",
+      "mfe": -0.800000011920929
+    },
+    {
+      "id": "pseudo_0326",
+      "length": 111,
+      "source": "ViennaRNA+Helical",
+      "mfe": -37.5
+    },
+    {
+      "id": "pseudo_0327",
+      "length": 118,
+      "source": "ViennaRNA+Helical",
+      "mfe": -16.200000762939453
+    },
+    {
+      "id": "pseudo_0328",
+      "length": 215,
+      "source": "ViennaRNA+Helical",
+      "mfe": -70.9000015258789
+    },
+    {
+      "id": "pseudo_0329",
+      "length": 82,
+      "source": "ViennaRNA+Helical",
+      "mfe": -5.400000095367432
+    },
+    {
+      "id": "pseudo_0330",
+      "length": 111,
+      "source": "ViennaRNA+Helical",
+      "mfe": -16.899999618530273
+    },
+    {
+      "id": "pseudo_0331",
+      "length": 423,
+      "source": "ViennaRNA+Helical",
+      "mfe": -113.19999694824219
+    },
+    {
+      "id": "pseudo_0332",
+      "length": 397,
+      "source": "ViennaRNA+Helical",
+      "mfe": -118.19999694824219
+    },
+    {
+      "id": "pseudo_0333",
+      "length": 414,
+      "source": "ViennaRNA+Helical",
+      "mfe": -113.80000305175781
+    },
+    {
+      "id": "pseudo_0334",
+      "length": 462,
+      "source": "ViennaRNA+Helical",
+      "mfe": -128.8000030517578
+    },
+    {
+      "id": "pseudo_0335",
+      "length": 418,
+      "source": "ViennaRNA+Helical",
+      "mfe": -102.9000015258789
+    },
+    {
+      "id": "pseudo_0336",
+      "length": 364,
+      "source": "ViennaRNA+Helical",
+      "mfe": -109.5
+    },
+    {
+      "id": "pseudo_0337",
+      "length": 436,
+      "source": "ViennaRNA+Helical",
+      "mfe": -131.89999389648438
+    },
+    {
+      "id": "pseudo_0338",
+      "length": 346,
+      "source": "ViennaRNA+Helical",
+      "mfe": -93.69000244140625
+    },
+    {
+      "id": "pseudo_0339",
+      "length": 236,
+      "source": "ViennaRNA+Helical",
+      "mfe": -73.5
+    },
+    {
+      "id": "pseudo_0340",
+      "length": 360,
+      "source": "ViennaRNA+Helical",
+      "mfe": -91.0999984741211
+    },
+    {
+      "id": "pseudo_0341",
+      "length": 465,
+      "source": "ViennaRNA+Helical",
+      "mfe": -140.0
+    },
+    {
+      "id": "pseudo_0342",
+      "length": 74,
+      "source": "ViennaRNA+Helical",
+      "mfe": -8.800000190734863
+    },
+    {
+      "id": "pseudo_0343",
+      "length": 326,
+      "source": "ViennaRNA+Helical",
+      "mfe": -74.30000305175781
+    },
+    {
+      "id": "pseudo_0344",
+      "length": 330,
+      "source": "ViennaRNA+Helical",
+      "mfe": -84.5999984741211
+    },
+    {
+      "id": "pseudo_0345",
+      "length": 93,
+      "source": "ViennaRNA+Helical",
+      "mfe": 0.20000000298023224
+    },
+    {
+      "id": "pseudo_0346",
+      "length": 317,
+      "source": "ViennaRNA+Helical",
+      "mfe": -69.4000015258789
+    },
+    {
+      "id": "pseudo_0347",
+      "length": 165,
+      "source": "ViennaRNA+Helical",
+      "mfe": -35.79999923706055
+    },
+    {
+      "id": "pseudo_0348",
+      "length": 245,
+      "source": "ViennaRNA+Helical",
+      "mfe": -63.0
+    },
+    {
+      "id": "pseudo_0349",
+      "length": 178,
+      "source": "ViennaRNA+Helical",
+      "mfe": -40.70000076293945
+    },
+    {
+      "id": "pseudo_0350",
+      "length": 470,
+      "source": "ViennaRNA+Helical",
+      "mfe": -135.1999969482422
+    },
+    {
+      "id": "pseudo_0351",
+      "length": 37,
+      "source": "ViennaRNA+Helical",
+      "mfe": -2.5999999046325684
+    },
+    {
+      "id": "pseudo_0352",
+      "length": 232,
+      "source": "ViennaRNA+Helical",
+      "mfe": -70.69999694824219
+    },
+    {
+      "id": "pseudo_0353",
+      "length": 319,
+      "source": "ViennaRNA+Helical",
+      "mfe": -78.0999984741211
+    },
+    {
+      "id": "pseudo_0354",
+      "length": 449,
+      "source": "ViennaRNA+Helical",
+      "mfe": -129.60000610351562
+    },
+    {
+      "id": "pseudo_0355",
+      "length": 276,
+      "source": "ViennaRNA+Helical",
+      "mfe": -81.4000015258789
+    },
+    {
+      "id": "pseudo_0356",
+      "length": 215,
+      "source": "ViennaRNA+Helical",
+      "mfe": -58.20000076293945
+    },
+    {
+      "id": "pseudo_0357",
+      "length": 320,
+      "source": "ViennaRNA+Helical",
+      "mfe": -108.0999984741211
+    },
+    {
+      "id": "pseudo_0358",
+      "length": 86,
+      "source": "ViennaRNA+Helical",
+      "mfe": -23.600000381469727
+    },
+    {
+      "id": "pseudo_0359",
+      "length": 265,
+      "source": "ViennaRNA+Helical",
+      "mfe": -59.0
+    },
+    {
+      "id": "pseudo_0360",
+      "length": 215,
+      "source": "ViennaRNA+Helical",
+      "mfe": -46.79999923706055
+    },
+    {
+      "id": "pseudo_0361",
+      "length": 426,
+      "source": "ViennaRNA+Helical",
+      "mfe": -117.4000015258789
+    },
+    {
+      "id": "pseudo_0362",
+      "length": 432,
+      "source": "ViennaRNA+Helical",
+      "mfe": -131.6999969482422
+    },
+    {
+      "id": "pseudo_0363",
+      "length": 184,
+      "source": "ViennaRNA+Helical",
+      "mfe": -31.700000762939453
+    },
+    {
+      "id": "pseudo_0364",
+      "length": 271,
+      "source": "ViennaRNA+Helical",
+      "mfe": -60.70000076293945
+    },
+    {
+      "id": "pseudo_0365",
+      "length": 176,
+      "source": "ViennaRNA+Helical",
+      "mfe": -34.5
+    },
+    {
+      "id": "pseudo_0366",
+      "length": 64,
+      "source": "ViennaRNA+Helical",
+      "mfe": -11.199999809265137
+    },
+    {
+      "id": "pseudo_0367",
+      "length": 412,
+      "source": "ViennaRNA+Helical",
+      "mfe": -114.5
+    },
+    {
+      "id": "pseudo_0368",
+      "length": 284,
+      "source": "ViennaRNA+Helical",
+      "mfe": -77.69999694824219
+    },
+    {
+      "id": "pseudo_0369",
+      "length": 283,
+      "source": "ViennaRNA+Helical",
+      "mfe": -70.5
+    },
+    {
+      "id": "pseudo_0370",
+      "length": 307,
+      "source": "ViennaRNA+Helical",
+      "mfe": -84.0999984741211
+    },
+    {
+      "id": "pseudo_0371",
+      "length": 360,
+      "source": "ViennaRNA+Helical",
+      "mfe": -89.5
+    },
+    {
+      "id": "pseudo_0372",
+      "length": 415,
+      "source": "ViennaRNA+Helical",
+      "mfe": -112.19999694824219
+    },
+    {
+      "id": "pseudo_0373",
+      "length": 417,
+      "source": "ViennaRNA+Helical",
+      "mfe": -109.80000305175781
+    },
+    {
+      "id": "pseudo_0374",
+      "length": 385,
+      "source": "ViennaRNA+Helical",
+      "mfe": -114.0
+    },
+    {
+      "id": "pseudo_0375",
+      "length": 40,
+      "source": "ViennaRNA+Helical",
+      "mfe": -5.300000190734863
+    },
+    {
+      "id": "pseudo_0376",
+      "length": 178,
+      "source": "ViennaRNA+Helical",
+      "mfe": -45.099998474121094
+    },
+    {
+      "id": "pseudo_0377",
+      "length": 123,
+      "source": "ViennaRNA+Helical",
+      "mfe": -32.900001525878906
+    },
+    {
+      "id": "pseudo_0378",
+      "length": 106,
+      "source": "ViennaRNA+Helical",
+      "mfe": -17.899999618530273
+    },
+    {
+      "id": "pseudo_0379",
+      "length": 422,
+      "source": "ViennaRNA+Helical",
+      "mfe": -109.0999984741211
+    },
+    {
+      "id": "pseudo_0380",
+      "length": 306,
+      "source": "ViennaRNA+Helical",
+      "mfe": -64.9000015258789
+    },
+    {
+      "id": "pseudo_0381",
+      "length": 444,
+      "source": "ViennaRNA+Helical",
+      "mfe": -134.39999389648438
+    },
+    {
+      "id": "pseudo_0382",
+      "length": 53,
+      "source": "ViennaRNA+Helical",
+      "mfe": -7.800000190734863
+    },
+    {
+      "id": "pseudo_0383",
+      "length": 186,
+      "source": "ViennaRNA+Helical",
+      "mfe": -49.5
+    },
+    {
+      "id": "pseudo_0384",
+      "length": 433,
+      "source": "ViennaRNA+Helical",
+      "mfe": -110.80000305175781
+    },
+    {
+      "id": "pseudo_0385",
+      "length": 69,
+      "source": "ViennaRNA+Helical",
+      "mfe": -15.0
+    },
+    {
+      "id": "pseudo_0386",
+      "length": 122,
+      "source": "ViennaRNA+Helical",
+      "mfe": -29.899999618530273
+    },
+    {
+      "id": "pseudo_0387",
+      "length": 83,
+      "source": "ViennaRNA+Helical",
+      "mfe": -6.400000095367432
+    },
+    {
+      "id": "pseudo_0388",
+      "length": 427,
+      "source": "ViennaRNA+Helical",
+      "mfe": -118.80000305175781
+    },
+    {
+      "id": "pseudo_0389",
+      "length": 155,
+      "source": "ViennaRNA+Helical",
+      "mfe": -33.20000076293945
+    },
+    {
+      "id": "pseudo_0390",
+      "length": 407,
+      "source": "ViennaRNA+Helical",
+      "mfe": -107.5999984741211
+    },
+    {
+      "id": "pseudo_0391",
+      "length": 341,
+      "source": "ViennaRNA+Helical",
+      "mfe": -75.0999984741211
+    },
+    {
+      "id": "pseudo_0392",
+      "length": 104,
+      "source": "ViennaRNA+Helical",
+      "mfe": -17.399999618530273
+    },
+    {
+      "id": "pseudo_0393",
+      "length": 253,
+      "source": "ViennaRNA+Helical",
+      "mfe": -53.099998474121094
+    },
+    {
+      "id": "pseudo_0394",
+      "length": 40,
+      "source": "ViennaRNA+Helical",
+      "mfe": -0.699999988079071
+    },
+    {
+      "id": "pseudo_0395",
+      "length": 153,
+      "source": "ViennaRNA+Helical",
+      "mfe": -36.400001525878906
+    },
+    {
+      "id": "pseudo_0396",
+      "length": 88,
+      "source": "ViennaRNA+Helical",
+      "mfe": -10.300000190734863
+    },
+    {
+      "id": "pseudo_0397",
+      "length": 345,
+      "source": "ViennaRNA+Helical",
+      "mfe": -80.80000305175781
+    },
+    {
+      "id": "pseudo_0398",
+      "length": 175,
+      "source": "ViennaRNA+Helical",
+      "mfe": -36.20000076293945
+    },
+    {
+      "id": "pseudo_0399",
+      "length": 482,
+      "source": "ViennaRNA+Helical",
+      "mfe": -141.3000030517578
+    },
+    {
+      "id": "pseudo_0400",
+      "length": 308,
+      "source": "ViennaRNA+Helical",
+      "mfe": -81.5999984741211
+    },
+    {
+      "id": "pseudo_0401",
+      "length": 487,
+      "source": "ViennaRNA+Helical",
+      "mfe": -152.8000030517578
+    },
+    {
+      "id": "pseudo_0402",
+      "length": 345,
+      "source": "ViennaRNA+Helical",
+      "mfe": -86.19999694824219
+    },
+    {
+      "id": "pseudo_0403",
+      "length": 77,
+      "source": "ViennaRNA+Helical",
+      "mfe": -16.600000381469727
+    },
+    {
+      "id": "pseudo_0404",
+      "length": 101,
+      "source": "ViennaRNA+Helical",
+      "mfe": -22.600000381469727
+    },
+    {
+      "id": "pseudo_0405",
+      "length": 452,
+      "source": "ViennaRNA+Helical",
+      "mfe": -122.5999984741211
+    },
+    {
+      "id": "pseudo_0406",
+      "length": 358,
+      "source": "ViennaRNA+Helical",
+      "mfe": -76.4000015258789
+    },
+    {
+      "id": "pseudo_0407",
+      "length": 405,
+      "source": "ViennaRNA+Helical",
+      "mfe": -106.19999694824219
+    },
+    {
+      "id": "pseudo_0408",
+      "length": 98,
+      "source": "ViennaRNA+Helical",
+      "mfe": -19.100000381469727
+    },
+    {
+      "id": "pseudo_0409",
+      "length": 417,
+      "source": "ViennaRNA+Helical",
+      "mfe": -101.30000305175781
+    },
+    {
+      "id": "pseudo_0410",
+      "length": 37,
+      "source": "ViennaRNA+Helical",
+      "mfe": 0.8999999761581421
+    },
+    {
+      "id": "pseudo_0411",
+      "length": 301,
+      "source": "ViennaRNA+Helical",
+      "mfe": -85.5999984741211
+    },
+    {
+      "id": "pseudo_0412",
+      "length": 314,
+      "source": "ViennaRNA+Helical",
+      "mfe": -96.0999984741211
+    },
+    {
+      "id": "pseudo_0413",
+      "length": 127,
+      "source": "ViennaRNA+Helical",
+      "mfe": -17.399999618530273
+    },
+    {
+      "id": "pseudo_0414",
+      "length": 213,
+      "source": "ViennaRNA+Helical",
+      "mfe": -45.5
+    },
+    {
+      "id": "pseudo_0415",
+      "length": 353,
+      "source": "ViennaRNA+Helical",
+      "mfe": -94.4000015258789
+    },
+    {
+      "id": "pseudo_0416",
+      "length": 449,
+      "source": "ViennaRNA+Helical",
+      "mfe": -119.0999984741211
+    },
+    {
+      "id": "pseudo_0417",
+      "length": 32,
+      "source": "ViennaRNA+Helical",
+      "mfe": 2.0999999046325684
+    },
+    {
+      "id": "pseudo_0418",
+      "length": 97,
+      "source": "ViennaRNA+Helical",
+      "mfe": -23.5
+    },
+    {
+      "id": "pseudo_0419",
+      "length": 199,
+      "source": "ViennaRNA+Helical",
+      "mfe": -57.20000076293945
+    },
+    {
+      "id": "pseudo_0420",
+      "length": 332,
+      "source": "ViennaRNA+Helical",
+      "mfe": -94.5999984741211
+    },
+    {
+      "id": "pseudo_0421",
+      "length": 238,
+      "source": "ViennaRNA+Helical",
+      "mfe": -60.70000076293945
+    },
+    {
+      "id": "pseudo_0422",
+      "length": 124,
+      "source": "ViennaRNA+Helical",
+      "mfe": -22.600000381469727
+    },
+    {
+      "id": "pseudo_0423",
+      "length": 290,
+      "source": "ViennaRNA+Helical",
+      "mfe": -92.19999694824219
+    },
+    {
+      "id": "pseudo_0424",
+      "length": 416,
+      "source": "ViennaRNA+Helical",
+      "mfe": -98.4000015258789
+    },
+    {
+      "id": "pseudo_0425",
+      "length": 113,
+      "source": "ViennaRNA+Helical",
+      "mfe": -28.0
+    },
+    {
+      "id": "pseudo_0426",
+      "length": 269,
+      "source": "ViennaRNA+Helical",
+      "mfe": -75.0
+    },
+    {
+      "id": "pseudo_0427",
+      "length": 155,
+      "source": "ViennaRNA+Helical",
+      "mfe": -38.599998474121094
+    },
+    {
+      "id": "pseudo_0428",
+      "length": 249,
+      "source": "ViennaRNA+Helical",
+      "mfe": -58.79999923706055
+    },
+    {
+      "id": "pseudo_0429",
+      "length": 230,
+      "source": "ViennaRNA+Helical",
+      "mfe": -52.900001525878906
+    },
+    {
+      "id": "pseudo_0430",
+      "length": 33,
+      "source": "ViennaRNA+Helical",
+      "mfe": -1.0
+    },
+    {
+      "id": "pseudo_0431",
+      "length": 175,
+      "source": "ViennaRNA+Helical",
+      "mfe": -46.20000076293945
+    },
+    {
+      "id": "pseudo_0432",
+      "length": 217,
+      "source": "ViennaRNA+Helical",
+      "mfe": -59.79999923706055
+    },
+    {
+      "id": "pseudo_0433",
+      "length": 179,
+      "source": "ViennaRNA+Helical",
+      "mfe": -47.5
+    },
+    {
+      "id": "pseudo_0434",
+      "length": 115,
+      "source": "ViennaRNA+Helical",
+      "mfe": -26.200000762939453
+    },
+    {
+      "id": "pseudo_0435",
+      "length": 187,
+      "source": "ViennaRNA+Helical",
+      "mfe": -39.599998474121094
+    },
+    {
+      "id": "pseudo_0436",
+      "length": 481,
+      "source": "ViennaRNA+Helical",
+      "mfe": -140.39999389648438
+    },
+    {
+      "id": "pseudo_0437",
+      "length": 214,
+      "source": "ViennaRNA+Helical",
+      "mfe": -71.30000305175781
+    },
+    {
+      "id": "pseudo_0438",
+      "length": 478,
+      "source": "ViennaRNA+Helical",
+      "mfe": -144.8000030517578
+    },
+    {
+      "id": "pseudo_0439",
+      "length": 225,
+      "source": "ViennaRNA+Helical",
+      "mfe": -61.79999923706055
+    },
+    {
+      "id": "pseudo_0440",
+      "length": 116,
+      "source": "ViennaRNA+Helical",
+      "mfe": -33.0
+    },
+    {
+      "id": "pseudo_0441",
+      "length": 468,
+      "source": "ViennaRNA+Helical",
+      "mfe": -130.39999389648438
+    },
+    {
+      "id": "pseudo_0442",
+      "length": 32,
+      "source": "ViennaRNA+Helical",
+      "mfe": -0.8999999761581421
+    },
+    {
+      "id": "pseudo_0443",
+      "length": 73,
+      "source": "ViennaRNA+Helical",
+      "mfe": -10.5
+    },
+    {
+      "id": "pseudo_0444",
+      "length": 164,
+      "source": "ViennaRNA+Helical",
+      "mfe": -24.100000381469727
+    },
+    {
+      "id": "pseudo_0445",
+      "length": 263,
+      "source": "ViennaRNA+Helical",
+      "mfe": -73.19999694824219
+    },
+    {
+      "id": "pseudo_0446",
+      "length": 433,
+      "source": "ViennaRNA+Helical",
+      "mfe": -132.5
+    },
+    {
+      "id": "pseudo_0447",
+      "length": 446,
+      "source": "ViennaRNA+Helical",
+      "mfe": -120.5999984741211
+    },
+    {
+      "id": "pseudo_0448",
+      "length": 100,
+      "source": "ViennaRNA+Helical",
+      "mfe": -13.5
+    },
+    {
+      "id": "pseudo_0449",
+      "length": 382,
+      "source": "ViennaRNA+Helical",
+      "mfe": -104.30000305175781
+    },
+    {
+      "id": "pseudo_0450",
+      "length": 379,
+      "source": "ViennaRNA+Helical",
+      "mfe": -114.19999694824219
+    },
+    {
+      "id": "pseudo_0451",
+      "length": 339,
+      "source": "ViennaRNA+Helical",
+      "mfe": -93.5
+    },
+    {
+      "id": "pseudo_0452",
+      "length": 287,
+      "source": "ViennaRNA+Helical",
+      "mfe": -62.400001525878906
+    },
+    {
+      "id": "pseudo_0453",
+      "length": 498,
+      "source": "ViennaRNA+Helical",
+      "mfe": -134.1999969482422
+    },
+    {
+      "id": "pseudo_0454",
+      "length": 475,
+      "source": "ViennaRNA+Helical",
+      "mfe": -144.39999389648438
+    },
+    {
+      "id": "pseudo_0455",
+      "length": 171,
+      "source": "ViennaRNA+Helical",
+      "mfe": -47.20000076293945
+    },
+    {
+      "id": "pseudo_0456",
+      "length": 408,
+      "source": "ViennaRNA+Helical",
+      "mfe": -125.5
+    },
+    {
+      "id": "pseudo_0457",
+      "length": 448,
+      "source": "ViennaRNA+Helical",
+      "mfe": -131.5
+    },
+    {
+      "id": "pseudo_0458",
+      "length": 300,
+      "source": "ViennaRNA+Helical",
+      "mfe": -84.30000305175781
+    },
+    {
+      "id": "pseudo_0459",
+      "length": 239,
+      "source": "ViennaRNA+Helical",
+      "mfe": -67.0
+    },
+    {
+      "id": "pseudo_0460",
+      "length": 291,
+      "source": "ViennaRNA+Helical",
+      "mfe": -80.9000015258789
+    },
+    {
+      "id": "pseudo_0461",
+      "length": 194,
+      "source": "ViennaRNA+Helical",
+      "mfe": -45.599998474121094
+    },
+    {
+      "id": "pseudo_0462",
+      "length": 374,
+      "source": "ViennaRNA+Helical",
+      "mfe": -105.9000015258789
+    },
+    {
+      "id": "pseudo_0463",
+      "length": 391,
+      "source": "ViennaRNA+Helical",
+      "mfe": -107.4000015258789
+    },
+    {
+      "id": "pseudo_0464",
+      "length": 47,
+      "source": "ViennaRNA+Helical",
+      "mfe": -8.699999809265137
+    },
+    {
+      "id": "pseudo_0465",
+      "length": 474,
+      "source": "ViennaRNA+Helical",
+      "mfe": -123.69999694824219
+    },
+    {
+      "id": "pseudo_0466",
+      "length": 391,
+      "source": "ViennaRNA+Helical",
+      "mfe": -119.0999984741211
+    },
+    {
+      "id": "pseudo_0467",
+      "length": 499,
+      "source": "ViennaRNA+Helical",
+      "mfe": -119.80000305175781
+    },
+    {
+      "id": "pseudo_0468",
+      "length": 156,
+      "source": "ViennaRNA+Helical",
+      "mfe": -46.20000076293945
+    },
+    {
+      "id": "pseudo_0469",
+      "length": 148,
+      "source": "ViennaRNA+Helical",
+      "mfe": -33.20000076293945
+    },
+    {
+      "id": "pseudo_0470",
+      "length": 327,
+      "source": "ViennaRNA+Helical",
+      "mfe": -93.4000015258789
+    },
+    {
+      "id": "pseudo_0471",
+      "length": 453,
+      "source": "ViennaRNA+Helical",
+      "mfe": -131.1999969482422
+    },
+    {
+      "id": "pseudo_0472",
+      "length": 85,
+      "source": "ViennaRNA+Helical",
+      "mfe": -15.5
+    },
+    {
+      "id": "pseudo_0473",
+      "length": 210,
+      "source": "ViennaRNA+Helical",
+      "mfe": -53.79999923706055
+    },
+    {
+      "id": "pseudo_0474",
+      "length": 203,
+      "source": "ViennaRNA+Helical",
+      "mfe": -40.099998474121094
+    },
+    {
+      "id": "pseudo_0475",
+      "length": 170,
+      "source": "ViennaRNA+Helical",
+      "mfe": -27.799999237060547
+    },
+    {
+      "id": "pseudo_0476",
+      "length": 395,
+      "source": "ViennaRNA+Helical",
+      "mfe": -119.0
+    },
+    {
+      "id": "pseudo_0477",
+      "length": 93,
+      "source": "ViennaRNA+Helical",
+      "mfe": -16.299999237060547
+    },
+    {
+      "id": "pseudo_0478",
+      "length": 63,
+      "source": "ViennaRNA+Helical",
+      "mfe": -13.800000190734863
+    },
+    {
+      "id": "pseudo_0479",
+      "length": 306,
+      "source": "ViennaRNA+Helical",
+      "mfe": -74.69999694824219
+    },
+    {
+      "id": "pseudo_0480",
+      "length": 58,
+      "source": "ViennaRNA+Helical",
+      "mfe": -2.0
+    },
+    {
+      "id": "pseudo_0481",
+      "length": 60,
+      "source": "ViennaRNA+Helical",
+      "mfe": 0.4000000059604645
+    },
+    {
+      "id": "pseudo_0482",
+      "length": 263,
+      "source": "ViennaRNA+Helical",
+      "mfe": -75.80000305175781
+    },
+    {
+      "id": "pseudo_0483",
+      "length": 448,
+      "source": "ViennaRNA+Helical",
+      "mfe": -125.9000015258789
+    },
+    {
+      "id": "pseudo_0484",
+      "length": 248,
+      "source": "ViennaRNA+Helical",
+      "mfe": -49.5
+    },
+    {
+      "id": "pseudo_0485",
+      "length": 96,
+      "source": "ViennaRNA+Helical",
+      "mfe": -8.600000381469727
+    },
+    {
+      "id": "pseudo_0486",
+      "length": 320,
+      "source": "ViennaRNA+Helical",
+      "mfe": -71.19999694824219
+    },
+    {
+      "id": "pseudo_0487",
+      "length": 392,
+      "source": "ViennaRNA+Helical",
+      "mfe": -91.0999984741211
+    },
+    {
+      "id": "pseudo_0488",
+      "length": 90,
+      "source": "ViennaRNA+Helical",
+      "mfe": -26.399999618530273
+    },
+    {
+      "id": "pseudo_0489",
+      "length": 130,
+      "source": "ViennaRNA+Helical",
+      "mfe": -22.0
+    },
+    {
+      "id": "pseudo_0490",
+      "length": 30,
+      "source": "ViennaRNA+Helical",
+      "mfe": 2.5999999046325684
+    },
+    {
+      "id": "pseudo_0491",
+      "length": 276,
+      "source": "ViennaRNA+Helical",
+      "mfe": -64.5999984741211
+    },
+    {
+      "id": "pseudo_0492",
+      "length": 372,
+      "source": "ViennaRNA+Helical",
+      "mfe": -103.0999984741211
+    },
+    {
+      "id": "pseudo_0493",
+      "length": 487,
+      "source": "ViennaRNA+Helical",
+      "mfe": -142.1999969482422
+    },
+    {
+      "id": "pseudo_0494",
+      "length": 110,
+      "source": "ViennaRNA+Helical",
+      "mfe": -20.0
+    },
+    {
+      "id": "pseudo_0495",
+      "length": 188,
+      "source": "ViennaRNA+Helical",
+      "mfe": -37.0
+    },
+    {
+      "id": "pseudo_0496",
+      "length": 101,
+      "source": "ViennaRNA+Helical",
+      "mfe": -19.5
+    },
+    {
+      "id": "pseudo_0497",
+      "length": 319,
+      "source": "ViennaRNA+Helical",
+      "mfe": -75.19999694824219
+    },
+    {
+      "id": "pseudo_0498",
+      "length": 442,
+      "source": "ViennaRNA+Helical",
+      "mfe": -119.5999984741211
+    },
+    {
+      "id": "pseudo_0499",
+      "length": 431,
+      "source": "ViennaRNA+Helical",
+      "mfe": -112.80000305175781
+    },
+    {
+      "id": "pseudo_0500",
+      "length": 181,
+      "source": "ViennaRNA+Helical",
+      "mfe": -45.900001525878906
+    },
+    {
+      "id": "pseudo_0501",
+      "length": 429,
+      "source": "ViennaRNA+Helical",
+      "mfe": -112.9000015258789
+    },
+    {
+      "id": "pseudo_0502",
+      "length": 441,
+      "source": "ViennaRNA+Helical",
+      "mfe": -136.60000610351562
+    },
+    {
+      "id": "pseudo_0503",
+      "length": 390,
+      "source": "ViennaRNA+Helical",
+      "mfe": -111.19999694824219
+    },
+    {
+      "id": "pseudo_0504",
+      "length": 57,
+      "source": "ViennaRNA+Helical",
+      "mfe": -21.600000381469727
+    },
+    {
+      "id": "pseudo_0505",
+      "length": 50,
+      "source": "ViennaRNA+Helical",
+      "mfe": -7.900000095367432
+    },
+    {
+      "id": "pseudo_0506",
+      "length": 178,
+      "source": "ViennaRNA+Helical",
+      "mfe": -38.900001525878906
+    },
+    {
+      "id": "pseudo_0507",
+      "length": 72,
+      "source": "ViennaRNA+Helical",
+      "mfe": -9.699999809265137
+    },
+    {
+      "id": "pseudo_0508",
+      "length": 198,
+      "source": "ViennaRNA+Helical",
+      "mfe": -51.0
+    },
+    {
+      "id": "pseudo_0509",
+      "length": 466,
+      "source": "ViennaRNA+Helical",
+      "mfe": -143.5
+    },
+    {
+      "id": "pseudo_0510",
+      "length": 110,
+      "source": "ViennaRNA+Helical",
+      "mfe": -10.699999809265137
+    },
+    {
+      "id": "pseudo_0511",
+      "length": 79,
+      "source": "ViennaRNA+Helical",
+      "mfe": -16.200000762939453
+    },
+    {
+      "id": "pseudo_0512",
+      "length": 436,
+      "source": "ViennaRNA+Helical",
+      "mfe": -119.9000015258789
+    },
+    {
+      "id": "pseudo_0513",
+      "length": 183,
+      "source": "ViennaRNA+Helical",
+      "mfe": -37.29999923706055
+    },
+    {
+      "id": "pseudo_0514",
+      "length": 433,
+      "source": "ViennaRNA+Helical",
+      "mfe": -120.5999984741211
+    },
+    {
+      "id": "pseudo_0515",
+      "length": 304,
+      "source": "ViennaRNA+Helical",
+      "mfe": -88.5
+    },
+    {
+      "id": "pseudo_0516",
+      "length": 284,
+      "source": "ViennaRNA+Helical",
+      "mfe": -76.0999984741211
+    },
+    {
+      "id": "pseudo_0517",
+      "length": 142,
+      "source": "ViennaRNA+Helical",
+      "mfe": -37.5
+    },
+    {
+      "id": "pseudo_0518",
+      "length": 473,
+      "source": "ViennaRNA+Helical",
+      "mfe": -126.0999984741211
+    },
+    {
+      "id": "pseudo_0519",
+      "length": 434,
+      "source": "ViennaRNA+Helical",
+      "mfe": -115.4000015258789
+    },
+    {
+      "id": "pseudo_0520",
+      "length": 451,
+      "source": "ViennaRNA+Helical",
+      "mfe": -124.19999694824219
+    },
+    {
+      "id": "pseudo_0521",
+      "length": 92,
+      "source": "ViennaRNA+Helical",
+      "mfe": -15.800000190734863
+    },
+    {
+      "id": "pseudo_0522",
+      "length": 127,
+      "source": "ViennaRNA+Helical",
+      "mfe": -29.899999618530273
+    },
+    {
+      "id": "pseudo_0523",
+      "length": 458,
+      "source": "ViennaRNA+Helical",
+      "mfe": -131.5
+    },
+    {
+      "id": "pseudo_0524",
+      "length": 193,
+      "source": "ViennaRNA+Helical",
+      "mfe": -51.5
+    },
+    {
+      "id": "pseudo_0525",
+      "length": 48,
+      "source": "ViennaRNA+Helical",
+      "mfe": -20.299999237060547
+    },
+    {
+      "id": "pseudo_0526",
+      "length": 195,
+      "source": "ViennaRNA+Helical",
+      "mfe": -50.0
+    },
+    {
+      "id": "pseudo_0527",
+      "length": 51,
+      "source": "ViennaRNA+Helical",
+      "mfe": 3.630000114440918
+    },
+    {
+      "id": "pseudo_0528",
+      "length": 274,
+      "source": "ViennaRNA+Helical",
+      "mfe": -75.4000015258789
+    },
+    {
+      "id": "pseudo_0529",
+      "length": 86,
+      "source": "ViennaRNA+Helical",
+      "mfe": -15.399999618530273
+    },
+    {
+      "id": "pseudo_0530",
+      "length": 278,
+      "source": "ViennaRNA+Helical",
+      "mfe": -59.70000076293945
+    },
+    {
+      "id": "pseudo_0531",
+      "length": 341,
+      "source": "ViennaRNA+Helical",
+      "mfe": -106.19999694824219
+    },
+    {
+      "id": "pseudo_0532",
+      "length": 431,
+      "source": "ViennaRNA+Helical",
+      "mfe": -128.0
+    },
+    {
+      "id": "pseudo_0533",
+      "length": 418,
+      "source": "ViennaRNA+Helical",
+      "mfe": -112.9000015258789
+    },
+    {
+      "id": "pseudo_0534",
+      "length": 308,
+      "source": "ViennaRNA+Helical",
+      "mfe": -98.80000305175781
+    },
+    {
+      "id": "pseudo_0535",
+      "length": 229,
+      "source": "ViennaRNA+Helical",
+      "mfe": -61.099998474121094
+    },
+    {
+      "id": "pseudo_0536",
+      "length": 201,
+      "source": "ViennaRNA+Helical",
+      "mfe": -54.099998474121094
+    },
+    {
+      "id": "pseudo_0537",
+      "length": 55,
+      "source": "ViennaRNA+Helical",
+      "mfe": -4.599999904632568
+    },
+    {
+      "id": "pseudo_0538",
+      "length": 96,
+      "source": "ViennaRNA+Helical",
+      "mfe": -17.200000762939453
+    },
+    {
+      "id": "pseudo_0539",
+      "length": 107,
+      "source": "ViennaRNA+Helical",
+      "mfe": -23.700000762939453
+    },
+    {
+      "id": "pseudo_0540",
+      "length": 283,
+      "source": "ViennaRNA+Helical",
+      "mfe": -65.19999694824219
+    },
+    {
+      "id": "pseudo_0541",
+      "length": 296,
+      "source": "ViennaRNA+Helical",
+      "mfe": -66.4000015258789
+    },
+    {
+      "id": "pseudo_0542",
+      "length": 230,
+      "source": "ViennaRNA+Helical",
+      "mfe": -54.5
+    },
+    {
+      "id": "pseudo_0543",
+      "length": 30,
+      "source": "ViennaRNA+Helical",
+      "mfe": 2.700000047683716
+    },
+    {
+      "id": "pseudo_0544",
+      "length": 242,
+      "source": "ViennaRNA+Helical",
+      "mfe": -67.69999694824219
+    },
+    {
+      "id": "pseudo_0545",
+      "length": 425,
+      "source": "ViennaRNA+Helical",
+      "mfe": -106.0
+    },
+    {
+      "id": "pseudo_0546",
+      "length": 475,
+      "source": "ViennaRNA+Helical",
+      "mfe": -145.8000030517578
+    },
+    {
+      "id": "pseudo_0547",
+      "length": 210,
+      "source": "ViennaRNA+Helical",
+      "mfe": -53.0
+    },
+    {
+      "id": "pseudo_0548",
+      "length": 46,
+      "source": "ViennaRNA+Helical",
+      "mfe": -1.5
+    },
+    {
+      "id": "pseudo_0549",
+      "length": 86,
+      "source": "ViennaRNA+Helical",
+      "mfe": -12.300000190734863
+    },
+    {
+      "id": "pseudo_0550",
+      "length": 490,
+      "source": "ViennaRNA+Helical",
+      "mfe": -144.10000610351562
+    },
+    {
+      "id": "pseudo_0551",
+      "length": 97,
+      "source": "ViennaRNA+Helical",
+      "mfe": -17.299999237060547
+    },
+    {
+      "id": "pseudo_0552",
+      "length": 117,
+      "source": "ViennaRNA+Helical",
+      "mfe": -26.799999237060547
+    },
+    {
+      "id": "pseudo_0553",
+      "length": 498,
+      "source": "ViennaRNA+Helical",
+      "mfe": -149.39999389648438
+    },
+    {
+      "id": "pseudo_0554",
+      "length": 340,
+      "source": "ViennaRNA+Helical",
+      "mfe": -89.5999984741211
+    },
+    {
+      "id": "pseudo_0555",
+      "length": 378,
+      "source": "ViennaRNA+Helical",
+      "mfe": -107.19999694824219
+    },
+    {
+      "id": "pseudo_0556",
+      "length": 70,
+      "source": "ViennaRNA+Helical",
+      "mfe": -17.100000381469727
+    },
+    {
+      "id": "pseudo_0557",
+      "length": 442,
+      "source": "ViennaRNA+Helical",
+      "mfe": -126.19999694824219
+    },
+    {
+      "id": "pseudo_0558",
+      "length": 245,
+      "source": "ViennaRNA+Helical",
+      "mfe": -49.0
+    },
+    {
+      "id": "pseudo_0559",
+      "length": 187,
+      "source": "ViennaRNA+Helical",
+      "mfe": -50.20000076293945
+    },
+    {
+      "id": "pseudo_0560",
+      "length": 52,
+      "source": "ViennaRNA+Helical",
+      "mfe": -8.699999809265137
+    },
+    {
+      "id": "pseudo_0561",
+      "length": 299,
+      "source": "ViennaRNA+Helical",
+      "mfe": -89.9000015258789
+    },
+    {
+      "id": "pseudo_0562",
+      "length": 70,
+      "source": "ViennaRNA+Helical",
+      "mfe": -8.800000190734863
+    },
+    {
+      "id": "pseudo_0563",
+      "length": 388,
+      "source": "ViennaRNA+Helical",
+      "mfe": -96.69999694824219
+    },
+    {
+      "id": "pseudo_0564",
+      "length": 249,
+      "source": "ViennaRNA+Helical",
+      "mfe": -64.0999984741211
+    },
+    {
+      "id": "pseudo_0565",
+      "length": 356,
+      "source": "ViennaRNA+Helical",
+      "mfe": -85.80000305175781
+    },
+    {
+      "id": "pseudo_0566",
+      "length": 332,
+      "source": "ViennaRNA+Helical",
+      "mfe": -80.30000305175781
+    },
+    {
+      "id": "pseudo_0567",
+      "length": 114,
+      "source": "ViennaRNA+Helical",
+      "mfe": -22.5
+    },
+    {
+      "id": "pseudo_0568",
+      "length": 406,
+      "source": "ViennaRNA+Helical",
+      "mfe": -132.6999969482422
+    },
+    {
+      "id": "pseudo_0569",
+      "length": 324,
+      "source": "ViennaRNA+Helical",
+      "mfe": -75.19999694824219
+    },
+    {
+      "id": "pseudo_0570",
+      "length": 256,
+      "source": "ViennaRNA+Helical",
+      "mfe": -63.400001525878906
+    },
+    {
+      "id": "pseudo_0571",
+      "length": 410,
+      "source": "ViennaRNA+Helical",
+      "mfe": -116.5999984741211
+    },
+    {
+      "id": "pseudo_0572",
+      "length": 134,
+      "source": "ViennaRNA+Helical",
+      "mfe": -22.700000762939453
+    },
+    {
+      "id": "pseudo_0573",
+      "length": 383,
+      "source": "ViennaRNA+Helical",
+      "mfe": -121.4000015258789
+    },
+    {
+      "id": "pseudo_0574",
+      "length": 37,
+      "source": "ViennaRNA+Helical",
+      "mfe": -0.20000000298023224
+    },
+    {
+      "id": "pseudo_0575",
+      "length": 158,
+      "source": "ViennaRNA+Helical",
+      "mfe": -32.20000076293945
+    },
+    {
+      "id": "pseudo_0576",
+      "length": 471,
+      "source": "ViennaRNA+Helical",
+      "mfe": -140.3000030517578
+    },
+    {
+      "id": "pseudo_0577",
+      "length": 400,
+      "source": "ViennaRNA+Helical",
+      "mfe": -100.80000305175781
+    },
+    {
+      "id": "pseudo_0578",
+      "length": 258,
+      "source": "ViennaRNA+Helical",
+      "mfe": -60.79999923706055
+    },
+    {
+      "id": "pseudo_0579",
+      "length": 272,
+      "source": "ViennaRNA+Helical",
+      "mfe": -68.0
+    },
+    {
+      "id": "pseudo_0580",
+      "length": 85,
+      "source": "ViennaRNA+Helical",
+      "mfe": -17.700000762939453
+    },
+    {
+      "id": "pseudo_0581",
+      "length": 237,
+      "source": "ViennaRNA+Helical",
+      "mfe": -60.400001525878906
+    },
+    {
+      "id": "pseudo_0582",
+      "length": 135,
+      "source": "ViennaRNA+Helical",
+      "mfe": -28.600000381469727
+    },
+    {
+      "id": "pseudo_0583",
+      "length": 214,
+      "source": "ViennaRNA+Helical",
+      "mfe": -44.70000076293945
+    },
+    {
+      "id": "pseudo_0584",
+      "length": 51,
+      "source": "ViennaRNA+Helical",
+      "mfe": -7.300000190734863
+    },
+    {
+      "id": "pseudo_0585",
+      "length": 208,
+      "source": "ViennaRNA+Helical",
+      "mfe": -50.5
+    },
+    {
+      "id": "pseudo_0586",
+      "length": 275,
+      "source": "ViennaRNA+Helical",
+      "mfe": -52.599998474121094
+    },
+    {
+      "id": "pseudo_0587",
+      "length": 402,
+      "source": "ViennaRNA+Helical",
+      "mfe": -114.0999984741211
+    },
+    {
+      "id": "pseudo_0588",
+      "length": 240,
+      "source": "ViennaRNA+Helical",
+      "mfe": -59.79999923706055
+    },
+    {
+      "id": "pseudo_0589",
+      "length": 359,
+      "source": "ViennaRNA+Helical",
+      "mfe": -116.5
+    },
+    {
+      "id": "pseudo_0590",
+      "length": 219,
+      "source": "ViennaRNA+Helical",
+      "mfe": -52.900001525878906
+    },
+    {
+      "id": "pseudo_0591",
+      "length": 335,
+      "source": "ViennaRNA+Helical",
+      "mfe": -82.0999984741211
+    },
+    {
+      "id": "pseudo_0592",
+      "length": 317,
+      "source": "ViennaRNA+Helical",
+      "mfe": -74.0999984741211
+    },
+    {
+      "id": "pseudo_0593",
+      "length": 76,
+      "source": "ViennaRNA+Helical",
+      "mfe": -10.100000381469727
+    },
+    {
+      "id": "pseudo_0594",
+      "length": 379,
+      "source": "ViennaRNA+Helical",
+      "mfe": -107.5
+    },
+    {
+      "id": "pseudo_0595",
+      "length": 120,
+      "source": "ViennaRNA+Helical",
+      "mfe": -25.600000381469727
+    },
+    {
+      "id": "pseudo_0596",
+      "length": 342,
+      "source": "ViennaRNA+Helical",
+      "mfe": -96.5999984741211
+    },
+    {
+      "id": "pseudo_0597",
+      "length": 352,
+      "source": "ViennaRNA+Helical",
+      "mfe": -107.5999984741211
+    },
+    {
+      "id": "pseudo_0598",
+      "length": 175,
+      "source": "ViennaRNA+Helical",
+      "mfe": -57.29999923706055
+    },
+    {
+      "id": "pseudo_0599",
+      "length": 109,
+      "source": "ViennaRNA+Helical",
+      "mfe": -21.700000762939453
+    },
+    {
+      "id": "pseudo_0600",
+      "length": 285,
+      "source": "ViennaRNA+Helical",
+      "mfe": -75.4000015258789
+    },
+    {
+      "id": "pseudo_0601",
+      "length": 219,
+      "source": "ViennaRNA+Helical",
+      "mfe": -45.70000076293945
+    },
+    {
+      "id": "pseudo_0602",
+      "length": 43,
+      "source": "ViennaRNA+Helical",
+      "mfe": -5.5
+    },
+    {
+      "id": "pseudo_0603",
+      "length": 372,
+      "source": "ViennaRNA+Helical",
+      "mfe": -99.5999984741211
+    },
+    {
+      "id": "pseudo_0604",
+      "length": 62,
+      "source": "ViennaRNA+Helical",
+      "mfe": -5.599999904632568
+    },
+    {
+      "id": "pseudo_0605",
+      "length": 103,
+      "source": "ViennaRNA+Helical",
+      "mfe": -26.399999618530273
+    },
+    {
+      "id": "pseudo_0606",
+      "length": 219,
+      "source": "ViennaRNA+Helical",
+      "mfe": -58.900001525878906
+    },
+    {
+      "id": "pseudo_0607",
+      "length": 395,
+      "source": "ViennaRNA+Helical",
+      "mfe": -107.0
+    },
+    {
+      "id": "pseudo_0608",
+      "length": 149,
+      "source": "ViennaRNA+Helical",
+      "mfe": -41.599998474121094
+    },
+    {
+      "id": "pseudo_0609",
+      "length": 240,
+      "source": "ViennaRNA+Helical",
+      "mfe": -80.0999984741211
+    },
+    {
+      "id": "pseudo_0610",
+      "length": 496,
+      "source": "ViennaRNA+Helical",
+      "mfe": -136.0
+    },
+    {
+      "id": "pseudo_0611",
+      "length": 462,
+      "source": "ViennaRNA+Helical",
+      "mfe": -122.0
+    },
+    {
+      "id": "pseudo_0612",
+      "length": 251,
+      "source": "ViennaRNA+Helical",
+      "mfe": -61.79999923706055
+    },
+    {
+      "id": "pseudo_0613",
+      "length": 463,
+      "source": "ViennaRNA+Helical",
+      "mfe": -107.69999694824219
+    },
+    {
+      "id": "pseudo_0614",
+      "length": 144,
+      "source": "ViennaRNA+Helical",
+      "mfe": -23.799999237060547
+    },
+    {
+      "id": "pseudo_0615",
+      "length": 436,
+      "source": "ViennaRNA+Helical",
+      "mfe": -108.4000015258789
+    },
+    {
+      "id": "pseudo_0616",
+      "length": 135,
+      "source": "ViennaRNA+Helical",
+      "mfe": -27.600000381469727
+    },
+    {
+      "id": "pseudo_0617",
+      "length": 259,
+      "source": "ViennaRNA+Helical",
+      "mfe": -61.20000076293945
+    },
+    {
+      "id": "pseudo_0618",
+      "length": 209,
+      "source": "ViennaRNA+Helical",
+      "mfe": -43.900001525878906
+    },
+    {
+      "id": "pseudo_0619",
+      "length": 300,
+      "source": "ViennaRNA+Helical",
+      "mfe": -86.69999694824219
+    },
+    {
+      "id": "pseudo_0620",
+      "length": 234,
+      "source": "ViennaRNA+Helical",
+      "mfe": -62.79999923706055
+    },
+    {
+      "id": "pseudo_0621",
+      "length": 58,
+      "source": "ViennaRNA+Helical",
+      "mfe": -6.599999904632568
+    },
+    {
+      "id": "pseudo_0622",
+      "length": 373,
+      "source": "ViennaRNA+Helical",
+      "mfe": -108.19999694824219
+    },
+    {
+      "id": "pseudo_0623",
+      "length": 58,
+      "source": "ViennaRNA+Helical",
+      "mfe": -7.300000190734863
+    },
+    {
+      "id": "pseudo_0624",
+      "length": 249,
+      "source": "ViennaRNA+Helical",
+      "mfe": -67.30000305175781
+    },
+    {
+      "id": "pseudo_0625",
+      "length": 37,
+      "source": "ViennaRNA+Helical",
+      "mfe": 1.5
+    },
+    {
+      "id": "pseudo_0626",
+      "length": 453,
+      "source": "ViennaRNA+Helical",
+      "mfe": -132.5
+    },
+    {
+      "id": "pseudo_0627",
+      "length": 408,
+      "source": "ViennaRNA+Helical",
+      "mfe": -110.19999694824219
+    },
+    {
+      "id": "pseudo_0628",
+      "length": 164,
+      "source": "ViennaRNA+Helical",
+      "mfe": -40.79999923706055
+    },
+    {
+      "id": "pseudo_0629",
+      "length": 159,
+      "source": "ViennaRNA+Helical",
+      "mfe": -21.100000381469727
+    },
+    {
+      "id": "pseudo_0630",
+      "length": 304,
+      "source": "ViennaRNA+Helical",
+      "mfe": -89.5999984741211
+    },
+    {
+      "id": "pseudo_0631",
+      "length": 144,
+      "source": "ViennaRNA+Helical",
+      "mfe": -30.600000381469727
+    },
+    {
+      "id": "pseudo_0632",
+      "length": 407,
+      "source": "ViennaRNA+Helical",
+      "mfe": -110.0999984741211
+    },
+    {
+      "id": "pseudo_0633",
+      "length": 40,
+      "source": "ViennaRNA+Helical",
+      "mfe": -0.20000000298023224
+    },
+    {
+      "id": "pseudo_0634",
+      "length": 497,
+      "source": "ViennaRNA+Helical",
+      "mfe": -137.0
+    },
+    {
+      "id": "pseudo_0635",
+      "length": 89,
+      "source": "ViennaRNA+Helical",
+      "mfe": -8.699999809265137
+    },
+    {
+      "id": "pseudo_0636",
+      "length": 46,
+      "source": "ViennaRNA+Helical",
+      "mfe": -2.5
+    },
+    {
+      "id": "pseudo_0637",
+      "length": 324,
+      "source": "ViennaRNA+Helical",
+      "mfe": -90.5999984741211
+    },
+    {
+      "id": "pseudo_0638",
+      "length": 380,
+      "source": "ViennaRNA+Helical",
+      "mfe": -87.0999984741211
+    },
+    {
+      "id": "pseudo_0639",
+      "length": 123,
+      "source": "ViennaRNA+Helical",
+      "mfe": -23.399999618530273
+    },
+    {
+      "id": "pseudo_0640",
+      "length": 355,
+      "source": "ViennaRNA+Helical",
+      "mfe": -83.0
+    },
+    {
+      "id": "pseudo_0641",
+      "length": 465,
+      "source": "ViennaRNA+Helical",
+      "mfe": -125.19999694824219
+    },
+    {
+      "id": "pseudo_0642",
+      "length": 62,
+      "source": "ViennaRNA+Helical",
+      "mfe": -5.599999904632568
+    },
+    {
+      "id": "pseudo_0643",
+      "length": 250,
+      "source": "ViennaRNA+Helical",
+      "mfe": -78.0999984741211
+    },
+    {
+      "id": "pseudo_0644",
+      "length": 130,
+      "source": "ViennaRNA+Helical",
+      "mfe": -31.200000762939453
+    },
+    {
+      "id": "pseudo_0645",
+      "length": 56,
+      "source": "ViennaRNA+Helical",
+      "mfe": -1.600000023841858
+    },
+    {
+      "id": "pseudo_0646",
+      "length": 343,
+      "source": "ViennaRNA+Helical",
+      "mfe": -111.0999984741211
+    },
+    {
+      "id": "pseudo_0647",
+      "length": 153,
+      "source": "ViennaRNA+Helical",
+      "mfe": -27.0
+    },
+    {
+      "id": "pseudo_0648",
+      "length": 479,
+      "source": "ViennaRNA+Helical",
+      "mfe": -128.8000030517578
+    },
+    {
+      "id": "pseudo_0649",
+      "length": 71,
+      "source": "ViennaRNA+Helical",
+      "mfe": -13.100000381469727
+    },
+    {
+      "id": "pseudo_0650",
+      "length": 210,
+      "source": "ViennaRNA+Helical",
+      "mfe": -55.900001525878906
+    },
+    {
+      "id": "pseudo_0651",
+      "length": 38,
+      "source": "ViennaRNA+Helical",
+      "mfe": 3.359999895095825
+    },
+    {
+      "id": "pseudo_0652",
+      "length": 244,
+      "source": "ViennaRNA+Helical",
+      "mfe": -64.5
+    },
+    {
+      "id": "pseudo_0653",
+      "length": 378,
+      "source": "ViennaRNA+Helical",
+      "mfe": -116.4000015258789
+    },
+    {
+      "id": "pseudo_0654",
+      "length": 61,
+      "source": "ViennaRNA+Helical",
+      "mfe": -2.5999999046325684
+    },
+    {
+      "id": "pseudo_0655",
+      "length": 203,
+      "source": "ViennaRNA+Helical",
+      "mfe": -48.70000076293945
+    },
+    {
+      "id": "pseudo_0656",
+      "length": 146,
+      "source": "ViennaRNA+Helical",
+      "mfe": -46.5
+    },
+    {
+      "id": "pseudo_0657",
+      "length": 273,
+      "source": "ViennaRNA+Helical",
+      "mfe": -67.80000305175781
+    },
+    {
+      "id": "pseudo_0658",
+      "length": 61,
+      "source": "ViennaRNA+Helical",
+      "mfe": -14.5
+    },
+    {
+      "id": "pseudo_0659",
+      "length": 297,
+      "source": "ViennaRNA+Helical",
+      "mfe": -92.80000305175781
+    },
+    {
+      "id": "pseudo_0660",
+      "length": 243,
+      "source": "ViennaRNA+Helical",
+      "mfe": -74.69999694824219
+    },
+    {
+      "id": "pseudo_0661",
+      "length": 414,
+      "source": "ViennaRNA+Helical",
+      "mfe": -127.9000015258789
+    },
+    {
+      "id": "pseudo_0662",
+      "length": 296,
+      "source": "ViennaRNA+Helical",
+      "mfe": -72.80000305175781
+    },
+    {
+      "id": "pseudo_0663",
+      "length": 244,
+      "source": "ViennaRNA+Helical",
+      "mfe": -60.599998474121094
+    },
+    {
+      "id": "pseudo_0664",
+      "length": 364,
+      "source": "ViennaRNA+Helical",
+      "mfe": -99.4000015258789
+    },
+    {
+      "id": "pseudo_0665",
+      "length": 89,
+      "source": "ViennaRNA+Helical",
+      "mfe": -24.299999237060547
+    },
+    {
+      "id": "pseudo_0666",
+      "length": 116,
+      "source": "ViennaRNA+Helical",
+      "mfe": -22.700000762939453
+    },
+    {
+      "id": "pseudo_0667",
+      "length": 365,
+      "source": "ViennaRNA+Helical",
+      "mfe": -123.5
+    },
+    {
+      "id": "pseudo_0668",
+      "length": 217,
+      "source": "ViennaRNA+Helical",
+      "mfe": -58.5
+    },
+    {
+      "id": "pseudo_0669",
+      "length": 450,
+      "source": "ViennaRNA+Helical",
+      "mfe": -103.5999984741211
+    },
+    {
+      "id": "pseudo_0670",
+      "length": 90,
+      "source": "ViennaRNA+Helical",
+      "mfe": -27.600000381469727
+    },
+    {
+      "id": "pseudo_0671",
+      "length": 440,
+      "source": "ViennaRNA+Helical",
+      "mfe": -111.5999984741211
+    },
+    {
+      "id": "pseudo_0672",
+      "length": 362,
+      "source": "ViennaRNA+Helical",
+      "mfe": -93.0999984741211
+    },
+    {
+      "id": "pseudo_0673",
+      "length": 249,
+      "source": "ViennaRNA+Helical",
+      "mfe": -65.5
+    },
+    {
+      "id": "pseudo_0674",
+      "length": 92,
+      "source": "ViennaRNA+Helical",
+      "mfe": -10.300000190734863
+    },
+    {
+      "id": "pseudo_0675",
+      "length": 145,
+      "source": "ViennaRNA+Helical",
+      "mfe": -38.099998474121094
+    },
+    {
+      "id": "pseudo_0676",
+      "length": 303,
+      "source": "ViennaRNA+Helical",
+      "mfe": -86.5
+    },
+    {
+      "id": "pseudo_0677",
+      "length": 294,
+      "source": "ViennaRNA+Helical",
+      "mfe": -75.4000015258789
+    },
+    {
+      "id": "pseudo_0678",
+      "length": 227,
+      "source": "ViennaRNA+Helical",
+      "mfe": -58.79999923706055
+    },
+    {
+      "id": "pseudo_0679",
+      "length": 353,
+      "source": "ViennaRNA+Helical",
+      "mfe": -101.5999984741211
+    },
+    {
+      "id": "pseudo_0680",
+      "length": 341,
+      "source": "ViennaRNA+Helical",
+      "mfe": -84.5999984741211
+    },
+    {
+      "id": "pseudo_0681",
+      "length": 271,
+      "source": "ViennaRNA+Helical",
+      "mfe": -69.4000015258789
+    },
+    {
+      "id": "pseudo_0682",
+      "length": 499,
+      "source": "ViennaRNA+Helical",
+      "mfe": -156.89999389648438
+    },
+    {
+      "id": "pseudo_0683",
+      "length": 148,
+      "source": "ViennaRNA+Helical",
+      "mfe": -37.400001525878906
+    },
+    {
+      "id": "pseudo_0684",
+      "length": 141,
+      "source": "ViennaRNA+Helical",
+      "mfe": -38.20000076293945
+    },
+    {
+      "id": "pseudo_0685",
+      "length": 452,
+      "source": "ViennaRNA+Helical",
+      "mfe": -125.4000015258789
+    },
+    {
+      "id": "pseudo_0686",
+      "length": 345,
+      "source": "ViennaRNA+Helical",
+      "mfe": -72.9000015258789
+    },
+    {
+      "id": "pseudo_0687",
+      "length": 489,
+      "source": "ViennaRNA+Helical",
+      "mfe": -140.6999969482422
+    },
+    {
+      "id": "pseudo_0688",
+      "length": 284,
+      "source": "ViennaRNA+Helical",
+      "mfe": -68.30000305175781
+    },
+    {
+      "id": "pseudo_0689",
+      "length": 489,
+      "source": "ViennaRNA+Helical",
+      "mfe": -147.10000610351562
+    },
+    {
+      "id": "pseudo_0690",
+      "length": 355,
+      "source": "ViennaRNA+Helical",
+      "mfe": -112.69999694824219
+    },
+    {
+      "id": "pseudo_0691",
+      "length": 219,
+      "source": "ViennaRNA+Helical",
+      "mfe": -41.79999923706055
+    },
+    {
+      "id": "pseudo_0692",
+      "length": 82,
+      "source": "ViennaRNA+Helical",
+      "mfe": -10.0
+    },
+    {
+      "id": "pseudo_0693",
+      "length": 417,
+      "source": "ViennaRNA+Helical",
+      "mfe": -99.4000015258789
+    },
+    {
+      "id": "pseudo_0694",
+      "length": 30,
+      "source": "ViennaRNA+Helical",
+      "mfe": 3.140000104904175
+    },
+    {
+      "id": "pseudo_0695",
+      "length": 82,
+      "source": "ViennaRNA+Helical",
+      "mfe": -11.5
+    },
+    {
+      "id": "pseudo_0696",
+      "length": 243,
+      "source": "ViennaRNA+Helical",
+      "mfe": -64.5
+    },
+    {
+      "id": "pseudo_0697",
+      "length": 186,
+      "source": "ViennaRNA+Helical",
+      "mfe": -48.599998474121094
+    },
+    {
+      "id": "pseudo_0698",
+      "length": 378,
+      "source": "ViennaRNA+Helical",
+      "mfe": -129.1999969482422
+    },
+    {
+      "id": "pseudo_0699",
+      "length": 284,
+      "source": "ViennaRNA+Helical",
+      "mfe": -71.0
+    },
+    {
+      "id": "pseudo_0700",
+      "length": 419,
+      "source": "ViennaRNA+Helical",
+      "mfe": -118.4000015258789
+    },
+    {
+      "id": "pseudo_0701",
+      "length": 392,
+      "source": "ViennaRNA+Helical",
+      "mfe": -80.9000015258789
+    },
+    {
+      "id": "pseudo_0702",
+      "length": 228,
+      "source": "ViennaRNA+Helical",
+      "mfe": -49.5
+    },
+    {
+      "id": "pseudo_0703",
+      "length": 92,
+      "source": "ViennaRNA+Helical",
+      "mfe": -21.399999618530273
+    },
+    {
+      "id": "pseudo_0704",
+      "length": 117,
+      "source": "ViennaRNA+Helical",
+      "mfe": -30.0
+    },
+    {
+      "id": "pseudo_0705",
+      "length": 412,
+      "source": "ViennaRNA+Helical",
+      "mfe": -128.6999969482422
+    },
+    {
+      "id": "pseudo_0706",
+      "length": 153,
+      "source": "ViennaRNA+Helical",
+      "mfe": -34.099998474121094
+    },
+    {
+      "id": "pseudo_0707",
+      "length": 89,
+      "source": "ViennaRNA+Helical",
+      "mfe": -16.5
+    },
+    {
+      "id": "pseudo_0708",
+      "length": 309,
+      "source": "ViennaRNA+Helical",
+      "mfe": -82.80000305175781
+    },
+    {
+      "id": "pseudo_0709",
+      "length": 175,
+      "source": "ViennaRNA+Helical",
+      "mfe": -42.70000076293945
+    },
+    {
+      "id": "pseudo_0710",
+      "length": 439,
+      "source": "ViennaRNA+Helical",
+      "mfe": -123.4000015258789
+    },
+    {
+      "id": "pseudo_0711",
+      "length": 461,
+      "source": "ViennaRNA+Helical",
+      "mfe": -126.5
+    },
+    {
+      "id": "pseudo_0712",
+      "length": 207,
+      "source": "ViennaRNA+Helical",
+      "mfe": -33.29999923706055
+    },
+    {
+      "id": "pseudo_0713",
+      "length": 102,
+      "source": "ViennaRNA+Helical",
+      "mfe": -8.399999618530273
+    },
+    {
+      "id": "pseudo_0714",
+      "length": 320,
+      "source": "ViennaRNA+Helical",
+      "mfe": -95.0
+    },
+    {
+      "id": "pseudo_0715",
+      "length": 430,
+      "source": "ViennaRNA+Helical",
+      "mfe": -122.5999984741211
+    },
+    {
+      "id": "pseudo_0716",
+      "length": 157,
+      "source": "ViennaRNA+Helical",
+      "mfe": -44.79999923706055
+    },
+    {
+      "id": "pseudo_0717",
+      "length": 72,
+      "source": "ViennaRNA+Helical",
+      "mfe": -15.800000190734863
+    },
+    {
+      "id": "pseudo_0718",
+      "length": 302,
+      "source": "ViennaRNA+Helical",
+      "mfe": -82.0999984741211
+    },
+    {
+      "id": "pseudo_0719",
+      "length": 362,
+      "source": "ViennaRNA+Helical",
+      "mfe": -95.0
+    },
+    {
+      "id": "pseudo_0720",
+      "length": 167,
+      "source": "ViennaRNA+Helical",
+      "mfe": -36.70000076293945
+    },
+    {
+      "id": "pseudo_0721",
+      "length": 320,
+      "source": "ViennaRNA+Helical",
+      "mfe": -72.9000015258789
+    },
+    {
+      "id": "pseudo_0722",
+      "length": 185,
+      "source": "ViennaRNA+Helical",
+      "mfe": -31.0
+    },
+    {
+      "id": "pseudo_0723",
+      "length": 239,
+      "source": "ViennaRNA+Helical",
+      "mfe": -56.79999923706055
+    },
+    {
+      "id": "pseudo_0724",
+      "length": 384,
+      "source": "ViennaRNA+Helical",
+      "mfe": -103.9000015258789
+    },
+    {
+      "id": "pseudo_0725",
+      "length": 265,
+      "source": "ViennaRNA+Helical",
+      "mfe": -77.9000015258789
+    },
+    {
+      "id": "pseudo_0726",
+      "length": 479,
+      "source": "ViennaRNA+Helical",
+      "mfe": -108.4000015258789
+    },
+    {
+      "id": "pseudo_0727",
+      "length": 116,
+      "source": "ViennaRNA+Helical",
+      "mfe": -24.5
+    },
+    {
+      "id": "pseudo_0728",
+      "length": 163,
+      "source": "ViennaRNA+Helical",
+      "mfe": -32.5
+    },
+    {
+      "id": "pseudo_0729",
+      "length": 37,
+      "source": "ViennaRNA+Helical",
+      "mfe": -2.5
+    },
+    {
+      "id": "pseudo_0730",
+      "length": 196,
+      "source": "ViennaRNA+Helical",
+      "mfe": -55.599998474121094
+    },
+    {
+      "id": "pseudo_0731",
+      "length": 56,
+      "source": "ViennaRNA+Helical",
+      "mfe": -15.399999618530273
+    },
+    {
+      "id": "pseudo_0732",
+      "length": 62,
+      "source": "ViennaRNA+Helical",
+      "mfe": -8.800000190734863
+    },
+    {
+      "id": "pseudo_0733",
+      "length": 166,
+      "source": "ViennaRNA+Helical",
+      "mfe": -45.20000076293945
+    },
+    {
+      "id": "pseudo_0734",
+      "length": 45,
+      "source": "ViennaRNA+Helical",
+      "mfe": -3.200000047683716
+    },
+    {
+      "id": "pseudo_0735",
+      "length": 257,
+      "source": "ViennaRNA+Helical",
+      "mfe": -68.80000305175781
+    },
+    {
+      "id": "pseudo_0736",
+      "length": 46,
+      "source": "ViennaRNA+Helical",
+      "mfe": 1.600000023841858
+    },
+    {
+      "id": "pseudo_0737",
+      "length": 294,
+      "source": "ViennaRNA+Helical",
+      "mfe": -83.5
+    },
+    {
+      "id": "pseudo_0738",
+      "length": 351,
+      "source": "ViennaRNA+Helical",
+      "mfe": -93.0
+    },
+    {
+      "id": "pseudo_0739",
+      "length": 385,
+      "source": "ViennaRNA+Helical",
+      "mfe": -93.69999694824219
+    },
+    {
+      "id": "pseudo_0740",
+      "length": 323,
+      "source": "ViennaRNA+Helical",
+      "mfe": -100.69999694824219
+    },
+    {
+      "id": "pseudo_0741",
+      "length": 218,
+      "source": "ViennaRNA+Helical",
+      "mfe": -69.9000015258789
+    },
+    {
+      "id": "pseudo_0742",
+      "length": 351,
+      "source": "ViennaRNA+Helical",
+      "mfe": -101.5
+    },
+    {
+      "id": "pseudo_0743",
+      "length": 140,
+      "source": "ViennaRNA+Helical",
+      "mfe": -25.0
+    },
+    {
+      "id": "pseudo_0744",
+      "length": 70,
+      "source": "ViennaRNA+Helical",
+      "mfe": -20.200000762939453
+    },
+    {
+      "id": "pseudo_0745",
+      "length": 143,
+      "source": "ViennaRNA+Helical",
+      "mfe": -43.0
+    },
+    {
+      "id": "pseudo_0746",
+      "length": 91,
+      "source": "ViennaRNA+Helical",
+      "mfe": -8.699999809265137
+    },
+    {
+      "id": "pseudo_0747",
+      "length": 436,
+      "source": "ViennaRNA+Helical",
+      "mfe": -114.0999984741211
+    },
+    {
+      "id": "pseudo_0748",
+      "length": 195,
+      "source": "ViennaRNA+Helical",
+      "mfe": -37.599998474121094
+    },
+    {
+      "id": "pseudo_0749",
+      "length": 95,
+      "source": "ViennaRNA+Helical",
+      "mfe": -6.099999904632568
+    },
+    {
+      "id": "pseudo_0750",
+      "length": 46,
+      "source": "ViennaRNA+Helical",
+      "mfe": -2.5999999046325684
+    },
+    {
+      "id": "pseudo_0751",
+      "length": 486,
+      "source": "ViennaRNA+Helical",
+      "mfe": -138.1999969482422
+    },
+    {
+      "id": "pseudo_0752",
+      "length": 313,
+      "source": "ViennaRNA+Helical",
+      "mfe": -71.5999984741211
+    },
+    {
+      "id": "pseudo_0753",
+      "length": 413,
+      "source": "ViennaRNA+Helical",
+      "mfe": -129.3000030517578
+    },
+    {
+      "id": "pseudo_0754",
+      "length": 398,
+      "source": "ViennaRNA+Helical",
+      "mfe": -115.80000305175781
+    },
+    {
+      "id": "pseudo_0755",
+      "length": 189,
+      "source": "ViennaRNA+Helical",
+      "mfe": -56.20000076293945
+    },
+    {
+      "id": "pseudo_0756",
+      "length": 196,
+      "source": "ViennaRNA+Helical",
+      "mfe": -40.5
+    },
+    {
+      "id": "pseudo_0757",
+      "length": 396,
+      "source": "ViennaRNA+Helical",
+      "mfe": -118.5
+    },
+    {
+      "id": "pseudo_0758",
+      "length": 356,
+      "source": "ViennaRNA+Helical",
+      "mfe": -88.0999984741211
+    },
+    {
+      "id": "pseudo_0759",
+      "length": 198,
+      "source": "ViennaRNA+Helical",
+      "mfe": -40.099998474121094
+    },
+    {
+      "id": "pseudo_0760",
+      "length": 399,
+      "source": "ViennaRNA+Helical",
+      "mfe": -114.80000305175781
+    },
+    {
+      "id": "pseudo_0761",
+      "length": 181,
+      "source": "ViennaRNA+Helical",
+      "mfe": -47.599998474121094
+    },
+    {
+      "id": "pseudo_0762",
+      "length": 425,
+      "source": "ViennaRNA+Helical",
+      "mfe": -110.0
+    },
+    {
+      "id": "pseudo_0763",
+      "length": 50,
+      "source": "ViennaRNA+Helical",
+      "mfe": -1.100000023841858
+    },
+    {
+      "id": "pseudo_0764",
+      "length": 199,
+      "source": "ViennaRNA+Helical",
+      "mfe": -22.899999618530273
+    },
+    {
+      "id": "pseudo_0765",
+      "length": 376,
+      "source": "ViennaRNA+Helical",
+      "mfe": -104.5
+    },
+    {
+      "id": "pseudo_0766",
+      "length": 57,
+      "source": "ViennaRNA+Helical",
+      "mfe": 1.2999999523162842
+    },
+    {
+      "id": "pseudo_0767",
+      "length": 181,
+      "source": "ViennaRNA+Helical",
+      "mfe": -51.79999923706055
+    },
+    {
+      "id": "pseudo_0768",
+      "length": 267,
+      "source": "ViennaRNA+Helical",
+      "mfe": -69.69999694824219
+    },
+    {
+      "id": "pseudo_0769",
+      "length": 451,
+      "source": "ViennaRNA+Helical",
+      "mfe": -110.5
+    },
+    {
+      "id": "pseudo_0770",
+      "length": 399,
+      "source": "ViennaRNA+Helical",
+      "mfe": -109.0999984741211
+    },
+    {
+      "id": "pseudo_0771",
+      "length": 145,
+      "source": "ViennaRNA+Helical",
+      "mfe": -35.900001525878906
+    },
+    {
+      "id": "pseudo_0772",
+      "length": 137,
+      "source": "ViennaRNA+Helical",
+      "mfe": -35.20000076293945
+    },
+    {
+      "id": "pseudo_0773",
+      "length": 316,
+      "source": "ViennaRNA+Helical",
+      "mfe": -92.30000305175781
+    },
+    {
+      "id": "pseudo_0774",
+      "length": 209,
+      "source": "ViennaRNA+Helical",
+      "mfe": -56.099998474121094
+    },
+    {
+      "id": "pseudo_0775",
+      "length": 491,
+      "source": "ViennaRNA+Helical",
+      "mfe": -128.0
+    },
+    {
+      "id": "pseudo_0776",
+      "length": 84,
+      "source": "ViennaRNA+Helical",
+      "mfe": -21.200000762939453
+    },
+    {
+      "id": "pseudo_0777",
+      "length": 444,
+      "source": "ViennaRNA+Helical",
+      "mfe": -127.0
+    },
+    {
+      "id": "pseudo_0778",
+      "length": 224,
+      "source": "ViennaRNA+Helical",
+      "mfe": -59.0
+    },
+    {
+      "id": "pseudo_0779",
+      "length": 140,
+      "source": "ViennaRNA+Helical",
+      "mfe": -28.5
+    },
+    {
+      "id": "pseudo_0780",
+      "length": 110,
+      "source": "ViennaRNA+Helical",
+      "mfe": -18.799999237060547
+    },
+    {
+      "id": "pseudo_0781",
+      "length": 123,
+      "source": "ViennaRNA+Helical",
+      "mfe": -18.299999237060547
+    },
+    {
+      "id": "pseudo_0782",
+      "length": 282,
+      "source": "ViennaRNA+Helical",
+      "mfe": -80.5999984741211
+    },
+    {
+      "id": "pseudo_0783",
+      "length": 231,
+      "source": "ViennaRNA+Helical",
+      "mfe": -60.900001525878906
+    },
+    {
+      "id": "pseudo_0784",
+      "length": 204,
+      "source": "ViennaRNA+Helical",
+      "mfe": -40.79999923706055
+    },
+    {
+      "id": "pseudo_0785",
+      "length": 451,
+      "source": "ViennaRNA+Helical",
+      "mfe": -153.5
+    },
+    {
+      "id": "pseudo_0786",
+      "length": 126,
+      "source": "ViennaRNA+Helical",
+      "mfe": -18.700000762939453
+    },
+    {
+      "id": "pseudo_0787",
+      "length": 386,
+      "source": "ViennaRNA+Helical",
+      "mfe": -106.9000015258789
+    },
+    {
+      "id": "pseudo_0788",
+      "length": 257,
+      "source": "ViennaRNA+Helical",
+      "mfe": -61.20000076293945
+    },
+    {
+      "id": "pseudo_0789",
+      "length": 268,
+      "source": "ViennaRNA+Helical",
+      "mfe": -59.400001525878906
+    },
+    {
+      "id": "pseudo_0790",
+      "length": 101,
+      "source": "ViennaRNA+Helical",
+      "mfe": -14.899999618530273
+    },
+    {
+      "id": "pseudo_0791",
+      "length": 223,
+      "source": "ViennaRNA+Helical",
+      "mfe": -60.0
+    },
+    {
+      "id": "pseudo_0792",
+      "length": 251,
+      "source": "ViennaRNA+Helical",
+      "mfe": -54.70000076293945
+    },
+    {
+      "id": "pseudo_0793",
+      "length": 390,
+      "source": "ViennaRNA+Helical",
+      "mfe": -103.69999694824219
+    },
+    {
+      "id": "pseudo_0794",
+      "length": 51,
+      "source": "ViennaRNA+Helical",
+      "mfe": -0.30000001192092896
+    },
+    {
+      "id": "pseudo_0795",
+      "length": 55,
+      "source": "ViennaRNA+Helical",
+      "mfe": -8.399999618530273
+    },
+    {
+      "id": "pseudo_0796",
+      "length": 263,
+      "source": "ViennaRNA+Helical",
+      "mfe": -68.4000015258789
+    },
+    {
+      "id": "pseudo_0797",
+      "length": 430,
+      "source": "ViennaRNA+Helical",
+      "mfe": -120.9000015258789
+    },
+    {
+      "id": "pseudo_0798",
+      "length": 147,
+      "source": "ViennaRNA+Helical",
+      "mfe": -21.799999237060547
+    },
+    {
+      "id": "pseudo_0799",
+      "length": 434,
+      "source": "ViennaRNA+Helical",
+      "mfe": -141.1999969482422
+    },
+    {
+      "id": "pseudo_0800",
+      "length": 450,
+      "source": "ViennaRNA+Helical",
+      "mfe": -132.3000030517578
+    },
+    {
+      "id": "pseudo_0801",
+      "length": 422,
+      "source": "ViennaRNA+Helical",
+      "mfe": -135.6999969482422
+    },
+    {
+      "id": "pseudo_0802",
+      "length": 464,
+      "source": "ViennaRNA+Helical",
+      "mfe": -142.60000610351562
+    },
+    {
+      "id": "pseudo_0803",
+      "length": 94,
+      "source": "ViennaRNA+Helical",
+      "mfe": -15.899999618530273
+    },
+    {
+      "id": "pseudo_0804",
+      "length": 223,
+      "source": "ViennaRNA+Helical",
+      "mfe": -48.599998474121094
+    },
+    {
+      "id": "pseudo_0805",
+      "length": 293,
+      "source": "ViennaRNA+Helical",
+      "mfe": -100.30000305175781
+    },
+    {
+      "id": "pseudo_0806",
+      "length": 427,
+      "source": "ViennaRNA+Helical",
+      "mfe": -115.5
+    },
+    {
+      "id": "pseudo_0807",
+      "length": 406,
+      "source": "ViennaRNA+Helical",
+      "mfe": -108.4000015258789
+    },
+    {
+      "id": "pseudo_0808",
+      "length": 454,
+      "source": "ViennaRNA+Helical",
+      "mfe": -111.5
+    },
+    {
+      "id": "pseudo_0809",
+      "length": 349,
+      "source": "ViennaRNA+Helical",
+      "mfe": -98.0999984741211
+    },
+    {
+      "id": "pseudo_0810",
+      "length": 367,
+      "source": "ViennaRNA+Helical",
+      "mfe": -109.19999694824219
+    },
+    {
+      "id": "pseudo_0811",
+      "length": 445,
+      "source": "ViennaRNA+Helical",
+      "mfe": -127.30000305175781
+    },
+    {
+      "id": "pseudo_0812",
+      "length": 104,
+      "source": "ViennaRNA+Helical",
+      "mfe": -21.399999618530273
+    },
+    {
+      "id": "pseudo_0813",
+      "length": 466,
+      "source": "ViennaRNA+Helical",
+      "mfe": -151.3000030517578
+    },
+    {
+      "id": "pseudo_0814",
+      "length": 131,
+      "source": "ViennaRNA+Helical",
+      "mfe": -25.100000381469727
+    },
+    {
+      "id": "pseudo_0815",
+      "length": 272,
+      "source": "ViennaRNA+Helical",
+      "mfe": -76.0
+    },
+    {
+      "id": "pseudo_0816",
+      "length": 294,
+      "source": "ViennaRNA+Helical",
+      "mfe": -86.69999694824219
+    },
+    {
+      "id": "pseudo_0817",
+      "length": 188,
+      "source": "ViennaRNA+Helical",
+      "mfe": -46.29999923706055
+    },
+    {
+      "id": "pseudo_0818",
+      "length": 82,
+      "source": "ViennaRNA+Helical",
+      "mfe": -17.700000762939453
+    },
+    {
+      "id": "pseudo_0819",
+      "length": 138,
+      "source": "ViennaRNA+Helical",
+      "mfe": -19.399999618530273
+    },
+    {
+      "id": "pseudo_0820",
+      "length": 128,
+      "source": "ViennaRNA+Helical",
+      "mfe": -24.200000762939453
+    },
+    {
+      "id": "pseudo_0821",
+      "length": 473,
+      "source": "ViennaRNA+Helical",
+      "mfe": -131.5
+    },
+    {
+      "id": "pseudo_0822",
+      "length": 324,
+      "source": "ViennaRNA+Helical",
+      "mfe": -71.0999984741211
+    },
+    {
+      "id": "pseudo_0823",
+      "length": 406,
+      "source": "ViennaRNA+Helical",
+      "mfe": -126.80000305175781
+    },
+    {
+      "id": "pseudo_0824",
+      "length": 149,
+      "source": "ViennaRNA+Helical",
+      "mfe": -35.099998474121094
+    },
+    {
+      "id": "pseudo_0825",
+      "length": 203,
+      "source": "ViennaRNA+Helical",
+      "mfe": -54.20000076293945
+    },
+    {
+      "id": "pseudo_0826",
+      "length": 163,
+      "source": "ViennaRNA+Helical",
+      "mfe": -36.0
+    },
+    {
+      "id": "pseudo_0827",
+      "length": 340,
+      "source": "ViennaRNA+Helical",
+      "mfe": -93.0999984741211
+    },
+    {
+      "id": "pseudo_0828",
+      "length": 245,
+      "source": "ViennaRNA+Helical",
+      "mfe": -73.69999694824219
+    },
+    {
+      "id": "pseudo_0829",
+      "length": 207,
+      "source": "ViennaRNA+Helical",
+      "mfe": -58.099998474121094
+    },
+    {
+      "id": "pseudo_0830",
+      "length": 464,
+      "source": "ViennaRNA+Helical",
+      "mfe": -139.10000610351562
+    },
+    {
+      "id": "pseudo_0831",
+      "length": 435,
+      "source": "ViennaRNA+Helical",
+      "mfe": -125.69999694824219
+    },
+    {
+      "id": "pseudo_0832",
+      "length": 426,
+      "source": "ViennaRNA+Helical",
+      "mfe": -143.3000030517578
+    },
+    {
+      "id": "pseudo_0833",
+      "length": 294,
+      "source": "ViennaRNA+Helical",
+      "mfe": -68.80000305175781
+    },
+    {
+      "id": "pseudo_0834",
+      "length": 483,
+      "source": "ViennaRNA+Helical",
+      "mfe": -142.0
+    },
+    {
+      "id": "pseudo_0835",
+      "length": 164,
+      "source": "ViennaRNA+Helical",
+      "mfe": -36.5
+    },
+    {
+      "id": "pseudo_0836",
+      "length": 443,
+      "source": "ViennaRNA+Helical",
+      "mfe": -105.5999984741211
+    },
+    {
+      "id": "pseudo_0837",
+      "length": 395,
+      "source": "ViennaRNA+Helical",
+      "mfe": -82.30000305175781
+    },
+    {
+      "id": "pseudo_0838",
+      "length": 385,
+      "source": "ViennaRNA+Helical",
+      "mfe": -77.4000015258789
+    },
+    {
+      "id": "pseudo_0839",
+      "length": 85,
+      "source": "ViennaRNA+Helical",
+      "mfe": -10.399999618530273
+    },
+    {
+      "id": "pseudo_0840",
+      "length": 185,
+      "source": "ViennaRNA+Helical",
+      "mfe": -49.79999923706055
+    },
+    {
+      "id": "pseudo_0841",
+      "length": 313,
+      "source": "ViennaRNA+Helical",
+      "mfe": -67.9000015258789
+    },
+    {
+      "id": "pseudo_0842",
+      "length": 204,
+      "source": "ViennaRNA+Helical",
+      "mfe": -43.400001525878906
+    },
+    {
+      "id": "pseudo_0843",
+      "length": 48,
+      "source": "ViennaRNA+Helical",
+      "mfe": -7.800000190734863
+    },
+    {
+      "id": "pseudo_0844",
+      "length": 244,
+      "source": "ViennaRNA+Helical",
+      "mfe": -63.099998474121094
+    },
+    {
+      "id": "pseudo_0845",
+      "length": 319,
+      "source": "ViennaRNA+Helical",
+      "mfe": -92.5999984741211
+    },
+    {
+      "id": "pseudo_0846",
+      "length": 427,
+      "source": "ViennaRNA+Helical",
+      "mfe": -114.19999694824219
+    },
+    {
+      "id": "pseudo_0847",
+      "length": 387,
+      "source": "ViennaRNA+Helical",
+      "mfe": -106.9000015258789
+    },
+    {
+      "id": "pseudo_0848",
+      "length": 310,
+      "source": "ViennaRNA+Helical",
+      "mfe": -90.0
+    },
+    {
+      "id": "pseudo_0849",
+      "length": 163,
+      "source": "ViennaRNA+Helical",
+      "mfe": -22.299999237060547
+    },
+    {
+      "id": "pseudo_0850",
+      "length": 310,
+      "source": "ViennaRNA+Helical",
+      "mfe": -71.9000015258789
+    },
+    {
+      "id": "pseudo_0851",
+      "length": 473,
+      "source": "ViennaRNA+Helical",
+      "mfe": -133.5
+    },
+    {
+      "id": "pseudo_0852",
+      "length": 286,
+      "source": "ViennaRNA+Helical",
+      "mfe": -68.69999694824219
+    },
+    {
+      "id": "pseudo_0853",
+      "length": 398,
+      "source": "ViennaRNA+Helical",
+      "mfe": -108.0999984741211
+    },
+    {
+      "id": "pseudo_0854",
+      "length": 94,
+      "source": "ViennaRNA+Helical",
+      "mfe": -18.899999618530273
+    },
+    {
+      "id": "pseudo_0855",
+      "length": 271,
+      "source": "ViennaRNA+Helical",
+      "mfe": -71.19999694824219
+    },
+    {
+      "id": "pseudo_0856",
+      "length": 258,
+      "source": "ViennaRNA+Helical",
+      "mfe": -60.29999923706055
+    },
+    {
+      "id": "pseudo_0857",
+      "length": 301,
+      "source": "ViennaRNA+Helical",
+      "mfe": -76.69999694824219
+    },
+    {
+      "id": "pseudo_0858",
+      "length": 98,
+      "source": "ViennaRNA+Helical",
+      "mfe": -15.399999618530273
+    },
+    {
+      "id": "pseudo_0859",
+      "length": 107,
+      "source": "ViennaRNA+Helical",
+      "mfe": -18.200000762939453
+    },
+    {
+      "id": "pseudo_0860",
+      "length": 272,
+      "source": "ViennaRNA+Helical",
+      "mfe": -74.30000305175781
+    },
+    {
+      "id": "pseudo_0861",
+      "length": 366,
+      "source": "ViennaRNA+Helical",
+      "mfe": -101.80000305175781
+    },
+    {
+      "id": "pseudo_0862",
+      "length": 267,
+      "source": "ViennaRNA+Helical",
+      "mfe": -65.0999984741211
+    },
+    {
+      "id": "pseudo_0863",
+      "length": 297,
+      "source": "ViennaRNA+Helical",
+      "mfe": -72.19999694824219
+    },
+    {
+      "id": "pseudo_0864",
+      "length": 209,
+      "source": "ViennaRNA+Helical",
+      "mfe": -53.20000076293945
+    },
+    {
+      "id": "pseudo_0865",
+      "length": 259,
+      "source": "ViennaRNA+Helical",
+      "mfe": -65.9000015258789
+    },
+    {
+      "id": "pseudo_0866",
+      "length": 470,
+      "source": "ViennaRNA+Helical",
+      "mfe": -135.39999389648438
+    },
+    {
+      "id": "pseudo_0867",
+      "length": 471,
+      "source": "ViennaRNA+Helical",
+      "mfe": -126.5999984741211
+    },
+    {
+      "id": "pseudo_0868",
+      "length": 400,
+      "source": "ViennaRNA+Helical",
+      "mfe": -100.19999694824219
+    },
+    {
+      "id": "pseudo_0869",
+      "length": 246,
+      "source": "ViennaRNA+Helical",
+      "mfe": -59.20000076293945
+    },
+    {
+      "id": "pseudo_0870",
+      "length": 206,
+      "source": "ViennaRNA+Helical",
+      "mfe": -47.900001525878906
+    },
+    {
+      "id": "pseudo_0871",
+      "length": 152,
+      "source": "ViennaRNA+Helical",
+      "mfe": -56.29999923706055
+    },
+    {
+      "id": "pseudo_0872",
+      "length": 361,
+      "source": "ViennaRNA+Helical",
+      "mfe": -139.60000610351562
+    },
+    {
+      "id": "pseudo_0873",
+      "length": 420,
+      "source": "ViennaRNA+Helical",
+      "mfe": -130.89999389648438
+    },
+    {
+      "id": "pseudo_0874",
+      "length": 72,
+      "source": "ViennaRNA+Helical",
+      "mfe": -11.0
+    },
+    {
+      "id": "pseudo_0875",
+      "length": 186,
+      "source": "ViennaRNA+Helical",
+      "mfe": -53.400001525878906
+    },
+    {
+      "id": "pseudo_0876",
+      "length": 154,
+      "source": "ViennaRNA+Helical",
+      "mfe": -36.70000076293945
+    },
+    {
+      "id": "pseudo_0877",
+      "length": 60,
+      "source": "ViennaRNA+Helical",
+      "mfe": -8.600000381469727
+    },
+    {
+      "id": "pseudo_0878",
+      "length": 155,
+      "source": "ViennaRNA+Helical",
+      "mfe": -31.200000762939453
+    },
+    {
+      "id": "pseudo_0879",
+      "length": 188,
+      "source": "ViennaRNA+Helical",
+      "mfe": -50.79999923706055
+    },
+    {
+      "id": "pseudo_0880",
+      "length": 274,
+      "source": "ViennaRNA+Helical",
+      "mfe": -69.80000305175781
+    },
+    {
+      "id": "pseudo_0881",
+      "length": 344,
+      "source": "ViennaRNA+Helical",
+      "mfe": -83.30000305175781
+    },
+    {
+      "id": "pseudo_0882",
+      "length": 119,
+      "source": "ViennaRNA+Helical",
+      "mfe": -17.5
+    },
+    {
+      "id": "pseudo_0883",
+      "length": 151,
+      "source": "ViennaRNA+Helical",
+      "mfe": -37.0
+    },
+    {
+      "id": "pseudo_0884",
+      "length": 405,
+      "source": "ViennaRNA+Helical",
+      "mfe": -127.9000015258789
+    },
+    {
+      "id": "pseudo_0885",
+      "length": 228,
+      "source": "ViennaRNA+Helical",
+      "mfe": -55.099998474121094
+    },
+    {
+      "id": "pseudo_0886",
+      "length": 183,
+      "source": "ViennaRNA+Helical",
+      "mfe": -33.79999923706055
+    },
+    {
+      "id": "pseudo_0887",
+      "length": 74,
+      "source": "ViennaRNA+Helical",
+      "mfe": -14.699999809265137
+    },
+    {
+      "id": "pseudo_0888",
+      "length": 302,
+      "source": "ViennaRNA+Helical",
+      "mfe": -88.4000015258789
+    },
+    {
+      "id": "pseudo_0889",
+      "length": 141,
+      "source": "ViennaRNA+Helical",
+      "mfe": -12.399999618530273
+    },
+    {
+      "id": "pseudo_0890",
+      "length": 176,
+      "source": "ViennaRNA+Helical",
+      "mfe": -50.5
+    },
+    {
+      "id": "pseudo_0891",
+      "length": 48,
+      "source": "ViennaRNA+Helical",
+      "mfe": -3.700000047683716
+    },
+    {
+      "id": "pseudo_0892",
+      "length": 358,
+      "source": "ViennaRNA+Helical",
+      "mfe": -97.30000305175781
+    },
+    {
+      "id": "pseudo_0893",
+      "length": 314,
+      "source": "ViennaRNA+Helical",
+      "mfe": -80.30000305175781
+    },
+    {
+      "id": "pseudo_0894",
+      "length": 256,
+      "source": "ViennaRNA+Helical",
+      "mfe": -72.80000305175781
+    },
+    {
+      "id": "pseudo_0895",
+      "length": 92,
+      "source": "ViennaRNA+Helical",
+      "mfe": -11.199999809265137
+    },
+    {
+      "id": "pseudo_0896",
+      "length": 312,
+      "source": "ViennaRNA+Helical",
+      "mfe": -85.5999984741211
+    },
+    {
+      "id": "pseudo_0897",
+      "length": 199,
+      "source": "ViennaRNA+Helical",
+      "mfe": -52.79999923706055
+    },
+    {
+      "id": "pseudo_0898",
+      "length": 479,
+      "source": "ViennaRNA+Helical",
+      "mfe": -124.5999984741211
+    },
+    {
+      "id": "pseudo_0899",
+      "length": 395,
+      "source": "ViennaRNA+Helical",
+      "mfe": -104.30000305175781
+    },
+    {
+      "id": "pseudo_0900",
+      "length": 215,
+      "source": "ViennaRNA+Helical",
+      "mfe": -57.20000076293945
+    },
+    {
+      "id": "pseudo_0901",
+      "length": 339,
+      "source": "ViennaRNA+Helical",
+      "mfe": -96.19999694824219
+    },
+    {
+      "id": "pseudo_0902",
+      "length": 371,
+      "source": "ViennaRNA+Helical",
+      "mfe": -89.80000305175781
+    },
+    {
+      "id": "pseudo_0903",
+      "length": 289,
+      "source": "ViennaRNA+Helical",
+      "mfe": -62.70000076293945
+    },
+    {
+      "id": "pseudo_0904",
+      "length": 417,
+      "source": "ViennaRNA+Helical",
+      "mfe": -115.9000015258789
+    },
+    {
+      "id": "pseudo_0905",
+      "length": 480,
+      "source": "ViennaRNA+Helical",
+      "mfe": -145.89999389648438
+    },
+    {
+      "id": "pseudo_0906",
+      "length": 51,
+      "source": "ViennaRNA+Helical",
+      "mfe": -6.599999904632568
+    },
+    {
+      "id": "pseudo_0907",
+      "length": 50,
+      "source": "ViennaRNA+Helical",
+      "mfe": 3.619999885559082
+    },
+    {
+      "id": "pseudo_0908",
+      "length": 222,
+      "source": "ViennaRNA+Helical",
+      "mfe": -73.0999984741211
+    },
+    {
+      "id": "pseudo_0909",
+      "length": 494,
+      "source": "ViennaRNA+Helical",
+      "mfe": -140.1999969482422
+    },
+    {
+      "id": "pseudo_0910",
+      "length": 93,
+      "source": "ViennaRNA+Helical",
+      "mfe": -8.300000190734863
+    },
+    {
+      "id": "pseudo_0911",
+      "length": 164,
+      "source": "ViennaRNA+Helical",
+      "mfe": -37.099998474121094
+    },
+    {
+      "id": "pseudo_0912",
+      "length": 93,
+      "source": "ViennaRNA+Helical",
+      "mfe": -12.800000190734863
+    },
+    {
+      "id": "pseudo_0913",
+      "length": 36,
+      "source": "ViennaRNA+Helical",
+      "mfe": 1.600000023841858
+    },
+    {
+      "id": "pseudo_0914",
+      "length": 425,
+      "source": "ViennaRNA+Helical",
+      "mfe": -125.30000305175781
+    },
+    {
+      "id": "pseudo_0915",
+      "length": 56,
+      "source": "ViennaRNA+Helical",
+      "mfe": -7.599999904632568
+    },
+    {
+      "id": "pseudo_0916",
+      "length": 114,
+      "source": "ViennaRNA+Helical",
+      "mfe": -17.899999618530273
+    },
+    {
+      "id": "pseudo_0917",
+      "length": 255,
+      "source": "ViennaRNA+Helical",
+      "mfe": -77.0999984741211
+    },
+    {
+      "id": "pseudo_0918",
+      "length": 45,
+      "source": "ViennaRNA+Helical",
+      "mfe": -2.200000047683716
+    },
+    {
+      "id": "pseudo_0919",
+      "length": 474,
+      "source": "ViennaRNA+Helical",
+      "mfe": -136.0
+    },
+    {
+      "id": "pseudo_0920",
+      "length": 386,
+      "source": "ViennaRNA+Helical",
+      "mfe": -103.0999984741211
+    },
+    {
+      "id": "pseudo_0921",
+      "length": 318,
+      "source": "ViennaRNA+Helical",
+      "mfe": -80.0
+    },
+    {
+      "id": "pseudo_0922",
+      "length": 446,
+      "source": "ViennaRNA+Helical",
+      "mfe": -132.8000030517578
+    },
+    {
+      "id": "pseudo_0923",
+      "length": 458,
+      "source": "ViennaRNA+Helical",
+      "mfe": -137.10000610351562
+    },
+    {
+      "id": "pseudo_0924",
+      "length": 367,
+      "source": "ViennaRNA+Helical",
+      "mfe": -112.9000015258789
+    },
+    {
+      "id": "pseudo_0925",
+      "length": 244,
+      "source": "ViennaRNA+Helical",
+      "mfe": -44.900001525878906
+    },
+    {
+      "id": "pseudo_0926",
+      "length": 377,
+      "source": "ViennaRNA+Helical",
+      "mfe": -109.4000015258789
+    },
+    {
+      "id": "pseudo_0927",
+      "length": 343,
+      "source": "ViennaRNA+Helical",
+      "mfe": -83.9000015258789
+    },
+    {
+      "id": "pseudo_0928",
+      "length": 349,
+      "source": "ViennaRNA+Helical",
+      "mfe": -85.0
+    },
+    {
+      "id": "pseudo_0929",
+      "length": 218,
+      "source": "ViennaRNA+Helical",
+      "mfe": -44.900001525878906
+    },
+    {
+      "id": "pseudo_0930",
+      "length": 277,
+      "source": "ViennaRNA+Helical",
+      "mfe": -68.69999694824219
+    },
+    {
+      "id": "pseudo_0931",
+      "length": 62,
+      "source": "ViennaRNA+Helical",
+      "mfe": -4.599999904632568
+    },
+    {
+      "id": "pseudo_0932",
+      "length": 102,
+      "source": "ViennaRNA+Helical",
+      "mfe": -19.299999237060547
+    },
+    {
+      "id": "pseudo_0933",
+      "length": 384,
+      "source": "ViennaRNA+Helical",
+      "mfe": -122.9000015258789
+    },
+    {
+      "id": "pseudo_0934",
+      "length": 450,
+      "source": "ViennaRNA+Helical",
+      "mfe": -130.8000030517578
+    },
+    {
+      "id": "pseudo_0935",
+      "length": 497,
+      "source": "ViennaRNA+Helical",
+      "mfe": -152.5
+    },
+    {
+      "id": "pseudo_0936",
+      "length": 333,
+      "source": "ViennaRNA+Helical",
+      "mfe": -92.0
+    },
+    {
+      "id": "pseudo_0937",
+      "length": 392,
+      "source": "ViennaRNA+Helical",
+      "mfe": -96.80000305175781
+    },
+    {
+      "id": "pseudo_0938",
+      "length": 350,
+      "source": "ViennaRNA+Helical",
+      "mfe": -90.9000015258789
+    },
+    {
+      "id": "pseudo_0939",
+      "length": 287,
+      "source": "ViennaRNA+Helical",
+      "mfe": -75.5
+    },
+    {
+      "id": "pseudo_0940",
+      "length": 87,
+      "source": "ViennaRNA+Helical",
+      "mfe": -11.800000190734863
+    },
+    {
+      "id": "pseudo_0941",
+      "length": 498,
+      "source": "ViennaRNA+Helical",
+      "mfe": -126.19999694824219
+    },
+    {
+      "id": "pseudo_0942",
+      "length": 91,
+      "source": "ViennaRNA+Helical",
+      "mfe": -13.899999618530273
+    },
+    {
+      "id": "pseudo_0943",
+      "length": 464,
+      "source": "ViennaRNA+Helical",
+      "mfe": -114.4000015258789
+    },
+    {
+      "id": "pseudo_0944",
+      "length": 430,
+      "source": "ViennaRNA+Helical",
+      "mfe": -127.4000015258789
+    },
+    {
+      "id": "pseudo_0945",
+      "length": 36,
+      "source": "ViennaRNA+Helical",
+      "mfe": 2.299999952316284
+    },
+    {
+      "id": "pseudo_0946",
+      "length": 393,
+      "source": "ViennaRNA+Helical",
+      "mfe": -119.0999984741211
+    },
+    {
+      "id": "pseudo_0947",
+      "length": 328,
+      "source": "ViennaRNA+Helical",
+      "mfe": -90.0999984741211
+    },
+    {
+      "id": "pseudo_0948",
+      "length": 486,
+      "source": "ViennaRNA+Helical",
+      "mfe": -130.8000030517578
+    },
+    {
+      "id": "pseudo_0949",
+      "length": 172,
+      "source": "ViennaRNA+Helical",
+      "mfe": -46.5
+    },
+    {
+      "id": "pseudo_0950",
+      "length": 488,
+      "source": "ViennaRNA+Helical",
+      "mfe": -129.89999389648438
+    },
+    {
+      "id": "pseudo_0951",
+      "length": 393,
+      "source": "ViennaRNA+Helical",
+      "mfe": -106.69999694824219
+    },
+    {
+      "id": "pseudo_0952",
+      "length": 300,
+      "source": "ViennaRNA+Helical",
+      "mfe": -70.69999694824219
+    },
+    {
+      "id": "pseudo_0953",
+      "length": 98,
+      "source": "ViennaRNA+Helical",
+      "mfe": -23.0
+    },
+    {
+      "id": "pseudo_0954",
+      "length": 475,
+      "source": "ViennaRNA+Helical",
+      "mfe": -131.1999969482422
+    },
+    {
+      "id": "pseudo_0955",
+      "length": 364,
+      "source": "ViennaRNA+Helical",
+      "mfe": -91.30000305175781
+    },
+    {
+      "id": "pseudo_0956",
+      "length": 74,
+      "source": "ViennaRNA+Helical",
+      "mfe": -5.099999904632568
+    },
+    {
+      "id": "pseudo_0957",
+      "length": 47,
+      "source": "ViennaRNA+Helical",
+      "mfe": 1.399999976158142
+    },
+    {
+      "id": "pseudo_0958",
+      "length": 55,
+      "source": "ViennaRNA+Helical",
+      "mfe": -8.300000190734863
+    },
+    {
+      "id": "pseudo_0959",
+      "length": 425,
+      "source": "ViennaRNA+Helical",
+      "mfe": -117.9000015258789
+    },
+    {
+      "id": "pseudo_0960",
+      "length": 35,
+      "source": "ViennaRNA+Helical",
+      "mfe": 1.899999976158142
+    },
+    {
+      "id": "pseudo_0961",
+      "length": 361,
+      "source": "ViennaRNA+Helical",
+      "mfe": -92.80000305175781
+    },
+    {
+      "id": "pseudo_0962",
+      "length": 56,
+      "source": "ViennaRNA+Helical",
+      "mfe": -3.0
+    },
+    {
+      "id": "pseudo_0963",
+      "length": 312,
+      "source": "ViennaRNA+Helical",
+      "mfe": -77.30000305175781
+    },
+    {
+      "id": "pseudo_0964",
+      "length": 97,
+      "source": "ViennaRNA+Helical",
+      "mfe": -13.399999618530273
+    },
+    {
+      "id": "pseudo_0965",
+      "length": 434,
+      "source": "ViennaRNA+Helical",
+      "mfe": -122.5
+    },
+    {
+      "id": "pseudo_0966",
+      "length": 182,
+      "source": "ViennaRNA+Helical",
+      "mfe": -31.600000381469727
+    },
+    {
+      "id": "pseudo_0967",
+      "length": 262,
+      "source": "ViennaRNA+Helical",
+      "mfe": -65.4000015258789
+    },
+    {
+      "id": "pseudo_0968",
+      "length": 197,
+      "source": "ViennaRNA+Helical",
+      "mfe": -49.79999923706055
+    },
+    {
+      "id": "pseudo_0969",
+      "length": 325,
+      "source": "ViennaRNA+Helical",
+      "mfe": -106.5999984741211
+    },
+    {
+      "id": "pseudo_0970",
+      "length": 373,
+      "source": "ViennaRNA+Helical",
+      "mfe": -98.5999984741211
+    },
+    {
+      "id": "pseudo_0971",
+      "length": 187,
+      "source": "ViennaRNA+Helical",
+      "mfe": -37.29999923706055
+    },
+    {
+      "id": "pseudo_0972",
+      "length": 62,
+      "source": "ViennaRNA+Helical",
+      "mfe": -7.199999809265137
+    },
+    {
+      "id": "pseudo_0973",
+      "length": 451,
+      "source": "ViennaRNA+Helical",
+      "mfe": -144.5
+    },
+    {
+      "id": "pseudo_0974",
+      "length": 116,
+      "source": "ViennaRNA+Helical",
+      "mfe": -27.0
+    },
+    {
+      "id": "pseudo_0975",
+      "length": 282,
+      "source": "ViennaRNA+Helical",
+      "mfe": -63.70000076293945
+    },
+    {
+      "id": "pseudo_0976",
+      "length": 36,
+      "source": "ViennaRNA+Helical",
+      "mfe": 1.7999999523162842
+    },
+    {
+      "id": "pseudo_0977",
+      "length": 129,
+      "source": "ViennaRNA+Helical",
+      "mfe": -20.5
+    },
+    {
+      "id": "pseudo_0978",
+      "length": 307,
+      "source": "ViennaRNA+Helical",
+      "mfe": -70.69999694824219
+    },
+    {
+      "id": "pseudo_0979",
+      "length": 140,
+      "source": "ViennaRNA+Helical",
+      "mfe": -19.100000381469727
+    },
+    {
+      "id": "pseudo_0980",
+      "length": 77,
+      "source": "ViennaRNA+Helical",
+      "mfe": -7.699999809265137
+    },
+    {
+      "id": "pseudo_0981",
+      "length": 476,
+      "source": "ViennaRNA+Helical",
+      "mfe": -163.8000030517578
+    },
+    {
+      "id": "pseudo_0982",
+      "length": 129,
+      "source": "ViennaRNA+Helical",
+      "mfe": -28.100000381469727
+    },
+    {
+      "id": "pseudo_0983",
+      "length": 361,
+      "source": "ViennaRNA+Helical",
+      "mfe": -112.30000305175781
+    },
+    {
+      "id": "pseudo_0984",
+      "length": 339,
+      "source": "ViennaRNA+Helical",
+      "mfe": -94.4000015258789
+    },
+    {
+      "id": "pseudo_0985",
+      "length": 342,
+      "source": "ViennaRNA+Helical",
+      "mfe": -98.0999984741211
+    },
+    {
+      "id": "pseudo_0986",
+      "length": 322,
+      "source": "ViennaRNA+Helical",
+      "mfe": -85.4000015258789
+    },
+    {
+      "id": "pseudo_0987",
+      "length": 498,
+      "source": "ViennaRNA+Helical",
+      "mfe": -136.8000030517578
+    },
+    {
+      "id": "pseudo_0988",
+      "length": 414,
+      "source": "ViennaRNA+Helical",
+      "mfe": -120.69999694824219
+    },
+    {
+      "id": "pseudo_0989",
+      "length": 148,
+      "source": "ViennaRNA+Helical",
+      "mfe": -20.0
+    },
+    {
+      "id": "pseudo_0990",
+      "length": 424,
+      "source": "ViennaRNA+Helical",
+      "mfe": -121.5
+    },
+    {
+      "id": "pseudo_0991",
+      "length": 174,
+      "source": "ViennaRNA+Helical",
+      "mfe": -45.900001525878906
+    },
+    {
+      "id": "pseudo_0992",
+      "length": 464,
+      "source": "ViennaRNA+Helical",
+      "mfe": -129.1999969482422
+    },
+    {
+      "id": "pseudo_0993",
+      "length": 132,
+      "source": "ViennaRNA+Helical",
+      "mfe": -22.899999618530273
+    },
+    {
+      "id": "pseudo_0994",
+      "length": 100,
+      "source": "ViennaRNA+Helical",
+      "mfe": -7.5
+    },
+    {
+      "id": "pseudo_0995",
+      "length": 242,
+      "source": "ViennaRNA+Helical",
+      "mfe": -61.099998474121094
+    },
+    {
+      "id": "pseudo_0996",
+      "length": 77,
+      "source": "ViennaRNA+Helical",
+      "mfe": -7.300000190734863
+    },
+    {
+      "id": "pseudo_0997",
+      "length": 303,
+      "source": "ViennaRNA+Helical",
+      "mfe": -69.30000305175781
+    },
+    {
+      "id": "pseudo_0998",
+      "length": 393,
+      "source": "ViennaRNA+Helical",
+      "mfe": -97.0999984741211
+    },
+    {
+      "id": "pseudo_0999",
+      "length": 241,
+      "source": "ViennaRNA+Helical",
+      "mfe": -60.70000076293945
+    }
+  ]
+}
