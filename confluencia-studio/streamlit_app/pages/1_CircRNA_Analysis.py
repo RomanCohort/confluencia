@@ -1,34 +1,19 @@
 """CircRNA Analysis Page - Streamlit UI.
 
 Immunogenicity assessment, TorusFold scoring, PK simulation.
+Uses confluencia skill API for all backend computation.
 """
 
 import streamlit as st
-import sys
-from pathlib import Path
 import plotly.graph_objects as go
-from plotly.subplots import make_subplots
 import numpy as np
-
-# Add paths - NOTE: confluencia_3_0 uses underscores!
-PROJECT_ROOT = Path(r"D:\IGEM集成方案")
-sys.path.insert(0, str(PROJECT_ROOT / "confluencia-2.0-drug"))  # innate_immune, ctm
-sys.path.insert(0, str(PROJECT_ROOT / "confluencia_3_0"))  # circrna module
-
-# Add visualization module
-import importlib.util
-import sys as _sys
-VIS_PATH = Path(r"C:\Users\LENOVO\.claude\skills\confluencia")
-_spec = importlib.util.spec_from_file_location(
-    "visualization",
-    str(VIS_PATH / "visualization.py")
-)
-visualization = importlib.util.module_from_spec(_spec)
-_sys.modules["visualization"] = visualization  # Critical fix for dataclass
-_spec.loader.exec_module(visualization)
-generate_nature_html_report = visualization.generate_nature_html_report
-
 from datetime import datetime
+
+from utils import (
+    circrna_full_analysis, circrna_pk,
+    generate_html_report, save_html_report,
+    get_backend, get_gc_content, format_sequence,
+)
 
 st.set_page_config(page_title="circRNA Analysis - Confluencia", page_icon="🔬", layout="wide")
 
@@ -77,6 +62,15 @@ with st.sidebar:
         options=["快速 (heuristic)", "标准 (ViennaRNA)", "高精度 (ESM-2)"],
         value="标准 (ViennaRNA)"
     )
+
+    # Map UI to backend setting
+    backend_map = {
+        "快速 (heuristic)": "heuristic",
+        "标准 (ViennaRNA)": "vienna",
+        "高精度 (ESM-2)": "esm2",
+    }
+    from utils import set_backend
+    set_backend("circrna", backend_map.get(backend, "heuristic"))
 
     st.markdown("---")
     st.markdown("### 📚 术语说明")
@@ -129,8 +123,8 @@ with col_input:
     # Example sequences
     st.markdown("**示例序列:**")
     examples = {
-        "低免疫原性序列 (GC平衡)": "AUGCGCGCGUAUAGCGCGCGAUGCGCGCGUAUAGCGCGCG",
-        "高GC含量序列": "GCGCGCGCGCGCGCGCGCGCGCGCGCGCGCGCGCGCGCGC",
+        "低免疫原性 (GC平衡)": "AUGCGCGCGUAUAGCGCGCGAUGCGCGCGUAUAGCGCGCG",
+        "高GC含量": "GCGCGCGCGCGCGCGCGCGCGCGCGCGCGCGCGCGCGCGC",
         "富AU序列": "AUAUAUAUAUAUAUAUAUAUAUAUAUAUAUAUAUAUAUAU",
         "随机序列": "AUGAUCAAAAAAAGGGUAGCUUAUCAACGGAUC"
     }
@@ -139,8 +133,13 @@ with col_input:
     for i, (name, seq) in enumerate(examples.items()):
         with example_cols[i]:
             if st.button(name.split(" ")[0], key=f"ex_{i}", use_container_width=True):
-                sequence = seq
+                st.session_state["circrna_sequence"] = seq
                 st.rerun()
+
+    # Restore from session state
+    if st.session_state.get("circrna_sequence"):
+        sequence = st.session_state["circrna_sequence"]
+        st.session_state["circrna_sequence"] = None
 
 with col_info:
     st.markdown("#### 📊 序列信息")
@@ -161,13 +160,12 @@ with col_info:
             st.metric("序列长度", f"{total} nt")
             st.metric("GC含量", f"{gc_content:.1f}%")
 
-            # GC status
             if 40 <= gc_content <= 60:
-                st.success("✅ GC含量适中 (40-60%)")
+                st.success("GC含量适中 (40-60%)")
             elif gc_content < 40:
-                st.warning("⚠️ GC含量偏低，可能影响稳定性")
+                st.warning("GC含量偏低，可能影响稳定性")
             else:
-                st.warning("⚠️ GC含量偏高，可能增加免疫原性")
+                st.warning("GC含量偏高，可能增加免疫原性")
 
             # Nucleotide composition
             st.markdown("**核苷酸组成:**")
@@ -191,73 +189,33 @@ with col_info:
 st.markdown("")
 col_btn1, col_btn2, col_btn3 = st.columns([1, 2, 1])
 with col_btn2:
-    analyze_btn = st.button("🚀 开始分析", type="primary", use_container_width=True, disabled=not sequence)
+    analyze_btn = st.button("开始分析", type="primary", use_container_width=True, disabled=not sequence)
 
-# Run analysis
+# Run analysis via skill API
 if analyze_btn and sequence:
     with st.spinner("正在分析中..."):
         try:
-            # Use utility helper for Python 3.13 dataclass compatibility
-            from utils import get_innate_immune, get_ctm, PROJECT_ROOT
-
-            innate_immune_mod = get_innate_immune()
-            ctm_mod = get_ctm()
-
             seq_clean = sequence.upper().replace(" ", "").replace("\n", "")
             seq_clean = "".join(c for c in seq_clean if c in "AUGC")
 
-            gc = sum(1 for b in seq_clean if b in "GC") / len(seq_clean) if seq_clean else 0
+            if analysis_type.startswith("完整"):
+                data = circrna_full_analysis(seq_clean)
+            elif analysis_type.startswith("仅PK"):
+                data = circrna_pk(seq_clean)
+            elif analysis_type.startswith("仅免疫"):
+                full = circrna_full_analysis(seq_clean)
+                data = {"module": "circrna", "sequence": seq_clean,
+                        "length": len(seq_clean), "gc_content": full.get("gc_content", 0),
+                        "immune": full.get("immune", {}), "backend": get_backend("circrna")}
+            else:  # TorusFold only
+                full = circrna_full_analysis(seq_clean)
+                data = {"module": "circrna", "sequence": seq_clean,
+                        "length": len(seq_clean), "gc_content": full.get("gc_content", 0),
+                        "torusfold": full.get("torusfold", {}), "backend": get_backend("circrna")}
 
-            # Immune assessment
-            immune = innate_immune_mod.assess_innate_immune(seq_clean)
-
-            # TorusFold - use sys.path approach for package imports
-            import sys
-            conf_3_path = str(PROJECT_ROOT / "confluencia_3_0")
-            if conf_3_path not in sys.path:
-                sys.path.insert(0, conf_3_path)
-
-            from core.circrna.torusfold_scorer import quick_score
-            tf = quick_score(seq_clean)
-
-            # PK params
-            params = ctm_mod.infer_rna_ctm_params(gc_content=gc)
-
-            # Prepare data
-            analysis_data = {
-                "module": "circrna",
-                "backend": "vienna",
-                "sequence": seq_clean,
-                "length": len(seq_clean),
-                "gc_content": gc,
-                "immune": {
-                    "tlr3": immune.tlr3,
-                    "tlr7": immune.tlr7,
-                    "tlr8": immune.tlr8,
-                    "rigi": immune.rigi,
-                    "mda5": immune.mda5,
-                    "pkr": immune.pkr,
-                    "innate_score": immune.innate_immune_score,
-                    "safety_score": immune.net_safety_score
-                },
-                "torusfold": {
-                    "stability": tf.get("stability", 0.3),
-                    "translation": tf.get("translation", 0.3),
-                    "immune_evasion": tf.get("immune_evasion", 0.5),
-                    "delivery": tf.get("delivery", 0.3)
-                },
-                "pk_params": {
-                    "k_uptake": params.k_uptake,
-                    "k_degrade": params.k_degrade,
-                    "protein_half_life": params.k_protein_half,
-                    "f_liver": params.f_liver,
-                    "f_spleen": params.f_spleen
-                }
-            }
-
-            st.session_state["analysis_data"] = analysis_data
+            st.session_state["analysis_data"] = data
             st.session_state["analysis_done"] = True
-            st.success("✅ 分析完成！")
+            st.success("分析完成！")
 
         except Exception as e:
             import traceback
@@ -277,130 +235,121 @@ if st.session_state.get("analysis_done") and st.session_state.get("analysis_data
     """, unsafe_allow_html=True)
 
     # Key metrics
+    immune = data.get("immune", {})
+    tf = data.get("torusfold", {})
+    pk = data.get("pk_params", {})
+    metrics = data.get("metrics", {})
+
     col1, col2, col3, col4 = st.columns(4)
 
     with col1:
-        safety = data["immune"]["safety_score"]
+        safety = immune.get("safety_score", 0)
         safety_color = "🟢" if safety > 0.8 else "🟡" if safety > 0.5 else "🔴"
         st.metric(f"{safety_color} 安全评分", f"{safety:.2f}")
 
     with col2:
-        innate = data["immune"]["innate_score"]
+        innate = immune.get("innate_score", 0)
         st.metric("免疫评分", f"{innate:.3f}")
 
     with col3:
-        hl = data["pk_params"]["protein_half_life"]
+        hl = pk.get("protein_half_life", metrics.get("half_life", 0))
         st.metric("半衰期", f"{hl:.1f} h")
 
     with col4:
-        liver = data["pk_params"]["f_liver"]
+        liver = pk.get("f_liver", 0)
         st.metric("肝脏分布", f"{liver*100:.0f}%")
 
-    # Visualizations
-    st.markdown("")
-    col_chart1, col_chart2 = st.columns(2)
+    # Immune Radar
+    if immune:
+        col_chart1, col_chart2 = st.columns(2)
 
-    with col_chart1:
-        st.markdown("#### 🛡️ 免疫传感器雷达图")
-        immune = data["immune"]
-        radar_fig = go.Figure(data=go.Scatterpolar(
-            r=[immune["tlr3"], immune["tlr7"], immune["tlr8"],
-               immune["rigi"], immune["mda5"], immune["pkr"]],
-            theta=['TLR3', 'TLR7', 'TLR8', 'RIG-I', 'MDA5', 'PKR'],
-            fill='toself',
-            marker_color='#c41e3a'
-        ))
-        radar_fig.update_layout(
-            polar=dict(radialaxis=dict(visible=True, range=[0, 1])),
-            paper_bgcolor='rgba(0,0,0,0)',
-            font_color='#ecf0f1',
-            height=350
-        )
-        st.plotly_chart(radar_fig, use_container_width=True)
-
-        # Interpretation
-        st.markdown("**解读:**")
-        if safety > 0.8:
-            st.success("✅ 低免疫原性，适合治疗应用")
-        elif safety > 0.5:
-            st.warning("⚠️ 中等免疫原性，建议序列优化")
-        else:
-            st.error("❌ 高免疫原性，可能触发强烈免疫反应")
-
-    with col_chart2:
-        st.markdown("#### 📐 TorusFold 四维评分")
-        tf = data["torusfold"]
-
-        bar_fig = go.Figure(data=[
-            go.Bar(
-                x=['稳定性', '翻译效率', '免疫逃逸', '递送效率'],
-                y=[tf["stability"], tf["translation"], tf["immune_evasion"], tf["delivery"]],
-                marker_color=['#27ae60', '#27ae60', '#f39c12', '#27ae60'],
-                text=[f'{tf["stability"]:.2f}', f'{tf["translation"]:.2f}',
-                      f'{tf["immune_evasion"]:.2f}', f'{tf["delivery"]:.2f}'],
-                textposition='outside'
+        with col_chart1:
+            st.markdown("#### 🛡️ 免疫传感器雷达图")
+            radar_fig = go.Figure(data=go.Scatterpolar(
+                r=[immune.get("tlr3",0), immune.get("tlr7",0), immune.get("tlr8",0),
+                   immune.get("rigi",0), immune.get("mda5",0), immune.get("pkr",0)],
+                theta=['TLR3', 'TLR7', 'TLR8', 'RIG-I', 'MDA5', 'PKR'],
+                fill='toself',
+                marker_color='#c41e3a'
+            ))
+            radar_fig.update_layout(
+                polar=dict(radialaxis=dict(visible=True, range=[0, 1])),
+                paper_bgcolor='rgba(0,0,0,0)',
+                font_color='#ecf0f1',
+                height=350
             )
-        ])
-        bar_fig.update_layout(
-            yaxis=dict(range=[0, 1.2]),
-            paper_bgcolor='rgba(0,0,0,0)',
-            font_color='#ecf0f1',
-            height=350,
-            showlegend=False
-        )
-        st.plotly_chart(bar_fig, use_container_width=True)
+            st.plotly_chart(radar_fig, use_container_width=True)
+
+            if safety > 0.8:
+                st.success("低免疫原性，适合治疗应用")
+            elif safety > 0.5:
+                st.warning("中等免疫原性，建议序列优化")
+            else:
+                st.error("高免疫原性，可能触发强烈免疫反应")
+
+        with col_chart2:
+            if tf:
+                st.markdown("#### 📐 TorusFold 四维评分")
+                bar_fig = go.Figure(data=[
+                    go.Bar(
+                        x=['稳定性', '翻译效率', '免疫逃逸', '递送效率'],
+                        y=[tf.get("stability",0), tf.get("translation",0), tf.get("immune_evasion",0), tf.get("delivery",0)],
+                        marker_color=['#27ae60', '#27ae60', '#f39c12', '#27ae60'],
+                        text=[f'{tf.get("stability",0):.2f}', f'{tf.get("translation",0):.2f}',
+                              f'{tf.get("immune_evasion",0):.2f}', f'{tf.get("delivery",0):.2f}'],
+                        textposition='outside'
+                    )
+                ])
+                bar_fig.update_layout(
+                    yaxis=dict(range=[0, 1.2]),
+                    paper_bgcolor='rgba(0,0,0,0)',
+                    font_color='#ecf0f1',
+                    height=350,
+                    showlegend=False
+                )
+                st.plotly_chart(bar_fig, use_container_width=True)
 
     # PK Simulation
-    st.markdown("#### ⏱️ RNACTM 药代动力学模拟")
+    if pk:
+        st.markdown("#### ⏱️ RNACTM 药代动力学模拟")
 
-    pk = data["pk_params"]
-    ka, ke = pk["k_uptake"], pk["k_degrade"]
+        ka, ke = pk.get("k_uptake", 0.8), pk.get("k_degrade", 0.1)
+        t = np.linspace(0, 72, 144)
+        dose, vd = 1.0, 50.0
+        c = (dose * ka / (vd * (ka - ke))) * (np.exp(-ke * t) - np.exp(-ka * t))
 
-    t = np.linspace(0, 72, 144)
-    dose, vd = 1.0, 50.0
-    c = (dose * ka / (vd * (ka - ke))) * (np.exp(-ke * t) - np.exp(-ka * t))
+        pk_fig = go.Figure()
+        pk_fig.add_trace(go.Scatter(
+            x=t, y=c, mode='lines', fill='tozeroy',
+            line=dict(color='#27ae60', width=3),
+            name='中央室浓度'
+        ))
+        pk_fig.update_layout(
+            xaxis_title='时间 (h)',
+            yaxis_title='浓度',
+            paper_bgcolor='rgba(0,0,0,0)',
+            font_color='#ecf0f1',
+            height=300
+        )
+        st.plotly_chart(pk_fig, use_container_width=True)
 
-    pk_fig = go.Figure()
-    pk_fig.add_trace(go.Scatter(
-        x=t, y=c, mode='lines', fill='tozeroy',
-        line=dict(color='#27ae60', width=3),
-        name='中央室浓度'
-    ))
-    pk_fig.update_layout(
-        xaxis_title='时间 (h)',
-        yaxis_title='浓度',
-        paper_bgcolor='rgba(0,0,0,0)',
-        font_color='#ecf0f1',
-        height=300
-    )
-    st.plotly_chart(pk_fig, use_container_width=True)
-
-    # Export options
+    # Export
     st.markdown("---")
     col_exp1, col_exp2 = st.columns(2)
 
     with col_exp1:
-        if st.button("📄 生成HTML报告", use_container_width=True):
-            html = generate_nature_html_report(data)
-            filename = f"circrna_report_{datetime.now().strftime('%Y%m%d_%H%M%S')}.html"
-            filepath = Path(filename)
-            filepath.write_text(html, encoding="utf-8")
-
-            st.success(f"✅ 报告已保存: {filename}")
-            with open(filename, "r", encoding="utf-8") as f:
-                st.download_button(
-                    "⬇️ 下载HTML报告",
-                    f.read(),
-                    file_name=filename,
-                    mime="text/html"
-                )
+        if st.button("📄 生成HTML报告", key="html_btn", use_container_width=True):
+            html = generate_html_report(data)
+            filepath = save_html_report(html)
+            with open(filepath, "r", encoding="utf-8") as f:
+                st.download_button("下载HTML报告", f.read(),
+                                   file_name=Path(filepath).name, mime="text/html")
 
     with col_exp2:
         import json
-        json_data = json.dumps(data, indent=2, ensure_ascii=False)
         st.download_button(
-            "⬇️ 下载JSON数据",
-            json_data,
+            "下载JSON数据",
+            json.dumps(data, indent=2, ensure_ascii=False, default=str),
             file_name=f"circrna_data_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json",
             mime="application/json"
         )

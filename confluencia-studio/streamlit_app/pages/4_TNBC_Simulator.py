@@ -1,35 +1,22 @@
-"""TNBC Simulacrum Page - Streamlit UI.
+"""TNBC Simulator Page - Streamlit UI.
 
-Digital twin simulation with animated visualization.
+Digital twin simulation for Triple-Negative Breast Cancer.
+Uses confluencia skill API for all backend computation - TNBCSimulacrum agent.
 """
 
 import streamlit as st
-import sys
-from pathlib import Path
-import numpy as np
 import plotly.graph_objects as go
-from plotly.subplots import make_subplots
-
-# Add paths - NOTE: confluencia_3_0 uses underscores!
-PROJECT_ROOT = Path(r"D:\IGEM集成方案")
-sys.path.insert(0, str(PROJECT_ROOT / "confluencia_3_0"))
-
-# Add visualization module
-import importlib.util
-import sys as _sys
-VIS_PATH = Path(r"C:\Users\LENOVO\.claude\skills\confluencia")
-_spec = importlib.util.spec_from_file_location(
-    "visualization",
-    str(VIS_PATH / "visualization.py")
-)
-visualization = importlib.util.module_from_spec(_spec)
-_sys.modules["visualization"] = visualization  # Critical fix for dataclass
-_spec.loader.exec_module(visualization)
-generate_nature_html_report = visualization.generate_nature_html_report
-
+import numpy as np
 from datetime import datetime
+import json
 
-st.set_page_config(page_title="TNBC Simulacrum - Confluencia", page_icon="🎮", layout="wide")
+from utils import (
+    simulacrum_init, simulacrum_step, simulacrum_administer_drug, simulacrum_report,
+    generate_html_report, save_html_report,
+    circrna_full_analysis, drug_admet,
+)
+
+st.set_page_config(page_title="TNBC Simulator - Confluencia", page_icon="🎮", layout="wide")
 
 st.markdown("""
 <style>
@@ -42,377 +29,275 @@ st.markdown("""
         border-radius: 0 8px 8px 0;
         color: #ecf0f1;
     }
-    .phase-elimination { color: #27ae60; }
-    .phase-equilibrium { color: #f39c12; }
-    .phase-escape { color: #e74c3c; }
 </style>
 """, unsafe_allow_html=True)
 
 st.markdown("""
 <div class="section-header">
-    <h2>🎮 TNBC Simulacrum 数字孪生</h2>
-    <p style="color: #7f8c8d;">Triple-Negative Breast Cancer 肿瘤仿真系统</p>
+    <h2>🎮 TNBC 数字孪生仿真器</h2>
+    <p style="color: #7f8c8d;">三阴性乳腺癌数字孪生模拟 - 模拟肿瘤生长、免疫编辑、治疗响应</p>
 </div>
 """, unsafe_allow_html=True)
-
-# Main input section - circRNA sequence for vaccine treatment
-st.markdown("""
-<div class="section-header">
-    <h4>📋 circRNA 疫苗输入</h4>
-    <p style="color: #7f8c8d;">如果选择 circRNA疫苗 治疗，请输入候选序列</p>
-</div>
-""", unsafe_allow_html=True)
-
-circrna_vaccine_seq = st.text_area(
-    "circRNA 疫苗序列 (用于免疫治疗模拟):",
-    height=80,
-    placeholder="例如: AUGCGCGCGUAUAGCGCGCG... (仅当选择 circRNA疫苗 时需要)"
-)
-
-st.markdown("**示例序列:**")
-seq_examples = {
-    "低免疫原性 (推荐)": "AUGCGCGCGUAUAGCGCGCGAUGCGCGCGUAUAGCGCGCG",
-    "随机序列": "AUGAUCAAAAAAAGGGUAGCUUAUCAACGGAUC"
-}
-cols = st.columns(2)
-for i, (name, seq) in enumerate(seq_examples.items()):
-    with cols[i]:
-        if st.button(name, key=f"tnbc_seq_{i}", use_container_width=True):
-            circrna_vaccine_seq = seq
-            st.rerun()
-
-st.markdown("---")
 
 # Sidebar - Simulation parameters
 with st.sidebar:
-    st.markdown("### ⚙️ 仿真参数")
+    st.markdown("### 🎯 仿真配置")
 
-    initial_volume = st.slider("初始肿瘤体积 (mm³)", 10, 200, 50)
-    growth_rate = st.slider("生长速率", 0.01, 0.05, 0.027, format="%.3f")
-    cd8_initial = st.slider("初始CD8+ T细胞", 50, 200, 100)
-    subtype = st.selectbox("分子亚型", ["BLIS", "IM", "M", "LAR"])
-
-    st.markdown("---")
-    st.markdown("### 💉 治疗方案")
-
-    treatment = st.multiselect(
-        "选择治疗",
-        ["化疗 (紫杉醇)", "免疫治疗 (PD-1)", "circRNA疫苗", "靶向治疗"],
-        default=["化疗 (紫杉醇)"]
+    subtype = st.selectbox(
+        "分子亚型",
+        ["BLIS (基底样免疫抑制)", "BLIA (基底样免疫激活)", "IM (免疫调节型)", "LAR (管腔雄激素受体型)"],
+        index=0
     )
 
-    # Show circRNA input reminder if vaccine selected
-    if "circRNA疫苗" in treatment:
-        st.info("💡 请在主页面输入 circRNA 序列")
+    # Parse subtype code
+    subtype_code = subtype.split()[0]
 
-    treatment_start = st.slider("治疗开始时间 (步)", 0, 50, 10)
+    brca_mutation = st.checkbox("BRCA1/2 突变", value=False)
 
     st.markdown("---")
-    st.markdown("### ⏱️ 仿真设置")
+    st.markdown("### 💊 治疗方案")
 
-    n_steps = st.slider("仿真步数", 10, 100, 50)
+    treatment = st.multiselect(
+        "选择治疗方式",
+        ["化疗 (Gemcitabine)", "免疫治疗 (PD-1/PD-L1)", "circRNA疫苗", "联合治疗"],
+        default=["化疗 (Gemcitabine)"]
+    )
 
-    if st.button("▶️ 开始仿真", type="primary", use_container_width=True):
-        st.session_state["sim_running"] = True
-        st.session_state["sim_params"] = {
-            "initial_volume": initial_volume,
-            "growth_rate": growth_rate,
-            "cd8_initial": cd8_initial,
-            "subtype": subtype,
-            "treatment": treatment,
-            "treatment_start": treatment_start,
-            "n_steps": n_steps,
-            "circrna_vaccine_seq": circrna_vaccine_seq
-        }
+    treatment_start_day = st.slider("治疗开始日期 (天)", 0, 30, 5)
 
-# Simulation state
-sim_data = st.session_state.get("sim_params", {})
-if st.session_state.get("sim_running"):
-    with st.spinner("正在仿真..."):
+    st.markdown("---")
+    st.markdown("### 🧬 circRNA疫苗配置")
+
+    circrna_seq = st.text_area(
+        "circRNA序列 (可选)",
+        placeholder="AUGCGCGCGUAU...",
+        height=80,
+        help="用于circRNA疫苗治疗的序列"
+    )
+
+    st.markdown("---")
+    st.markdown("### 📊 仿真时长")
+
+    n_days = st.slider("仿真天数", 10, 365, 100)
+
+    st.markdown("---")
+    st.markdown("### 📚 TNBC知识")
+
+    with st.expander("TNBC分子亚型"):
+        st.markdown("""
+        **三阴性乳腺癌 (TNBC)** 四种亚型：
+
+        - **BLIS**: 基底样免疫抑制型，预后较差
+        - **BLIA**: 基底样免疫激活型，免疫浸润高
+        - **IM**: 免疫调节型，对免疫治疗敏感
+        - **LAR**: 管腔雄激素受体型，AR靶向治疗
+        """)
+
+    with st.expander("免疫编辑三阶段"):
+        st.markdown("""
+        **肿瘤免疫编辑 (Immunoediting)** 三阶段：
+
+        1. **清除 (Elimination)**: 免疫系统识别并清除肿瘤
+        2. **平衡 (Equilibrium)**: 肿瘤与免疫系统动态平衡
+        3. **逃逸 (Escape)**: 肛瘤逃避免疫监视，快速生长
+        """)
+
+# Initialize simulation
+col_btn1, col_btn2, col_btn3 = st.columns([1, 2, 1])
+with col_btn2:
+    init_btn = st.button("🚀 初始化数字孪生", type="primary", use_container_width=True)
+
+if init_btn:
+    with st.spinner("初始化数字孪生..."):
         try:
-            # Try to import state_schema, fallback to manual defaults
-            try:
-                from confluencia_3_0.core.state_schema import StateSchema
-                schema = StateSchema()
-                state = schema.init_defaults()
-            except ImportError:
-                # Manual default state
-                state = {
-                    "tum_volume": sim_data["initial_volume"],
-                    "tum_growth_rate": sim_data["growth_rate"],
-                    "tum_apoptosis_rate": 0.005,
-                    "tum_proliferation_index": 0.3,
-                    "imm_cd8_count": sim_data["cd8_initial"],
-                    "imm_cd4_count": 150.0,
-                    "imm_nk_count": 50.0,
-                    "imm_t_cell_activation": 0.3,
-                    "imm_t_cell_exhaustion": 0.1,
-                    "imm_til_density": 0.2,
-                    "drg_concentration": 0.0,
-                    "drg_resistance_level": 0.0,
-                    "evs_pd_l1_expression": 0.2,
-                    "ied_phase": "elimination",
-                    "sub_molecular_subtype": sim_data["subtype"]
-                }
+            # Initialize via skill API
+            init_data = simulacrum_init(subtype_code, brca_mutation)
 
-            # Override with user params
-            state["tum_volume"] = sim_data["initial_volume"]
-            state["tum_growth_rate"] = sim_data["growth_rate"]
-            state["imm_cd8_count"] = sim_data["cd8_initial"]
-            state["sub_molecular_subtype"] = sim_data["subtype"]
+            st.session_state["sim_initialized"] = True
+            st.session_state["sim_subtype"] = subtype_code
+            st.session_state["sim_day"] = 0
+            st.session_state["sim_data"] = init_data
+            st.session_state["sim_history"] = []
 
-            # Calculate circRNA vaccine effect if sequence provided
-            circrna_seq = sim_data.get("circrna_vaccine_seq", "")
-            circrna_safety = 0.5  # default
-            circrna_evasion = 0.3  # default
-            if circrna_seq and "circRNA疫苗" in str(sim_data["treatment"]):
-                circrna_clean = "".join(c for c in circrna_seq.upper() if c in "AUGC")
-                if len(circrna_clean) > 0:
-                    try:
-                        # Use actual backend for immune assessment
-                        from utils import get_innate_immune
-                        innate_mod = get_innate_immune()
-                        immune_result = innate_mod.assess_innate_immune(circrna_clean)
-                        circrna_safety = immune_result.net_safety_score
-                        circrna_evasion = immune_result.modification_evasion if hasattr(immune_result, 'modification_evasion') else 0.5
-                        state["crna_immunogenicity_score"] = immune_result.innate_immune_score
-                        state["crna_ips_score"] = circrna_safety * 8 + 1
-                    except Exception as e:
-                        # Fallback heuristic
-                        gc = sum(1 for b in circrna_clean if b in "GC") / len(circrna_clean)
-                        circrna_safety = max(0, 1.0 - gc * 0.8)
-                        circrna_evasion = min(1.0, gc * 0.5 + 0.3)
-                        state["crna_immunogenicity_score"] = 1.0 - circrna_safety
-                        state["crna_ips_score"] = circrna_safety * 8 + 1
-
-            # Run simulation
-            history = []
-            for step in range(sim_data["n_steps"]):
-                # Apply treatment
-                if step >= sim_data["treatment_start"]:
-                    if "化疗" in str(sim_data["treatment"]):
-                        state["drg_concentration"] = 0.5
-                        state["tum_volume"] *= 0.95  # 5% kill
-                    if "免疫" in str(sim_data["treatment"]):
-                        state["imm_cd8_count"] += 5
-                    if "circRNA疫苗" in str(sim_data["treatment"]):
-                        # circRNA vaccine boosts immune response
-                        if circrna_seq:
-                            state["imm_cd8_count"] += int(8 * circrna_safety)
-                            state["imm_t_cell_activation"] = min(1.0, state["imm_t_cell_activation"] + 0.03 * circrna_evasion)
-                            state["imm_nk_cytotoxicity"] = min(1.0, state.get("imm_nk_cytotoxicity", 0.3) + 0.02)
-                        else:
-                            # No sequence provided, use default effect
-                            state["imm_cd8_count"] += 3
-
-                # Tumor growth
-                state["tum_volume"] *= (1 + state["tum_growth_rate"] - state.get("tum_apoptosis_rate", 0.005))
-
-                # Immune dynamics
-                state["imm_t_cell_activation"] = min(1.0, state["imm_t_cell_activation"] + 0.02)
-                state["imm_t_cell_exhaustion"] = min(1.0, state["imm_t_cell_exhaustion"] + 0.01)
-
-                # Phase transition
-                if state["tum_volume"] < sim_data["initial_volume"] * 0.9:
-                    state["ied_phase"] = "elimination"
-                elif state["tum_volume"] < sim_data["initial_volume"] * 1.5:
-                    state["ied_phase"] = "equilibrium"
-                else:
-                    state["ied_phase"] = "escape"
-
-                history.append({
-                    "step": step,
-                    "tum_volume": state["tum_volume"],
-                    "imm_cd8_count": state["imm_cd8_count"],
-                    "imm_t_cell_activation": state["imm_t_cell_activation"],
-                    "ied_phase": state["ied_phase"]
-                })
-
-            final_data = {
-                "module": "simulacrum",
-                "state": state,
-                "history": history,
-                "step": sim_data["n_steps"]
-            }
-
-            st.session_state["sim_data"] = final_data
-            st.session_state["sim_complete"] = True
-            st.session_state["sim_running"] = False
-
-            st.success(f"✅ 仿真完成！运行了 {sim_data['n_steps']} 步")
+            st.success(f"数字孪生初始化成功！亚型: {subtype_code}")
 
         except Exception as e:
-            st.error(f"仿真出错: {e}")
-            st.code(str(e))
-            st.session_state["sim_running"] = False
+            import traceback
+            st.error(f"初始化出错: {e}")
+            with st.expander("详细错误信息"):
+                st.code(traceback.format_exc())
 
-# Display results
-if st.session_state.get("sim_complete") and st.session_state.get("sim_data"):
-    data = st.session_state["sim_data"]
-    state = data["state"]
-    history = data["history"]
+# Run simulation step by step
+if st.session_state.get("sim_initialized"):
+    st.markdown("---")
+    st.markdown("### 📈 仿真控制")
 
+    col_step1, col_step2, col_step3 = st.columns(3)
+
+    with col_step1:
+        step_size = st.number_input("推进步数 (天)", 1, 50, 10)
+
+    with col_step2:
+        step_btn = st.button("▶️ 推进仿真", use_container_width=True)
+
+    with col_step3:
+        if treatment:
+            drug_btn = st.button("💊 给药治疗", use_container_width=True)
+
+    # Step simulation
+    if step_btn:
+        with st.spinner(f"推进 {step_size} 天..."):
+            try:
+                step_data = simulacrum_step(step_size)
+
+                st.session_state["sim_day"] += step_size
+                st.session_state["sim_data"] = step_data
+
+                # Record history
+                history_entry = {
+                    "day": st.session_state["sim_day"],
+                    "state": step_data.get("state", step_data),
+                }
+                st.session_state["sim_history"].append(history_entry)
+
+                st.success(f"推进完成！当前: 第 {st.session_state['sim_day']} 天")
+
+            except Exception as e:
+                st.error(f"推进出错: {e}")
+
+    # Administer drug
+    if drug_btn:
+        with st.spinner("给药..."):
+            try:
+                drug_name = "gemcitabine"
+                dose = 1000.0
+
+                drug_data = simulacrum_administer_drug(drug_name, dose)
+
+                st.success(f"给药完成: {drug_name} {dose} mg/m2")
+
+                # Record treatment
+                st.session_state["sim_history"].append({
+                    "day": st.session_state["sim_day"],
+                    "event": "drug_administered",
+                    "drug": drug_name,
+                    "dose": dose,
+                })
+
+            except Exception as e:
+                st.error(f"给药出错: {e}")
+
+    # Display current state
     st.markdown("---")
     st.markdown("""
     <div class="section-header">
-        <h3>📊 仿真结果</h3>
+        <h3>📊 仿真状态</h3>
     </div>
     """, unsafe_allow_html=True)
 
-    # Current state metrics
-    col1, col2, col3, col4, col5 = st.columns(5)
+    sim_data = st.session_state.get("sim_data", {})
+    state = sim_data.get("state", sim_data.get("summary", {}))
 
-    phase = state.get("ied_phase", "unknown")
-    phase_icons = {"elimination": "🟢", "equilibrium": "🟡", "escape": "🔴"}
+    col1, col2, col3, col4 = st.columns(4)
 
     with col1:
-        st.metric("肿瘤体积", f"{state['tum_volume']:.1f} mm³")
+        volume = state.get("volume", state.get("volume_mm3", 0))
+        st.metric("肿瘤体积", f"{volume:.1f} mm³")
 
     with col2:
-        st.metric(f"{phase_icons.get(phase, '⚪')} 免疫编辑阶段", phase.upper())
+        recist = state.get("recist", state.get("recist", "SD"))
+        recist_color = "🟢" if recist in ["CR", "PR"] else "🟡" if recist == "SD" else "🔴"
+        st.metric(f"{recist_color} RECIST", recist)
 
     with col3:
-        st.metric("CD8+ T细胞", f"{int(state['imm_cd8_count'])}")
+        phase = state.get("phase", state.get("immunoediting_phase", "?"))
+        phase_color = "🟢" if phase == "elimination" else "🟡" if phase == "equilibrium" else "🔴"
+        st.metric(f"{phase_color} 免疫编辑", phase)
 
     with col4:
-        recist = "PR" if state['tum_volume'] < sim_data["initial_volume"] * 0.7 else "SD" if state['tum_volume'] < sim_data["initial_volume"] * 1.2 else "PD"
-        st.metric("RECIST响应", recist)
+        pd_l1 = state.get("pd_l1_cps", 0)
+        st.metric("PD-L1 CPS", f"{pd_l1:.1f}")
 
-    with col5:
-        st.metric("分子亚型", state.get("sub_molecular_subtype", "BLIS"))
+    # Tumor growth curve
+    st.markdown("#### 📉 肿瘤生长曲线")
 
-    # Animated tumor growth
-    st.markdown("#### 📈 肿瘤生长动态")
+    history = st.session_state.get("sim_history", [])
+    if history:
+        days = [h.get("day", 0) for h in history]
+        volumes = [h.get("state", {}).get("volume", h.get("state", {}).get("volume_mm3", 0)) for h in history]
 
-    steps = [h["step"] for h in history]
-    volumes = [h["tum_volume"] for h in history]
-    phases = [h["ied_phase"] for h in history]
+        # Add initial point if needed
+        if not days or days[0] != 0:
+            days = [0] + days
+            volumes = [state.get("initial_volume", 100)] + volumes
 
-    # Color by phase
-    colors = []
-    for p in phases:
-        if p == "elimination":
-            colors.append("#27ae60")
-        elif p == "equilibrium":
-            colors.append("#f39c12")
-        else:
-            colors.append("#e74c3c")
+        growth_fig = go.Figure()
+        growth_fig.add_trace(go.Scatter(
+            x=days, y=volumes, mode='lines+markers',
+            line=dict(color='#c41e3a', width=3),
+            marker=dict(size=8),
+            name='肿瘤体积'
+        ))
 
-    tumor_fig = go.Figure(data=go.Scatter(
-        x=steps, y=volumes, mode='lines+markers',
-        marker=dict(color=colors, size=8),
-        line=dict(color='#c41e3a', width=3)
-    ))
-    tumor_fig.update_layout(
-        xaxis_title='仿真步数',
-        yaxis_title='肿瘤体积 (mm³)',
-        paper_bgcolor='rgba(0,0,0,0)',
-        font_color='#ecf0f1',
-        height=350
-    )
-    st.plotly_chart(tumor_fig, use_container_width=True)
+        # Mark treatment events
+        treatment_days = [h.get("day") for h in history if h.get("event") == "drug_administered"]
+        for td in treatment_days:
+            idx = days.index(td) if td in days else -1
+            if idx >= 0:
+                growth_fig.add_trace(go.Scatter(
+                    x=[td], y=[volumes[idx]],
+                    mode='markers',
+                    marker=dict(size=15, symbol='star', color='#f39c12'),
+                    name='给药'
+                ))
 
-    # Immune dynamics
-    st.markdown("#### 🛡️ 免疫细胞动态")
+        growth_fig.update_layout(
+            xaxis_title='天数',
+            yaxis_title='肿瘤体积 (mm³)',
+            paper_bgcolor='rgba(0,0,0,0)',
+            font_color='#ecf0f1',
+            height=400
+        )
+        st.plotly_chart(growth_fig, use_container_width=True)
+    else:
+        st.info("推进仿真以生成曲线")
 
-    cd8_vals = [h["imm_cd8_count"] for h in history]
-    activation_vals = [h.get("imm_t_cell_activation", 0.3) for h in history]
-
-    immune_fig = make_subplots(rows=1, cols=2)
-
-    immune_fig.add_trace(go.Scatter(
-        x=steps, y=cd8_vals, mode='lines', name='CD8+ T细胞',
-        line=dict(color='#27ae60', width=2)
-    ), row=1, col=1)
-
-    immune_fig.add_trace(go.Scatter(
-        x=steps, y=activation_vals, mode='lines', name='T细胞激活',
-        line=dict(color='#3498db', width=2)
-    ), row=1, col=2)
-
-    immune_fig.update_layout(
-        paper_bgcolor='rgba(0,0,0,0)',
-        font_color='#ecf0f1',
-        height=350,
-        showlegend=True
-    )
-    st.plotly_chart(immune_fig, use_container_width=True)
-
-    # Phase timeline
-    st.markdown("#### 📋 免疫编辑阶段时间轴")
-
-    phase_counts = {}
-    for p in phases:
-        phase_counts[p] = phase_counts.get(p, 0) + 1
-
-    phase_cols = st.columns(3)
-    phase_colors_map = {"elimination": "#27ae60", "equilibrium": "#f39c12", "escape": "#e74c3c"}
-
-    for i, (p, count) in enumerate(phase_counts.items()):
-        with phase_cols[i]:
-            st.markdown(f"""
-            <div style="background: {phase_colors_map[p]}; padding: 10px; border-radius: 8px; text-align: center;">
-                <div style="font-size: 1.5em; color: white;">{p.upper()}</div>
-                <div style="color: white;">{count} 步 ({count/len(history)*100:.1f}%)</div>
-            </div>
-            """, unsafe_allow_html=True)
-
-    # Treatment response
-    st.markdown("#### 💉 治疗响应评估")
-
-    if sim_data.get("treatment"):
-        st.info(f"治疗方案: {', '.join(sim_data['treatment'])}")
-
-        response_data = {
-            "指标": ["RECIST响应", "肿瘤变化", "PFS预估", "免疫激活"],
-            "数值": [recist,
-                     f"{(state['tum_volume']-sim_data['initial_volume'])/sim_data['initial_volume']*100:+.1f}%",
-                     f"{len(history) * 0.5:.1f} 月",
-                     f"{state['imm_t_cell_activation']:.2f}"]
-        }
-
-        import pandas as pd
-        st.dataframe(pd.DataFrame(response_data), use_container_width=True, hide_index=True)
-
-    # Export
+    # Generate report
     st.markdown("---")
-    col_exp1, col_exp2 = st.columns(2)
+    col_rep1, col_rep2 = st.columns(2)
 
-    with col_exp1:
-        if st.button("📄 生成动态HTML报告", use_container_width=True):
-            html = generate_nature_html_report(data)
-            filename = f"simulacrum_report_{datetime.now().strftime('%Y%m%d_%H%M%S')}.html"
-            Path(filename).write_text(html, encoding="utf-8")
-            st.success(f"✅ 报告已保存: {filename}")
-            with open(filename, "r", encoding="utf-8") as f:
-                st.download_button("⬇️ 下载动态报告", f.read(), file_name=filename, mime="text/html")
+    with col_rep1:
+        if st.button("📄 生成完整报告", use_container_width=True):
+            with st.spinner("生成报告..."):
+                try:
+                    report_data = simulacrum_report()
+                    report_data["history"] = history
 
-    with col_exp2:
-        import json
+                    html = generate_html_report(report_data, f"TNBC {subtype_code} Report")
+                    filepath = save_html_report(html)
+
+                    with open(filepath, "r", encoding="utf-8") as f:
+                        st.download_button("下载HTML报告", f.read(),
+                                           file_name=Path(filepath).name, mime="text/html")
+                    st.success("报告生成完成")
+
+                except Exception as e:
+                    st.error(f"报告生成出错: {e}")
+
+    with col_rep2:
+        full_data = {
+            "module": "simulacrum",
+            "subtype": subtype_code,
+            "day": st.session_state.get("sim_day", 0),
+            "state": state,
+            "history": history,
+        }
         st.download_button(
-            "⬇️ 下载仿真数据",
-            json.dumps(data, indent=2, ensure_ascii=False),
-            file_name=f"simulacrum_data_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json",
+            "⬇️ 下载JSON数据",
+            json.dumps(full_data, indent=2, ensure_ascii=False, default=str),
+            file_name=f"tnbc_sim_{subtype_code}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json",
             mime="application/json"
         )
-
-# Quick simulation (no sidebar params)
-st.markdown("---")
-st.markdown("#### ⚡ 快速演示")
-
-if st.button("🔄 运行示例仿真 (50步)", use_container_width=True):
-    # Default params
-    st.session_state["sim_params"] = {
-        "initial_volume": 50,
-        "growth_rate": 0.027,
-        "cd8_initial": 100,
-        "subtype": "BLIS",
-        "treatment": ["化疗 (紫杉醇)", "免疫治疗 (PD-1)"],
-        "treatment_start": 10,
-        "n_steps": 50
-    }
-    st.session_state["sim_running"] = True
-    st.rerun()
 
 # Navigation
 st.markdown("---")
@@ -421,5 +306,5 @@ with col_nav1:
     if st.button("🏠 返回首页", use_container_width=True):
         st.switch_page("Home.py")
 with col_nav3:
-    if st.button("📄 报告导出 →", use_container_width=True):
-        st.switch_page("pages/5_Report_Export.py")
+    if st.button("🔗 联合分析 →", use_container_width=True):
+        st.switch_page("pages/6_Joint_Analysis.py")

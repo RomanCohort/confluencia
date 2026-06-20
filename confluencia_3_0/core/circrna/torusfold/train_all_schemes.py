@@ -340,7 +340,8 @@ def train_scheme4(train_loader, val_loader, args, device):
 
     config = CircDiffusionConfig(
         n_diffusion_steps=args.diffusion_steps,
-        d_hidden=args.d_hidden,
+        d_node=getattr(args, 'd_hidden', 128),
+        d_edge=getattr(args, 'd_hidden', 128) // 2,
     )
     model = CircRNADiffusionModel(config).to(device)
     optimizer = torch.optim.AdamW(model.parameters(), lr=args.lr)
@@ -351,33 +352,49 @@ def train_scheme4(train_loader, val_loader, args, device):
         train_loss = 0
         for batch in train_loader:
             seq_ids = batch['seq_ids'].to(device)
-            target = batch['coords'].to(device)
+            coords_target = batch['coords'].to(device)
+            pair_probs = batch.get('pair_probs', None)
+            if pair_probs is not None:
+                pair_probs = pair_probs.to(device)
 
-            # Forward diffusion + denoising
-            out = model(seq_ids)
-            pred_coords = out['coords']
+            # Forward diffusion + denoising (coords_target triggers training mode)
+            out = model(seq_tokens=seq_ids, coords_target=coords_target, pair_probs=pair_probs)
 
-            # Loss: coordinate matching + closure
-            diff = pred_coords - target
-            coord_loss = torch.mean(torch.sum(diff**2, dim=-1))
-
-            # Closure reward
-            closure = torch.norm(pred_coords[:, 0] - pred_coords[:, -1], dim=-1)
-            closure_loss = torch.mean((closure - 5.9)**2)
-
-            loss = coord_loss + 0.5 * closure_loss
+            # Extract losses from diffusion model output
+            noise_loss = out.get('noise_loss', 0)
+            closure_loss = out.get('closure_loss', 0)
+            loss = out.get('total_loss', noise_loss + 0.1 * closure_loss)
 
             loss.backward()
             optimizer.step()
             optimizer.zero_grad()
             train_loss += loss.item()
 
-        print(f"  Epoch {epoch+1}/{args.epochs} train={train_loss/len(train_loader):.4f}")
+        avg_train = train_loss / len(train_loader)
+        print(f"  Epoch {epoch+1}/{args.epochs} train={avg_train:.4f}")
 
-        if train_loss < best_val:
-            best_val = train_loss
-            torch.save(model.state_dict(), f"{args.output}/scheme4.pt")
+        # Validation
+        model.eval()
+        val_loss = 0
+        with torch.no_grad():
+            for batch in val_loader:
+                seq_ids = batch['seq_ids'].to(device)
+                coords_target = batch['coords'].to(device)
+                pair_probs = batch.get('pair_probs', None)
+                if pair_probs is not None:
+                    pair_probs = pair_probs.to(device)
 
+                out = model(seq_tokens=seq_ids, coords_target=coords_target, pair_probs=pair_probs)
+                val_loss += out.get('total_loss', 0).item()
+
+        avg_val = val_loss / len(val_loader)
+        print(f"  Val loss: {avg_val:.4f}")
+
+        if avg_val < best_val:
+            best_val = avg_val
+            torch.save(model.state_dict(), f"{args.output}/scheme4_best.pt")
+
+    print(f"  Best val loss: {best_val:.4f}")
     return best_val
 
 
@@ -396,6 +413,7 @@ def train_scheme5(train_loader, val_loader, args, device):
         def __init__(self, d_model=128, n_heads=4, n_blocks=4):
             super().__init__()
             self.embed = nn.Embedding(5, d_model)
+            self.pair_proj = nn.Linear(2 * d_model, d_model)
             self.blocks = nn.ModuleList([
                 CircPairformerBlock(c_z=d_model, use_physics_bias=True)
                 for _ in range(n_blocks)
@@ -412,15 +430,29 @@ def train_scheme5(train_loader, val_loader, args, device):
             else:
                 coords = coords_init
 
-            # Reshape for triangle update (expects z tensor)
-            z = h.unsqueeze(-1).expand(-1, -1, -1, h.size(-1))  # (B, L, D, D)
+            # Convert sequence embedding to pair representation using simple heuristic:
+            # For circRNA, pair (i,j) gets features from positions i and j
+            # or from their identity embeddings
+            seq_emb = h  # (B, L, D)
+
+            # Use first order linear approximation for pair initialization
+            # This is consistent with AF2: z[i,j] = linear(seq[i] || seq[j])
+            seq_emb_expanded_i = seq_emb.unsqueeze(2).expand(-1, -1, L, -1)  # (B, L, L, D)
+            seq_emb_expanded_j = seq_emb.unsqueeze(1).expand(-1, L, -1, -1)  # (B, L, L, D)
+
+            # Simple concatenation (can be replaced with learnable linear transformation)
+            z = torch.cat([seq_emb_expanded_i, seq_emb_expanded_j], dim=-1)  # (B, L, L, 2D)
+            z = self.pair_proj(z)  # (B, L, L, D)
 
             for block in self.blocks:
                 z = block(z, coords=coords)
 
-            # Extract coordinates from diagonal
-            diag = z.diagonal(dim1=2, dim2=3)  # (B, L, D)
-            coords = self.coord_head(diag)
+            # Extract single representation from pair representation
+            # Standard AF2 approach: sum over j or mean pooling
+            single = z.mean(dim=2)  # (B, L, D) - average over pairs
+
+            # Project to coordinates
+            coords = self.coord_head(single)  # (B, L, 3)
 
             return {'coords': coords}
 
@@ -468,7 +500,7 @@ def train_scheme6(train_loader, val_loader, args, device):
 
     config = GNNLatentConfig(
         n_diffusion_steps=args.diffusion_steps,
-        d_hidden=args.d_hidden,
+        d_node=args.d_hidden,
     )
     model = GNNLatentDiffusionModel(config).to(device)
     optimizer = torch.optim.AdamW(model.parameters(), lr=args.lr)

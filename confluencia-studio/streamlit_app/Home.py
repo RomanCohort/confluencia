@@ -1,39 +1,11 @@
-"""Confluencia Studio - Streamlit Web UI for Non-Programmers.
+"""Confluencia Studio - Home Page.
 
-Easy-to-use interface for:
-- circRNA immunogenicity analysis
-- Drug ADMET prediction
-- TNBC Simulacrum simulation
-- Clinical report generation
-
-Usage:
-    streamlit run Home.py
+Integrated circRNA drug discovery platform.
+All modules use confluencia skill API for backend computation.
 """
 
 import streamlit as st
-import sys
 from pathlib import Path
-
-# Add confluencia paths - NOTE: confluencia_3_0 uses underscores!
-PROJECT_ROOT = Path(r"D:\IGEM集成方案")
-sys.path.insert(0, str(PROJECT_ROOT / "confluencia-2.0-drug"))
-sys.path.insert(0, str(PROJECT_ROOT / "confluencia-2.0-epitope"))
-sys.path.insert(0, str(PROJECT_ROOT / "confluencia_3_0"))
-
-# Add visualization module
-import importlib.util
-import sys as _sys
-VIS_PATH = Path(r"C:\Users\LENOVO\.claude\skills\confluencia")
-_spec = importlib.util.spec_from_file_location(
-    "visualization",
-    str(VIS_PATH / "visualization.py")
-)
-visualization = importlib.util.module_from_spec(_spec)
-_sys.modules["visualization"] = visualization  # Critical fix for dataclass
-_spec.loader.exec_module(visualization)
-generate_nature_html_report = visualization.generate_nature_html_report
-
-from datetime import datetime
 
 st.set_page_config(
     page_title="Confluencia Studio",
@@ -42,164 +14,222 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Custom CSS for Nature journal style
+# Header
 st.markdown("""
 <style>
-    .stApp {
-        background: linear-gradient(135deg, #1a1a2e 0%, #2d3a4f 100%);
-    }
+    .stApp { background: linear-gradient(135deg, #1a1a2e 0%, #2d3a4f 100%); }
     .main-header {
-        background: linear-gradient(135deg, #1a1a2e 0%, #2c3e50 100%);
-        border-left: 5px solid #c41e3a;
-        padding: 20px;
-        border-radius: 0 8px 8px 0;
-        color: #ecf0f1;
-    }
-    .metric-card {
-        background: rgba(255,255,255,0.05);
-        border: 1px solid #30363d;
-        border-radius: 8px;
-        padding: 15px;
+        background: linear-gradient(135deg, rgba(196,30,58,0.2) 0%, rgba(45,58,79,0.8) 100%);
+        border-radius: 15px;
+        padding: 30px;
+        margin-bottom: 20px;
         text-align: center;
     }
-    .metric-value {
-        font-size: 2em;
-        font-weight: bold;
-        color: #27ae60;
+    .module-card {
+        background: rgba(0,0,0,0.3);
+        border: 1px solid #30363d;
+        border-radius: 10px;
+        padding: 20px;
+        transition: all 0.3s ease;
     }
-    .metric-label {
-        color: #7f8c8d;
-        font-size: 0.85em;
+    .module-card:hover {
+        border-color: #c41e3a;
+        transform: translateY(-5px);
     }
-    .safe { color: #27ae60; }
-    .warning { color: #f39c12; }
-    .danger { color: #e74c3c; }
-    .info-box {
-        background: rgba(41,128,185,0.1);
-        border-left: 4px solid #2980b9;
-        padding: 10px 15px;
+    .section-header {
+        background: rgba(196,30,58,0.1);
+        border-left: 4px solid #c41e3a;
+        padding: 15px;
         margin: 10px 0;
+        border-radius: 0 8px 8px 0;
+        color: #ecf0f1;
     }
 </style>
 """, unsafe_allow_html=True)
 
-# Sidebar
-with st.sidebar:
-    st.image("https://img.icons8.com/fluency/96/dna.png", width=80)
-    st.title("🧬 Confluencia Studio")
-    st.markdown("---")
-    st.markdown("### 分析模块")
-    st.markdown("""
-    - 🏠 **首页** - 模块选择
-    - 🔬 **circRNA 分析** - 免疫原性评估
-    - 💊 **药物预测** - ADMET属性
-    - 🧬 **表位筛选** - MHC结合预测
-    - 🎮 **TNBC仿真** - 数字孪生
-    - 📄 **报告导出** - 生成报告
-    """)
-    st.markdown("---")
-    st.markdown(f"**版本**: 3.0.0")
-    st.markdown(f"**日期**: {datetime.now().strftime('%Y-%m-%d')}")
-
-# Main content
 st.markdown("""
 <div class="main-header">
     <h1>🧬 Confluencia Studio</h1>
-    <p style="font-style: italic; color: #7f8c8d;">
-        circRNA 药物发现平台 - 无需编程的图形化分析工具
+    <p style="font-size: 1.2em; color: #bdc3c7;">
+        Integrated circRNA Drug Discovery Platform
+    </p>
+    <p style="color: #7f8c8d;">
+        circRNA Immunogenicity | Drug ADMET | Epitope Screening | TNBC Digital Twin
     </p>
 </div>
 """, unsafe_allow_html=True)
 
-st.markdown("")
+# Sidebar - Project info
+with st.sidebar:
+    st.markdown("### 📁 项目信息")
+
+    from utils import get_project_info
+    info = get_project_info()
+
+    st.markdown(f"""
+    **根目录:** `{Path(info['project_root']).name}`
+
+    **模块状态:**
+    - Drug 2.0: {'✅' if info['modules'].get('drug') else '❌'}
+    - Epitope 2.0: {'✅' if info['modules'].get('epitope') else '❌'}
+    - circRNA 3.0: {'✅' if info['modules'].get('circrna') else '❌'}
+
+    **当前后端:**
+    - Drug: {info['backends'].get('drug', 'local')}
+    - Epitope: {info['backends'].get('epitope', 'local')}
+    - circRNA: {info['backends'].get('circrna', 'heuristic')}
+    """)
+
+    st.markdown("---")
+    st.markdown("### 🔗 快速链接")
+
+    if st.button("📚 使用文档", use_container_width=True):
+        st.info("查看项目 README 获取详细使用说明")
+
+    if st.button("⚙️ 环境变量配置", use_container_width=True):
+        st.markdown("""
+        **环境变量:**
+        - `CONFLUENCIA_ROOT`: 项目根目录
+        - `CONFLUENCIA_SKILL_PATH`: skill 路径
+
+        **示例:**
+        ```
+        export CONFLUENCIA_ROOT=/path/to/IGEM集成方案
+        ```
+        """)
 
 # Module cards
+st.markdown("""
+<div class="section-header">
+    <h3>🔬 分析模块</h3>
+</div>
+""", unsafe_allow_html=True)
+
 col1, col2, col3 = st.columns(3)
 
 with col1:
     st.markdown("""
-    <div class="metric-card">
-        <div style="font-size: 3em;">🔬</div>
-        <h3 style="color: #ecf0f1;">circRNA 分析</h3>
-        <p style="color: #7f8c8d;">免疫原性评估<br>TorusFold评分<br>PK模拟</p>
+    <div class="module-card">
+        <h4>💊 Drug Prediction (2.0)</h4>
+        <p style="color: #bdc3c7;">药物 ADMET 预测</p>
+        <ul style="color: #95a5a6;">
+            <li>吸收、分布、代谢预测</li>
+            <li>毒性评估 (hERG, 肝毒性)</li>
+            <li>药物相似性评分</li>
+            <li>Backend: local / ChEMBL API</li>
+        </ul>
     </div>
     """, unsafe_allow_html=True)
-    if st.button("进入 circRNA 分析", key="btn_circrna", use_container_width=True):
-        st.switch_page("pages/1_CircRNA_Analysis.py")
+    if st.button("打开药物预测", key="btn_drug", use_container_width=True):
+        st.switch_page("pages/2_Drug_Prediction.py")
 
 with col2:
     st.markdown("""
-    <div class="metric-card">
-        <div style="font-size: 3em;">💊</div>
-        <h3 style="color: #ecf0f1;">药物预测</h3>
-        <p style="color: #7f8c8d;">ADMET属性<br>疗效预测<br>分子优化</p>
+    <div class="module-card">
+        <h4>🔬 circRNA Analysis (3.0)</h4>
+        <p style="color: #bdc3c7;">circRNA 免疫原性分析</p>
+        <ul style="color: #95a5a6;">
+            <li>先天免疫激活评估</li>
+            <li>TorusFold 结构评分</li>
+            <li>RNACTM 药代动力学</li>
+            <li>Backend: heuristic / Vienna / ESM-2</li>
+        </ul>
     </div>
     """, unsafe_allow_html=True)
-    if st.button("进入药物预测", key="btn_drug", use_container_width=True):
-        st.switch_page("pages/2_Drug_Prediction.py")
+    if st.button("打开circRNA分析", key="btn_circrna", use_container_width=True):
+        st.switch_page("pages/1_CircRNA_Analysis.py")
 
 with col3:
     st.markdown("""
-    <div class="metric-card">
-        <div style="font-size: 3em;">🧬</div>
-        <h3 style="color: #ecf0f1;">表位筛选</h3>
-        <p style="color: #7f8c8d;">MHC结合预测<br>表位评分<br>免疫表型</p>
+    <div class="module-card">
+        <h4>🧬 Epitope Screening (2.0)</h4>
+        <p style="color: #bdc3c7;">MHC 结合预测</p>
+        <ul style="color: #95a5a6;">
+            <li>MHC I/II 结合亲和力</li>
+            <li>疫苗表位筛选</li>
+            <li>多等位基因覆盖</li>
+            <li>Backend: local / NetMHCpan</li>
+        </ul>
     </div>
     """, unsafe_allow_html=True)
-    if st.button("进入表位筛选", key="btn_epitope", use_container_width=True):
+    if st.button("打开表位筛选", key="btn_epitope", use_container_width=True):
         st.switch_page("pages/3_Epitope_Screening.py")
-
-st.markdown("")
 
 col4, col5, col6 = st.columns(3)
 
 with col4:
     st.markdown("""
-    <div class="metric-card">
-        <div style="font-size: 3em;">🎮</div>
-        <h3 style="color: #ecf0f1;">TNBC 仿真</h3>
-        <p style="color: #7f8c8d;">数字孪生<br>肿瘤动态<br>治疗响应</p>
+    <div class="module-card">
+        <h4>🎮 TNBC Simulacrum</h4>
+        <p style="color: #bdc3c7;">三阴性乳腺癌数字孪生</p>
+        <ul style="color: #95a5a6;">
+            <li>四种分子亚型模拟</li>
+            <li>免疫编辑动态</li>
+            <li>治疗方案仿真</li>
+            <li>RECIST 响应预测</li>
+        </ul>
     </div>
     """, unsafe_allow_html=True)
-    if st.button("进入TNBC仿真", key="btn_tnbc", use_container_width=True):
+    if st.button("打开TNBC仿真", key="btn_simulacrum", use_container_width=True):
         st.switch_page("pages/4_TNBC_Simulator.py")
 
 with col5:
     st.markdown("""
-    <div class="metric-card">
-        <div style="font-size: 3em;">🧪</div>
-        <h3 style="color: #ecf0f1;">联合分析</h3>
-        <p style="color: #7f8c8d;">circRNA+药物<br>协同评估<br>候选筛选</p>
+    <div class="module-card">
+        <h4>🔗 Joint Analysis</h4>
+        <p style="color: #bdc3c7;">联合治疗评估</p>
+        <ul style="color: #95a5a6;">
+            <li>circRNA疫苗 + 化疗药物</li>
+            <li>协同效应评估</li>
+            <li>PK 参数匹配</li>
+            <li>治疗建议生成</li>
+        </ul>
     </div>
     """, unsafe_allow_html=True)
-    if st.button("进入联合分析", key="btn_joint", use_container_width=True):
+    if st.button("打开联合分析", key="btn_joint", use_container_width=True):
         st.switch_page("pages/6_Joint_Analysis.py")
 
 with col6:
     st.markdown("""
-    <div class="metric-card">
-        <div style="font-size: 3em;">📄</div>
-        <h3 style="color: #ecf0f1;">报告导出</h3>
-        <p style="color: #7f8c8d;">HTML报告<br>临床报告<br>数据打包</p>
+    <div class="module-card">
+        <h4>📄 Report Export</h4>
+        <p style="color: #bdc3c7;">报告导出中心</p>
+        <ul style="color: #95a5a6;">
+            <li>HTML 可视化报告</li>
+            <li>JSON 数据导出</li>
+            <li>批量报告生成</li>
+            <li>Nature 期刊风格</li>
+        </ul>
     </div>
     """, unsafe_allow_html=True)
-    if st.button("生成报告", key="btn_report", use_container_width=True):
+    if st.button("打开报告导出", key="btn_report", use_container_width=True):
         st.switch_page("pages/5_Report_Export.py")
 
-# Quick start guide
+# Feature highlights
 st.markdown("---")
 st.markdown("""
-<div class="info-box">
-    <h4>🚀 快速开始指南</h4>
-    <ol>
-        <li><b>粘贴序列</b> - 在 circRNA 分析页面输入您的 circRNA 序列</li>
-        <li><b>点击分析</b> - 选择分析类型，点击"开始分析"按钮</li>
-        <li><b>查看报告</b> - 系统自动生成可视化 HTML 报告</li>
-        <li><b>导出数据</b> - 可下载 JSON 数据用于进一步研究</li>
-    </ol>
+<div class="section-header">
+    <h3>✨ 核心特性</h3>
 </div>
 """, unsafe_allow_html=True)
 
-# Recent activity placeholder
-st.markdown("### 📊 最近分析记录")
-st.info("暂无分析记录。开始您的第一次分析吧！")
+features = [
+    ("🎯 统一 API", "所有模块通过 confluencia skill API 统一调用，确保一致性和可维护性"),
+    ("🔄 多后端支持", "支持本地计算和远程 API，可根据精度需求切换"),
+    ("📊 Nature 风格可视化", "HTML 报告采用 Nature 期刊风格，适合学术展示"),
+    ("🐍 Python 3.13 兼容", "完整支持 Python 3.13 dataclass，无需降级"),
+    ("🖥️ 跨平台", "支持 Windows/Linux/macOS，通过环境变量配置路径"),
+    ("🧪 TNBC 数字孪生", "基于真实临床数据的 TNBC 仿真模型"),
+]
+
+for title, desc in features:
+    st.markdown(f"**{title}** - {desc}")
+
+# Version info
+st.markdown("---")
+st.markdown("""
+<div style="text-align: center; color: #7f8c8d;">
+    <p>Confluencia Studio v3.0 | Powered by Claude Code Skill API</p>
+    <p>Python 3.13 | Streamlit | Plotly | Nature Journal Style</p>
+</div>
+""", unsafe_allow_html=True)

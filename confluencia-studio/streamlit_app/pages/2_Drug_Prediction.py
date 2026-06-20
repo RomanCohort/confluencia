@@ -1,30 +1,18 @@
 """Drug Prediction Page - Streamlit UI.
 
 ADMET properties, efficacy prediction, molecular optimization.
+Uses confluencia skill API for all backend computation.
 """
 
 import streamlit as st
-import sys
-from pathlib import Path
-
-PROJECT_ROOT = Path(r"D:\IGEM集成方案")
-sys.path.insert(0, str(PROJECT_ROOT / "confluencia-2.0-drug"))
-
-# Add visualization module
-import importlib.util
-import sys as _sys
-VIS_PATH = Path(r"C:\Users\LENOVO\.claude\skills\confluencia")
-_spec = importlib.util.spec_from_file_location(
-    "visualization",
-    str(VIS_PATH / "visualization.py")
-)
-visualization = importlib.util.module_from_spec(_spec)
-_sys.modules["visualization"] = visualization  # Critical fix for dataclass
-_spec.loader.exec_module(visualization)
-generate_nature_html_report = visualization.generate_nature_html_report
-
 import plotly.graph_objects as go
 from datetime import datetime
+import json
+
+from utils import (
+    drug_admet, generate_html_report, save_html_report,
+    get_drug_smiles_mapping,
+)
 
 st.set_page_config(page_title="Drug Prediction - Confluencia", page_icon="💊", layout="wide")
 
@@ -76,8 +64,13 @@ with col_examples:
     for i, (name, smiles) in enumerate(drug_examples.items()):
         with cols[i % 2]:
             if st.button(name, key=f"drug_{i}", use_container_width=True):
-                smiles_input = smiles
+                st.session_state["drug_smiles_input"] = smiles
                 st.rerun()
+
+    # Restore from session state
+    if st.session_state.get("drug_smiles_input"):
+        smiles_input = st.session_state["drug_smiles_input"]
+        st.session_state["drug_smiles_input"] = None
 
 # Analysis type
 st.markdown("#### 🔬 分析类型")
@@ -87,7 +80,7 @@ analysis_type = st.radio(
     horizontal=True
 )
 
-# Run analysis
+# Run analysis via skill API
 col_btn1, col_btn2, col_btn3 = st.columns([1, 2, 1])
 with col_btn2:
     run_btn = st.button("🚀 开始预测", type="primary", use_container_width=True, disabled=not smiles_input)
@@ -95,46 +88,7 @@ with col_btn2:
 if run_btn and smiles_input:
     with st.spinner("预测中..."):
         try:
-            # Use utility helper for Python 3.13 dataclass compatibility
-            from utils import get_admet
-
-            admet_mod = get_admet()
-
-            # Map common drug names
-            drug_smiles = {
-                "aspirin": "CC(=O)Oc1ccccc1C(=O)O",
-                "ibuprofen": "CC(C)Cc1ccc(cc1)C(C)C(=O)O",
-                "paracetamol": "CC(=O)Nc1ccc(O)cc1",
-                "caffeine": "Cn1cnc2c1c(=O)n(C)c(=O)n2C",
-                "doxorubicin": "CC1C(C(CC(O1)C2C3C(C4C(=C(C(=O)C5=C(C4=CC(=C(C5C(=O)C6=C(C=C3C=C2OC6=O)O)O)O)O)O)C(=O)O)O)O)O",
-                "metformin": "CN(C)C(=N)NC(N)N"
-            }
-
-            smiles = drug_smiles.get(smiles_input.lower(), smiles_input)
-            predictor = admet_mod.ADMETPredictor()
-            result = predictor.predict(smiles)
-
-            data = {
-                "module": "drug",
-                "backend": "local",
-                "input": smiles_input,
-                "smiles": result.smiles,
-                "admet": {
-                    "overall_risk": result.overall_risk,
-                    "druglikeness": result.druglikeness_score,
-                    "hERG_risk": result.hERG_risk,
-                    "hepatotoxicity": result.hepatotoxicity_risk,
-                    "caco2_permeability": result.caco2_permeability,
-                    "aqueous_solubility": result.aqueous_solubility,
-                    "cyp_total_risk": result.CYP_total_risk,
-                    "ames_positive": result.AMES_positive,
-                    "bbb_permeable": result.BBB_positive
-                },
-                "risk_categories": {
-                    "overall": "LOW" if result.overall_risk < 0.3 else "MODERATE" if result.overall_risk < 0.6 else "HIGH",
-                    "druglikeness": "PASS" if result.druglikeness_score > 0.5 else "FAIL"
-                }
-            }
+            data = drug_admet(smiles_input)
 
             st.session_state["drug_data"] = data
             st.session_state["drug_done"] = True
@@ -149,8 +103,8 @@ if run_btn and smiles_input:
 # Display results
 if st.session_state.get("drug_done") and st.session_state.get("drug_data"):
     data = st.session_state["drug_data"]
-    admet = data["admet"]
-    risks = data["risk_categories"]
+    admet = data.get("admet", {})
+    risks = data.get("risk_categories", {})
 
     st.markdown("---")
     st.markdown("""
@@ -163,29 +117,30 @@ if st.session_state.get("drug_done") and st.session_state.get("drug_data"):
     col1, col2, col3, col4 = st.columns(4)
 
     with col1:
-        risk_class = risks["overall"]
+        risk_class = risks.get("overall", "N/A")
         risk_color = "🟢" if risk_class == "LOW" else "🟡" if risk_class == "MODERATE" else "🔴"
-        st.metric(f"{risk_color} 总体风险", f"{admet['overall_risk']:.2f}", delta=risk_class)
+        st.metric(f"{risk_color} 总体风险", f"{admet.get('overall_risk', 0):.2f}", delta=risk_class)
 
     with col2:
-        dl_color = "🟢" if risks["druglikeness"] == "PASS" else "🔴"
-        st.metric(f"{dl_color} 药物相似性", f"{admet['druglikeness']:.2f}", delta=risks["druglikeness"])
+        dl_status = risks.get("druglikeness", "N/A")
+        dl_color = "🟢" if dl_status == "PASS" else "🔴"
+        st.metric(f"{dl_color} 药物相似性", f"{admet.get('druglikeness', 0):.2f}", delta=dl_status)
 
     with col3:
-        herg = admet["hERG_risk"]
+        herg = admet.get("hERG_risk", 0)
         herg_class = "LOW" if herg < 0.3 else "MODERATE" if herg < 0.6 else "HIGH"
         st.metric("hERG 心脏毒性", f"{herg:.2f}", delta=herg_class)
 
     with col4:
-        hepa = admet["hepatotoxicity"]
+        hepa = admet.get("hepatotoxicity", 0)
         st.metric("肝毒性", f"{hepa:.2f}")
 
     # ADMET radar
     st.markdown("#### 📊 ADMET 雷达图")
 
     radar_fig = go.Figure(data=go.Scatterpolar(
-        r=[admet['overall_risk'], admet['hERG_risk'], admet['hepatotoxicity'],
-           admet['cyp_total_risk'], admet['ames_positive'], 1-admet['druglikeness']],
+        r=[admet.get('overall_risk',0), admet.get('hERG_risk',0), admet.get('hepatotoxicity',0),
+           admet.get('cyp_total_risk',0), admet.get('ames_positive',0), 1-admet.get('druglikeness',0)],
         theta=['总体风险', 'hERG', '肝毒性', 'CYP抑制', 'AMES致变', '药物相似性(逆)'],
         fill='toself',
         marker_color='#e94560'
@@ -201,34 +156,34 @@ if st.session_state.get("drug_done") and st.session_state.get("drug_data"):
     # Detailed table
     st.markdown("#### 📋 详细属性")
 
+    import pandas as pd
     detail_data = {
         "属性": ["总体风险", "药物相似性", "hERG 心脏毒性", "肝毒性",
                 "Caco2 通透性", "水溶性", "CYP 抑制风险", "AMES 致变性", "血脑屏障"],
         "数值": [
-            f"{admet['overall_risk']:.3f}",
-            f"{admet['druglikeness']:.3f}",
-            f"{admet['hERG_risk']:.3f}",
-            f"{admet['hepatotoxicity']:.3f}",
-            f"{admet['caco2_permeability']:.3f}",
-            f"{admet['aqueous_solubility']:.3f}",
-            f"{admet['cyp_total_risk']:.3f}",
-            "是" if admet['ames_positive'] > 0.5 else "否",
-            "是" if admet['bbb_permeable'] > 0.5 else "否"
+            f"{admet.get('overall_risk',0):.3f}",
+            f"{admet.get('druglikeness',0):.3f}",
+            f"{admet.get('hERG_risk',0):.3f}",
+            f"{admet.get('hepatotoxicity',0):.3f}",
+            f"{admet.get('caco2_permeability',0):.3f}",
+            f"{admet.get('aqueous_solubility',0):.3f}",
+            f"{admet.get('cyp_total_risk',0):.3f}",
+            "是" if admet.get('ames_positive',0) > 0.5 else "否",
+            "是" if admet.get('bbb_permeable',0) > 0.5 else "否"
         ],
         "分级": [
-            risks["overall"],
-            risks["druglikeness"],
-            "LOW" if admet['hERG_risk'] < 0.3 else "MODERATE" if admet['hERG_risk'] < 0.6 else "HIGH",
-            "LOW" if admet['hepatotoxicity'] < 0.3 else "MODERATE" if admet['hepatotoxicity'] < 0.6 else "HIGH",
-            "PASS" if admet['caco2_permeability'] > 0.5 else "FAIL",
-            "GOOD" if admet['aqueous_solubility'] > 0.5 else "POOR",
-            "LOW" if admet['cyp_total_risk'] < 0.3 else "MODERATE" if admet['cyp_total_risk'] < 0.6 else "HIGH",
-            "POSITIVE" if admet['ames_positive'] > 0.5 else "NEGATIVE",
-            "PERMEABLE" if admet['bbb_permeable'] > 0.5 else "IMPERMEABLE"
+            risks.get("overall", "N/A"),
+            risks.get("druglikeness", "N/A"),
+            "LOW" if admet.get('hERG_risk',0) < 0.3 else "MODERATE" if admet.get('hERG_risk',0) < 0.6 else "HIGH",
+            "LOW" if admet.get('hepatotoxicity',0) < 0.3 else "MODERATE" if admet.get('hepatotoxicity',0) < 0.6 else "HIGH",
+            "PASS" if admet.get('caco2_permeability',0) > 0.5 else "FAIL",
+            "GOOD" if admet.get('aqueous_solubility',0) > 0.5 else "POOR",
+            "LOW" if admet.get('cyp_total_risk',0) < 0.3 else "MODERATE" if admet.get('cyp_total_risk',0) < 0.6 else "HIGH",
+            "POSITIVE" if admet.get('ames_positive',0) > 0.5 else "NEGATIVE",
+            "PERMEABLE" if admet.get('bbb_permeable',0) > 0.5 else "IMPERMEABLE"
         ]
     }
 
-    import pandas as pd
     df = pd.DataFrame(detail_data)
     st.dataframe(df, use_container_width=True, hide_index=True)
 
@@ -237,19 +192,17 @@ if st.session_state.get("drug_done") and st.session_state.get("drug_data"):
     col_exp1, col_exp2 = st.columns(2)
 
     with col_exp1:
-        if st.button("📄 生成HTML报告", use_container_width=True):
-            html = generate_nature_html_report(data)
-            filename = f"drug_report_{datetime.now().strftime('%Y%m%d_%H%M%S')}.html"
-            Path(filename).write_text(html, encoding="utf-8")
-            st.success(f"✅ 报告已保存: {filename}")
-            with open(filename, "r", encoding="utf-8") as f:
-                st.download_button("⬇️ 下载HTML", f.read(), file_name=filename, mime="text/html")
+        if st.button("📄 生成HTML报告", key="drug_html", use_container_width=True):
+            html = generate_html_report(data)
+            filepath = save_html_report(html)
+            with open(filepath, "r", encoding="utf-8") as f:
+                st.download_button("下载HTML报告", f.read(),
+                                   file_name=Path(filepath).name, mime="text/html")
 
     with col_exp2:
-        import json
         st.download_button(
             "⬇️ 下载JSON数据",
-            json.dumps(data, indent=2, ensure_ascii=False),
+            json.dumps(data, indent=2, ensure_ascii=False, default=str),
             file_name=f"drug_data_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json",
             mime="application/json"
         )

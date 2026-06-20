@@ -226,11 +226,17 @@ if PYQT_AVAILABLE:
 
                 # Create dock widget
                 dock = QDockWidget(title, self)
-                panel = panel_class(self.kernel)
+                panel = panel_class(None)  # Parent should be QWidget, not kernel
+
+                # Set kernel on panel if available
+                if hasattr(panel, 'set_kernel'):
+                    panel.set_kernel(self.kernel)
 
                 # Connect panel signals if available
                 if hasattr(panel, 'execute_command'):
                     panel.execute_command.connect(self.kernel.execute)
+                if hasattr(panel, 'settings_changed'):
+                    panel.settings_changed.connect(self._on_backend_settings_changed)
 
                 dock.setWidget(panel)
 
@@ -286,13 +292,18 @@ if PYQT_AVAILABLE:
 
             # Theme submenu
             theme_menu = view_menu.addMenu("Theme")
+            from PyQt6.QtGui import QActionGroup
+            theme_group = QActionGroup(self)
+            theme_group.setExclusive(True)
             dark_action = QAction("Dark", self, checkable=True)
             dark_action.setChecked(True)
             dark_action.triggered.connect(lambda: self._set_theme("dark"))
+            theme_group.addAction(dark_action)
             theme_menu.addAction(dark_action)
 
             light_action = QAction("Light", self, checkable=True)
             light_action.triggered.connect(lambda: self._set_theme("light"))
+            theme_group.addAction(light_action)
             theme_menu.addAction(light_action)
 
             # Help menu
@@ -398,6 +409,14 @@ if PYQT_AVAILABLE:
             """Set active module."""
             self.kernel.set_module(module)
             self.statusBar().showMessage(f"Module: {module}")
+
+        def _on_backend_settings_changed(self, settings: dict):
+            """Handle backend settings change from settings panel."""
+            # Update kernel/backend configuration
+            if hasattr(self.kernel, 'set_backend'):
+                for module, backend in settings.items():
+                    self.kernel.set_backend(module, backend)
+            self.statusBar().showMessage(f"Backend settings updated: {settings}")
 
         def _set_theme(self, theme: str):
             """Set UI theme."""

@@ -322,25 +322,29 @@ def save_pseudo_labels(sequences, coords_list, structures,
 
     # Save sequences
     seq_data = []
-    for i, (seq, ss, pairs) in enumerate(zip(sequences, structures, pair_constraints_all)):
+    for i, (seq, ss) in enumerate(zip(sequences, structures)):
+        pairs = pair_constraints_all[i] if i < len(pair_constraints_all) else []
         seq_data.append({
             'id': f'pseudo_{i:04d}',
             'sequence': seq,
             'secondary_structure': ss,
-            'pair_constraints': [(p[0], p[1]) for p in pairs],
+            'pair_constraints': [(p[0], p[1]) for p in pairs] if pairs else [],
         })
 
     with open(os.path.join(output_dir, 'sequences.json'), 'w') as f:
         json.dump(seq_data, f, indent=2)
 
     # Save metadata
+    closure_errors = [m.get('closure_error', 0) for m in metadata if 'closure_error' in m]
+    n_pairs_list = [m.get('n_pairs', 0) for m in metadata if 'n_pairs' in m]
+
     summary = {
         'total': len(sequences),
         'length_range': [min(m['length'] for m in metadata),
                          max(m['length'] for m in metadata)],
-        'mean_closure_error': float(np.mean([m['closure_error'] for m in metadata])),
-        'mean_n_pairs': float(np.mean([m['n_pairs'] for m in metadata])),
-        'vienna_used': any(m['source'] == 'ViennaRNA+Physics' for m in metadata),
+        'mean_closure_error': float(np.mean(closure_errors)) if closure_errors else 0.0,
+        'mean_n_pairs': float(np.mean(n_pairs_list)) if n_pairs_list else 0.0,
+        'vienna_used': any('ViennaRNA' in m.get('source', '') for m in metadata),
         'samples': metadata,
     }
 
