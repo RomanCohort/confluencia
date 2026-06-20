@@ -218,6 +218,39 @@ def check_compute_compliance(submission_dir: str) -> Dict:
     }
 
 
+def check_prediction_validity(pred_coords: np.ndarray) -> Dict:
+    """检查预测坐标的有效性（防止随机/作弊）。"""
+    issues = []
+
+    # 1. 非全零/全等
+    if pred_coords.std() < 1.0:
+        issues.append(f'Coords std={pred_coords.std():.2f} < 1.0 (likely all same)')
+
+    # 2. BSJ 闭合距离
+    bsj_dist = np.linalg.norm(pred_coords[0] - pred_coords[-1])
+    if bsj_dist > 20:
+        issues.append(f'BSJ distance={bsj_dist:.1f}Å > 20Å (invalid closure)')
+
+    # 3. 骨架键长
+    bonds = np.linalg.norm(pred_coords[1:] - pred_coords[:-1], axis=1)
+    mean_bond = bonds.mean()
+    if mean_bond < 3.0 or mean_bond > 10.0:
+        issues.append(f'Mean bond={mean_bond:.1f}Å out of [3,10] range')
+
+    # 4. 随机检测：与随机坐标的 RMSD
+    N = len(pred_coords)
+    random_coords = np.random.randn(N, 3) * 10  # 典型尺度
+    random_rmsd = np.sqrt(np.mean(np.sum((pred_coords - random_coords) ** 2, axis=1)))
+
+    return {
+        'valid': len(issues) == 0,
+        'issues': issues,
+        'bsj_distance': round(bsj_dist, 2),
+        'mean_bond': round(mean_bond, 2),
+        'coords_std': round(float(pred_coords.std()), 2),
+    }
+
+
 def evaluate_submission(
     pred_dir: str,
     truth_dir: str,
@@ -230,6 +263,7 @@ def evaluate_submission(
 
     results = {}
     all_scores = []
+    validity_issues = []
 
     for item in truth_seqs:
         seq_id = item['id']
@@ -243,6 +277,19 @@ def evaluate_submission(
             continue
 
         pred_coords = np.load(pred_path)
+
+        # Check validity first
+        validity = check_prediction_validity(pred_coords)
+        if not validity['valid']:
+            print(f"  INVALID {seq_id}: {validity['issues']}")
+            results[seq_id] = {
+                'error': 'invalid',
+                'issues': validity['issues'],
+                'total_score': 0.0,
+            }
+            all_scores.append(0.0)
+            validity_issues.append(seq_id)
+            continue
 
         # Load ground truth
         truth_path = os.path.join(truth_dir, 'coords', f"{seq_id}.npy")
@@ -271,13 +318,37 @@ def evaluate_submission(
               f"Score={result['total_score']:.1f}")
 
     # Summary
+    n_valid = sum(1 for r in results.values() if 'error' not in r)
+    n_invalid = sum(1 for r in results.values() if r.get('error') == 'invalid')
+    mean_score = round(np.mean(all_scores), 2)
+
+    # Check minimum score threshold
+    disqualified = False
+    disqualification_reason = None
+
+    if mean_score < 10:
+        disqualified = True
+        disqualification_reason = f'Mean score {mean_score} < 10 (minimum threshold)'
+
+    if n_valid < 20:
+        disqualified = True
+        disqualification_reason = f'Only {n_valid}/30 valid targets (minimum 20)'
+
+    if n_invalid > 10:
+        disqualified = True
+        disqualification_reason = f'{n_invalid}/30 invalid targets (maximum 10)'
+
     summary = {
         'per_target': results,
-        'mean_score': round(np.mean(all_scores), 2),
+        'mean_score': mean_score,
         'median_score': round(np.median(all_scores), 2),
         'std_score': round(np.std(all_scores), 2),
         'n_targets': len(results),
-        'n_evaluated': sum(1 for r in results.values() if 'error' not in r),
+        'n_evaluated': n_valid,
+        'n_invalid': n_invalid,
+        'n_missing': sum(1 for r in results.values() if r.get('error') == 'missing'),
+        'disqualified': disqualified,
+        'disqualification_reason': disqualification_reason,
     }
 
     return summary
@@ -291,6 +362,8 @@ def main():
                         help='Directory with ground truth files')
     parser.add_argument('--output', type=str, default=None,
                         help='Output JSON file for scores')
+    parser.add_argument('--seeds', type=str, default=None,
+                        help='seeds.json for random oracle track')
     args = parser.parse_args()
 
     print("=" * 60)
@@ -329,9 +402,65 @@ def main():
     print(f"  Targets Evaluated: {results['n_evaluated']}/{results['n_targets']}")
     print(f"{'='*60}")
 
+    # 3. Random oracle track
+    if args.seeds and os.path.exists(args.seeds):
+        print(f"\n{'='*60}")
+        print(f"  🎰 Random Oracle Track")
+        print(f"{'='*60}")
+
+        with open(args.seeds, 'r') as f:
+            seeds = json.load(f)
+
+        with open(os.path.join(args.ground_truth, 'sequences.json'), 'r') as f:
+            truth_seqs = json.load(f)
+
+        oracle_results = {}
+        oracle_scores = []
+        best_single = {'id': None, 'score': 0}
+
+        for item in truth_seqs:
+            seq_id = item['id']
+            seq_len = item['length']
+            seed = seeds.get(seq_id, 42)
+
+            # Oracle prediction
+            rng = np.random.RandomState(seed)
+            coords = np.zeros((seq_len, 3))
+            for i in range(seq_len):
+                angle = 2 * np.pi * i / seq_len
+                radius = 5.9 * seq_len / (2 * np.pi) * 0.5
+                coords[i] = [radius * np.cos(angle), radius * np.sin(angle), 2.8 * i]
+            coords = coords - coords.mean(axis=0)
+            coords = coords + rng.normal(0, 3.0, (seq_len, 3))
+
+            # Compare with truth
+            truth_path = os.path.join(args.ground_truth, 'coords', f"{seq_id}.npy")
+            if os.path.exists(truth_path):
+                true_coords = np.load(truth_path)
+                result = evaluate_single(coords, true_coords)
+                oracle_results[seq_id] = result
+                oracle_scores.append(result['total_score'])
+
+                if result['total_score'] > best_single['score']:
+                    best_single = {'id': seq_id, 'score': result['total_score']}
+
+                print(f"  🎲 {seq_id}: seed={seed} → Score={result['total_score']:.1f} "
+                      f"(RMSD={result['rmsd']:.1f}Å)")
+
+        oracle_mean = np.mean(oracle_scores) if oracle_scores else 0
+        print(f"\n  🎰 Oracle Mean Score: {oracle_mean:.2f}")
+        print(f"  🍀 Best Single Target: {best_single['id']} = {best_single['score']:.1f}")
+        print(f"{'='*60}")
+
+        results['oracle_track'] = {
+            'mean_score': round(oracle_mean, 2),
+            'per_target': oracle_results,
+            'best_single': best_single,
+        }
+
     if args.output:
         with open(args.output, 'w') as f:
-            json.dump(results, f, indent=2)
+            json.dump(results, f, indent=2, default=str)
         print(f"  Results saved to: {args.output}")
 
 
