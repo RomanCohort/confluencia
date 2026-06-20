@@ -491,10 +491,10 @@ if __name__ == '__main__':
     parser.add_argument('--batch-size', type=int, default=8)
     parser.add_argument('--device', type=str, default='auto')
     parser.add_argument('--lr', type=float, default=1e-3)
-    parser.add_argument('--n-train', type=int, default=200,
+    parser.add_argument('--n-train', type=int, default=500,
                         help='Number of pseudo-label sequences to generate')
-    parser.add_argument('--min-len', type=int, default=50)
-    parser.add_argument('--max-len', type=int, default=300)
+    parser.add_argument('--min-len', type=int, default=30)
+    parser.add_argument('--max-len', type=int, default=500)
     parser.add_argument('--d-hidden', type=int, default=128)
     parser.add_argument('--n-layers', type=int, default=4)
     parser.add_argument('--patience', type=int, default=10)
