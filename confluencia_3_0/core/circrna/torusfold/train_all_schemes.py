@@ -918,22 +918,36 @@ def train_scheme3(train_loader, val_loader, args, device):
             # Refine with Generator
             coords_refined = model(seq_ids, coords_init)
 
-            # 1. Coordinate MSE loss (normalized for scale invariance)
+            # 1. Distance-based shape loss (scale-invariant)
+            # Compare pairwise distance matrices instead of raw coordinates
             coord_loss = 0
             n_valid = 0
             for b in range(B):
                 valid_L = lengths[b]
+                if valid_L < 4:
+                    continue
                 pred = coords_refined[b, :valid_L]
                 target = target_coords[b, :valid_L]
-                # Center both
-                pred_c = pred - pred.mean(dim=0)
-                target_c = target - target.mean(dim=0)
-                # Normalize scale
-                pred_s = torch.norm(pred_c).clamp(min=1.0)
-                target_s = torch.norm(target_c).clamp(min=1.0)
-                pred_n = pred_c / pred_s
-                target_n = target_c / target_s
-                coord_loss += torch.mean((pred_n - target_n) ** 2)
+                # Pairwise distances for local neighborhoods (top-k, avoid O(L^2))
+                k = min(20, valid_L - 1)
+                # Compute distances from each atom to its k nearest neighbors
+                # Use adjacent bonds + next-nearest as proxy
+                idx = torch.arange(valid_L - 1, device=device)
+                # Bond distances (adjacent)
+                d_pred_bond = torch.norm(pred[idx + 1] - pred[idx], dim=-1)
+                d_target_bond = torch.norm(target[idx + 1] - target[idx], dim=-1)
+                # Relative error
+                bond_err = ((d_pred_bond - d_target_bond) / d_target_bond.clamp(min=1.0)) ** 2
+                # End-to-end distance (global shape)
+                d_pred_ee = torch.norm(pred[-1] - pred[0])
+                d_target_ee = torch.norm(target[-1] - target[0])
+                ee_err = ((d_pred_ee - d_target_ee) / d_target_ee.clamp(min=1.0)) ** 2
+                # Radius of gyration
+                rg_pred = torch.norm(pred - pred.mean(dim=0), dim=-1).mean()
+                rg_target = torch.norm(target - target.mean(dim=0), dim=-1).mean()
+                rg_err = ((rg_pred - rg_target) / rg_target.clamp(min=1.0)) ** 2
+
+                coord_loss += bond_err.mean() + 0.5 * ee_err + 0.3 * rg_err
                 n_valid += 1
             coord_loss /= max(n_valid, 1)
 
