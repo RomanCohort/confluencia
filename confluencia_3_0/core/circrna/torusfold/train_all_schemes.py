@@ -287,7 +287,7 @@ def train_scheme1(train_loader, val_loader, args, device):
     print("="*60)
 
     model = Scheme1Model(d_hidden=args.d_hidden, n_layers=args.n_layers).to(device)
-    optimizer = torch.optim.AdamW(model.parameters(), lr=args.lr * 0.01)
+    optimizer = torch.optim.AdamW(model.parameters(), lr=args.lr)
     scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
         optimizer, mode='min', factor=0.5, patience=5
     )
@@ -326,7 +326,7 @@ def train_scheme1(train_loader, val_loader, args, device):
             loss /= B
 
             loss.backward()
-            torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=0.5)
+            torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=5.0)
             optimizer.step()
             optimizer.zero_grad()
             train_loss += loss.item()
@@ -544,7 +544,7 @@ def train_scheme5(train_loader, val_loader, args, device):
             return {'coords': coords}
 
     model = Scheme5Model(d_model=args.d_hidden, n_blocks=args.n_layers).to(device)
-    optimizer = torch.optim.AdamW(model.parameters(), lr=args.lr * 0.1)
+    optimizer = torch.optim.AdamW(model.parameters(), lr=args.lr)
     scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
         optimizer, mode='min', factor=0.5, patience=5
     )
@@ -654,7 +654,7 @@ def train_scheme6(train_loader, val_loader, args, device):
         d_node=args.d_hidden,
     )
     model = GNNLatentDiffusionModel(config).to(device)
-    optimizer = torch.optim.AdamW(model.parameters(), lr=args.lr * 0.1)
+    optimizer = torch.optim.AdamW(model.parameters(), lr=args.lr)
     scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
         optimizer, mode='min', factor=0.5, patience=5
     )
