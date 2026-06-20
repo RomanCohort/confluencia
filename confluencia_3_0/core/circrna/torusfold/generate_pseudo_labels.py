@@ -38,6 +38,171 @@ from confluencia_3_0.core.circrna.torusfold.constraint_solver import (
 )
 
 
+def generate_pseudo_labels_3drna(n_seqs=1000, min_len=30, max_len=500, seed=42, use_3drna=True):
+    """Generate 3D pseudo-labels using ViennaRNA + 3dRNA (if available)."""
+    rng = np.random.RandomState(seed)
+    bases = ['A', 'C', 'G', 'U']
+
+    sequences = []
+    coords_list = []
+    structures = []
+    metadata = []
+
+    try:
+        import RNA
+        has_vienna = True
+        print("  ViennaRNA: available (circ mode)")
+    except ImportError:
+        has_vienna = False
+        print("  ViennaRNA: NOT available")
+        return sequences, coords_list, structures, [], metadata
+
+    # Check 3dRNA
+    if use_3drna:
+        # Try local 3dRNA binary
+        import subprocess
+        result = subprocess.run(['which', '3dRNA'], capture_output=True)
+        has_3drna_local = result.returncode == 0
+
+        if has_3drna_local:
+            print("  3dRNA: available (local binary)")
+        else:
+            print("  3dRNA: NOT installed locally")
+            print("    Download from: http://biophy.hust.edu.cn/3dRNA")
+            print("    Or use web server (manual submission)")
+            use_3drna = False
+
+    print(f"  Generating {n_seqs} pseudo-labels...")
+    t0 = time.time()
+
+    for i in range(n_seqs):
+        L = rng.randint(min_len, max_len + 1)
+        seq = ''.join(rng.choice(bases, size=L))
+
+        # ViennaRNA secondary structure (circ mode)
+        md = RNA.md()
+        md.circ = True
+        fc = RNA.fold_compound(seq, md)
+        ss, mfe = fc.mfe()
+
+        sequences.append(seq)
+        structures.append(ss)
+
+        if use_3drna:
+            # Call 3dRNA
+            coords = run_3drna_local(seq, ss)
+            if coords is not None:
+                coords_list.append(coords)
+                metadata.append({
+                    'id': f'pseudo_{i:04d}',
+                    'length': L,
+                    'source': 'ViennaRNA+3dRNA',
+                    'mfe': float(mfe),
+                })
+        else:
+            # Fallback: generate helical coords (much faster)
+            coords = generate_helical_coords(L)
+            coords_list.append(coords)
+            metadata.append({
+                'id': f'pseudo_{i:04d}',
+                'length': L,
+                'source': 'ViennaRNA+Helical',
+                'mfe': float(mfe),
+            })
+
+        if (i + 1) % 100 == 0:
+            elapsed = time.time() - t0
+            print(f"    {i+1}/{n_seqs} ({elapsed:.0f}s)")
+
+    elapsed = time.time() - t0
+    print(f"  Done: {len(sequences)} in {elapsed:.1f}s")
+    return sequences, coords_list, structures, [], metadata
+
+
+def run_3drna_local(sequence: str, structure: str) -> np.ndarray:
+    """Run local 3dRNA binary to generate 3D coordinates."""
+    import subprocess
+    import tempfile
+    import os
+
+    try:
+        # Create input file
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.txt', delete=False) as f:
+            f.write(f"{sequence}\n{structure}\n")
+            input_file = f.name
+
+        output_file = input_file.replace('.txt', '.pdb')
+
+        # Run 3dRNA
+        result = subprocess.run(
+            ['3dRNA', input_file, output_file],
+            capture_output=True, timeout=60
+        )
+
+        if result.returncode == 0 and os.path.exists(output_file):
+            # Parse PDB
+            coords = parse_pdb_coords(output_file)
+            os.unlink(input_file)
+            os.unlink(output_file)
+            return coords
+
+        os.unlink(input_file)
+
+    except Exception as e:
+        pass
+
+    return None
+
+
+def parse_pdb_coords(pdb_file: str) -> np.ndarray:
+    """Parse PDB file to extract backbone P atom coordinates."""
+    coords = []
+
+    with open(pdb_file, 'r') as f:
+        for line in f:
+            if line.startswith('ATOM'):
+                parts = line.split()
+                if len(parts) >= 8:
+                    atom_name = parts[2]
+                    if atom_name == 'P':  # Phosphate backbone
+                        x = float(parts[-4])
+                        y = float(parts[-3])
+                        z = float(parts[-2])
+                        coords.append([x, y, z])
+
+    return np.array(coords) if coords else None
+
+
+def generate_helical_coords(L: int, bond_length: float = 5.9) -> np.ndarray:
+    """Generate ideal A-form helical coordinates (fast fallback).
+
+    This is NOT a real 3D structure, just a helical backbone.
+    Use when 3dRNA is not available.
+    """
+    coords = np.zeros((L, 3))
+    rise_per_nt = 2.8  # A-form RNA rise
+    radius = 10.0  # Helix radius
+
+    for i in range(L):
+        angle = 2 * np.pi * i / 10  # 10 nt per turn
+        coords[i, 0] = radius * np.cos(angle)
+        coords[i, 1] = radius * np.sin(angle)
+        coords[i, 2] = rise_per_nt * i
+
+    # Center
+    coords = coords - coords.mean(axis=0)
+
+    # Adjust to approximate closure (for circRNA)
+    if L > 20:
+        # Bend into circle
+        theta = 2 * np.pi * np.arange(L) / L
+        coords[:, 0] = bond_length * L / (2 * np.pi) * np.cos(theta)
+        coords[:, 1] = bond_length * L / (2 * np.pi) * np.sin(theta)
+        coords[:, 2] = np.arange(L) * 2.8 - L * 1.4
+
+    return coords
+
+
 def generate_pseudo_labels(n_seqs=1000, min_len=30, max_len=500, seed=42):
     """Generate 3D coordinate pseudo-labels using ViennaRNA + Physics Solver."""
     rng = np.random.RandomState(seed)
@@ -196,6 +361,10 @@ def main():
     parser.add_argument('--max-len', type=int, default=500)
     parser.add_argument('--output', type=str, default='data/pseudo_labels')
     parser.add_argument('--seed', type=int, default=42)
+    parser.add_argument('--method', type=str, default='auto',
+                        choices=['auto', '3drna', 'physics', 'helical'],
+                        help='Method: auto=3dRNA>physics>helical, 3drna=3dRNA only, '
+                             'physics=Physics Solver, helical=fast helical coords')
     args = parser.parse_args()
 
     print("=" * 60)
@@ -203,14 +372,45 @@ def main():
     print("=" * 60)
     print(f"  Target: {args.n} sequences")
     print(f"  Length: {args.min_len}-{args.max_len}")
+    print(f"  Method: {args.method}")
     print(f"  Output: {args.output}")
 
-    sequences, coords_list, structures, pairs, metadata = generate_pseudo_labels(
-        n_seqs=args.n,
-        min_len=args.min_len,
-        max_len=args.max_len,
-        seed=args.seed
-    )
+    if args.method == '3drna':
+        sequences, coords_list, structures, pairs, metadata = generate_pseudo_labels_3drna(
+            n_seqs=args.n, min_len=args.min_len, max_len=args.max_len,
+            seed=args.seed, use_3drna=True
+        )
+    elif args.method == 'helical':
+        sequences, coords_list, structures, pairs, metadata = generate_pseudo_labels_3drna(
+            n_seqs=args.n, min_len=args.min_len, max_len=args.max_len,
+            seed=args.seed, use_3drna=False  # Falls back to helical
+        )
+    elif args.method == 'physics':
+        sequences, coords_list, structures, pairs, metadata = generate_pseudo_labels(
+            n_seqs=args.n, min_len=args.min_len, max_len=args.max_len,
+            seed=args.seed
+        )
+    else:  # auto
+        # Try 3dRNA first, then physics, then helical
+        try:
+            import subprocess
+            result = subprocess.run(['which', '3dRNA'], capture_output=True)
+            has_3drna = result.returncode == 0
+        except Exception:
+            has_3drna = False
+
+        if has_3drna:
+            print("  Auto-detected: using 3dRNA")
+            sequences, coords_list, structures, pairs, metadata = generate_pseudo_labels_3drna(
+                n_seqs=args.n, min_len=args.min_len, max_len=args.max_len,
+                seed=args.seed, use_3drna=True
+            )
+        else:
+            print("  Auto-detected: 3dRNA not found, using Physics Solver")
+            sequences, coords_list, structures, pairs, metadata = generate_pseudo_labels(
+                n_seqs=args.n, min_len=args.min_len, max_len=args.max_len,
+                seed=args.seed
+            )
 
     save_pseudo_labels(sequences, coords_list, structures, pairs, metadata, args.output)
 
