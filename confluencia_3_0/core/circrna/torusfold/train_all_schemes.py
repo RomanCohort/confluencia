@@ -918,13 +918,22 @@ def train_scheme3(train_loader, val_loader, args, device):
             # Refine with Generator
             coords_refined = model(seq_ids, coords_init)
 
-            # 1. Coordinate MSE loss (per-residue, only valid positions)
+            # 1. Coordinate MSE loss (normalized for scale invariance)
             coord_loss = 0
             n_valid = 0
             for b in range(B):
                 valid_L = lengths[b]
-                diff = coords_refined[b, :valid_L] - target_coords[b, :valid_L]
-                coord_loss += torch.mean(diff ** 2)  # MSE per atom
+                pred = coords_refined[b, :valid_L]
+                target = target_coords[b, :valid_L]
+                # Center both
+                pred_c = pred - pred.mean(dim=0)
+                target_c = target - target.mean(dim=0)
+                # Normalize scale
+                pred_s = torch.norm(pred_c).clamp(min=1.0)
+                target_s = torch.norm(target_c).clamp(min=1.0)
+                pred_n = pred_c / pred_s
+                target_n = target_c / target_s
+                coord_loss += torch.mean((pred_n - target_n) ** 2)
                 n_valid += 1
             coord_loss /= max(n_valid, 1)
 
