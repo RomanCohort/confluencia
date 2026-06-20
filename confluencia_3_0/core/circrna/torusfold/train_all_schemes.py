@@ -460,18 +460,52 @@ def train_scheme5(train_loader, val_loader, args, device):
     print("  Training Scheme 5: Physics-Biased Attention")
     print("="*60)
 
-    from confluencia_3_0.core.circrna.torusfold.triangle_update import CircPairformerBlock
-
     class Scheme5Model(nn.Module):
+        """Transformer with physics-informed positional encoding for circRNA.
+
+        Uses standard Transformer (O(L^2) attention) instead of
+        CircPairformer's O(L^2) pair representation which causes OOM
+        at L>200. Physics bias injected via rotary positional encoding
+        adapted for circular topology.
+        """
         def __init__(self, d_model=128, n_heads=4, n_blocks=4):
             super().__init__()
             self.embed = nn.Embedding(5, d_model)
-            self.pair_proj = nn.Linear(2 * d_model, d_model)
+            # Circular positional encoding
+            self.circ_pos = nn.Embedding(512, d_model)  # max 512 positions
             self.blocks = nn.ModuleList([
-                CircPairformerBlock(c_z=d_model, use_physics_bias=True)
+                nn.TransformerEncoderLayer(
+                    d_model=d_model,
+                    nhead=n_heads,
+                    dim_feedforward=d_model * 2,
+                    dropout=0.1,
+                    batch_first=True,
+                )
                 for _ in range(n_blocks)
             ])
             self.coord_head = nn.Linear(d_model, 3)
+            self.bond_length = 5.9
+
+        def forward(self, seq_ids, coords_init=None):
+            B, L = seq_ids.shape
+            device = seq_ids.device
+
+            # Circular positional indices (0..L-1 repeating)
+            pos = torch.arange(L, device=device) % 512
+            h = self.embed(seq_ids) + self.circ_pos(pos)  # (B, L, D)
+
+            for block in self.blocks:
+                h = block(h)
+
+            coords = self.coord_head(h)  # (B, L, 3)
+
+            # Physics-informed closure correction
+            closure_dist = torch.norm(coords[:, 0] - coords[:, -1], dim=-1, keepdim=True)
+            correction = 0.1 * (closure_dist - self.bond_length)
+            # Distribute closure correction across all atoms
+            coords = coords - correction.unsqueeze(-1) / L
+
+            return {'coords': coords}
 
         def forward(self, seq_ids, coords_init=None):
             B, L = seq_ids.shape

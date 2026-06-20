@@ -199,9 +199,13 @@ class CircRNAGraphBuilder:
 
         # Pair edges (type 1)
         if pair_probs is not None:
+            # Handle batched or single pair_probs
+            pp = pair_probs
+            if pp.dim() > 2:
+                pp = pp[0]  # Take first sample in batch for graph construction
             for i in range(L):
                 for j in range(i + 4, L):
-                    if pair_probs[i, j] > self.pair_threshold:
+                    if pp[i, j].item() > self.pair_threshold:
                         edges_src.extend([i, j])
                         edges_dst.extend([j, i])
                         edge_types.extend([1, 1])

@@ -397,7 +397,15 @@ class GNNLatentDiffusionModel(nn.Module):
         latent_cond = self.encoder(seq_tokens)  # (B, L, d_latent)
 
         # Diffusion
-        latent = self.diffusion(latent_cond, mode=mode)
+        latent_out = self.diffusion(latent_cond, mode=mode)
+
+        # Handle train (returns dict) vs sample (returns tensor)
+        if isinstance(latent_out, dict):
+            latent = latent_out.get('latent_pred', latent_cond)
+            diff_loss = latent_out.get('loss', torch.tensor(0.0, device=seq_tokens.device))
+        else:
+            latent = latent_out
+            diff_loss = None
 
         # Decode
         coords = self.decoder(latent, seq_tokens)  # (B, L, 3)
@@ -410,6 +418,7 @@ class GNNLatentDiffusionModel(nn.Module):
             'latent': latent,
             'latent_cond': latent_cond,
             'closure_distance': closure_dist,
+            'diffusion_loss': diff_loss,
             'method': 'gnn_latent_diffusion',
         }
 
