@@ -379,7 +379,7 @@ def train_scheme1(train_loader, val_loader, args, device):
             patience_counter += 1
 
         print(f"  Epoch {epoch+1}/{args.epochs} train={train_loss/len(train_loader):.4f} "
-              f"val={val_loss:.4f} pat={patience_counter}/10")
+              f"val={avg_val:.4f} pat={patience_counter}/10")
 
         if patience_counter >= 10:
             print(f"  Early stopping at epoch {epoch+1}")
@@ -1008,7 +1008,7 @@ def train_scheme3(train_loader, val_loader, args, device):
         print(f"  Epoch {epoch+1}/{args.epochs} "
               f"train={train_loss:.4f} (coord={train_metrics['coord']:.3f}, "
               f"closure={train_metrics['closure']:.3f}, bond={train_metrics['bond']:.3f}) "
-              f"val={val_loss:.4f} pat={patience_counter}/10")
+              f"val={val_loss:.1f}Å pat={patience_counter}/10")
 
         if patience_counter >= 10:
             print(f"  Early stopping at epoch {epoch+1}")
