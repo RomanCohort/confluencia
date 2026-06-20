@@ -885,6 +885,7 @@ def train_scheme3(train_loader, val_loader, args, device):
 
     best_val = float('inf')
     patience_counter = 0
+    rng = np.random.RandomState(args.seed)
 
     for epoch in range(args.epochs):
         model.train()
@@ -896,17 +897,18 @@ def train_scheme3(train_loader, val_loader, args, device):
             target_coords = batch['coords'].to(device)
             lengths = batch['lengths']
 
-            # Use target coords as init (teacher forcing) for first half,
-            # then switch to helical init for generalization
+            # Mixed initialization: gradually reduce teacher forcing
             B, L = seq_ids.shape
-            if epoch < args.epochs // 2:
-                # Teacher forcing: start from target + small noise
-                coords_init = target_coords + torch.randn_like(target_coords) * 1.0
-            else:
-                # Helical init: start from scratch
-                coords_init = torch.zeros(B, L, 3, device=device)
-                for b in range(B):
-                    valid_L = lengths[b]
+            tf_prob = max(0.0, 1.0 - epoch / (args.epochs * 0.5))  # 100% → 0% over first half
+
+            coords_init = torch.zeros(B, L, 3, device=device)
+            for b in range(B):
+                valid_L = lengths[b]
+                if rng.random() < tf_prob:
+                    # Teacher forcing: start from target + noise
+                    coords_init[b, :valid_L] = target_coords[b, :valid_L] + torch.randn(valid_L, 3, device=device) * 1.0
+                else:
+                    # Helical init: start from scratch
                     coords_init[b, :valid_L] = generate_helical_init(valid_L, device=device)
 
             # Refine with Generator
