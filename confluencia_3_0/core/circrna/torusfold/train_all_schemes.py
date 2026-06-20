@@ -959,11 +959,20 @@ def train_scheme3(train_loader, val_loader, args, device):
 
                 coords_refined = model(seq_ids, coords_init)
 
+                # Normalize for fair comparison
                 val_coord_loss = 0
                 for b in range(B):
                     valid_L = lengths[b]
-                    diff = coords_refined[b, :valid_L] - target_coords[b, :valid_L]
-                    val_coord_loss += torch.mean(diff ** 2)
+                    pred = coords_refined[b, :valid_L]
+                    target = target_coords[b, :valid_L]
+                    # Center and scale
+                    pred_c = pred - pred.mean(dim=0)
+                    target_c = target - target.mean(dim=0)
+                    pred_s = torch.norm(pred_c).clamp(min=1.0)
+                    target_s = torch.norm(target_c).clamp(min=1.0)
+                    pred_n = pred_c / pred_s
+                    target_n = target_c / target_s
+                    val_coord_loss += torch.mean((pred_n - target_n) ** 2)
                 val_loss += val_coord_loss.item() / B
 
         val_loss /= len(val_loader)
