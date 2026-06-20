@@ -54,72 +54,37 @@ def parse_pdb_c3(pdb_path: str) -> np.ndarray:
 
 
 def parse_dot_bracket(dot_bracket: str) -> List[Tuple[int, int]]:
-    """
-    将点括号字符串解析为配对索引列表。
-
-    使用基于栈的解析器：
-    - '(' 入栈，')' 出栈并记录配对
-    - '[' 和 ']' 用于假结点（如果有）
-
-    返回：[(i, j), ...] 配对索引列表（0-indexed）
-    """
-    pairs = []
-    stack = []
-    pseudo_stack = []  # 用于假结点
-
+    """将点括号字符串解析为配对索引列表（0-indexed）。支持假结点 [ ]。"""
+    pairs, stack, pseudo_stack = [], [], []
     for i, char in enumerate(dot_bracket):
         if char == '(':
             stack.append(i)
         elif char == ')':
             if stack:
-                j = stack.pop()
-                pairs.append((j, i))
+                pairs.append((stack.pop(), i))
         elif char == '[':
             pseudo_stack.append(i)
         elif char == ']':
             if pseudo_stack:
-                j = pseudo_stack.pop()
-                pairs.append((j, i))
-
+                pairs.append((pseudo_stack.pop(), i))
     return pairs
 
 
 def parse_subo_file(subo_path: str) -> Tuple[Optional[str], Optional[str]]:
-    """
-    解析 .subo 文件。
-
-    格式：
-    - 第1行：RNA 序列（ACGU）
-    - 第2行：点括号二级结构
-
-    返回：(sequence, dot_bracket) 或 (None, None)
-    """
+    """解析 .subo 文件。第1行=序列(ACGU)，第2行=点括号二级结构。返回 (sequence, dot_bracket) 或 (None, None)。"""
     try:
         with open(subo_path, 'r') as f:
             lines = f.readlines()
-
         if len(lines) < 2:
             return None, None
-
-        sequence = lines[0].strip()
-        dot_bracket = lines[1].strip()
-
-        # 验证序列只包含有效字符
-        valid_bases = set('ACGUacgu')
-        if not all(b in valid_bases for b in sequence):
+        sequence, dot_bracket = lines[0].strip(), lines[1].strip()
+        if not all(b in 'ACGUacgu' for b in sequence):
             return None, None
-
-        # 验证点括号格式
-        valid_ss = set('().[]{}')
-        if not all(c in valid_ss for c in dot_bracket):
+        if not all(c in '().[]{}' for c in dot_bracket):
             return None, None
-
-        # 序列长度应与二级结构匹配
         if len(sequence) != len(dot_bracket):
             return None, None
-
         return sequence.upper(), dot_bracket
-
     except Exception as e:
         print(f"    Warning: Failed to parse {subo_path}: {e}")
         return None, None
@@ -230,22 +195,28 @@ def load_isrnacirc(data_dir: str) -> Tuple[List[Dict[str, Any]], List[np.ndarray
 
             sequence = None
             secondary_structure = None
+            seq_len = L  # 默认使用坐标长度
 
             if subo_file:
                 sequence, secondary_structure = parse_subo_file(subo_file)
                 if sequence:
                     subo_count += 1
-                    # 验证序列长度与坐标匹配
-                    if len(sequence) != L:
-                        print(f"    Warning: Sequence length ({len(sequence)}) != coords ({L}) for {circ_name}")
-                        # 截断或填充
-                        if len(sequence) > L:
-                            sequence = sequence[:L]
-                            secondary_structure = secondary_structure[:L]
-                        else:
-                            # 坐标比序列长，跳过
-                            sequence = None
-                            secondary_structure = None
+                    # 注意：.subo 文件中的序列可能是简化版本
+                    # 坐标通常比序列长（每个核苷酸约5个原子）
+                    # 使用 .subo 的序列长度作为参考
+                    seq_len = len(sequence)
+                    # 验证坐标是否可以下采样到序列长度
+                    if L >= seq_len:
+                        # 坐标更长，下采样到序列长度
+                        step = L / seq_len
+                        indices = [int(i * step) for i in range(seq_len)]
+                        coords = coords[indices]
+                        L = seq_len
+                    else:
+                        # 坐标更短，跳过此结构
+                        print(f"    Warning: Coords ({L}) < sequence ({seq_len}) for {circ_name}, using PDB sequence")
+                        sequence = None
+                        secondary_structure = None
 
             # 如果没有 .subo 或解析失败，从 PDB 提取序列
             if sequence is None:
@@ -535,8 +506,23 @@ def main():
     for i, (seq_item, coords) in enumerate(zip(all_sequences, all_coords)):
         np.save(os.path.join(coords_dir, f"{seq_item['id']}.npy"), coords)
 
+    # Convert pair_constraints tuples to lists for JSON serialization
+    json_sequences = []
+    for s in all_sequences:
+        item = dict(s)
+        if 'pair_constraints' in item:
+            item['pair_constraints'] = [list(p) for p in item['pair_constraints']]
+        json_sequences.append(item)
+
     with open(os.path.join(output_dir, 'sequences.json'), 'w') as f:
-        json.dump(all_sequences, f, indent=2)
+        json.dump(json_sequences, f, indent=2)
+
+    isrnacirc_real = [s for s in all_sequences if s['source'] == 'isrnacirc']
+    isrnacirc_with_ss = sum(1 for s in isrnacirc_real if s.get('has_real_ss', False))
+    structure_types = {}
+    for s in isrnacirc_real:
+        st = s.get('structure_type', 'unknown')
+        structure_types[st] = structure_types.get(st, 0) + 1
 
     metadata = {
         'total': len(all_sequences),
@@ -549,6 +535,8 @@ def main():
             'isrnacirc_aug': sum(1 for s in all_sequences if s['source'] == 'isrnacirc_aug'),
             'synthetic': sum(1 for s in all_sequences if s['source'] == 'synthetic'),
         },
+        'isrnacirc_with_real_ss': isrnacirc_with_ss,
+        'isrnacirc_structure_types': structure_types,
     }
     with open(os.path.join(output_dir, 'metadata.json'), 'w') as f:
         json.dump(metadata, f, indent=2)
@@ -557,8 +545,10 @@ def main():
     print(f"  Dataset: {output_dir}/")
     print(f"  Total: {metadata['total']}")
     print(f"  IsRNAcirc (real): {metadata['sources']['isrnacirc']}")
+    print(f"  IsRNAcirc (real with SS): {isrnacirc_with_ss}")
     print(f"  IsRNAcirc (aug): {metadata['sources']['isrnacirc_aug']}")
     print(f"  Synthetic: {metadata['sources']['synthetic']}")
+    print(f"  Structure types: {structure_types}")
     print(f"  Length range: {metadata['length_range']}")
     print(f"{'='*60}")
 
