@@ -392,17 +392,24 @@ def train_scheme4(train_loader, val_loader, args, device):
     )
 
     config = CircDiffusionConfig(
-        n_diffusion_steps=args.diffusion_steps,
+        n_diffusion_steps=min(args.diffusion_steps, 50),  # Reduce steps for stability
         d_node=getattr(args, 'd_hidden', 128),
         d_edge=getattr(args, 'd_hidden', 128) // 2,
     )
     model = CircRNADiffusionModel(config).to(device)
-    optimizer = torch.optim.AdamW(model.parameters(), lr=args.lr)
+    optimizer = torch.optim.AdamW(model.parameters(), lr=args.lr * 0.5)
+    scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
+        optimizer, mode='min', factor=0.5, patience=5
+    )
 
     best_val = float('inf')
+    patience_counter = 0
+
     for epoch in range(args.epochs):
         model.train()
         train_loss = 0
+        nan_batches = 0
+
         for batch in train_loader:
             seq_ids = batch['seq_ids'].to(device)
             coords_target = batch['coords'].to(device)
@@ -410,21 +417,38 @@ def train_scheme4(train_loader, val_loader, args, device):
             if pair_probs is not None:
                 pair_probs = pair_probs.to(device)
 
-            # Forward diffusion + denoising (coords_target triggers training mode)
-            out = model(seq_tokens=seq_ids, coords_target=coords_target, pair_probs=pair_probs)
+            # Normalize target coords to prevent numerical instability
+            B, L, _ = coords_target.shape
+            coords_centered = coords_target - coords_target.mean(dim=1, keepdim=True)
+            coords_scale = torch.norm(coords_centered, dim=(1,2), keepdim=True).clamp(min=1.0)
+            coords_norm = coords_centered / coords_scale
+
+            # Forward diffusion + denoising
+            out = model(seq_tokens=seq_ids, coords_target=coords_norm, pair_probs=pair_probs)
 
             # Extract losses from diffusion model output
-            noise_loss = out.get('noise_loss', 0)
-            closure_loss = out.get('closure_loss', 0)
+            noise_loss = out.get('noise_loss', torch.tensor(0.0, device=device))
+            closure_loss = out.get('closure_loss', torch.tensor(0.0, device=device))
             loss = out.get('total_loss', noise_loss + 0.1 * closure_loss)
 
+            # NaN check
+            if torch.isnan(loss) or torch.isinf(loss):
+                nan_batches += 1
+                print(f"  NaN/Inf detected in batch, skipping...")
+                optimizer.zero_grad()
+                continue
+
             loss.backward()
+            torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
             optimizer.step()
             optimizer.zero_grad()
             train_loss += loss.item()
 
-        avg_train = train_loss / len(train_loader)
-        print(f"  Epoch {epoch+1}/{args.epochs} train={avg_train:.4f}")
+        if nan_batches > len(train_loader) // 2:
+            print(f"  Too many NaN batches ({nan_batches}), stopping training")
+            return float('inf')
+
+        avg_train = train_loss / max(len(train_loader) - nan_batches, 1)
 
         # Validation
         model.eval()
@@ -437,15 +461,30 @@ def train_scheme4(train_loader, val_loader, args, device):
                 if pair_probs is not None:
                     pair_probs = pair_probs.to(device)
 
-                out = model(seq_tokens=seq_ids, coords_target=coords_target, pair_probs=pair_probs)
-                val_loss += out.get('total_loss', 0).item()
+                B, L, _ = coords_target.shape
+                coords_centered = coords_target - coords_target.mean(dim=1, keepdim=True)
+                coords_scale = torch.norm(coords_centered, dim=(1,2), keepdim=True).clamp(min=1.0)
+                coords_norm = coords_centered / coords_scale
+
+                out = model(seq_tokens=seq_ids, coords_target=coords_norm, pair_probs=pair_probs)
+                val_loss += out.get('total_loss', torch.tensor(0.0)).item()
 
         avg_val = val_loss / len(val_loader)
-        print(f"  Val loss: {avg_val:.4f}")
+        scheduler.step(avg_val)
 
         if avg_val < best_val:
             best_val = avg_val
+            patience_counter = 0
             torch.save(model.state_dict(), f"{args.output}/scheme4_best.pt")
+        else:
+            patience_counter += 1
+
+        print(f"  Epoch {epoch+1}/{args.epochs} train={avg_train:.4f} "
+              f"val={avg_val:.4f} nan={nan_batches} pat={patience_counter}/10")
+
+        if patience_counter >= 10:
+            print(f"  Early stopping at epoch {epoch+1}")
+            break
 
     print(f"  Best val loss: {best_val:.4f}")
     return best_val
