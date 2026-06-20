@@ -41,8 +41,13 @@ from confluencia_3_0.core.circrna.torusfold.constraint_solver import (
 # Common: 3D Pseudo-label Loading
 # ═══════════════════════════════════════════════════════════════
 
-def load_pseudo_labels(labels_dir, n_seqs=None):
+def load_pseudo_labels(labels_dir, n_seqs=None, max_len=None):
     """Load 3D pseudo-labels from disk.
+
+    Args:
+        labels_dir: Directory containing sequences.json and coords/
+        n_seqs: Maximum number of sequences to load
+        max_len: Maximum sequence length (filter out longer sequences)
 
     Expected structure:
         labels_dir/
@@ -120,6 +125,15 @@ def load_pseudo_labels(labels_dir, n_seqs=None):
             'id': item['id'],
             'length': L,
         })
+
+    # Filter by max_len if specified
+    if max_len is not None:
+        keep = [i for i, m in enumerate(metadata) if m['length'] <= max_len]
+        sequences = [sequences[i] for i in keep]
+        coords_labels = [coords_labels[i] for i in keep]
+        pair_labels = [pair_labels[i] for i in keep]
+        metadata = [metadata[i] for i in keep]
+        print(f"  After max_len={max_len} filter: {len(sequences)} samples")
 
     print(f"  Loaded {len(sequences)} pseudo-labels from {labels_dir}")
 
@@ -1040,7 +1054,8 @@ def main():
     # Load pseudo-labels
     if args.labels and os.path.exists(args.labels):
         print(f"  Loading from: {args.labels}")
-        sequences, coords_labels, pair_labels, metadata = load_pseudo_labels(args.labels)
+        sequences, coords_labels, pair_labels, metadata = load_pseudo_labels(
+            args.labels, max_len=args.max_len)
     else:
         print(f"  Generating pseudo-labels (n={args.n_train})")
         sequences, coords_labels, pair_labels, metadata = generate_3d_pseudo_labels(

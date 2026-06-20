@@ -1,0 +1,12 @@
+{
+  "total": 5663,
+  "length_range": [
+    50,
+    2050
+  ],
+  "sources": {
+    "isrnacirc": 13,
+    "isrnacirc_aug": 650,
+    "synthetic": 5000
+  }
+}
