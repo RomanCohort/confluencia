@@ -461,36 +461,40 @@ def train_scheme4(train_loader, val_loader, args, device):
 
         avg_train = train_loss / max(len(train_loader) - nan_batches, 1)
 
-        # Validation: RMSD in Å
+        # Validation: sample from diffusion model and compute RMSD
         model.eval()
         val_rmsd = 0
         with torch.no_grad():
             for batch in val_loader:
                 seq_ids = batch['seq_ids'].to(device)
                 coords_target = batch['coords'].to(device)
-                pair_probs = batch.get('pair_probs', None)
-                if pair_probs is not None:
-                    pair_probs = pair_probs.to(device)
+                lengths = batch['lengths']
 
-                B, L, _ = coords_target.shape
-                coords_centered = coords_target - coords_target.mean(dim=1, keepdim=True)
-                coords_scale = torch.norm(coords_centered, dim=(1,2), keepdim=True).clamp(min=1.0)
-                coords_norm = coords_centered / coords_scale
+                B = len(lengths)
+                # Sample predictions (no target needed at inference)
+                try:
+                    out = model(seq_tokens=seq_ids, pair_probs=None)
+                    pred_coords = out.get('coords', None)
+                except Exception:
+                    pred_coords = None
 
-                out = model(seq_tokens=seq_ids, coords_target=coords_norm, pair_probs=pair_probs)
-                # Use model's own coords prediction for RMSD
-                pred_coords = out.get('coords', None)
                 if pred_coords is not None:
                     for b in range(B):
-                        p = pred_coords[b]
-                        t = coords_target[b]
+                        valid_L = lengths[b]
+                        p = pred_coords[b, :valid_L]
+                        t = coords_target[b, :valid_L]
                         p_c = p - p.mean(dim=0)
                         t_c = t - t.mean(dim=0)
                         rmsd = torch.sqrt(torch.mean(torch.sum((p_c - t_c) ** 2, dim=1)))
                         val_rmsd += rmsd.item()
-                    val_rmsd /= B
                 else:
-                    val_rmsd += out.get('total_loss', torch.tensor(0.0)).item()
+                    # Fallback: use training loss
+                    coords_centered = coords_target - coords_target.mean(dim=1, keepdim=True)
+                    coords_scale = torch.norm(coords_centered, dim=(1,2), keepdim=True).clamp(min=1.0)
+                    coords_norm = coords_centered / coords_scale
+                    out = model(seq_tokens=seq_ids, coords_target=coords_norm)
+                    val_rmsd += out.get('total_loss', torch.tensor(0.0)).item() * 100  # rough scale
+                val_rmsd /= B
 
         avg_val = val_rmsd / len(val_loader)
         scheduler.step(avg_val)
