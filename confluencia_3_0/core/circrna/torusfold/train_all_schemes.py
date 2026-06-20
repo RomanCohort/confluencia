@@ -894,25 +894,31 @@ def train_scheme3(train_loader, val_loader, args, device):
                 n_valid += 1
             coord_loss /= max(n_valid, 1)
 
-            # 2. BSJ closure penalty (per-sample, then mean)
-            closure_dists = torch.norm(coords_refined[:, 0] - coords_refined[:, -1], dim=-1)
-            closure_loss = torch.mean((closure_dists - 5.9) ** 2)
+            # 2. BSJ closure: relative error ((d - d_target) / d_target)^2
+            # Target closure = distance between first and last atom in target
+            target_closure = torch.norm(target_coords[:, 0] - target_coords[:, -1], dim=-1)
+            pred_closure = torch.norm(coords_refined[:, 0] - coords_refined[:, -1], dim=-1)
+            closure_rel_error = ((pred_closure - target_closure) / target_closure.clamp(min=1.0)) ** 2
+            closure_loss = closure_rel_error.mean()
 
-            # 3. Bond length consistency (vectorized)
+            # 3. Bond length: relative error ((d - d_target) / d_target)^2
             bond_loss = 0
             for b in range(B):
                 valid_L = lengths[b]
                 if valid_L > 1:
-                    cr = coords_refined[b, :valid_L]
-                    # Circular bond: include BSJ
-                    indices = torch.arange(valid_L, device=device)
-                    next_indices = (indices + 1) % valid_L
-                    bond_dists = torch.norm(cr[next_indices] - cr[indices], dim=-1)
-                    bond_loss += torch.mean((bond_dists - 5.9) ** 2)
+                    cr_pred = coords_refined[b, :valid_L]
+                    cr_target = target_coords[b, :valid_L]
+                    # Predicted bond distances (circular)
+                    idx = torch.arange(valid_L, device=device)
+                    nxt = (idx + 1) % valid_L
+                    d_pred = torch.norm(cr_pred[nxt] - cr_pred[idx], dim=-1)
+                    d_target = torch.norm(cr_target[nxt] - cr_target[idx], dim=-1)
+                    bond_rel = ((d_pred - d_target) / d_target.clamp(min=1.0)) ** 2
+                    bond_loss += bond_rel.mean()
             bond_loss /= max(n_valid, 1)
 
-            # Combined loss: coord dominant, closure and bond as regularization
-            loss = coord_loss + 0.1 * closure_loss + 0.05 * bond_loss
+            # Combined loss: all terms now in comparable scale (0-1 range)
+            loss = coord_loss + 0.3 * closure_loss + 0.1 * bond_loss
 
             loss.backward()
             torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
