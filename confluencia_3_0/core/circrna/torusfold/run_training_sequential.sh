@@ -111,37 +111,31 @@ for SCHEME in "${SCHEMES[@]}"; do
             # EGNN: L*L edge matrix causes OOM, small batch + max_len
             SCHEME_EPOCHS=50
             SCHEME_BATCH=1
-            SCHEME_N=500
             EXTRA_ARGS="$EXTRA_ARGS --max-len 300"
             ;;
         3)
             # Dual-Engine: 中等，50 epochs
             SCHEME_EPOCHS=50
             SCHEME_BATCH=$BATCH_SIZE
-            SCHEME_N=500
             ;;
         4)
             # DDPM: 重，100 epochs，小 batch
             SCHEME_EPOCHS=100
             SCHEME_BATCH=2
-            SCHEME_N=1000
             ;;
         5)
             # CircPairformer: 中等，50 epochs
             SCHEME_EPOCHS=50
             SCHEME_BATCH=$BATCH_SIZE
-            SCHEME_N=800
             ;;
         6)
             # GNN Latent Diffusion: 最重，100 epochs，小 batch
             SCHEME_EPOCHS=100
             SCHEME_BATCH=2
-            SCHEME_N=1000
             ;;
         *)
             SCHEME_EPOCHS=50
             SCHEME_BATCH=$BATCH_SIZE
-            SCHEME_N=500
             ;;
     esac
 

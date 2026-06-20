@@ -1114,9 +1114,8 @@ def main():
             continue
 
         # Determine how many samples this scheme uses
-        n_needed = req.get('recommended', 500)
         n_available = len(sequences)
-        n_use = min(n_needed, n_available)
+        n_use = n_available  # Use all available data
 
         # Warn if data is insufficient
         if n_available < req.get('min_samples', 0):
