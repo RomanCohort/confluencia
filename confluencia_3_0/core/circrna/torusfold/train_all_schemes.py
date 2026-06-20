@@ -526,8 +526,17 @@ def train_scheme3(args):
 
 
 # ═══════════════════════════════════════════════════════════════
-# Main
+# Scheme-specific Data Requirements
 # ═══════════════════════════════════════════════════════════════
+
+SCHEME_DATA_REQUIREMENTS = {
+    1: {'min_samples': 200, 'recommended': 500, 'epochs': 50,  'reason': 'EGNN轻量，Physics部分无需训练'},
+    2: {'min_samples': 0,   'recommended': 0,   'epochs': 0,   'reason': '纯物理求解器，无需训练'},
+    3: {'min_samples': 300, 'recommended': 500, 'epochs': 50,  'reason': 'Dual-Engine中等复杂度'},
+    4: {'min_samples': 500, 'recommended': 1000,'epochs': 100, 'reason': '扩散模型需要大量数据'},
+    5: {'min_samples': 300, 'recommended': 800, 'epochs': 50,  'reason': 'Pairformer+物理bias'},
+    6: {'min_samples': 500, 'recommended': 1000,'epochs': 100, 'reason': 'Encoder+Diffusion+Decoder最重'},
+}
 
 def main():
     parser = argparse.ArgumentParser(description='Train all TorusFold schemes')
@@ -577,30 +586,67 @@ def main():
         return
 
     print(f"  Training samples: {len(sequences)}")
-    print(f"  Epochs: {args.epochs}")
     print(f"  Device: {args.device}")
 
-    # Split train/val
-    split = int(0.9 * len(sequences))
-    train_ds = CircRNADataset(sequences[:split], coords_labels[:split], pair_labels[:split])
-    val_ds = CircRNADataset(sequences[split:], coords_labels[split:], pair_labels[split:])
+    # Print data requirements per scheme
+    print(f"\n  Scheme data requirements:")
+    for sid in args.schemes:
+        req = SCHEME_DATA_REQUIREMENTS.get(sid, {})
+        avail = len(sequences) if req.get('min_samples', 0) > 0 else 'N/A'
+        needed = req.get('recommended', 0)
+        status = 'OK' if req.get('min_samples', 0) == 0 or len(sequences) >= req.get('min_samples', 0) else 'LOW'
+        print(f"    Scheme {sid}: need {needed}, have {avail} [{status}] - {req.get('reason', '')}")
 
-    train_loader = DataLoader(train_ds, batch_size=args.batch_size,
-                              shuffle=True, collate_fn=collate_fn)
-    val_loader = DataLoader(val_ds, batch_size=args.batch_size,
-                            shuffle=False, collate_fn=collate_fn)
-
-    # Train each scheme
+    # Train each scheme with its own data subset
     results = {}
     device = torch.device(args.device)
 
     for scheme_id in args.schemes:
+        req = SCHEME_DATA_REQUIREMENTS.get(scheme_id, {})
+
+        # Scheme 2: no training needed
+        if req.get('min_samples', 0) == 0:
+            t0 = time.time()
+            val_loss = train_scheme2(args) if scheme_id == 2 else 0.0
+            elapsed = time.time() - t0
+            results[scheme_id] = {'val_loss': val_loss, 'time_seconds': elapsed}
+            continue
+
+        # Determine how many samples this scheme uses
+        n_needed = req.get('recommended', 500)
+        n_available = len(sequences)
+        n_use = min(n_needed, n_available)
+
+        # Warn if data is insufficient
+        if n_available < req.get('min_samples', 0):
+            print(f"\n  WARNING: Scheme {scheme_id} needs {req['min_samples']} samples, "
+                  f"only {n_available} available. Results may be poor.")
+
+        # Split for this scheme
+        split = int(0.9 * n_use)
+        train_ds = CircRNADataset(
+            sequences[:split], coords_labels[:split], pair_labels[:split])
+        val_ds = CircRNADataset(
+            sequences[split:n_use], coords_labels[split:n_use], pair_labels[split:n_use])
+
+        train_loader = DataLoader(train_ds, batch_size=args.batch_size,
+                                  shuffle=True, collate_fn=collate_fn)
+        val_loader = DataLoader(val_ds, batch_size=args.batch_size,
+                                shuffle=False, collate_fn=collate_fn)
+
+        # Use scheme-specific epochs if not overridden
+        scheme_epochs = args.epochs
+        if args.epochs == 50:  # Default, use scheme-specific
+            scheme_epochs = req.get('epochs', 50)
+
+        # Temporarily override epochs
+        original_epochs = args.epochs
+        args.epochs = scheme_epochs
+
         t0 = time.time()
 
         if scheme_id == 1:
             val_loss = train_scheme1(train_loader, val_loader, args, device)
-        elif scheme_id == 2:
-            val_loss = train_scheme2(args)
         elif scheme_id == 3:
             val_loss = train_scheme3(args)
         elif scheme_id == 4:
@@ -611,21 +657,29 @@ def main():
             val_loss = train_scheme6(train_loader, val_loader, args, device)
         else:
             print(f"  Unknown scheme {scheme_id}, skipping")
+            args.epochs = original_epochs
             continue
 
+        args.epochs = original_epochs
         elapsed = time.time() - t0
         results[scheme_id] = {
             'val_loss': val_loss,
             'time_seconds': elapsed,
+            'n_samples': n_use,
+            'epochs': scheme_epochs,
         }
-        print(f"  Scheme {scheme_id} completed in {elapsed:.1f}s")
+        print(f"  Scheme {scheme_id} completed: {n_use} samples, "
+              f"{scheme_epochs} epochs, {elapsed:.1f}s")
 
     # Summary
     print("\n" + "="*60)
     print("  Training Summary")
     print("="*60)
     for sid, res in sorted(results.items()):
-        print(f"  Scheme {sid}: val_loss={res['val_loss']:.4f}, time={res['time_seconds']:.1f}s")
+        n_samp = res.get('n_samples', 'N/A')
+        ep = res.get('epochs', args.epochs)
+        print(f"  Scheme {sid}: val_loss={res['val_loss']:.4f}, "
+              f"samples={n_samp}, epochs={ep}, time={res['time_seconds']:.1f}s")
 
     # Save results
     with open(f"{args.output}/training_results.json", 'w') as f:

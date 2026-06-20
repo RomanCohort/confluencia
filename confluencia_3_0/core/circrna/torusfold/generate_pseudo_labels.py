@@ -191,7 +191,7 @@ def save_pseudo_labels(sequences, coords_list, structures,
 def main():
     parser = argparse.ArgumentParser(description='Generate 3D pseudo-labels')
     parser.add_argument('--n', type=int, default=1000,
-                        help='Number of sequences to generate')
+                        help='Number of sequences to generate (recommend 1000 for scheme 4/6)')
     parser.add_argument('--min-len', type=int, default=30)
     parser.add_argument('--max-len', type=int, default=500)
     parser.add_argument('--output', type=str, default='data/pseudo_labels')
