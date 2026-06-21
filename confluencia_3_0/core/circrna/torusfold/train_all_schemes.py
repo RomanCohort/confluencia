@@ -357,10 +357,8 @@ def train_scheme1(train_loader, val_loader, args, device):
                 train_loss += loss.item()
 
         # Validation: RMSD on normalized coords (consistent with training)
-        # Also compute real-space RMSD in Angstroms for monitoring
         model.eval()
         val_rmsd = 0
-        val_rmsd_real = 0
         with torch.no_grad():
             for batch in val_loader:
                 seq_ids = batch['seq_ids'].to(device)
@@ -392,20 +390,9 @@ def train_scheme1(train_loader, val_loader, args, device):
                     rmsd = torch.sqrt(msd.clamp(min=0))
                     if not torch.isnan(rmsd) and not torch.isinf(rmsd):
                         val_rmsd += rmsd.item()
-
-                    # Real-space RMSD in Angstroms (unscaled)
-                    pred_real = pred_centered[b, :valid_L]
-                    target_real = target_centered[b, :valid_L]
-                    # Kabsch alignment would be ideal, but simple centered RMSD is fast
-                    msd_real = torch.mean(torch.sum((pred_real - target_real) ** 2, dim=1))
-                    rmsd_real = torch.sqrt(msd_real.clamp(min=0))
-                    if not torch.isnan(rmsd_real) and not torch.isinf(rmsd_real):
-                        val_rmsd_real += rmsd_real.item()
                 val_rmsd /= max(B, 1)
-                val_rmsd_real /= max(B, 1)
 
         avg_val = val_rmsd / max(len(val_loader), 1)
-        avg_val_real = val_rmsd_real / max(len(val_loader), 1)
         scheduler.step(avg_val)
 
         if avg_val < best_val:
@@ -416,7 +403,7 @@ def train_scheme1(train_loader, val_loader, args, device):
             patience_counter += 1
 
         print(f"  Epoch {epoch+1}/{args.epochs} train={train_loss/len(train_loader):.4f} "
-              f"val={avg_val:.4f} val_rmsd={avg_val_real:.1f}A pat={patience_counter}/10")
+              f"val={avg_val:.4f} pat={patience_counter}/10")
 
         if patience_counter >= 10:
             print(f"  Early stopping at epoch {epoch+1}")
