@@ -11,10 +11,19 @@ While developing Confluencia 3.0, we recognized that circRNA structure predictio
 ## Benchmark Components
 
 ### Training Data
-- **10,000 sequences** with pseudo-labeled 3D structures
-- Length range: 50-2000 nucleotides
-- Sources: Synthetic helical structures + IsRNAcirc augmentation
-- Format: JSON (sequences) + NPY (coordinates)
+- **10,000+ sequences** with pseudo-labeled 3D structures
+- Length range: 50-2050 nucleotides
+- Four heterogeneous sources (quality hierarchy):
+
+| Source | Samples | Length | Quality | Method |
+|--------|---------|--------|---------|--------|
+| IsRNAcirc (real + aug) | ~2,754 | 161-2050 | Highest | 34 real circRNA 3D structures from PDB, 80x rotation+noise augmentation; 24/34 with real secondary structure from .subo files |
+| icSHAPE-constrained | ~2,000 | 200-1000 | Medium-High | Experimental SHAPE reactivity profiles (GSE74353, Flynn et al. Science 2016) → ViennaRNA SHAPE-constrained folding → GeometricConstraintSolver |
+| PDB circularized | ~4,000 | 50-500 | Medium | Linear RNA structures from RCSB PDB (resolution <3.0A), circularized via GeometricConstraintSolver annealing closure |
+| Synthetic physics | ~5,000 | 50-500 | Medium | Random sequences → ViennaRNA circ-mode secondary structure → GeometricConstraintSolver |
+
+- Format: JSON (sequences + secondary structure + pair constraints) + NPY (3D coordinates)
+- All samples include secondary structure and base-pair constraints (not just helical coordinates)
 
 ### Test Data
 - **30 circRNA structures** from high-quality physics simulation
@@ -35,12 +44,14 @@ We provide 6 baseline methods representing different approaches:
 
 | Method | Type | Expected RMSD |
 |--------|------|---------------|
-| M1: Helical Baseline | Physics | ~25 Å |
-| M2: EGNN + Physics | DL + Physics | ~15 Å |
-| M3: Dual-Engine | Hybrid | ~12 Å |
-| M4: DDPM Diffusion | Deep Learning | ~10 Å |
-| M5: Physics Transformer | DL + Physics | ~8 Å |
-| M6: GNN Latent Diffusion | Deep Learning | ~10 Å |
+| M1: Helical Baseline | Physics | ~25 A |
+| M2: EGNN + Physics | DL + Physics | ~15 A |
+| M3: Dual-Engine | Hybrid | ~12 A |
+| M4: DDPM Diffusion | Deep Learning | ~10 A |
+| M5: Physics Transformer | DL + Physics | ~8 A |
+| M6: GNN Latent Diffusion | Deep Learning | ~10 A |
+
+Note: Expected RMSD values are estimates. With the expanded multi-source training data (including real IsRNAcirc structures and icSHAPE-constrained profiles), deep learning methods (M4-M6) may achieve significantly better performance than these initial estimates.
 
 ## Competition Tracks
 

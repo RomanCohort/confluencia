@@ -37,6 +37,30 @@ Confluencia 3.0 provides an end-to-end pipeline that combines:
 | **Sequence Evolution** | Multi-objective optimization | Pareto front with stability/translation/immune/delivery trade-offs |
 | **TNBC Simulacrum** | Tumor microenvironment simulation | Four molecular subtypes (BLIS/IM/M/LAR) |
 
+### The circRNA Data Challenge
+
+No circRNA crystal structures or cryo-EM reconstructions exist in PDB. This creates a chicken-and-egg problem: one cannot train a structure predictor without structures, and one cannot validate predicted structures without experimental ground truth. Our initial 5,663-sample training dataset had critical gaps: 88% trivially simple helical structures, a length gap at 500-1000 nt, and zero real secondary structure constraints.
+
+**Our Solution: Multi-Source Data Pipeline.** We developed a four-source strategy that combines real structures, experimental constraints, circularized PDB structures, and physics-based predictions:
+
+| Source | Samples | Length | Quality | Method |
+|--------|---------|--------|---------|--------|
+| **IsRNAcirc** | 2,754 (34 real + 80x aug) | 161-2050 nt | Highest | Real circRNA 3D structures; 24/34 with .subo secondary structure |
+| **icSHAPE** | ~2,000 | 200-1000 nt | Medium-High | Experimental SHAPE reactivity (GSE74353) → constrained folding → 3D |
+| **PDB circularized** | ~4,000 | 50-500 nt | Medium | Linear RNA from RCSB PDB, circularized via GeometricConstraintSolver |
+| **Synthetic physics** | ~5,000 | 50-500 nt | Medium | ViennaRNA circ-mode + GeometricConstraintSolver |
+| **Total** | **~10,754** | **50-2050 nt** | | All with secondary structure + pair constraints |
+
+### Circ-CASP: Community Benchmark
+
+We established **Circ-CASP** (Critical Assessment of circRNA Structure Prediction), the first community benchmark for circRNA 3D structure prediction. Features:
+
+- Training data: 10,000+ sequences from the multi-source pipeline (public)
+- Test data: 30 circRNA structures (hidden ground truth)
+- 5 evaluation metrics: Global RMSD (40%), BSJ closure (20%), bond consistency (15%), pair F1 (15%), conformational diversity (10%)
+- 6 baseline methods from physics-based to deep learning
+- Two competition tracks: compute-limited (regular) and unlimited ("oracle")
+
 ### Four Molecular Subtypes
 
 Confluencia 3.0 supports TNBC molecular subtyping based on transcriptomic profiles:

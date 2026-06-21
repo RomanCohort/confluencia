@@ -366,6 +366,33 @@ scores = quick_score("AUGCGCGCGUAUAGCGCGCG")
 # {'stability': 0.72, 'translation': 0.85, 'immune_evasion': 0.91, 'delivery': 0.68}
 ```
 
+### The circRNA Data Challenge and Our Solution
+
+Here is the uncomfortable truth: **no circRNA 3D structure has ever been experimentally determined**. Zero. Not one crystal structure, not one cryo-EM reconstruction in PDB. You cannot train a structure predictor without structures.
+
+Our initial training dataset of 5,663 samples was 88% trivially simple helical coordinates with no real secondary structure. The model learned to predict helices, not real folds.
+
+**Our multi-source data pipeline** tackles this from four angles:
+
+| Source | What It Gives Us | How Many | Quality |
+|--------|-----------------|----------|---------|
+| **IsRNAcirc** | Real circRNA 3D structures from PDB | 34 real + 2,720 augmented | Highest (24 with real secondary structure) |
+| **icSHAPE** | Experimental SHAPE reactivity profiles → constrained folding | ~2,000 | Medium-High (experimental constraints guide structure) |
+| **PDB circularized** | Linear RNA structures, circularized | ~4,000 | Medium (diverse folds, circular topology enforced) |
+| **Synthetic physics** | ViennaRNA circ-mode predicted structures | ~5,000 | Medium (physics-based, not trivial helices) |
+
+Total: **10,000+ samples**, all with secondary structure and base-pair constraints. This is not experimental ground truth, but it is a dramatic improvement over trivial helices.
+
+### Circ-CASP: The First Community Benchmark
+
+We established **Circ-CASP** (Critical Assessment of circRNA Structure Prediction), the first community benchmark for circRNA 3D structure prediction. Think of it as CASP for circular RNA.
+
+- **Training data**: 10,000+ multi-source sequences (public)
+- **Test data**: 30 circRNA structures (hidden)
+- **5 metrics**: RMSD, BSJ closure, bond consistency, pair F1, conformational diversity
+- **6 baselines**: From physics-only to deep learning
+- **Two tracks**: Compute-limited (fair comparison) and unlimited (theoretical upper bound)
+
 ---
 
 ## Module 2: RNACTM — The Pharmacokinetic Crystal Ball
