@@ -78,10 +78,11 @@ def _extract_pairs_from_dot_bracket(ss: str) -> list:
     return pairs
 
 
-def _normalize_pair_constraints(pairs: list, ss: str, length: int) -> list:
+def _normalize_pair_constraints(pairs: list, ss: str, length: int, sequence: str = "") -> list:
     """Normalize pair_constraints to [[i,j], ...] format.
 
     If pairs is empty but ss has brackets, extract from ss.
+    If both empty, fall back to ViennaRNA fold.
     """
     normalized = []
     for p in pairs:
@@ -91,8 +92,18 @@ def _normalize_pair_constraints(pairs: list, ss: str, length: int) -> list:
                 normalized.append([i, j])
 
     # If no pairs from constraints, try extracting from dot-bracket
-    if not normalized and ss:
+    if not normalized and ss and ss != "." * length:
         normalized = _extract_pairs_from_dot_bracket(ss)
+
+    # If still empty, use ViennaRNA circ-mode as fallback
+    if not normalized and sequence and len(sequence) == length:
+        try:
+            import RNA
+            fc = RNA.fold_compound(sequence)
+            (ss_vrna, _) = fc.mfe()
+            normalized = _extract_pairs_from_dot_bracket(ss_vrna)
+        except ImportError:
+            pass
 
     return normalized
 
@@ -132,7 +143,7 @@ def load_source(source_name: str, source_dir: str) -> Tuple[list, int, int]:
         # Normalize pair_constraints
         ss = item.get("secondary_structure", "")
         raw_pairs = item.get("pair_constraints", [])
-        pair_constraints = _normalize_pair_constraints(raw_pairs, ss, length)
+        pair_constraints = _normalize_pair_constraints(raw_pairs, ss, length, sequence)
 
         # If ss is missing, construct from pairs or use all-dots
         if not ss:

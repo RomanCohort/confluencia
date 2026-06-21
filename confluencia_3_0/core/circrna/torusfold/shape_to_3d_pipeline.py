@@ -161,11 +161,12 @@ class ProcessedSample:
             "id": self.seq_id,
             "sequence": self.sequence,
             "secondary_structure": self.secondary_structure,
+            "pair_constraints": [[i, j] for i, j, _, _ in self.pair_constraints],
             "length": len(self.sequence),
             "source": self.source,
             "mfe": self.mfe,
             "n_pairs": len(self.pair_constraints),
-            "reactivities_mean": float(np.mean(self.reactivities)),
+            "reactivities_mean": float(np.mean(self.reactivities)) if len(self.reactivities) > 0 else 0.0,
         }
 
 
