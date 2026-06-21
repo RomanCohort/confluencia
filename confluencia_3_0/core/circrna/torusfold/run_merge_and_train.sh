@@ -14,7 +14,7 @@ echo "  Step 1: Check available data sources"
 echo "============================================================"
 
 # Count samples in each source
-for d in data/circbase_real_3d confluencia_3_0/data/pdb_3d data/shape_3d data/medium_length_3d data/pseudo_labels; do
+for d in data/circbase_real_3d confluencia_3_0/data/pdb_3d data/shape_3d data/shape_constrained data/medium_length_3d data/pseudo_labels; do
   if [ -f "$d/sequences.json" ]; then
     n=$(python3 -c "import json; print(len(json.load(open('$d/sequences.json'))))")
     echo "  $d: $n samples"
@@ -51,6 +51,8 @@ if [ -f "data/circbase_real_3d/sequences.json" ]; then
 fi
 if [ -f "data/shape_3d/sequences.json" ]; then
   ARGS="$ARGS --shape-dir data/shape_3d"
+elif [ -f "data/shape_constrained/sequences.json" ]; then
+  ARGS="$ARGS --shape-dir data/shape_constrained"
 fi
 if [ -f "confluencia_3_0/data/pdb_3d/sequences.json" ]; then
   ARGS="$ARGS --pdb-dir confluencia_3_0/data/pdb_3d"
