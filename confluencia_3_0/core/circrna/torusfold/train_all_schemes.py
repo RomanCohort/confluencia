@@ -368,6 +368,10 @@ def train_scheme1(train_loader, val_loader, args, device):
                 out = model(seq_ids)
                 pred = out['coords']
 
+                # Skip if prediction contains NaN/Inf
+                if torch.isnan(pred).any() or torch.isinf(pred).any():
+                    continue
+
                 B = len(lengths)
                 for b in range(B):
                     valid_L = lengths[b]
@@ -375,15 +379,17 @@ def train_scheme1(train_loader, val_loader, args, device):
                     t = target[b, :valid_L]
                     p_c = p - p.mean(dim=0)
                     t_c = t - t.mean(dim=0)
-                    rmsd = torch.sqrt(torch.mean(torch.sum((p_c - t_c) ** 2, dim=1)))
-                    val_rmsd += rmsd.item()
-                val_rmsd /= B
+                    msd = torch.mean(torch.sum((p_c - t_c) ** 2, dim=1))
+                    rmsd = torch.sqrt(msd.clamp(min=0))
+                    if not torch.isnan(rmsd) and not torch.isinf(rmsd):
+                        val_rmsd += rmsd.item()
+                val_rmsd /= max(B, 1)
 
-        avg_val = val_rmsd / len(val_loader)
+        avg_val = val_rmsd / max(len(val_loader), 1)
         scheduler.step(avg_val)
 
         if avg_val < best_val:
-            best_val = val_loss
+            best_val = avg_val
             patience_counter = 0
             torch.save(model.state_dict(), f"{args.output}/scheme1_best.pt")
         else:
