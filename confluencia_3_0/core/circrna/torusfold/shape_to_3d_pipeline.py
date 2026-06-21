@@ -944,7 +944,7 @@ def generate_3d_coordinates(
     sequence: str,
     pair_constraints: List[Tuple[int, int, float, float]],
     solver: GeometricConstraintSolver,
-    n_samples: int = 10,
+    n_samples: int = 1,
 ) -> Optional[np.ndarray]:
     """Generate 3D coordinates from sequence and pair constraints.
 
@@ -1078,10 +1078,11 @@ def run_shape_to_3d_pipeline(
 
     # Setup solver
     solver_config = SolverConfig(
-        n_samples=10,
-        use_annealing_closure=True,
+        n_samples=1,
+        use_annealing_closure=False,
         bond_length=5.9,
         pair_distance=10.6,
+        max_iterations=50,
         clash_distance=3.0,
     )
     solver = GeometricConstraintSolver(solver_config)
