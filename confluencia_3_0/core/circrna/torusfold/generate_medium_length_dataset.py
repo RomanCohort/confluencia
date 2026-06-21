@@ -391,10 +391,11 @@ def main():
     solver = None
     if HAS_SOLVER:
         config = SolverConfig(
-            n_samples=10,
-            use_annealing_closure=True,
+            n_samples=1,
+            use_annealing_closure=False,
             bond_length=5.9,
             pair_distance=10.6,
+            max_iterations=50,
         )
         solver = GeometricConstraintSolver(config)
 
