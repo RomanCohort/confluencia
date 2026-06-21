@@ -5,7 +5,7 @@
 """
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any, Dict, List, Tuple, Optional, Callable
 import numpy as np
 import pandas as pd
@@ -19,6 +19,24 @@ from .pareto import (
     pick_actions,
 )
 from .actions import CIRCRNA_ACTIONS
+
+# Lazy import TorusFoldScorer to avoid hard dependency on torch/torusfold
+_TorusFoldScorer = None
+_TorusFoldSignals = None
+
+
+def _get_torusfold_scorer():
+    """Lazy import TorusFoldScorer and TorusFoldSignals."""
+    global _TorusFoldScorer, _TorusFoldSignals
+    if _TorusFoldScorer is None:
+        try:
+            from ..circrna.torusfold_scorer import TorusFoldScorer, TorusFoldSignals
+            _TorusFoldScorer = TorusFoldScorer
+            _TorusFoldSignals = TorusFoldSignals
+        except Exception:
+            _TorusFoldScorer = None
+            _TorusFoldSignals = None
+    return _TorusFoldScorer, _TorusFoldSignals
 
 
 @dataclass
@@ -43,6 +61,11 @@ class CircRNAEvolutionConfig:
     weight_translation: float = 0.30
     weight_immune_evasion: float = 0.25
     weight_delivery: float = 0.10
+    # TorusFold 结构评分配置
+    use_torusfold_scoring: bool = False          # 启用 TorusFold 3D 结构信号
+    torusfold_model_path: Optional[str] = None   # TorusFold 模型权重路径
+    torusfold_device: str = "cpu"                # TorusFold 推理设备 (cuda/cpu)
+    torusfold_use_structure: bool = False        # 是否运行 3D 结构预测 (需先训练模型)
 
 
 @dataclass
@@ -164,8 +187,13 @@ def compute_cirrna_objectives(
     seq: str,
     modification: str,
     immune_scores: Optional[Dict[str, float]] = None,
+    torusfold_signals: Optional[Any] = None,
 ) -> np.ndarray:
     """计算 circRNA 四维目标向量 (全部最大化)。
+
+    当 torusfold_signals 提供且 available=True 时，使用 TorusFold DL
+    预测信号修正启发式评分 (与 TorusFoldScorer.compute_objectives 相同
+    混合逻辑); 否则退化为纯启发式。
 
     Returns: [stability, translation, immune_evasion, delivery]
     """
@@ -184,6 +212,16 @@ def compute_cirrna_objectives(
         "2OMeA": 0.1, "2OMeU": 0.1, "m5U": 0.05, "s2U": 0.05,
     }
     stability += mod_stability_bonus.get(modification, 0.0)
+
+    if torusfold_signals and getattr(torusfold_signals, "available", False):
+        # TorusFold 修正: 闭合约束 + circ_stability_head + BSJ 3D闭合
+        stability = 0.5 * stability + 0.2 * torusfold_signals.closure_score + 0.15 * torusfold_signals.circ_stability
+        if getattr(torusfold_signals, "bsj_3d_closure_tightness", 0) > 0:
+            stability = 0.7 * stability + 0.3 * torusfold_signals.bsj_3d_closure_tightness
+        if getattr(torusfold_signals, "energy_score", 0) > 0:
+            energy_norm = max(0.0, min(1.0, 1.0 - torusfold_signals.energy_score / 500.0))
+            stability = 0.5 * stability + 0.3 * energy_norm + 0.2 * torusfold_signals.closure_score
+
     obj0 = np.clip(stability, 0.0, 1.0)
 
     # 翻译潜力
@@ -194,10 +232,36 @@ def compute_cirrna_objectives(
     translation += min(aug_count * 0.05, 0.2)
     if 0.4 <= gc <= 0.55:
         translation += 0.1
+
+    if torusfold_signals and getattr(torusfold_signals, "available", False):
+        translation = (0.4 * translation
+                       + 0.2 * torusfold_signals.bsj_stability
+                       + 0.2 * torusfold_signals.translation_efficiency
+                       + 0.2 * getattr(torusfold_signals, "ires_3d_accessibility", 0.5))
+
     obj1 = np.clip(translation, 0.0, 1.0)
 
     # 免疫逃逸
-    if immune_scores:
+    if torusfold_signals and getattr(torusfold_signals, "available", False):
+        # TorusFold DL 免疫头 + pair_map dsRNA + 3D motif可及性
+        pkr = torusfold_signals.immune_pkr
+        rig_i = torusfold_signals.immune_rig_i
+        tlr = torusfold_signals.immune_tlr
+        dsRNA_from_pairmap = torusfold_signals.dsRNA_fraction
+        pkr_adjusted = 0.6 * pkr + 0.4 * dsRNA_from_pairmap
+        exposure_penalty = getattr(torusfold_signals, "surface_exposed_fraction", 0.5)
+        buried_bonus = 1.0 - exposure_penalty * 0.3
+        immune_evasion = (
+            (1.0 - pkr_adjusted) * 0.35
+            + (1.0 - abs(rig_i - 0.35)) * 0.25
+            + (1.0 - tlr) * 0.2
+            + buried_bonus * 0.2
+        )
+        motif_acc = getattr(torusfold_signals, "motif_accessibility", None)
+        if motif_acc:
+            avg_motif_exposure = sum(motif_acc.values()) / max(len(motif_acc), 1)
+            immune_evasion = 0.8 * immune_evasion + 0.2 * (1.0 - avg_motif_exposure)
+    elif immune_scores:
         pkr = immune_scores.get("pkr_score", 0.3)
         rig_i = immune_scores.get("rig_i_score", 0.3)
         tlr = immune_scores.get("tlr_score", 0.2)
@@ -209,7 +273,7 @@ def compute_cirrna_objectives(
         immune_evasion = (1.0 - dsRNA_potential) * 0.5 + (1.0 - abs(rig_i_estimate - 0.35)) * 0.5
     obj2 = np.clip(immune_evasion, 0.0, 1.0)
 
-    # 递送兼容性
+    # 递送兼容性 (不受 TorusFold 影响)
     delivery = 0.3
     if length < 2000:
         delivery += 0.25
@@ -254,6 +318,24 @@ def evolve_cirrna(
     no_improve = 0
     per_round_best: List[float] = []
     rounds_ran = 0
+
+    # 创建 TorusFoldScorer (如果启用)
+    torusfold_scorer = None
+    if cfg.use_torusfold_scoring:
+        TorusFoldScorer, _ = _get_torusfold_scorer()
+        if TorusFoldScorer is not None:
+            try:
+                torusfold_scorer = TorusFoldScorer(
+                    model_path=cfg.torusfold_model_path,
+                    device=cfg.torusfold_device,
+                    use_structure_prediction=cfg.torusfold_use_structure,
+                )
+                reflections.append(f"TorusFoldScorer initialized (device={cfg.torusfold_device}, use_structure={cfg.torusfold_use_structure})")
+            except Exception as e:
+                reflections.append(f"TorusFoldScorer init failed: {e}, falling back to heuristic")
+                torusfold_scorer = None
+        else:
+            reflections.append("TorusFoldScorer unavailable, using heuristic scoring")
 
     prior_w = np.array([
         cfg.weight_stability, cfg.weight_translation,
@@ -302,7 +384,18 @@ def evolve_cirrna(
                     immune_scores = immune_score_fn(seq)
                 except Exception:
                     immune_scores = None
-            obj_matrix[i] = compute_cirrna_objectives(seq, mod, immune_scores)
+
+            # 提取 TorusFold 信号 (如果启用)
+            torusfold_signals = None
+            if torusfold_scorer is not None:
+                try:
+                    torusfold_signals = torusfold_scorer.extract_signals(seq)
+                except Exception:
+                    torusfold_signals = None
+
+            obj_matrix[i] = compute_cirrna_objectives(
+                seq, mod, immune_scores, torusfold_signals,
+            )
 
         obj_norm = normalize_cols(obj_matrix)
 
@@ -319,7 +412,7 @@ def evolve_cirrna(
         p_mask = pareto_front_mask(obj_norm)
 
         for i, (seq, mod, act) in enumerate(zip(candidates, mod_candidates, actions)):
-            all_rows.append({
+            row = {
                 "round": rd + 1, "action": act,
                 "circrna_seq": seq, "seq_length": len(seq),
                 "modification": mod, "delivery_vector": cfg.delivery_vector,
@@ -330,7 +423,8 @@ def evolve_cirrna(
                 "obj_immune_evasion": float(obj_matrix[i, 2]),
                 "obj_delivery": float(obj_matrix[i, 3]),
                 "pareto_front": bool(p_mask[i]),
-            })
+            }
+            all_rows.append(row)
 
         # REINFORCE 策略更新
         r_center = rewards - rewards.mean()

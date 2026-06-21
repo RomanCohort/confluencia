@@ -45,6 +45,161 @@ def _get_torusfold_classes():
     return _TorusFold, _TorusFoldConfig
 
 
+def _compute_sasa_from_coords(
+    coords: np.ndarray,
+    probe_radius: float = 5.0,
+    bond_length: float = 3.4,
+) -> np.ndarray:
+    """Compute per-nucleotide solvent accessible surface area from 3D coordinates.
+
+    Simplified rolling-ball approximation (not full Shrake-Rupley).
+    For each nucleotide, count neighbors within interaction radius.
+    More neighbors = lower SASA = more buried.
+
+    Args:
+        coords: (N, 3) array of nucleotide 3D positions in Angstroms
+        probe_radius: Probe sphere radius in Angstroms (default 5.0 for water)
+        bond_length: Average nucleotide bond length in Angstroms
+
+    Returns:
+        (N,) array of normalized SASA values in [0,1] where 1 = fully exposed, 0 = buried
+    """
+    if coords is None or len(coords) == 0:
+        return np.array([])
+
+    coords = np.asarray(coords, dtype=np.float32)
+    n_nuc = len(coords)
+    if n_nuc == 1:
+        return np.array([1.0])
+
+    # Interaction radius: probe can reach nucleotide if within this distance
+    interaction_radius = 2 * probe_radius + bond_length
+
+    # Compute pairwise distances
+    # Shape: (N, N)
+    diff = coords[:, np.newaxis, :] - coords[np.newaxis, :, :]  # (N, N, 3)
+    distances = np.sqrt(np.sum(diff ** 2, axis=2))  # (N, N)
+
+    # Count neighbors within interaction radius (excluding self)
+    # Self-distance is 0, so we exclude it by counting neighbors with 0 < d < radius
+    neighbor_mask = (distances > 0) & (distances < interaction_radius)
+    neighbor_counts = np.sum(neighbor_mask, axis=1)  # (N,)
+
+    # Normalize: max neighbors ~ surface area of sphere / nucleotide area
+    # Approximate max expected neighbors for a buried nucleotide
+    # A nucleotide in the core would have ~20-30 neighbors within 13.4 Å
+    max_buried_neighbors = 25.0  # empirical constant
+
+    # SASA: 1 - (neighbors / max_neighbors), clipped to [0, 1]
+    sasa = 1.0 - np.clip(neighbor_counts / max_buried_neighbors, 0.0, 1.0)
+
+    return sasa
+
+
+def _compute_motif_accessibility(
+    sequence: str,
+    coords: np.ndarray,
+    sasa: np.ndarray,
+) -> Dict[str, float]:
+    """Compute 3D accessibility for immune-relevant motifs.
+
+    Immune-relevant motifs:
+    - CCUCC, UCUCC: RIG-I ligands
+    - GU-rich: GUGU, GUUG (RIG-I agonists)
+    - AU-rich: AUUA, AUUU (TLR agonists)
+
+    Args:
+        sequence: RNA sequence (uppercase, U not T)
+        coords: (N, 3) nucleotide positions
+        sasa: (N,) per-nucleotide accessibility
+
+    Returns:
+        Dict mapping motif_id (e.g., "CCUCC_42") to average SASA of its positions
+    """
+    motif_accessibility = {}
+
+    # Immune-relevant motifs
+    immune_motifs = ["CCUCC", "UCUCC", "GUGU", "GUUG", "AUUA", "AUUU"]
+
+    for motif in immune_motifs:
+        motif_len = len(motif)
+        # Find all occurrences
+        start = 0
+        while True:
+            pos = sequence.find(motif, start)
+            if pos == -1:
+                break
+            # Get SASA for positions in this motif
+            end_pos = pos + motif_len
+            if end_pos <= len(sasa):
+                motif_sasa = sasa[pos:end_pos].mean()
+                motif_id = f"{motif}_{pos}"
+                motif_accessibility[motif_id] = float(motif_sasa)
+            start = pos + 1
+
+    return motif_accessibility
+
+
+def _compute_ires_accessibility(
+    sequence: str,
+    coords: np.ndarray,
+    sasa: np.ndarray,
+) -> float:
+    """Compute 3D accessibility of IRES motifs for ribosome binding.
+
+    IRES motifs: GCGCC, GGGG, UUGU, AUGG, CCUG, GGAAGG
+
+    Args:
+        sequence: RNA sequence (uppercase, U not T)
+        coords: (N, 3) nucleotide positions
+        sasa: (N,) per-nucleotide accessibility
+
+    Returns:
+        Average SASA at IRES positions, [0,1] where 1 = fully accessible
+    """
+    ires_motifs = ["GCGCC", "GGGG", "UUGU", "AUGG", "CCUG", "GGAAGG"]
+    ires_positions = []
+
+    for motif in ires_motifs:
+        motif_len = len(motif)
+        start = 0
+        while True:
+            pos = sequence.find(motif, start)
+            if pos == -1:
+                break
+            ires_positions.extend(range(pos, pos + motif_len))
+            start = pos + 1
+
+    if not ires_positions:
+        return 0.5  # default if no IRES motifs found
+
+    # Filter to valid positions
+    valid_positions = [p for p in ires_positions if p < len(sasa)]
+    if not valid_positions:
+        return 0.5
+
+    return float(np.mean(sasa[valid_positions]))
+
+
+def circular_distance_matrix(L: int, device) -> torch.Tensor:
+    """Compute circular distance matrix for circRNA.
+
+    For circRNA, the distance between positions i and j is the shorter
+    of the two paths around the circle.
+
+    Args:
+        L: Sequence length
+        device: torch device
+
+    Returns:
+        (L, L) tensor of circular distances
+    """
+    idx = torch.arange(L, device=device)
+    d1 = torch.abs(idx[:, None] - idx[None, :])  # forward distance
+    d2 = L - d1  # backward distance
+    return torch.min(d1, d2)  # circular distance
+
+
 @dataclass
 class TorusFoldSignals:
     """TorusFold 提取的结构信号，用于修正评分链。"""
@@ -254,6 +409,51 @@ class TorusFoldScorer:
                 sm = result["structure_method"]
                 structure_method = sm if isinstance(sm, str) else str(sm)
 
+            # ── 3D 可及性信号 (SASA from coords) ──
+            motif_accessibility = {}
+            ires_3d_acc = 0.0
+            bsj_3d_tight = 0.0
+            surface_frac = 0.0
+            buried_count = 0
+
+            coords_raw = result.get("coords")
+            if coords_raw is not None:
+                # Convert coords to numpy if needed
+                if isinstance(coords_raw, torch.Tensor):
+                    coords_np = coords_raw.detach().cpu().numpy()
+                else:
+                    coords_np = np.asarray(coords_raw, dtype=np.float32)
+
+                # Ensure 2D shape (N, 3)
+                if coords_np.ndim == 3:
+                    coords_np = coords_np[0]  # take first sample
+
+                sasa = _compute_sasa_from_coords(coords_np)
+
+                if len(sasa) > 0:
+                    # Surface exposed fraction: nucleotides with sasa > 0.3
+                    surface_frac = float(np.mean(sasa > 0.3))
+
+                    # IRES 3D accessibility
+                    ires_3d_acc = _compute_ires_accessibility(seq, coords_np, sasa)
+
+                    # BSJ 3D closure tightness from closure_distance
+                    # bond_length ~3.4 Å; tighter closure = higher value
+                    bsj_3d_tight = max(0.0, 1.0 - closure_dist / 3.4)
+
+                    # Motif accessibility dict
+                    motif_accessibility = _compute_motif_accessibility(seq, coords_np, sasa)
+
+                    # Buried motif count: immune motifs with avg SASA < 0.2
+                    buried_count = sum(
+                        1 for v in motif_accessibility.values() if v < 0.2
+                    )
+            else:
+                # No coords from model — derive rough estimates from closure_distance
+                bsj_3d_tight = max(0.0, 1.0 - closure_dist / 3.4)
+                ires_3d_acc = 0.5  # no structural info, neutral default
+                surface_frac = 0.5
+
             return TorusFoldSignals(
                 closure_distance=closure_dist,
                 closure_loss=closure_loss,
@@ -274,9 +474,17 @@ class TorusFoldScorer:
                 pair_satisfaction=pair_satisfaction,
                 clash_count=clash_count,
                 n_conformations=n_conformations,
+                motif_accessibility=motif_accessibility,
+                ires_3d_accessibility=ires_3d_acc,
+                bsj_3d_closure_tightness=bsj_3d_tight,
+                surface_exposed_fraction=surface_frac,
+                buried_motif_count=buried_count,
                 available=True,
                 method=structure_method or effective_mode,
             )
+
+        except Exception:
+            return TorusFoldSignals(available=False, method="heuristic_fallback")
 
     def _heuristic_fallback_signals(self, sequence: str) -> TorusFoldSignals:
         """启发式回退信号（模型未训练时使用）。"""
@@ -295,6 +503,34 @@ class TorusFoldScorer:
         ires_motifs = ["GCGCC", "GGGG", "UUGU", "AUGG", "CCUG", "GGAAGG"]
         ires_count = sum(1 for m in ires_motifs if m in seq)
         ires_3d_accessibility = min(0.9, 0.3 + ires_count * 0.15)
+
+        # 免疫相关motif可及性（启发式估计: GC-rich更易配对→更埋藏）
+        immune_motifs = ["CCUCC", "UCUCC", "GUGU", "GUUG", "AUUA", "AUUU"]
+        motif_accessibility = {}
+        gc = sum(1 for c in seq if c in "GC") / max(L, 1)
+        for motif in immune_motifs:
+            start = 0
+            while True:
+                pos = seq.find(motif, start)
+                if pos == -1:
+                    break
+                # GC-rich motifs tend to be more paired/buried
+                motif_gc = sum(1 for c in motif if c in "GC") / len(motif)
+                # Higher GC → more likely paired → lower accessibility
+                acc = max(0.1, 0.8 - motif_gc * 0.4 - gc * 0.3)
+                motif_accessibility[f"{motif}_{pos}"] = acc
+                start = pos + 1
+
+        # 被埋藏的免疫motif计数 (启发式: acc < 0.2)
+        buried_motif_count = sum(
+            1 for v in motif_accessibility.values() if v < 0.2
+        )
+
+        # 表面暴露比例: 低GC → 更多单链 → 更多暴露
+        surface_exposed = max(0.2, min(0.8, 0.6 - gc * 0.5))
+
+        # BSJ 3D闭合紧密度: 基于BSJ区域GC含量和序列长度
+        bsj_3d_tight = max(0.0, min(1.0, bsj_stability * 0.8))
 
         return TorusFoldSignals(
             closure_distance=L * 0.5,
@@ -316,18 +552,14 @@ class TorusFoldScorer:
             pair_satisfaction=0.0,
             clash_count=0,
             n_conformations=0,
-            # 3D结构可及性信号
-            motif_accessibility={},
+            motif_accessibility=motif_accessibility,
             ires_3d_accessibility=ires_3d_accessibility,
-            bsj_3d_closure_tightness=bsj_stability,
-            surface_exposed_fraction=0.5,
-            buried_motif_count=0,
+            bsj_3d_closure_tightness=bsj_3d_tight,
+            surface_exposed_fraction=surface_exposed,
+            buried_motif_count=buried_motif_count,
             available=False,
             method="heuristic_fallback",
         )
-
-        except Exception:
-            return TorusFoldSignals(available=False, method="heuristic_fallback")
 
     def compute_objectives(
         self,

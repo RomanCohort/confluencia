@@ -1082,7 +1082,8 @@ def main():
     parser.add_argument('--n-train', type=int, default=500,
                         help='Number of samples (used if no --labels)')
     parser.add_argument('--min-len', type=int, default=30)
-    parser.add_argument('--max-len', type=int, default=500)
+    parser.add_argument('--max-len', type=int, default=1000,
+                        help='Maximum sequence length to include (filter out longer)')
     parser.add_argument('--epochs', type=int, default=50)
     parser.add_argument('--batch-size', type=int, default=8)
     parser.add_argument('--device', type=str, default='auto')

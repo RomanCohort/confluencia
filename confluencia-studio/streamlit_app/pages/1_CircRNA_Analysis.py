@@ -97,6 +97,18 @@ with st.sidebar:
         - 📦 **递送效率**: 细胞摄取能力
         """)
 
+    st.markdown("---")
+
+    with st.sidebar.expander("TorusFold 3D Structure"):
+        use_tf = st.checkbox("Enable 3D Structure Prediction", value=False,
+                              help="Requires trained model. Improves scoring accuracy.")
+        if use_tf:
+            tf_model = st.text_input("Model Path", value="models/torusfold_v2.pt")
+            tf_device = st.selectbox("Device", ["auto", "cuda", "cpu"], index=0)
+        else:
+            st.info("3D structure prediction disabled. Using heuristic scoring.")
+            st.caption("Enable after TorusFold model training completes.")
+
     with st.expander("什么是RNACTM？"):
         st.markdown("""
         **RNACTM** 是六室药代动力学模型。

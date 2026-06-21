@@ -127,6 +127,12 @@ class BSJFeatures:
     conservation_score: float = 0.0
     conservation_annotation: Optional['ConservationAnnotation'] = None
 
+    # NEW: 3D closure geometry (from TorusFold predictions)
+    closure_distance_3d: float = 0.0          # 3D distance between first/last nt (Angstroms)
+    closure_angle_3d: float = 0.0             # Bond angle at BSJ junction (radians)
+    closure_tightness_3d: float = 0.5         # Normalized [0,1] tightness
+    torsion_strain_3d: float = 0.0            # Dihedral angle at junction (radians)
+
 
 # ============================================================================
 # NEW: Real-Time Detection Data Structures
@@ -355,6 +361,7 @@ def predict_circularization_efficiency(
     2. Exon length (optimal 200-500bp)
     3. Flanking intron length (shorter = better)
     4. Splice site strength
+    5. 3D closure tightness (when available, blended at 0.3 weight)
 
     Args:
         features: BSJFeatures object
@@ -390,6 +397,12 @@ def predict_circularization_efficiency(
 
     # Branch point contribution
     score += features.branch_point_score * 0.10
+
+    # 3D closure tightness blend (when available from TorusFold coords)
+    if features.closure_tightness_3d > 0:
+        # Blend: 30% weight to 3D geometry, 70% remains sequence-based
+        seq_based = min(score, 1.0)
+        score = 0.7 * seq_based + 0.3 * features.closure_tightness_3d
 
     return min(score, 1.0)
 
@@ -483,6 +496,114 @@ def _extend_complementary_match(
             break
 
     return length
+
+
+def _compute_3d_closure(coords: np.ndarray) -> Dict[str, float]:
+    """
+    Compute 3D closure geometry features from nucleotide coordinates.
+
+    When a circRNA closes into a loop, the 3D distance between the last
+    and first nucleotide should approach the typical phosphodiester bond
+    length (~5.9 Angstroms). Deviations indicate geometric strain or
+    incomplete closure.
+
+    Args:
+        coords: (L, 3) numpy array of 3D coordinates from TorusFold
+
+    Returns:
+        Dict with keys:
+            closure_distance_3d: Euclidean distance between first and last nt
+            closure_angle_3d: Bond angle at BSJ junction (radians)
+            closure_tightness_3d: Normalized [0,1] tightness metric
+            torsion_strain_3d: Dihedral angle at junction (radians)
+
+    Literature:
+        Anfinsen, 1973: Thermodynamic hypothesis for protein folding
+          applies analogously to circRNA closure thermodynamics
+        Dai et al., 2022: "3D structural characterization of circular RNAs"
+    """
+    L = coords.shape[0]
+    if L < 4:
+        return {
+            "closure_distance_3d": 0.0,
+            "closure_angle_3d": 0.0,
+            "closure_tightness_3d": 0.5,
+            "torsion_strain_3d": 0.0,
+        }
+
+    # Typical P-O bond length in RNA backbone (Angstroms)
+    BOND_LENGTH = 5.9
+
+    # closure_distance_3d: 3D distance between last and first nucleotide
+    diff = coords[-1] - coords[0]
+    closure_distance = float(np.linalg.norm(diff))
+
+    # closure_angle_3d: bond angle at the BSJ junction
+    # Angle between vectors (coords[-1]-coords[-2]) and (coords[0]-coords[1])
+    vec_a = coords[-1] - coords[-2]
+    vec_b = coords[0] - coords[1]
+    norm_a = np.linalg.norm(vec_a)
+    norm_b = np.linalg.norm(vec_b)
+    if norm_a > 1e-9 and norm_b > 1e-9:
+        cos_angle = np.clip(np.dot(vec_a, vec_b) / (norm_a * norm_b), -1.0, 1.0)
+        closure_angle = float(np.arccos(cos_angle))
+    else:
+        closure_angle = 0.0
+
+    # closure_tightness_3d: normalized [0, 1]
+    # 1.0 = perfectly closed (distance ~ 0), 0.0 = very open
+    # Using 2 * BOND_LENGTH as the normalization scale
+    closure_tightness = float(max(0.0, 1.0 - closure_distance / (2 * BOND_LENGTH)))
+
+    # torsion_strain_3d: dihedral angle at junction
+    # Dihedral between coords[-2], coords[-1], coords[0], coords[1]
+    torsion_strain = float(_dihedral(
+        coords[-2], coords[-1], coords[0], coords[1]
+    ))
+
+    return {
+        "closure_distance_3d": closure_distance,
+        "closure_angle_3d": closure_angle,
+        "closure_tightness_3d": closure_tightness,
+        "torsion_strain_3d": torsion_strain,
+    }
+
+
+def _dihedral(p0: np.ndarray, p1: np.ndarray, p2: np.ndarray, p3: np.ndarray) -> float:
+    """
+    Compute dihedral angle between four 3D points.
+
+    Uses the standard formulation:
+      b1 = p1 - p0, b2 = p2 - p1, b3 = p3 - p2
+      n1 = b1 x b2, n2 = b2 x b3
+      angle = atan2(dot(n1 x n2, b2/|b2|), dot(n1, n2))
+
+    Args:
+        p0, p1, p2, p3: 3D coordinate arrays (shape (3,))
+
+    Returns:
+        Dihedral angle in radians [-pi, pi]
+    """
+    b1 = p1 - p0
+    b2 = p2 - p1
+    b3 = p3 - p2
+
+    n1 = np.cross(b1, b2)
+    n2 = np.cross(b2, b3)
+
+    n1_norm = np.linalg.norm(n1)
+    n2_norm = np.linalg.norm(n2)
+    b2_norm = np.linalg.norm(b2)
+
+    if n1_norm < 1e-9 or n2_norm < 1e-9 or b2_norm < 1e-9:
+        return 0.0
+
+    m1 = np.cross(n1, b2 / b2_norm)
+
+    x = float(np.dot(n1, n2))
+    y = float(np.dot(m1, n2))
+
+    return np.arctan2(y, x)
 
 
 def _score_5_splice_site(window: str) -> float:
@@ -582,6 +703,7 @@ class BSJFeatureExtractor:
         sequence: str,
         flanking_5: Optional[str] = None,
         flanking_3: Optional[str] = None,
+        coords: Optional[np.ndarray] = None,
     ) -> BSJFeatures:
         """
         Extract all BSJ features from sequence.
@@ -590,6 +712,8 @@ class BSJFeatureExtractor:
             sequence: circRNA exon sequence
             flanking_5: 5' flanking intron (optional)
             flanking_3: 3' flanking intron (optional)
+            coords: Optional (L, 3) numpy array of 3D coordinates from TorusFold.
+                    When provided, computes 3D closure geometry features.
 
         Returns:
             BSJFeatures object
@@ -630,6 +754,17 @@ class BSJFeatureExtractor:
         # Score splice sites
         splice_scores = score_splice_site(sequence)
 
+        # Compute 3D closure geometry if coords provided
+        if coords is not None:
+            closure_3d = _compute_3d_closure(coords)
+        else:
+            closure_3d = {
+                "closure_distance_3d": 0.0,
+                "closure_angle_3d": 0.0,
+                "closure_tightness_3d": 0.5,
+                "torsion_strain_3d": 0.0,
+            }
+
         # Create base features
         features = BSJFeatures(
             alu_elements_present=alu_present,
@@ -649,6 +784,10 @@ class BSJFeatureExtractor:
             bsj_stability=0.0,  # Will be computed
             protected_region=(0, 0),  # Will be computed
             biogenesis_efficiency_class="unknown",
+            closure_distance_3d=closure_3d["closure_distance_3d"],
+            closure_angle_3d=closure_3d["closure_angle_3d"],
+            closure_tightness_3d=closure_3d["closure_tightness_3d"],
+            torsion_strain_3d=closure_3d["torsion_strain_3d"],
         )
 
         # Compute derived scores
@@ -679,10 +818,11 @@ def extract_bsj_features(
     sequence: str,
     flanking_5: Optional[str] = None,
     flanking_3: Optional[str] = None,
+    coords: Optional[np.ndarray] = None,
 ) -> BSJFeatures:
     """Convenience wrapper for BSJ feature extraction."""
     extractor = BSJFeatureExtractor()
-    return extractor.extract(sequence, flanking_5, flanking_3)
+    return extractor.extract(sequence, flanking_5, flanking_3, coords)
 
 
 def get_bsj_summary(features: BSJFeatures) -> Dict:
@@ -697,6 +837,9 @@ def get_bsj_summary(features: BSJFeatures) -> Dict:
         "protected_region": features.protected_region,
         "efficiency_class": features.biogenesis_efficiency_class,
         "conservation_score": features.conservation_score,
+        "closure_distance_3d": features.closure_distance_3d,
+        "closure_tightness_3d": features.closure_tightness_3d,
+        "torsion_strain_3d": features.torsion_strain_3d,
     }
 
 

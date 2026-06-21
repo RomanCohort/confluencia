@@ -65,6 +65,16 @@ try:
 except ImportError:
     ABM_AVAILABLE = False
 
+# Import TorusFold scorer for structure-based immune prediction
+try:
+    from .torusfold_scorer import (
+        TorusFoldScorer,
+        TorusFoldSignals,
+    )
+    TORUSFOLD_AVAILABLE = True
+except ImportError:
+    TORUSFOLD_AVAILABLE = False
+
 # Import TME simulation
 try:
     from .tme_simulation import (
@@ -152,6 +162,10 @@ class RLABMConfig:
     # Combination drug options
     combination_drugs: List[str] = field(default_factory=lambda: ["pembrolizumab", "nivolumab", "atezolizumab"])
 
+    # TorusFold structure prediction
+    use_structure_prediction: bool = False
+    torusfold_model_path: Optional[str] = None
+
     seed: int = 42
 
 
@@ -224,6 +238,8 @@ def compute_abm_reward(
     combination_drug: Optional[str] = None,
     abm_config: Optional[ImmuneABMConfig] = None,
     dose: float = 1.0,
+    use_structure_prediction: bool = False,
+    torusfold_model_path: Optional[str] = None,
 ) -> ABMRewardComponents:
     """
     Compute reward using ABM simulation + drug response prediction.
@@ -241,6 +257,8 @@ def compute_abm_reward(
         combination_drug: Optional combination drug
         abm_config: ABM simulation config
         dose: Treatment dose
+        use_structure_prediction: If True, use TorusFold DL-based immune scoring
+        torusfold_model_path: Optional path to trained TorusFold model
 
     Returns:
         ABMRewardComponents with detailed breakdown
@@ -252,7 +270,11 @@ def compute_abm_reward(
         abm_config = None
 
     # Step 1: Get immune scores from sequence
-    immune_scores = _estimate_immune_scores(sequence, modification)
+    immune_scores, torusfold_signals = _estimate_immune_scores(
+        sequence, modification,
+        use_structure_prediction=use_structure_prediction,
+        torusfold_model_path=torusfold_model_path,
+    )
 
     # Step 2: Run ABM simulation (if available)
     peak_ab = 0.5
@@ -297,8 +319,15 @@ def compute_abm_reward(
     )
 
     # Step 4: Compute combined reward
-    # Efficacy component
+    # Efficacy component — boost with TorusFold IRES 3D accessibility
+    # when available (better translation prediction → better drug response)
     efficacy_reward = drug_response.response_probability * (1.0 - drug_response.resistance_risk)
+    if torusfold_signals is not None and torusfold_signals.available:
+        ires_acc = torusfold_signals.ires_3d_accessibility
+        # Higher IRES accessibility → better translation → higher effective dose
+        # Blend: 70% original efficacy + 30% IRES-boosted efficacy
+        ires_boost = efficacy_reward * (0.5 + 0.5 * ires_acc)
+        efficacy_reward = 0.7 * efficacy_reward + 0.3 * ires_boost
 
     # Immune response component
     immune_reward = (0.4 * peak_ab + 0.4 * peak_t + 0.2 * antigen_clearance)
@@ -368,6 +397,8 @@ def compute_tme_reward(
     tme_config: Optional[TMEConfig] = None,
     dose: float = 1.0,
     horizon_h: int = 168,
+    use_structure_prediction: bool = False,
+    torusfold_model_path: Optional[str] = None,
 ) -> TMERewardComponents:
     """
     Compute reward using advanced TME simulation + drug response + combination analysis.
@@ -386,12 +417,18 @@ def compute_tme_reward(
         tme_config: TME simulation config
         dose: circRNA dose
         horizon_h: Simulation horizon in hours
+        use_structure_prediction: If True, use TorusFold DL-based immune scoring
+        torusfold_model_path: Optional path to trained TorusFold model
 
     Returns:
         TMERewardComponents with detailed breakdown
     """
     # Step 1: Get immune scores from sequence
-    immune_scores = _estimate_immune_scores(sequence, modification)
+    immune_scores, torusfold_signals = _estimate_immune_scores(
+        sequence, modification,
+        use_structure_prediction=use_structure_prediction,
+        torusfold_model_path=torusfold_model_path,
+    )
 
     # Step 2: Run TME simulation if available
     tumor_reduction = 0.0
@@ -476,8 +513,13 @@ def compute_tme_reward(
         0.10 * immune_score / 100.0
     )
 
-    # Drug response component
+    # Drug response component — boost with TorusFold IRES 3D accessibility
     efficacy_reward = drug_response.response_probability * (1.0 - drug_response.resistance_risk)
+    if torusfold_signals is not None and torusfold_signals.available:
+        ires_acc = torusfold_signals.ires_3d_accessibility
+        # Higher IRES accessibility → better translation → higher effective dose
+        ires_boost = efficacy_reward * (0.5 + 0.5 * ires_acc)
+        efficacy_reward = 0.7 * efficacy_reward + 0.3 * ires_boost
 
     # Safety component
     safety_reward = 1.0 - _estimate_toxicity(sequence, modification, immune_scores)
@@ -674,15 +716,37 @@ def _generate_combination_rationale(
     return "; ".join(parts) if parts else "Standard combination therapy"
 
 
-def _estimate_immune_scores(sequence: str, modification: str) -> Dict[str, float]:
-    """Estimate immune pathway activation from sequence."""
+def _estimate_immune_scores(
+    sequence: str,
+    modification: str,
+    use_structure_prediction: bool = False,
+    torusfold_model_path: Optional[str] = None,
+) -> Tuple[Dict[str, float], Optional["TorusFoldSignals"]]:
+    """Estimate immune pathway activation from sequence.
+
+    When use_structure_prediction=True and TorusFold is available, uses
+    TorusFoldScorer to extract DL-based immune signals and override
+    the heuristic scores. When False (default), behavior is identical
+    to the original GC/GU heuristic.
+
+    Args:
+        sequence: circRNA sequence
+        modification: Chemical modification (m6A, Psi, etc.)
+        use_structure_prediction: If True, use TorusFold DL-based scoring
+        torusfold_model_path: Optional path to trained TorusFold model
+
+    Returns:
+        Tuple of (immune_scores dict, torusfold_signals or None).
+        When use_structure_prediction=False, torusfold_signals is None
+        and immune_scores are identical to the original heuristic output.
+    """
+    # ── Heuristic baseline (always computed for fallback) ──
     seq = sequence.upper().replace("T", "U")
     length = len(seq)
     gc = sum(1 for c in seq if c in "GC") / max(length, 1)
     gu = sum(1 for c in seq if c in "GU") / max(length, 1)
 
     # PKR activation (dsRNA-like structures)
-    # High GC + long sequences = more dsRNA potential
     dsrna_potential = gc * 0.7 * (length > 500)
     pkr = np.clip(dsrna_potential + 0.1, 0.0, 1.0)
 
@@ -708,13 +772,59 @@ def _estimate_immune_scores(sequence: str, modification: str) -> Dict[str, float
     rig_i = np.clip(rig_i + effects.get("rig_i", 0.0), 0.0, 1.0)
     tlr = np.clip(tlr + effects.get("tlr", 0.0), 0.0, 1.0)
 
-    return {
+    heuristic_scores = {
         "pkr_score": float(pkr),
         "rig_i_score": float(rig_i),
         "tlr_score": float(tlr),
         "overall_immunogenicity": float(immunogenicity),
-        "ips": float(5.0 + 3.0 * immunogenicity),  # IPS scale approximation
+        "ips": float(5.0 + 3.0 * immunogenicity),
     }
+
+    # ── TorusFold DL-based override ──
+    if not use_structure_prediction or not TORUSFOLD_AVAILABLE:
+        return heuristic_scores, None
+
+    # Create scorer and extract DL signals
+    try:
+        scorer = TorusFoldScorer(
+            model_path=torusfold_model_path,
+            use_structure_prediction=True,
+        )
+        signals = scorer.extract_signals(sequence)
+
+        # If TorusFold ran successfully, override heuristic with DL scores
+        override = scorer.compute_immune_override(signals)
+        if override is not None:
+            # Merge: DL scores replace heuristic, but keep modification effects
+            dl_pkr = override.get("pkr_score", pkr)
+            dl_rig_i = override.get("rig_i_score", rig_i)
+            dl_tlr7 = override.get("tlr7_score", tlr * 0.6)
+            dl_tlr8 = override.get("tlr8_score", tlr * 0.4)
+            # Combine TLR subtypes back into single tlr_score for compatibility
+            dl_tlr = np.clip(dl_tlr7 + dl_tlr8, 0.0, 1.0)
+
+            # Apply modification effects on top of DL scores
+            dl_pkr = np.clip(dl_pkr + effects.get("pkr", 0.0), 0.0, 1.0)
+            dl_rig_i = np.clip(dl_rig_i + effects.get("rig_i", 0.0), 0.0, 1.0)
+            dl_tlr = np.clip(dl_tlr + effects.get("tlr", 0.0), 0.0, 1.0)
+
+            dl_immunogenicity = override.get("overall_immunogenicity", immunogenicity)
+
+            return {
+                "pkr_score": float(dl_pkr),
+                "rig_i_score": float(dl_rig_i),
+                "tlr_score": float(dl_tlr),
+                "tlr7_score": float(dl_tlr7),
+                "tlr8_score": float(dl_tlr8),
+                "overall_immunogenicity": float(dl_immunogenicity),
+                "ips": float(5.0 + 3.0 * dl_immunogenicity),
+                "sensing_method": "torusfold_dl_override",
+            }, signals
+    except Exception:
+        # TorusFold failed — fall back to heuristic silently
+        pass
+
+    return heuristic_scores, None
 
 
 def _extract_epitope_region(sequence: str, min_len: int = 15, max_len: int = 50) -> str:
@@ -803,6 +913,10 @@ class CircRNAABMEnv:
         else:
             self.abm_config = None
 
+        # TorusFold config
+        self.use_structure_prediction = self.config.use_structure_prediction
+        self.torusfold_model_path = self.config.torusfold_model_path
+
         # Best tracking
         self.best_sequence = self.config.seed_seq
         self.best_modification = self.config.initial_modification
@@ -868,6 +982,8 @@ class CircRNAABMEnv:
             patient=self.config.patient,
             combination_drug=combination,
             abm_config=self.abm_config,
+            use_structure_prediction=self.use_structure_prediction,
+            torusfold_model_path=self.torusfold_model_path,
         )
         reward = reward_components.total_reward
 

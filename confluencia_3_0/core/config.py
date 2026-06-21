@@ -142,6 +142,13 @@ class CircRNAConfig:
     # ====== 结构预测模式 (TorusFold) ======
     structure_mode: str = "heuristic"             # heuristic/simple/diffusion/physics_b/physics_ba
     enable_torusfold: bool = False                # 是否启用 TorusFold (由 structure_mode 派生)
+
+    # TorusFold 3D Structure Prediction (global settings)
+    use_torusfold_scoring: bool = False           # Enable after model training completes
+    torusfold_model_path: str = ""                # Path to trained model checkpoint
+    torusfold_device: str = "auto"                # "auto" selects cuda if available, else cpu
+    torusfold_structure_mode: str = "simple"      # simple/diffusion/physics_b/physics_ba
+
     # TorusFold 子参数 (按需使用)
     diffusion_steps: int = 100                    # diffusion 模式去噪步数
     solver_samples: int = 20                      # physics_b/ba 模式采样数

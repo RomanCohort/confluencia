@@ -47,8 +47,11 @@ Version: circRNA-v4 (circRNA-specific RIG-I, separate TLR7/TLR8)
 """
 
 from dataclasses import dataclass
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, TYPE_CHECKING
 import re
+
+if TYPE_CHECKING:
+    from confluencia_3_0.core.circrna.torusfold_scorer import TorusFoldSignals
 
 # Motif definitions
 RIG_I_MOTIFS = ["CCUCC", "UCUCC", "ACUCC", "GCUCC"]
@@ -359,7 +362,8 @@ def _estimate_dsRNA_potential(seq: str) -> float:
 
 def predict_circrna_immunogenicity(
     seq: str,
-    config: Optional[ImmuneSensingConfig] = None
+    config: Optional[ImmuneSensingConfig] = None,
+    torusfold_signals: Optional['TorusFoldSignals'] = None
 ) -> Dict[str, float]:
     """
     Predict RIG-I, TLR7, TLR8, and PKR pathway activation scores for a circRNA sequence.
@@ -376,10 +380,15 @@ def predict_circrna_immunogenicity(
     Args:
         seq: circRNA nucleotide sequence
         config: Optional configuration
+        torusfold_signals: Optional TorusFoldSignals from TorusFold 3D structure prediction.
+            When provided and available=True, uses 3D structure-aware scoring:
+            - PKR: Uses dsRNA_fraction from pair_map (more accurate than GC heuristic)
+            - RIG-I: Adjusted by surface_exposed_fraction (buried dsRNA doesn't activate)
+            - TLR7/TLR8: Adjusted by surface_exposed_fraction (buried GU/AU loops don't activate)
 
     Returns:
         Dict with keys: rig_i_score, tlr7_score, tlr8_score, pkr_score,
-                        overall_immunogenicity, sensing_method
+                        overall_immunogenicity, structure_enhanced, sensing_method
     """
     if config is None:
         config = ImmuneSensingConfig()
@@ -394,7 +403,7 @@ def predict_circrna_immunogenicity(
         return {
             "rig_i_score": 0.0, "tlr7_score": 0.0, "tlr8_score": 0.0,
             "pkr_score": 0.0, "overall_immunogenicity": 0.0,
-            "sensing_method": "too_short"
+            "structure_enhanced": False, "sensing_method": "too_short"
         }
     if seq_len > config.max_length:
         seq_upper = seq_upper[:config.max_length]
@@ -418,9 +427,14 @@ def predict_circrna_immunogenicity(
     # === PKR scoring (0.30 weight) ===
     # PKR recognizes double-stranded regions >33bp
     pkr_score = 0.0
+    use_3d = (torusfold_signals is not None and torusfold_signals.available)
 
     # 1. dsRNA formation potential
-    dsrna_potential = _estimate_dsRNA_potential(seq_upper)
+    if use_3d:
+        # Use TorusFold dsRNA_fraction from pair_map (more accurate than GC heuristic)
+        dsrna_potential = torusfold_signals.dsRNA_fraction
+    else:
+        dsrna_potential = _estimate_dsRNA_potential(seq_upper)
     dsrna_score = dsrna_potential * 0.50  # 50% weight
     pkr_score += dsrna_score
 
@@ -466,6 +480,35 @@ def predict_circrna_immunogenicity(
 
         m6a_suppression = config.m6a_modification_fraction
 
+    # === 3D structure-aware adjustments (TorusFold) ===
+    if use_3d:
+        # RIG-I: buried dsRNA doesn't activate RIG-I
+        # Surface-exposed dsRNA is accessible to RIG-I sensing
+        rig_i_score *= torusfold_signals.surface_exposed_fraction
+
+        # TLR7: buried GU-rich loops don't activate TLR7
+        tlr7_score *= torusfold_signals.surface_exposed_fraction
+
+        # TLR8: buried AU-rich loops don't activate TLR8
+        tlr8_score *= torusfold_signals.surface_exposed_fraction
+
+        # Motif accessibility weighting: if specific immune motifs are buried
+        # (low accessibility), reduce their contribution further
+        if torusfold_signals.motif_accessibility:
+            # Average accessibility of immune-relevant motifs
+            immune_motif_keys = set(RIG_I_MOTIFS + TLR7_MOTIFS + TLR8_MOTIFS)
+            accessible_motifs = {
+                k: v for k, v in torusfold_signals.motif_accessibility.items()
+                if k in immune_motif_keys
+            }
+            if accessible_motifs:
+                avg_motif_access = sum(accessible_motifs.values()) / len(accessible_motifs)
+                # Low accessibility reduces immune activation (buried motifs are shielded)
+                motif_access_factor = 0.5 + 0.5 * avg_motif_access  # range [0.5, 1.0]
+                rig_i_score *= motif_access_factor
+                tlr7_score *= motif_access_factor
+                tlr8_score *= motif_access_factor
+
     # === Overall immunogenicity ===
     # Weights: RIG-I 0.35, TLR7 0.20, TLR8 0.15, PKR 0.30
     # These are author-informed heuristics, NOT empirically calibrated.
@@ -484,7 +527,8 @@ def predict_circrna_immunogenicity(
         "pkr_score": round(pkr_score, 4),
         "overall_immunogenicity": round(overall, 4),
         "m6a_suppression": round(m6a_suppression, 4),
-        "sensing_method": "rule_based_circRNA_v4",
+        "structure_enhanced": use_3d,
+        "sensing_method": "rule_based_circRNA_v4_3d" if use_3d else "rule_based_circRNA_v4",
     }
     # Include sub-scores for transparency
     result.update({k: round(v, 4) for k, v in rig_i_result.items() if k != "rig_i_score"})
