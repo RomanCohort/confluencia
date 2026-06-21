@@ -153,7 +153,8 @@ def search_rcsb_rna(
         },
         "return_type": "entry",
         "request_options": {
-            "pager": {"start": 0, "rows": max_results},
+            "return_all_hits": True,
+            "results_content_type": ["experimental"],
             "sort": [
                 {
                     "sort_by": "rcsb_entry_info.resolution_combined",
