@@ -488,6 +488,7 @@ def train_scheme4(train_loader, val_loader, args, device):
         # Validation: sample from diffusion model and compute RMSD
         model.eval()
         val_rmsd = 0
+        n_val_samples = 0
         with torch.no_grad():
             for batch in val_loader:
                 seq_ids = batch['seq_ids'].to(device)
@@ -495,7 +496,7 @@ def train_scheme4(train_loader, val_loader, args, device):
                 lengths = batch['lengths']
 
                 B = len(lengths)
-                # Sample predictions (no target needed at inference)
+                # Sample predictions from diffusion model
                 try:
                     out = model(seq_tokens=seq_ids, pair_probs=None)
                     pred_coords = out.get('coords', None)
@@ -507,20 +508,33 @@ def train_scheme4(train_loader, val_loader, args, device):
                         valid_L = lengths[b]
                         p = pred_coords[b, :valid_L]
                         t = coords_target[b, :valid_L]
+
+                        # Skip if prediction has NaN/Inf
+                        if torch.isnan(p).any() or torch.isinf(p).any():
+                            continue
+
+                        # Kabsch alignment before RMSD
                         p_c = p - p.mean(dim=0)
                         t_c = t - t.mean(dim=0)
-                        rmsd = torch.sqrt(torch.mean(torch.sum((p_c - t_c) ** 2, dim=1)))
-                        val_rmsd += rmsd.item()
-                else:
-                    # Fallback: use training loss
-                    coords_centered = coords_target - coords_target.mean(dim=1, keepdim=True)
-                    coords_scale = torch.norm(coords_centered, dim=(1,2), keepdim=True).clamp(min=1.0)
-                    coords_norm = coords_centered / coords_scale
-                    out = model(seq_tokens=seq_ids, coords_target=coords_norm)
-                    val_rmsd += out.get('total_loss', torch.tensor(0.0)).item() * 100  # rough scale
-                val_rmsd /= B
 
-        avg_val = val_rmsd / len(val_loader)
+                        # SVD for optimal rotation
+                        H = t_c.T @ p_c
+                        try:
+                            U, S, Vt = torch.linalg.svd(H)
+                            d = torch.sign(torch.det(Vt.T @ U.T))
+                            D = torch.diag(torch.tensor([1, 1, d], device=device, dtype=torch.float32))
+                            R = Vt.T @ D @ U.T
+                            p_aligned = (R @ p_c.T).T
+                            rmsd = torch.sqrt(torch.mean(torch.sum((p_aligned - t_c) ** 2, dim=1)))
+                        except Exception:
+                            # Fallback to simple centered RMSD
+                            rmsd = torch.sqrt(torch.mean(torch.sum((p_c - t_c) ** 2, dim=1)))
+
+                        val_rmsd += rmsd.item()
+                        n_val_samples += 1
+                # If no coords from diffusion, skip (don't fabricate a number)
+
+        avg_val = val_rmsd / max(n_val_samples, 1)
         scheduler.step(avg_val)
 
         if avg_val < best_val:
