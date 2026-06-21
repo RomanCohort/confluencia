@@ -43,13 +43,21 @@ No circRNA crystal structures or cryo-EM reconstructions exist in PDB. This crea
 
 **Our Solution: Multi-Source Data Pipeline.** We developed a four-source strategy that combines real structures, experimental constraints, circularized PDB structures, and physics-based predictions:
 
-| Source | Samples | Length | Quality | Method |
-|--------|---------|--------|---------|--------|
-| **IsRNAcirc** | 2,754 (34 real + 80x aug) | 161-2050 nt | Highest | Real circRNA 3D structures; 24/34 with .subo secondary structure |
-| **icSHAPE** | ~2,000 | 200-1000 nt | Medium-High | Experimental SHAPE reactivity (GSE74353) → constrained folding → 3D |
-| **PDB circularized** | ~4,000 | 50-500 nt | Medium | Linear RNA from RCSB PDB, circularized via GeometricConstraintSolver |
-| **Synthetic physics** | ~5,000 | 50-500 nt | Medium | ViennaRNA circ-mode + GeometricConstraintSolver |
-| **Total** | **~10,754** | **50-2050 nt** | | All with secondary structure + pair constraints |
+| Source | Raw | After Merge | Length | Quality | Method | Key Features |
+|--------|-----|-------------|--------|---------|--------|--------------|
+| **IsRNAcirc** | 34 real + 80x aug | 5,663 (circbase_real_3d) | 43-2050 nt | Highest | Real circRNA 3D structures from PDB, rotation+noise augmentation | 24/34 with real secondary structure from .subo files; covers hairpin/helix/internal/junction |
+| **icSHAPE** | ~2,000 | ~2,000 (shape_3d) | 200-1000 nt | Medium-High | Experimental SHAPE reactivity profiles (GSE74353, Flynn et al. Science 2016) → ViennaRNA SHAPE-constrained folding → GeometricConstraintSolver | Experimental structure constraints guide base-pair probability; fills 500-1000 nt length gap |
+| **PDB circularized** | 4,851 RCSB structures | 184 (pdb_3d) | 50-500 nt | Medium | Linear RNA from RCSB PDB (resolution <3.0A), circularized via GeometricConstraintSolver annealing closure | Diverse folds; closure score filtering ensures circular topology quality |
+| **Medium-length** | ~2,000 | ~2,000 (medium_length_3d) | 500-1000 nt | Medium | ViennaRNA circ-mode secondary structure → GeometricConstraintSolver | Specifically fills the 500-1000 nt therapeutic length gap |
+| **Synthetic physics** | ~5,000 | ~5,000 (circbase_real_3d synthetic) | 50-500 nt | Medium | ViennaRNA circ-mode secondary structure → GeometricConstraintSolver | Physics-based pairing constraints, not trivial helices |
+| **Merged total** | | **~8,139** (after dedup) | **43-2050 nt** | | | All with secondary structure + pair constraints |
+
+**Data pipeline scripts:**
+- `build_training_dataset.py`: IsRNAcirc loading + augmentation + synthetic generation
+- `shape_to_3d_pipeline.py`: icSHAPE download (GEO GSE74353) → SHAPE-constrained folding → 3D generation
+- `pdb_rna_circularize.py`: RCSB PDB search + download + circularization via GeometricConstraintSolver
+- `generate_medium_length_dataset.py`: 500-1000 nt circRNA generation with ViennaRNA + GeometricConstraintSolver
+- `merge_expanded_dataset.py`: Deduplication (sequence-level) + validation + source-priority merging
 
 ### Circ-CASP: Community Benchmark
 
@@ -58,7 +66,7 @@ We established **Circ-CASP** (Critical Assessment of circRNA Structure Predictio
 - Training data: 10,000+ sequences from the multi-source pipeline (public)
 - Test data: 30 circRNA structures (hidden ground truth)
 - 5 evaluation metrics: Global RMSD (40%), BSJ closure (20%), bond consistency (15%), pair F1 (15%), conformational diversity (10%)
-- 6 baseline methods from physics-based to deep learning
+- 7 baseline methods from physics-based to deep learning (M1-M7, including Mamba+Transformer hybrid)
 - Two competition tracks: compute-limited (regular) and unlimited ("oracle")
 
 ### Four Molecular Subtypes
@@ -116,17 +124,50 @@ Tier 2 (Heuristic) → Zero-dependency, pure Python, GC/IRES rules
               └───────────────────────┘
 ```
 
-### TorusFold Architecture
+### TorusFold Multi-Scheme Architecture
 
-TorusFold is the core deep learning module for circRNA structure prediction, inspired by AlphaFold3:
+TorusFold implements **seven complementary schemes** for circRNA 3D structure prediction, each with distinct complexity-accuracy trade-offs:
+
+| Scheme | Architecture | Complexity | Max L (24GB GPU) | Key Innovation |
+|--------|-------------|------------|------------------|----------------|
+| 1 | EGNN + Physics cascade | O(L²) | ~500 | Neural + physics hybrid |
+| 2 | Pure physics solver | O(L) | Unlimited | No training required |
+| 3 | Dual-engine iterative | O(L) | ~1000 | CS-Fold + PaxNet |
+| 4 | DDPM + EGNN diffusion | O(L²) | ~500 | Guided diffusion with BSJ closure reward |
+| 5 | Physics-biased attention | O(L²) | ~300 | CircPairformer with physics priors |
+| 6 | GNN latent diffusion | O(L²) | ~400 | Latent space diffusion |
+| **7** | **Mamba+Transformer hybrid** | **O(L)** | **~1000+** | **Linear complexity for long sequences** |
+
+**Scheme 7: Mamba+Transformer Hybrid Diffusion** is specifically designed for long therapeutic circRNAs:
 
 ```
 Input Sequence (A,C,G,U)
          │
          ▼
-┌─────────────────┐
-│ TPE Layer       │  Torus Positional Encoding
-│ TPE[0] = TPE[L] │  Periodic PE for circular topology
+┌─────────────────────────────┐
+│ BiMamba Encoder             │  Bidirectional Selective SSM
+│ + Circular Wrap-around Scan │  Position L-1 → Position 0 (BSJ topology)
+│ + Gradient Checkpointing    │  Halves activation memory
+└────────────┬────────────────┘
+             │
+             ▼
+┌─────────────────────────────┐
+│ Local Window Attention      │  O(L×w) attention, w=20
+│ + BSJ Flanking Attention    │  Positions 0-20 and L-20..L-1
+│ (captures circular topology)│
+└────────────┬────────────────┘
+             │
+             ▼
+┌─────────────────────────────┐
+│ Diffusion Denoiser          │  DDPM with 100 steps
+│ + BSJ Closure Reward        │  Guided sampling for ring closure
+└────────────┬────────────────┘
+             │
+             ▼
+    Predicted 3D Coordinates (N, 3)
+```
+
+**Memory comparison (L=1000, batch=4):** Scheme 4 EGNN ~25GB vs Scheme 7 Mamba ~8GB (3× reduction)
 └────────┬────────┘
          │
          ▼
