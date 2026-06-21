@@ -1271,14 +1271,6 @@ def train_scheme3(train_loader, val_loader, args, device):
               f"train={train_loss:.4f} (coord={train_metrics['coord']:.3f}, "
               f"closure={train_metrics['closure']:.3f}, bond={train_metrics['bond']:.3f}) "
               f"val={val_loss:.1f}Å pat={patience_counter}/10")
-        scheduler.step(val_loss)
-
-        if val_loss < best_val:
-            best_val = val_loss
-            patience_counter = 0
-            torch.save(model.state_dict(), f"{args.output}/scheme3.pt")
-        else:
-            patience_counter += 1
 
         if patience_counter >= 10:
             print(f"  Early stopping at epoch {epoch+1}")
@@ -1296,10 +1288,10 @@ def train_scheme3(train_loader, val_loader, args, device):
 SCHEME_MAX_LEN = {
     1: 1000,  # EGNN with k-NN sparse edges, O(k*L) memory
     2: None,  # Pure physics, no limit
-    3: 500,   # Transformer O(L^2)
-    4: 500,   # EGNN O(L^2) edges
-    5: 300,   # Full attention O(L^2)
-    6: 400,   # GNN O(L^2)
+    3: 1000,  # Transformer - A800 80GB can handle
+    4: 1000,  # EGNN - A800 can handle
+    5: 1000,  # Attention - A800 80GB can handle
+    6: 800,   # GNN O(L^2) - A800 can handle
     7: None,  # Mamba O(L) + O(L*w), no limit
 }
 
