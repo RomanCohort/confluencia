@@ -1154,8 +1154,7 @@ def train_scheme3(train_loader, val_loader, args, device):
             # Refine with Generator
             coords_refined = model(seq_ids, coords_init)
 
-            # 1. Distance-based shape loss (scale-invariant)
-            # Compare pairwise distance matrices instead of raw coordinates
+            # 1. Coordinate MSE loss in Angstroms (raw scale)
             coord_loss = 0
             n_valid = 0
             for b in range(B):
@@ -1164,54 +1163,38 @@ def train_scheme3(train_loader, val_loader, args, device):
                     continue
                 pred = coords_refined[b, :valid_L]
                 target = target_coords[b, :valid_L]
-                # Pairwise distances for local neighborhoods (top-k, avoid O(L^2))
-                k = min(20, valid_L - 1)
-                # Compute distances from each atom to its k nearest neighbors
-                # Use adjacent bonds + next-nearest as proxy
-                idx = torch.arange(valid_L - 1, device=device)
-                # Bond distances (adjacent)
-                d_pred_bond = torch.norm(pred[idx + 1] - pred[idx], dim=-1)
-                d_target_bond = torch.norm(target[idx + 1] - target[idx], dim=-1)
-                # Relative error
-                bond_err = ((d_pred_bond - d_target_bond) / d_target_bond.clamp(min=1.0)) ** 2
-                # End-to-end distance (global shape)
-                d_pred_ee = torch.norm(pred[-1] - pred[0])
-                d_target_ee = torch.norm(target[-1] - target[0])
-                ee_err = ((d_pred_ee - d_target_ee) / d_target_ee.clamp(min=1.0)) ** 2
-                # Radius of gyration
-                rg_pred = torch.norm(pred - pred.mean(dim=0), dim=-1).mean()
-                rg_target = torch.norm(target - target.mean(dim=0), dim=-1).mean()
-                rg_err = ((rg_pred - rg_target) / rg_target.clamp(min=1.0)) ** 2
-
-                coord_loss += bond_err.mean() + 0.5 * ee_err + 0.3 * rg_err
+                # Center both for fair comparison (translation-invariant)
+                pred_c = pred - pred.mean(dim=0)
+                target_c = target - target.mean(dim=0)
+                # MSE in Angstroms^2
+                mse = torch.mean(torch.sum((pred_c - target_c) ** 2, dim=1))
+                coord_loss += mse
                 n_valid += 1
             coord_loss /= max(n_valid, 1)
 
-            # 2. BSJ closure: relative error ((d - d_target) / d_target)^2
-            # Target closure = distance between first and last atom in target
+            # 2. BSJ closure: absolute error in Angstroms
             target_closure = torch.norm(target_coords[:, 0] - target_coords[:, -1], dim=-1)
             pred_closure = torch.norm(coords_refined[:, 0] - coords_refined[:, -1], dim=-1)
-            closure_rel_error = ((pred_closure - target_closure) / target_closure.clamp(min=1.0)) ** 2
-            closure_loss = closure_rel_error.mean()
+            closure_loss = torch.mean((pred_closure - target_closure) ** 2)
 
-            # 3. Bond length: relative error ((d - d_target) / d_target)^2
+            # 3. Bond length MSE in Angstroms^2
             bond_loss = 0
+            n_bond = 0
             for b in range(B):
                 valid_L = lengths[b]
                 if valid_L > 1:
                     cr_pred = coords_refined[b, :valid_L]
                     cr_target = target_coords[b, :valid_L]
-                    # Predicted bond distances (circular)
                     idx = torch.arange(valid_L, device=device)
                     nxt = (idx + 1) % valid_L
                     d_pred = torch.norm(cr_pred[nxt] - cr_pred[idx], dim=-1)
                     d_target = torch.norm(cr_target[nxt] - cr_target[idx], dim=-1)
-                    bond_rel = ((d_pred - d_target) / d_target.clamp(min=1.0)) ** 2
-                    bond_loss += bond_rel.mean()
-            bond_loss /= max(n_valid, 1)
+                    bond_loss += torch.mean((d_pred - d_target) ** 2)
+                    n_bond += 1
+            bond_loss /= max(n_bond, 1)
 
-            # Combined loss: all terms now in comparable scale (0-1 range)
-            loss = coord_loss + 0.3 * closure_loss + 0.1 * bond_loss
+            # Combined loss (all in Angstroms^2 scale)
+            loss = coord_loss + 0.1 * closure_loss + 0.1 * bond_loss
 
             loss.backward()
             torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
@@ -1227,7 +1210,7 @@ def train_scheme3(train_loader, val_loader, args, device):
         for k in train_metrics:
             train_metrics[k] /= len(train_loader)
 
-        # Validation
+        # Validation: RMSD in Angstroms (raw scale, matches training)
         model.eval()
         val_loss = 0
 
@@ -1246,17 +1229,24 @@ def train_scheme3(train_loader, val_loader, args, device):
 
                 coords_refined = model(seq_ids, coords_init)
 
-                # RMSD in Å
+                # Skip NaN/Inf
+                if torch.isnan(coords_refined).any() or torch.isinf(coords_refined).any():
+                    continue
+
+                # RMSD in Angstroms (centered, translation-invariant)
                 val_rmsd = 0
                 for b in range(B):
                     valid_L = lengths[b]
                     p = coords_refined[b, :valid_L]
                     t = target_coords[b, :valid_L]
-                    if not (torch.isnan(p).any() or torch.isinf(p).any()):
-                        val_rmsd += kabsch_rmsd(p, t)
-                val_loss += val_rmsd / B
+                    p_c = p - p.mean(dim=0)
+                    t_c = t - t.mean(dim=0)
+                    rmsd = torch.sqrt(torch.mean(torch.sum((p_c - t_c) ** 2, dim=1)).clamp(min=0))
+                    if not torch.isnan(rmsd) and not torch.isinf(rmsd):
+                        val_rmsd += rmsd.item()
+                val_loss += val_rmsd / max(B, 1)
 
-        val_loss /= len(val_loader)
+        val_loss /= max(len(val_loader), 1)
         scheduler.step(val_loss)
 
         # Early stopping
