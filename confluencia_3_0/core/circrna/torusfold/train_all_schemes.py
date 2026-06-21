@@ -1226,6 +1226,17 @@ def train_scheme3(train_loader, val_loader, args, device):
 # Scheme-specific Data Requirements
 # ═══════════════════════════════════════════════════════════════
 
+# Scheme-specific max sequence length (O(L^2) schemes need lower limits)
+SCHEME_MAX_LEN = {
+    1: 500,   # EGNN O(L^2) edges
+    2: None,  # Pure physics, no limit
+    3: 500,   # Transformer O(L^2)
+    4: 500,   # EGNN O(L^2) edges
+    5: 300,   # Full attention O(L^2)
+    6: 400,   # GNN O(L^2)
+    7: None,  # Mamba O(L) + O(L*w), no limit
+}
+
 SCHEME_DATA_REQUIREMENTS = {
     1: {'min_samples': 200, 'recommended': 500, 'epochs': 50,  'reason': 'EGNN轻量，Physics部分无需训练'},
     2: {'min_samples': 0,   'recommended': 0,   'epochs': 0,   'reason': '纯物理求解器，无需训练'},
@@ -1244,9 +1255,9 @@ def main():
     parser.add_argument('--n-train', type=int, default=500,
                         help='Number of samples (used if no --labels)')
     parser.add_argument('--min-len', type=int, default=30)
-    parser.add_argument('--max-len', type=int, default=500,
-                        help='Maximum sequence length to include (filter out longer). '
-                             'Keep <=500 for 24GB GPU due to O(L^2) attention/diffusion.')
+    parser.add_argument('--max-len', type=int, default=0,
+                        help='Maximum sequence length (0=no limit, load all data). '
+                             'Schemes 1-6 auto-limit to 500 internally due to O(L^2).')
     parser.add_argument('--epochs', type=int, default=50)
     parser.add_argument('--batch-size', type=int, default=8)
     parser.add_argument('--device', type=str, default='auto')
@@ -1279,14 +1290,16 @@ def main():
     # Load pseudo-labels
     if args.labels and os.path.exists(args.labels):
         print(f"  Loading from: {args.labels}")
+        max_len_filter = args.max_len if args.max_len > 0 else None
         sequences, coords_labels, pair_labels, metadata = load_pseudo_labels(
-            args.labels, max_len=args.max_len)
+            args.labels, max_len=max_len_filter)
     else:
         print(f"  Generating pseudo-labels (n={args.n_train})")
+        gen_max_len = args.max_len if args.max_len > 0 else 500
         sequences, coords_labels, pair_labels, metadata = generate_3d_pseudo_labels(
             n_seqs=args.n_train,
             min_len=args.min_len,
-            max_len=args.max_len,
+            max_len=gen_max_len,
             seed=args.seed
         )
 
@@ -1321,8 +1334,26 @@ def main():
             results[scheme_id] = {'val_loss': val_loss, 'time_seconds': elapsed}
             continue
 
+        # Scheme-specific length filtering
+        scheme_max_len = SCHEME_MAX_LEN.get(scheme_id)
+        if scheme_max_len is not None:
+            keep = [i for i, m in enumerate(metadata) if m['length'] <= scheme_max_len]
+            seq_s = [sequences[i] for i in keep]
+            coord_s = [coords_labels[i] for i in keep]
+            pair_s = [pair_labels[i] for i in keep]
+            n_filtered = len(keep)
+            if n_filtered < len(sequences):
+                print(f"\n  Scheme {scheme_id}: filtered {len(sequences)} -> {n_filtered} "
+                      f"(max_len={scheme_max_len})")
+        else:
+            seq_s = sequences
+            coord_s = coords_labels
+            pair_s = pair_labels
+            n_filtered = len(sequences)
+            print(f"\n  Scheme {scheme_id}: using all {n_filtered} samples (no length limit)")
+
         # Determine how many samples this scheme uses
-        n_available = len(sequences)
+        n_available = n_filtered
         n_use = n_available  # Use all available data
 
         # Warn if data is insufficient
@@ -1333,9 +1364,9 @@ def main():
         # Split for this scheme
         split = int(0.9 * n_use)
         train_ds = CircRNADataset(
-            sequences[:split], coords_labels[:split], pair_labels[:split])
+            seq_s[:split], coord_s[:split], pair_s[:split])
         val_ds = CircRNADataset(
-            sequences[split:n_use], coords_labels[split:n_use], pair_labels[split:n_use])
+            seq_s[split:n_use], coord_s[split:n_use], pair_s[split:n_use])
 
         train_loader = DataLoader(train_ds, batch_size=args.batch_size,
                                   shuffle=True, collate_fn=collate_fn,
