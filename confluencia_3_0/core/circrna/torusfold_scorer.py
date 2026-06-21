@@ -8,9 +8,15 @@ torusfold_scorer.py — TorusFold 输出 → 评分链桥接
   delivery       ← 不变 (序列长度/GC/修饰)
 
 使用方式:
-  scorer = TorusFoldScorer(device="cuda")
+  # 模型训练完成后，启用结构预测
+  scorer = TorusFoldScorer(device="cuda", use_structure_prediction=True)
   signals = scorer.extract_signals("AUGCGCUAU...", gene_expr={...})
   # → {"closure_score": 0.85, "bsj_stability": 0.72, "dsRNA_fraction": 0.35, ...}
+
+  # 模型未训练时，使用启发式fallback
+  scorer = TorusFoldScorer(device="cpu", use_structure_prediction=False)
+  signals = scorer.extract_signals("AUGCGCUAU...")
+  # → TorusFoldSignals(available=False, method="heuristic_fallback")
 
   objectives = scorer.compute_objectives("AUGCGCUAU...", modification="m6A",
                                           immune_scores=..., torusfold_signals=signals)
@@ -24,8 +30,19 @@ from typing import Dict, Optional, List
 import numpy as np
 import torch
 
-from .torusfold import TorusFold, TorusFoldConfig
-from .torusfold.irs_pair import circular_distance_matrix
+# Lazy import TorusFold to avoid import errors when model not trained
+_TorusFold = None
+_TorusFoldConfig = None
+
+
+def _get_torusfold_classes():
+    """Lazy import TorusFold classes."""
+    global _TorusFold, _TorusFoldConfig
+    if _TorusFold is None:
+        from .torusfold import TorusFold, TorusFoldConfig
+        _TorusFold = TorusFold
+        _TorusFoldConfig = TorusFoldConfig
+    return _TorusFold, _TorusFoldConfig
 
 
 @dataclass
@@ -60,6 +77,13 @@ class TorusFoldSignals:
     clash_count: int = 0                  # 空间碰撞数
     n_conformations: int = 0              # 采样构象数
 
+    # 3D 结构可及性信号 (训练完成后可用)
+    motif_accessibility: Dict[str, float] = None  # motif_id → 3D可及性 [0,1]
+    ires_3d_accessibility: float = 0.0    # IRES 区域3D可及性 [0,1]
+    bsj_3d_closure_tightness: float = 0.0 # BSJ区域3D闭合紧密度 [0,1]
+    surface_exposed_fraction: float = 0.0  # 表面暴露碱基比例 [0,1]
+    buried_motif_count: int = 0           # 被埋藏的免疫motif数量
+
     # 元信息
     available: bool = False              # TorusFold 是否成功运行
     method: str = "none"                 # "torusfold" | "physics_b" | "physics_ba" | "heuristic_fallback"
@@ -78,19 +102,29 @@ class TorusFoldScorer:
         self,
         model_path: Optional[str] = None,
         device: str = "cpu",
-        config: Optional[TorusFoldConfig] = None,
+        config=None,
         structure_mode: str = "simple",
         diffusion_steps: int = 100,
         solver_samples: int = 20,
         openmm_minimize_steps: int = 500,
         openmm_md_steps: int = 5000,
+        use_structure_prediction: bool = False,
     ):
+        """
+        Args:
+            use_structure_prediction: If True, run TorusFold model to get 3D
+                structure signals. If False (default), use heuristic fallback
+                until the model is trained. Set to True after training completes.
+        """
         self.device = device
         self.structure_mode = structure_mode
+        self.use_structure_prediction = use_structure_prediction
+
         # 如果未提供 config，根据 structure_mode 构造
         if config is not None:
             self.config = config
         else:
+            TorusFold, TorusFoldConfig = _get_torusfold_classes()
             self.config = TorusFoldConfig(
                 structure_mode=structure_mode,
                 n_diffusion_steps=diffusion_steps,
@@ -98,14 +132,17 @@ class TorusFoldScorer:
                 n_minimize_steps=openmm_minimize_steps,
                 n_md_steps=openmm_md_steps,
             )
-        self._model: Optional[TorusFold] = None
+        self._model = None
         self._model_path = model_path
 
     @property
-    def model(self) -> Optional[TorusFold]:
+    def model(self):
+        if not self.use_structure_prediction:
+            return None
         if self._model is not None:
             return self._model
         try:
+            TorusFold, _ = _get_torusfold_classes()
             model = TorusFold(self.config)
             if self._model_path:
                 model.load(self._model_path, device=self.device)
@@ -129,7 +166,15 @@ class TorusFoldScorer:
             gene_expr: 基因表达字典
             structure_mode: 可选覆盖结构模式 (simple/diffusion/physics_b/physics_ba)
                            如为 None，使用初始化时的 self.structure_mode
+
+        Returns:
+            TorusFoldSignals. If use_structure_prediction=False or model
+            unavailable, returns heuristic fallback signals.
         """
+        # If structure prediction is disabled, return heuristic fallback
+        if not self.use_structure_prediction:
+            return self._heuristic_fallback_signals(sequence)
+
         # 如果传入了 structure_mode，临时更新 config
         effective_mode = structure_mode or self.structure_mode
         if effective_mode != self.config.structure_mode:
@@ -139,7 +184,7 @@ class TorusFoldScorer:
 
         model = self.model
         if model is None:
-            return TorusFoldSignals(available=False, method="heuristic_fallback")
+            return self._heuristic_fallback_signals(sequence)
 
         seq = sequence.upper().replace("T", "U")
         if gene_expr is None:
@@ -233,6 +278,54 @@ class TorusFoldScorer:
                 method=structure_method or effective_mode,
             )
 
+    def _heuristic_fallback_signals(self, sequence: str) -> TorusFoldSignals:
+        """启发式回退信号（模型未训练时使用）。"""
+        seq = sequence.upper().replace("T", "U")
+        L = len(seq)
+
+        # 闭合评分：序列越长，闭环越难
+        closure_score = max(0.1, 1.0 - L / 2000.0)
+
+        # BSJ稳定性：基于BSJ区域的GC含量
+        bsj_region = seq[:20] + seq[-20:] if L > 40 else seq
+        gc_bsj = sum(1 for c in bsj_region if c in "GC") / len(bsj_region) if bsj_region else 0.3
+        bsj_stability = 0.3 + gc_bsj * 0.5
+
+        # IRES 3D可及性（假设部分IRES在表面）
+        ires_motifs = ["GCGCC", "GGGG", "UUGU", "AUGG", "CCUG", "GGAAGG"]
+        ires_count = sum(1 for m in ires_motifs if m in seq)
+        ires_3d_accessibility = min(0.9, 0.3 + ires_count * 0.15)
+
+        return TorusFoldSignals(
+            closure_distance=L * 0.5,
+            closure_loss=1.0 - closure_score,
+            closure_score=closure_score,
+            bsj_stability=bsj_stability,
+            bsj_confidence=0.5,
+            bsj_pair_count=0.0,
+            dsRNA_fraction=0.0,
+            mean_pair_prob=0.0,
+            long_range_pair_fraction=0.0,
+            translation_efficiency=0.5,
+            circ_stability=closure_score,
+            immune_rig_i=0.3,
+            immune_tlr=0.2,
+            immune_pkr=0.3,
+            energy_score=100.0,
+            bond_rmsd=2.0,
+            pair_satisfaction=0.0,
+            clash_count=0,
+            n_conformations=0,
+            # 3D结构可及性信号
+            motif_accessibility={},
+            ires_3d_accessibility=ires_3d_accessibility,
+            bsj_3d_closure_tightness=bsj_stability,
+            surface_exposed_fraction=0.5,
+            buried_motif_count=0,
+            available=False,
+            method="heuristic_fallback",
+        )
+
         except Exception:
             return TorusFoldSignals(available=False, method="heuristic_fallback")
 
@@ -266,8 +359,12 @@ class TorusFoldScorer:
         stability += mod_bonus.get(modification, 0.0)
 
         if torusfold_signals and torusfold_signals.available:
-            # TorusFold 修正: 闭合约束 + circ_stability_head
-            stability = 0.6 * stability + 0.25 * torusfold_signals.closure_score + 0.15 * torusfold_signals.circ_stability
+            # TorusFold 修正: 闭合约束 + circ_stability_head + BSJ 3D闭合
+            stability = 0.5 * stability + 0.2 * torusfold_signals.closure_score + 0.15 * torusfold_signals.circ_stability
+
+            # 3D结构信号: BSJ区域3D闭合紧密度
+            if torusfold_signals.bsj_3d_closure_tightness > 0:
+                stability = 0.7 * stability + 0.3 * torusfold_signals.bsj_3d_closure_tightness
 
             # 物理约束修正 (仅 physics_b / physics_ba 模式)
             if torusfold_signals.energy_score > 0:
@@ -292,16 +389,17 @@ class TorusFoldScorer:
             translation += 0.1
 
         if torusfold_signals and torusfold_signals.available:
-            # TorusFold 修正: BSJ 稳定性 + translation_head
-            translation = (0.5 * translation
-                           + 0.25 * torusfold_signals.bsj_stability
-                           + 0.25 * torusfold_signals.translation_efficiency)
+            # TorusFold 修正: BSJ 稳定性 + translation_head + IRES 3D可及性
+            translation = (0.4 * translation
+                           + 0.2 * torusfold_signals.bsj_stability
+                           + 0.2 * torusfold_signals.translation_efficiency
+                           + 0.2 * torusfold_signals.ires_3d_accessibility)
 
         obj1 = np.clip(translation, 0.0, 1.0)
 
         # ─── immune_evasion ───
         if torusfold_signals and torusfold_signals.available:
-            # TorusFold 修正: 用 DL 免疫头 + pair_map dsRNA
+            # TorusFold 修正: 用 DL 免疫头 + pair_map dsRNA + 3D motif可及性
             # 替代启发式 dsRNA 估计
             pkr = torusfold_signals.immune_pkr
             rig_i = torusfold_signals.immune_rig_i
@@ -311,11 +409,23 @@ class TorusFoldScorer:
             dsRNA_from_pairmap = torusfold_signals.dsRNA_fraction
             pkr_adjusted = 0.6 * pkr + 0.4 * dsRNA_from_pairmap
 
+            # 3D结构可及性修正: 被埋藏的motif不会触发免疫
+            # surface_exposed_fraction越高 = 更多碱基暴露 = 更易被免疫传感器检测
+            exposure_penalty = torusfold_signals.surface_exposed_fraction
+            buried_bonus = 1.0 - exposure_penalty * 0.3
+
             immune_evasion = (
-                (1.0 - pkr_adjusted) * 0.4
-                + (1.0 - abs(rig_i - 0.35)) * 0.3
-                + (1.0 - tlr) * 0.3
+                (1.0 - pkr_adjusted) * 0.35
+                + (1.0 - abs(rig_i - 0.35)) * 0.25
+                + (1.0 - tlr) * 0.2
+                + buried_bonus * 0.2
             )
+
+            # 如果有具体的motif可及性数据，进一步修正
+            if torusfold_signals.motif_accessibility:
+                # 免疫motif被埋藏 = 更好的免疫逃逸
+                avg_motif_exposure = sum(torusfold_signals.motif_accessibility.values()) / max(len(torusfold_signals.motif_accessibility), 1)
+                immune_evasion = 0.8 * immune_evasion + 0.2 * (1.0 - avg_motif_exposure)
         elif immune_scores:
             pkr = immune_scores.get("pkr_score", 0.3)
             rig_i = immune_scores.get("rig_i_score", 0.3)
@@ -376,16 +486,24 @@ class TorusFoldScorer:
 def quick_score(
     sequence: str,
     modification: str = "none",
-    gene_expr: Optional[Dict[str, float]] = None,
-    immune_scores: Optional[Dict[str, float]] = None,
-    viennarna_mfe: Optional[float] = None,
+    use_structure_prediction: bool = False,
+    model_path: Optional[str] = None,
     device: str = "cpu",
 ) -> Dict[str, float]:
-    """便捷函数: 一步完成 TorusFold 增强评分。"""
-    scorer = TorusFoldScorer(device=device)
-    signals = scorer.extract_signals(sequence, gene_expr)
+    """快速评分入口，用于 RL-ABM 或搜索。
+
+    Args:
+        use_structure_prediction: 启用TorusFold 3D结构预测。
+            设为True需先完成模型训练。
+    """
+    scorer = TorusFoldScorer(
+        device=device,
+        model_path=model_path,
+        use_structure_prediction=use_structure_prediction,
+    )
+    signals = scorer.extract_signals(sequence)
     objectives = scorer.compute_objectives(
-        sequence, modification, immune_scores, signals, viennarna_mfe,
+        sequence, modification, None, signals, None,
     )
     result = {
         "stability": float(objectives[0]),
