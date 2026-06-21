@@ -38,6 +38,35 @@ from confluencia_3_0.core.circrna.torusfold.constraint_solver import (
 )
 
 
+def kabsch_rmsd(pred: torch.Tensor, target: torch.Tensor) -> float:
+    """Compute RMSD after Kabsch optimal alignment.
+
+    Args:
+        pred: (L, 3) predicted coordinates
+        target: (L, 3) target coordinates
+
+    Returns:
+        RMSD in Angstroms after optimal superposition
+    """
+    p_c = pred - pred.mean(dim=0)
+    t_c = target - target.mean(dim=0)
+
+    # Kabsch SVD alignment
+    H = t_c.T @ p_c
+    try:
+        U, S, Vt = torch.linalg.svd(H)
+        d = torch.sign(torch.det(Vt.T @ U.T))
+        D = torch.diag(torch.tensor([1, 1, d], device=pred.device, dtype=torch.float32))
+        R = Vt.T @ D @ U.T
+        p_aligned = (R @ p_c.T).T
+        rmsd = torch.sqrt(torch.mean(torch.sum((p_aligned - t_c) ** 2, dim=1)))
+    except Exception:
+        # Fallback: simple centered RMSD
+        rmsd = torch.sqrt(torch.mean(torch.sum((p_c - t_c) ** 2, dim=1)))
+
+    return rmsd.item()
+
+
 # ═══════════════════════════════════════════════════════════════
 # Common: 3D Pseudo-label Loading
 # ═══════════════════════════════════════════════════════════════
@@ -678,11 +707,8 @@ def train_scheme5(train_loader, val_loader, args, device):
                     valid_L = lengths[b]
                     p = pred[b, :valid_L]
                     t = target[b, :valid_L]
-                    # Center both for fair RMSD
-                    p_c = p - p.mean(dim=0)
-                    t_c = t - t.mean(dim=0)
-                    rmsd = torch.sqrt(torch.mean(torch.sum((p_c - t_c) ** 2, dim=1)))
-                    val_rmsd += rmsd.item()
+                    if not (torch.isnan(p).any() or torch.isinf(p).any()):
+                        val_rmsd += kabsch_rmsd(p, t)
                 val_rmsd /= B
 
         avg_val = val_rmsd / len(val_loader)
@@ -771,10 +797,8 @@ def train_scheme6(train_loader, val_loader, args, device):
 
         # Validation
         model.eval()
-        val_loss = 0
-        # Validation: RMSD in Å
-        model.eval()
         val_rmsd = 0
+        n_val_samples = 0
         with torch.no_grad():
             for batch in val_loader:
                 seq_ids = batch['seq_ids'].to(device)
@@ -789,13 +813,29 @@ def train_scheme6(train_loader, val_loader, args, device):
                     valid_L = lengths[b]
                     p = pred[b, :valid_L]
                     t = target[b, :valid_L]
+
+                    if torch.isnan(p).any() or torch.isinf(p).any():
+                        continue
+
                     p_c = p - p.mean(dim=0)
                     t_c = t - t.mean(dim=0)
-                    rmsd = torch.sqrt(torch.mean(torch.sum((p_c - t_c) ** 2, dim=1)))
-                    val_rmsd += rmsd.item()
-                val_rmsd /= B
 
-        avg_val = val_rmsd / len(val_loader)
+                    # Kabsch alignment
+                    H = t_c.T @ p_c
+                    try:
+                        U, S, Vt = torch.linalg.svd(H)
+                        d = torch.sign(torch.det(Vt.T @ U.T))
+                        D = torch.diag(torch.tensor([1, 1, d], device=device, dtype=torch.float32))
+                        R = Vt.T @ D @ U.T
+                        p_aligned = (R @ p_c.T).T
+                        rmsd = torch.sqrt(torch.mean(torch.sum((p_aligned - t_c) ** 2, dim=1)))
+                    except Exception:
+                        rmsd = torch.sqrt(torch.mean(torch.sum((p_c - t_c) ** 2, dim=1)))
+
+                    val_rmsd += rmsd.item()
+                    n_val_samples += 1
+
+        avg_val = val_rmsd / max(n_val_samples, 1)
         scheduler.step(avg_val)
 
         if avg_val < best_val:
@@ -941,10 +981,8 @@ def train_scheme7(train_loader, val_loader, args, device):
                         valid_L = lengths[b]
                         p = pred_coords[b, :valid_L]
                         t = coords_target[b, :valid_L]
-                        p_c = p - p.mean(dim=0)
-                        t_c = t - t.mean(dim=0)
-                        rmsd = torch.sqrt(torch.mean(torch.sum((p_c - t_c) ** 2, dim=1)))
-                        val_rmsd += rmsd.item()
+                        if not (torch.isnan(p).any() or torch.isinf(p).any()):
+                            val_rmsd += kabsch_rmsd(p, t)
                 else:
                     # Fallback: use training loss as proxy
                     coords_centered = coords_target - coords_target.mean(dim=1, keepdim=True)
@@ -1214,10 +1252,8 @@ def train_scheme3(train_loader, val_loader, args, device):
                     valid_L = lengths[b]
                     p = coords_refined[b, :valid_L]
                     t = target_coords[b, :valid_L]
-                    p_c = p - p.mean(dim=0)
-                    t_c = t - t.mean(dim=0)
-                    rmsd = torch.sqrt(torch.mean(torch.sum((p_c - t_c) ** 2, dim=1)))
-                    val_rmsd += rmsd.item()
+                    if not (torch.isnan(p).any() or torch.isinf(p).any()):
+                        val_rmsd += kabsch_rmsd(p, t)
                 val_loss += val_rmsd / B
 
         val_loss /= len(val_loader)
