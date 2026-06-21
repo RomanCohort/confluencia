@@ -40,6 +40,15 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 # ---------------------------------------------------------------------------
+# Try importing ViennaRNA; used for secondary structure prediction
+# ---------------------------------------------------------------------------
+try:
+    import RNA
+    HAS_VIENNA = True
+except ImportError:
+    HAS_VIENNA = False
+
+# ---------------------------------------------------------------------------
 # Try importing GeometricConstraintSolver from the project; fall back to
 # built-in annealing closure if unavailable.
 # ---------------------------------------------------------------------------
@@ -65,6 +74,59 @@ RESIDUE_MAP: Dict[str, str] = {
     "DA": "A", "DC": "C", "DG": "G", "DT": "U",
     "I": "A",  # inosine -> A (common substitution)
 }
+
+
+def predict_ss_and_pairs(sequence: str) -> Tuple[str, List[List[int]]]:
+    """Predict secondary structure for a circular RNA sequence.
+
+    Uses ViennaRNA circ mode if available, otherwise heuristic pairing.
+
+    Returns:
+        (dot_bracket, pair_constraints) where pair_constraints is [[i,j], ...]
+    """
+    sequence = sequence.upper().replace("T", "U")
+    L = len(sequence)
+
+    if HAS_VIENNA:
+        try:
+            md = RNA.md()
+            md.circ = True
+            fc = RNA.fold_compound(sequence, md)
+            ss, mfe = fc.mfe()
+
+            # Extract pairs from dot-bracket
+            pairs = []
+            stack = []
+            for pos, char in enumerate(ss):
+                if char == "(":
+                    stack.append(pos)
+                elif char == ")" and stack:
+                    j_pos = stack.pop()
+                    pairs.append([j_pos, pos])
+            return ss, pairs
+        except Exception:
+            pass
+
+    # Heuristic fallback: complement pairing
+    complement = {"A": "U", "U": "A", "G": "C", "C": "G"}
+    pairs = []
+    paired = set()
+    for i in range(L):
+        if i in paired:
+            continue
+        for j in range(i + 4, min(i + 20, L)):
+            if j in paired:
+                continue
+            if complement.get(sequence[i]) == sequence[j]:
+                pairs.append([i, j])
+                paired.add(i)
+                paired.add(j)
+                break
+
+    ss = "." * L
+    for i, j in pairs:
+        ss = ss[:i] + "(" + ss[i+1:j] + ")" + ss[j+1:]
+    return ss, pairs
 
 # Curated list of well-known RNA PDB IDs (high-quality RNA structures)
 CURATED_RNA_PDB_IDS: List[str] = [
@@ -863,14 +925,24 @@ def run_pipeline(
         base_fragments = passed_fragments
         base_metrics = passed_metrics
 
-    # Add original structures
+    # Add original structures (with SS prediction)
+    ss_cache: Dict[str, Tuple[str, List]] = {}  # sequence -> (ss, pairs)
+
     for idx, (frag, metrics) in enumerate(zip(base_fragments, base_metrics)):
         seq_id = f"pdb_{frag['pdb_id']}_{frag['chain_id']}"
+        sequence = frag["sequence"]
+
+        # Predict SS (cache to avoid re-predicting for augmentations)
+        if sequence not in ss_cache:
+            ss_cache[sequence] = predict_ss_and_pairs(sequence)
+        ss, pair_constraints = ss_cache[sequence]
+
         all_sequences.append({
             "id": seq_id,
-            "sequence": frag["sequence"],
-            "secondary_structure": "." * len(frag["sequence"]),
-            "length": len(frag["sequence"]),
+            "sequence": sequence,
+            "secondary_structure": ss,
+            "pair_constraints": pair_constraints,
+            "length": len(sequence),
             "source": "pdb_circularized",
             "pdb_id": frag["pdb_id"],
             "chain_id": frag["chain_id"],
@@ -892,11 +964,18 @@ def run_pipeline(
             aug_coords = augment_structure(frag["coords"], rng, noise_scale=noise_scale)
 
             seq_id = f"pdb_aug{aug_idx}_{frag['pdb_id']}_{frag['chain_id']}"
+            sequence = frag["sequence"]
+            # Reuse cached SS prediction
+            if sequence not in ss_cache:
+                ss_cache[sequence] = predict_ss_and_pairs(sequence)
+            ss, pair_constraints = ss_cache[sequence]
+
             all_sequences.append({
                 "id": seq_id,
-                "sequence": frag["sequence"],
-                "secondary_structure": "." * len(frag["sequence"]),
-                "length": len(frag["sequence"]),
+                "sequence": sequence,
+                "secondary_structure": ss,
+                "pair_constraints": pair_constraints,
+                "length": len(sequence),
                 "source": "pdb_circularized_aug",
                 "pdb_id": frag["pdb_id"],
                 "chain_id": frag["chain_id"],

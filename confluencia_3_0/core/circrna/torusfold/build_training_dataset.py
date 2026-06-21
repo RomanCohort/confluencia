@@ -100,6 +100,27 @@ def find_subo_file(seq_dir: str) -> Optional[str]:
     return None
 
 
+def predict_ss_vienna(sequence: str) -> str:
+    """Predict secondary structure using ViennaRNA circ mode.
+
+    Falls back to all-dots if ViennaRNA is unavailable.
+    """
+    sequence = sequence.upper().replace('T', 'U')
+    L = len(sequence)
+
+    if HAS_VIENNA:
+        try:
+            md = RNA.md()
+            md.circ = True
+            fc = RNA.fold_compound(sequence, md)
+            ss, mfe = fc.mfe()
+            return ss
+        except Exception:
+            pass
+
+    return '.' * L
+
+
 def extract_sequence_from_pdb(pdb_path: str) -> Optional[str]:
     """从 PDB ATOM 行提取残基序列。使用残基名称列构建序列，仅在没有 .subo 文件时使用。"""
     residues, seen = [], set()
@@ -201,13 +222,13 @@ def load_isrnacirc(data_dir: str) -> Tuple[List[Dict[str, Any]], List[np.ndarray
             if sequence is None:
                 sequence = extract_sequence_from_pdb(str(pdb_file))
                 if sequence:
-                    # 无法从 PDB 提取二级结构，使用全点
-                    secondary_structure = '.' * L
+                    # 用 ViennaRNA circ-mode 预测二级结构（比全点好）
+                    secondary_structure = predict_ss_vienna(sequence)
                 else:
-                    # 最后回退：随机序列
+                    # 最后回退：随机序列 + ViennaRNA 预测
                     rng = np.random.RandomState(hash(circ_name) % 2**32)
                     sequence = ''.join(rng.choice(['A', 'C', 'G', 'U'], L))
-                    secondary_structure = '.' * L
+                    secondary_structure = predict_ss_vienna(sequence)
 
             # 从二级结构提取配对约束
             pair_constraints = parse_dot_bracket(secondary_structure) if secondary_structure else []
