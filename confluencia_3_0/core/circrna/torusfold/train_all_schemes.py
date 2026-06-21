@@ -356,7 +356,7 @@ def train_scheme1(train_loader, val_loader, args, device):
             if not torch.isnan(loss):
                 train_loss += loss.item()
 
-        # Validation: RMSD in Å
+        # Validation: RMSD on normalized coords (consistent with training)
         model.eval()
         val_rmsd = 0
         with torch.no_grad():
@@ -372,14 +372,21 @@ def train_scheme1(train_loader, val_loader, args, device):
                 if torch.isnan(pred).any() or torch.isinf(pred).any():
                     continue
 
+                # Normalize both (same as training)
+                target_centered = target - target.mean(dim=1, keepdim=True)
+                target_scale = torch.norm(target_centered, dim=(1,2), keepdim=True).clamp(min=1.0)
+                target_norm = target_centered / target_scale
+
+                pred_centered = pred - pred.mean(dim=1, keepdim=True)
+                pred_scale = torch.norm(pred_centered, dim=(1,2), keepdim=True).clamp(min=1.0)
+                pred_norm = pred_centered / pred_scale
+
                 B = len(lengths)
                 for b in range(B):
                     valid_L = lengths[b]
-                    p = pred[b, :valid_L]
-                    t = target[b, :valid_L]
-                    p_c = p - p.mean(dim=0)
-                    t_c = t - t.mean(dim=0)
-                    msd = torch.mean(torch.sum((p_c - t_c) ** 2, dim=1))
+                    p = pred_norm[b, :valid_L]
+                    t = target_norm[b, :valid_L]
+                    msd = torch.mean(torch.sum((p - t) ** 2, dim=1))
                     rmsd = torch.sqrt(msd.clamp(min=0))
                     if not torch.isnan(rmsd) and not torch.isinf(rmsd):
                         val_rmsd += rmsd.item()
