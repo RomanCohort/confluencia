@@ -108,10 +108,9 @@ for SCHEME in "${SCHEMES[@]}"; do
     # Scheme-specific 参数调整
     case $SCHEME in
         1)
-            # EGNN: L*L edge matrix causes OOM, small batch + max_len
+            # EGNN: k-NN sparse edges, manageable memory
             SCHEME_EPOCHS=50
-            SCHEME_BATCH=1
-            EXTRA_ARGS="$EXTRA_ARGS --max-len 300"
+            SCHEME_BATCH=$BATCH_SIZE
             ;;
         3)
             # Dual-Engine: 中等，50 epochs

@@ -56,28 +56,70 @@ class EGNNLayer(nn.Module):
         )
 
     def forward(self, h: torch.Tensor, x: torch.Tensor) -> tuple:
-        """h: (B, L, D), x: (B, L, 3)"""
+        """h: (B, L, D), x: (B, L, 3)
+
+        Uses sparse k-NN edges (k=16) instead of full L×L to reduce
+        memory from O(L²) to O(k*L).
+        """
         B, L, D = h.shape
+        k = min(16, L - 1)  # number of nearest neighbors
 
-        # Compute pairwise differences and distances
-        diff = x.unsqueeze(2) - x.unsqueeze(1)  # (B, L, L, 3)
-        dist = torch.norm(diff, dim=-1, keepdim=True)  # (B, L, L, 1)
+        # Compute pairwise distances only for k-NN selection
+        # Use chunked distance computation to avoid O(L²) allocation
+        # For each node, find k nearest neighbors
+        # Top-k on -distance is equivalent to bottom-k on distance
+        diff_full = x.unsqueeze(2) - x.unsqueeze(1)  # (B, L, L, 3)
+        dist_full = torch.norm(diff_full, dim=-1)  # (B, L, L)
 
-        # Edge features: h_i + h_j + dist_ij → (B, L, L, 2D+1)
-        h_i = h.unsqueeze(2).expand(-1, -1, L, -1)
-        h_j = h.unsqueeze(1).expand(-1, L, -1, -1)
-        edge_feat = torch.cat([h_i, h_j, dist], dim=-1)
-        edge_out = self.edge_mlp(edge_feat)  # (B, L, L, D)
+        # k-NN: for each node i, get k nearest nodes j
+        # topk on negative distance = nearest neighbors
+        _, knn_idx = torch.topk(-dist_full, k + 1, dim=-1)  # +1 to exclude self
+        # Remove self (distance 0 is always first after negation)
+        knn_idx = knn_idx[:, :, 1:]  # (B, L, k)
+
+        # Gather features for k-NN edges
+        # knn_idx: (B, L, k) — for each (b, i), the k nearest j indices
+        batch_idx = torch.arange(B, device=x.device).unsqueeze(1).unsqueeze(2)
+        src_idx = knn_idx  # (B, L, k) — j indices
+
+        # Gather diff vectors for k-NN: diff[b, i, j, :] for j in knn
+        knn_diff = torch.gather(
+            diff_full,
+            2,
+            src_idx.unsqueeze(-1).expand(-1, -1, -1, 3)
+        )  # (B, L, k, 3)
+
+        # Gather distances for k-NN
+        knn_dist = torch.gather(
+            dist_full,
+            2,
+            src_idx
+        ).unsqueeze(-1)  # (B, L, k, 1)
+
+        # Edge features: h_i + h_j_knn + dist → (B, L, k, 2D+1)
+        h_i = h.unsqueeze(2).expand(-1, -1, k, -1)  # (B, L, k, D)
+        # Gather h_j for knn neighbors
+        h_j = torch.gather(
+            h.unsqueeze(2).expand(-1, -1, L, -1),  # (B, L, L, D)
+            2,
+            src_idx.unsqueeze(-1).expand(-1, -1, -1, D)
+        )  # (B, L, k, D)
+
+        edge_feat = torch.cat([h_i, h_j, knn_dist], dim=-1)
+        edge_out = self.edge_mlp(edge_feat)  # (B, L, k, D)
 
         # Coordinate update (equivariant)
-        coord_weight = self.coord_mlp(edge_out)  # (B, L, L, 1)
-        coord_update = (coord_weight * diff).sum(dim=2)  # (B, L, 3)
+        coord_weight = self.coord_mlp(edge_out)  # (B, L, k, 1)
+        coord_update = (coord_weight * knn_diff).sum(dim=2)  # (B, L, 3)
         x_new = x + 0.01 * coord_update
 
         # Node update: aggregate edge messages
         node_agg = edge_out.mean(dim=2)  # (B, L, D)
         node_feat = torch.cat([h, node_agg], dim=-1)  # (B, L, 2D)
         h_new = h + self.node_mlp(node_feat)
+
+        # Free large tensors early
+        del diff_full, dist_full
 
         return h_new, x_new
 

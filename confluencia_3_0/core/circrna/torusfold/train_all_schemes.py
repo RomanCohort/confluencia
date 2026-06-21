@@ -1257,7 +1257,7 @@ def train_scheme3(train_loader, val_loader, args, device):
 
 # Scheme-specific max sequence length (O(L^2) schemes need lower limits)
 SCHEME_MAX_LEN = {
-    1: 500,   # EGNN O(L^2) edges
+    1: 1000,  # EGNN with k-NN sparse edges, O(k*L) memory
     2: None,  # Pure physics, no limit
     3: 500,   # Transformer O(L^2)
     4: 500,   # EGNN O(L^2) edges
