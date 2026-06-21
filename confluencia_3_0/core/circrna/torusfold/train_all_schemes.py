@@ -1066,7 +1066,7 @@ def train_scheme3(train_loader, val_loader, args, device):
 
     bsj_penalty = BSJClosurePenalty(bond_length=5.9, weight=1.0)
 
-    optimizer = torch.optim.AdamW(model.parameters(), lr=args.lr * 0.1)
+    optimizer = torch.optim.AdamW(model.parameters(), lr=args.lr)
     scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
         optimizer, mode='min', factor=0.5, patience=5
     )
@@ -1199,8 +1199,11 @@ def train_scheme3(train_loader, val_loader, args, device):
                 lengths = batch['lengths']
 
                 B, L = seq_ids.shape
-                # Use target + noise for validation (matches training distribution)
-                coords_init = target_coords + torch.randn_like(target_coords) * 2.0
+                # Use helical init for validation (matches deployment)
+                coords_init = torch.zeros(B, L, 3, device=device)
+                for b in range(B):
+                    valid_L = lengths[b]
+                    coords_init[b, :valid_L] = generate_helical_init(valid_L, device=device)
 
                 coords_refined = model(seq_ids, coords_init)
 
