@@ -14,7 +14,7 @@ echo "  Step 1: Check available data sources"
 echo "============================================================"
 
 # Count samples in each source
-for d in data/circbase_real_3d confluencia_3_0/data/pdb_3d data/pseudo_labels; do
+for d in data/circbase_real_3d confluencia_3_0/data/pdb_3d data/shape_3d data/medium_length_3d data/pseudo_labels; do
   if [ -f "$d/sequences.json" ]; then
     n=$(python3 -c "import json; print(len(json.load(open('$d/sequences.json'))))")
     echo "  $d: $n samples"
@@ -36,24 +36,31 @@ echo "============================================================"
 
 MERGED_DIR="data/circrna_3d_merged"
 
-if [ -d "$MERGED_DIR" ] && [ -f "$MERGED_DIR/sequences.json" ]; then
-  n=$(python3 -c "import json; print(len(json.load(open('$MERGED_DIR/sequences.json'))))")
-  echo "  Merged dataset already exists: $n samples"
-  echo "  Skipping merge."
-else
-  echo "  Merging all available sources..."
-
-  ARGS="--output $MERGED_DIR --skip-validation"
-
-  if [ -f "data/circbase_real_3d/sequences.json" ]; then
-    ARGS="$ARGS --isrnacirc-dir data/circbase_real_3d"
-  fi
-  if [ -f "confluencia_3_0/data/pdb_3d/sequences.json" ]; then
-    ARGS="$ARGS --pdb-dir confluencia_3_0/data/pdb_3d"
-  fi
-
-  python3 confluencia_3_0/core/circrna/torusfold/merge_expanded_dataset.py $ARGS
+# Always remove old merged data to ensure fresh merge with all sources
+if [ -d "$MERGED_DIR" ]; then
+  echo "  Removing old merged dataset..."
+  rm -rf "$MERGED_DIR"
 fi
+
+echo "  Merging all available sources..."
+
+ARGS="--output $MERGED_DIR --skip-validation"
+
+if [ -f "data/circbase_real_3d/sequences.json" ]; then
+  ARGS="$ARGS --isrnacirc-dir data/circbase_real_3d"
+fi
+if [ -f "data/shape_3d/sequences.json" ]; then
+  ARGS="$ARGS --shape-dir data/shape_3d"
+fi
+if [ -f "confluencia_3_0/data/pdb_3d/sequences.json" ]; then
+  ARGS="$ARGS --pdb-dir confluencia_3_0/data/pdb_3d"
+fi
+if [ -f "data/medium_length_3d/sequences.json" ]; then
+  ARGS="$ARGS --medium-dir data/medium_length_3d"
+fi
+
+echo "  Merge command args: $ARGS"
+python3 confluencia_3_0/core/circrna/torusfold/merge_expanded_dataset.py $ARGS
 
 echo ""
 echo "============================================================"
