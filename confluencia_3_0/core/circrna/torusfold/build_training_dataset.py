@@ -94,53 +94,32 @@ def find_subo_file(seq_dir: str) -> Optional[str]:
     """在 sequence_2D_structure 目录中查找 .subo 文件。"""
     if not os.path.isdir(seq_dir):
         return None
-
     for f in os.listdir(seq_dir):
         if f.endswith('.subo'):
             return os.path.join(seq_dir, f)
-
     return None
 
 
 def extract_sequence_from_pdb(pdb_path: str) -> Optional[str]:
-    """
-    从 PDB ATOM 行提取残基序列。
-
-    使用残基名称列（A, U, G, C）构建序列。
-    仅在没有 .subo 文件时使用。
-    """
-    residues = []
-    seen_positions = set()
-
+    """从 PDB ATOM 行提取残基序列。使用残基名称列构建序列，仅在没有 .subo 文件时使用。"""
+    residues, seen = [], set()
+    res_map = {'A': 'A', 'ADE': 'A', 'U': 'U', 'URA': 'U', 'G': 'G', 'GUA': 'G', 'C': 'C', 'CYT': 'C'}
     with open(pdb_path, 'r') as f:
         for line in f:
             if not line.startswith('ATOM'):
                 continue
-
-            # 提取残基名称（列 18-20，但通常是单字母）
             res_name = line[17:20].strip()
-
-            # 提取残基编号以避免重复
             try:
                 res_num = int(line[22:26].strip())
             except ValueError:
                 continue
-
-            if res_num in seen_positions:
+            if res_num in seen:
                 continue
-            seen_positions.add(res_num)
-
-            # 将三字母代码转换为单字母
-            res_map = {
-                'A': 'A', 'ADE': 'A', 'U': 'U', 'URA': 'U',
-                'G': 'G', 'GUA': 'G', 'C': 'C', 'CYT': 'C',
-            }
-
+            seen.add(res_num)
             if res_name in res_map:
                 residues.append(res_map[res_name])
             elif len(res_name) == 1 and res_name in 'ACGU':
                 residues.append(res_name)
-
     return ''.join(residues) if residues else None
 
 

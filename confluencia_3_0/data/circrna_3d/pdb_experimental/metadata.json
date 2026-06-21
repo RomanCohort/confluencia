@@ -1,0 +1,29 @@
+{
+  "structures": {
+    "9H8A": {
+      "description": "cryo-EM circRNA dimer, 9.60 \u00c5",
+      "downloaded": true
+    },
+    "8xtp": {
+      "description": "bacterial type II intron, circularization, 2.5-2.9 \u00c5",
+      "downloaded": true
+    },
+    "8xtq": {
+      "description": "bacterial type II intron, circularization, 2.5-2.9 \u00c5",
+      "downloaded": true
+    },
+    "8xtr": {
+      "description": "bacterial type II intron, circularization, 2.5-2.9 \u00c5",
+      "downloaded": true
+    },
+    "8xts": {
+      "description": "bacterial type II intron, circularization, 2.5-2.9 \u00c5",
+      "downloaded": true
+    },
+    "9is7": {
+      "description": "bacterial type II intron, circularization, 2.5-2.9 \u00c5",
+      "downloaded": true
+    }
+  },
+  "note": "9H8A is the only true circRNA; others are circularization-related introns"
+}
