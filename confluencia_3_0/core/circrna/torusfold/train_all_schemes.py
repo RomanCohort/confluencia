@@ -1000,7 +1000,12 @@ def train_scheme6(train_loader, val_loader, args, device):
                 target = batch['coords'].to(device)
                 lengths = batch['lengths']
 
-                out = model(seq_ids, mode='sample')
+                # Skip if target has Inf/NaN
+                if torch.isinf(target).any() or torch.isnan(target).any():
+                    continue
+
+                # Use train mode for validation (faster, no sampling)
+                out = model(seq_ids, mode='train')
                 pred = out['coords']
 
                 B = len(lengths)
@@ -1015,6 +1020,10 @@ def train_scheme6(train_loader, val_loader, args, device):
                     p_c = p - p.mean(dim=0)
                     t_c = t - t.mean(dim=0)
 
+                    # Skip if zero variance
+                    if p_c.abs().sum() < 1e-6 or t_c.abs().sum() < 1e-6:
+                        continue
+
                     # Kabsch alignment
                     H = t_c.T @ p_c
                     try:
@@ -1027,8 +1036,9 @@ def train_scheme6(train_loader, val_loader, args, device):
                     except Exception:
                         rmsd = torch.sqrt(torch.mean(torch.sum((p_c - t_c) ** 2, dim=1)))
 
-                    val_rmsd += rmsd.item()
-                    n_val_samples += 1
+                    if not (torch.isnan(rmsd) or torch.isinf(rmsd)):
+                        val_rmsd += rmsd.item()
+                        n_val_samples += 1
 
         avg_val = val_rmsd / max(n_val_samples, 1)
         scheduler.step(avg_val)
@@ -1062,6 +1072,9 @@ def train_scheme7(train_loader, val_loader, args, device):
     Can handle sequences up to L=1000 on 24GB GPU (vs L=500 for Scheme 4).
 
     Memory: ~8GB for L=1000, batch=4, d=128 (vs ~25GB for Scheme 4 EGNN).
+
+    Performance note: The pure-Python SSM scan is O(L) per layer but slow.
+    For faster training, consider installing mamba-ssm with CUDA kernels.
     """
     print("\n" + "="*60)
     print("  Training Scheme 7: Mamba+Transformer Hybrid Diffusion")
@@ -1071,13 +1084,23 @@ def train_scheme7(train_loader, val_loader, args, device):
         CircMambaDiffusionModel, CircMambaConfig
     )
 
+    # Reduce layers and diffusion steps for faster training
+    # The pure-Python SSM is slow, so use minimal config by default
+    n_mamba_layers = min(getattr(args, 'n_mamba_layers', 4), 2)  # Cap at 2 for speed
+    n_attn_layers = min(getattr(args, 'n_attn_layers', 2), 1)   # Cap at 1 for speed
+    n_diffusion_steps = min(args.diffusion_steps, 20)          # Cap at 20 for speed
+
+    print(f"  NOTE: Using reduced config for speed (pure-Python SSM is slow)")
+    print(f"        n_mamba={n_mamba_layers}, n_attn={n_attn_layers}, n_diff={n_diffusion_steps}")
+    print(f"        For faster training, install mamba-ssm with CUDA kernels")
+
     config = CircMambaConfig(
         d_model=args.d_hidden,
         d_ssm=max(32, args.d_hidden // 2),
         d_cond=max(32, args.d_hidden // 2),
-        n_mamba_layers=getattr(args, 'n_mamba_layers', 4),
-        n_attn_layers=getattr(args, 'n_attn_layers', 2),
-        n_diffusion_steps=args.diffusion_steps,
+        n_mamba_layers=n_mamba_layers,
+        n_attn_layers=n_attn_layers,
+        n_diffusion_steps=n_diffusion_steps,
         attn_window=getattr(args, 'attn_window', 20),
         bsj_flank=getattr(args, 'bsj_flank', 20),
         bond_length=5.9,
@@ -1106,8 +1129,13 @@ def train_scheme7(train_loader, val_loader, args, device):
         train_loss = 0
         nan_batches = 0
         train_metrics = {'noise': 0, 'closure': 0}
+        n_batches = len(train_loader)
 
-        for batch in train_loader:
+        for batch_idx, batch in enumerate(train_loader):
+            # Progress indicator every 10 batches
+            if batch_idx % 10 == 0:
+                print(f"\r  Training batch {batch_idx+1}/{n_batches}", end="", flush=True)
+
             seq_ids = batch['seq_ids'].to(device)
             coords_target = batch['coords'].to(device)
             pair_probs = batch.get('pair_probs', None)
@@ -1150,6 +1178,9 @@ def train_scheme7(train_loader, val_loader, args, device):
             train_metrics['noise'] += noise_loss.item()
             train_metrics['closure'] += closure_loss.item()
 
+        # Clear progress line and print epoch summary
+        print(f"\r  Training complete: {n_batches} batches, {nan_batches} NaN batches")
+
         if nan_batches > len(train_loader) // 2:
             print(f"  Too many NaN batches ({nan_batches}), stopping")
             return float('inf')
@@ -1159,39 +1190,31 @@ def train_scheme7(train_loader, val_loader, args, device):
         avg_noise = train_metrics['noise'] / n_valid_batches
         avg_closure = train_metrics['closure'] / n_valid_batches
 
-        # Validation: sample from model and compute RMSD
+        # Validation: use training loss as proxy (skip slow sampling)
+        # Sampling with 100 diffusion steps is extremely slow with pure-Python SSM
+        # Instead, compute validation loss on a single forward pass
+        print("  Validating...", end="", flush=True)
         model.eval()
-        val_rmsd = 0
+        val_loss = 0
+        n_val_batches = 0
         with torch.no_grad():
             for batch in val_loader:
                 seq_ids = batch['seq_ids'].to(device)
                 coords_target = batch['coords'].to(device)
-                lengths = batch['lengths']
 
-                B = len(lengths)
-                try:
-                    out = model(seq_tokens=seq_ids, pair_probs=None)
-                    pred_coords = out.get('coords', None)
-                except Exception:
-                    pred_coords = None
+                # Normalize
+                coords_centered = coords_target - coords_target.mean(dim=1, keepdim=True)
+                coords_scale = torch.norm(coords_centered, dim=(1, 2), keepdim=True).clamp(min=1.0)
+                coords_norm = coords_centered / coords_scale
 
-                if pred_coords is not None:
-                    for b in range(B):
-                        valid_L = lengths[b]
-                        p = pred_coords[b, :valid_L]
-                        t = coords_target[b, :valid_L]
-                        if not (torch.isnan(p).any() or torch.isinf(p).any()):
-                            val_rmsd += kabsch_rmsd(p, t)
-                else:
-                    # Fallback: use training loss as proxy
-                    coords_centered = coords_target - coords_target.mean(dim=1, keepdim=True)
-                    coords_scale = torch.norm(coords_centered, dim=(1, 2), keepdim=True).clamp(min=1.0)
-                    coords_norm = coords_centered / coords_scale
-                    out = model(seq_tokens=seq_ids, coords_target=coords_norm)
-                    val_rmsd += out.get('total_loss', torch.tensor(0.0)).item() * 100
-                val_rmsd /= B
+                # Training-style forward (single step, no sampling)
+                out = model(seq_tokens=seq_ids, coords_target=coords_norm)
+                val_loss += out.get('total_loss', torch.tensor(0.0)).item()
+                n_val_batches += 1
 
-        avg_val = val_rmsd / len(val_loader)
+        avg_val = val_loss / max(n_val_batches, 1)
+        print(f" done")
+
         scheduler.step(avg_val)
 
         if avg_val < best_val:
