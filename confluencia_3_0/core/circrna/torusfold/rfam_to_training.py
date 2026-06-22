@@ -170,6 +170,37 @@ def download_rfam_seed(output_path: str) -> bool:
         return False
 
 
+def open_rfam_file(path: str):
+    """Open Rfam file, trying multiple encodings."""
+    if path.endswith('.gz'):
+        # Try utf-8 first, then latin-1
+        for encoding in ['utf-8', 'latin-1']:
+            try:
+                f = gzip.open(path, 'rt', encoding=encoding)
+                # Test read
+                f.read(1024)
+                f.seek(0)
+                return f
+            except (UnicodeDecodeError, UnicodeError):
+                if encoding == 'utf-8':
+                    continue
+                else:
+                    raise
+    else:
+        for encoding in ['utf-8', 'latin-1']:
+            try:
+                f = open(path, 'r', encoding=encoding)
+                f.read(1024)
+                f.seek(0)
+                return f
+            except (UnicodeDecodeError, UnicodeError):
+                if encoding == 'utf-8':
+                    continue
+                else:
+                    raise
+    return None
+
+
 def parse_stockholm(handle) -> List[Dict]:
     """Parse Stockholm format alignment, extract sequences + consensus SS.
 
@@ -306,8 +337,10 @@ def main():
         if download_rfam_seed(rfam_path):
             print(f"\n[1/3] Parsing Rfam seed alignment...")
             try:
-                with gzip.open(rfam_path, 'rt') as f:
+                f = open_rfam_file(rfam_path)
+                if f:
                     entries = parse_stockholm(f)
+                    f.close()
                 print(f"  Parsed {len(entries)} entries from Rfam seed")
             except Exception as e:
                 print(f"  Parse error: {e}")
