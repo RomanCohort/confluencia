@@ -446,6 +446,8 @@ def train_scheme1(train_loader, val_loader, args, device):
     for epoch in range(args.epochs):
         model.train()
         train_loss = 0
+        n_train_batches = 0
+        nan_batches = 0
         for batch in train_loader:
             seq_ids = batch['seq_ids'].to(device)
             target = batch['coords'].to(device)
@@ -496,10 +498,11 @@ def train_scheme1(train_loader, val_loader, args, device):
             torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
             optimizer.step()
             optimizer.zero_grad()
+            n_train_batches += 1
             if not torch.isnan(loss):
                 train_loss += loss.item()
 
-        # Validation: RMSD in Angstroms (denormalize for interpretable metric)
+        # Validation: RMSD in Angstroms
         model.eval()
         val_rmsd = 0
         n_val_samples = 0
@@ -509,30 +512,37 @@ def train_scheme1(train_loader, val_loader, args, device):
                 target = batch['coords'].to(device)
                 lengths = batch['lengths']
 
+                if target.abs().sum() < 1e-3 or torch.isnan(target).any() or torch.isinf(target).any():
+                    continue
+
                 out = model(seq_ids)
                 pred = out['coords']
 
-                # Skip if prediction contains NaN/Inf
                 if torch.isnan(pred).any() or torch.isinf(pred).any():
                     continue
 
-                # Denormalize: pred is in raw coordinate space from EGNN
-                # Use Kabsch-aligned RMSD in Angstroms for fair comparison
+                # Denormalize pred (in normalized space) to Angstroms
+                target_centered = target - target.mean(dim=1, keepdim=True)
+                target_scale = torch.norm(target_centered, dim=(1,2), keepdim=True).clamp(min=1.0)
+                pred_centered = pred - pred.mean(dim=1, keepdim=True)
+                pred_denorm = pred_centered * target_scale + target.mean(dim=1, keepdim=True)
+
                 B = len(lengths)
                 for b in range(B):
                     valid_L = lengths[b]
-                    p = pred[b, :valid_L]
+                    p = pred_denorm[b, :valid_L]
                     t = target[b, :valid_L]
-                    # Center both
                     p_c = p - p.mean(dim=0)
                     t_c = t - t.mean(dim=0)
-                    # Kabsch alignment
+                    if p_c.abs().sum() < 1e-6 or t_c.abs().sum() < 1e-6:
+                        continue
                     rmsd = kabsch_rmsd(p_c, t_c)
-                    if not np.isnan(rmsd) and not np.isinf(rmsd):
+                    if not (np.isnan(rmsd) or np.isinf(rmsd)):
                         val_rmsd += rmsd
                         n_val_samples += 1
 
-        avg_val = val_rmsd / max(n_val_samples, 1)
+        avg_train = train_loss / max(n_train_batches, 1)
+        avg_val = val_rmsd / max(n_val_samples, 1) if n_val_samples > 0 else avg_train
         scheduler.step(avg_val)
 
         if avg_val < best_val:
@@ -542,8 +552,8 @@ def train_scheme1(train_loader, val_loader, args, device):
         else:
             patience_counter += 1
 
-        print(f"  Epoch {epoch+1}/{args.epochs} train={train_loss/len(train_loader):.4f} "
-              f"val={avg_val:.4f} pat={patience_counter}/10")
+        print(f"  Epoch {epoch+1}/{args.epochs} train={avg_train:.4f} "
+              f"val={avg_val:.1f}Å (n={n_val_samples}) nan={nan_batches} pat={patience_counter}/10")
 
         if patience_counter >= 10:
             print(f"  Early stopping at epoch {epoch+1}")

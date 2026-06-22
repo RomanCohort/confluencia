@@ -111,10 +111,11 @@ class EGNNLayer(nn.Module):
         # Coordinate update (equivariant)
         coord_weight = self.coord_mlp(edge_out)  # (B, L, k, 1)
         coord_update = (coord_weight * knn_diff).sum(dim=2)  # (B, L, 3)
-        # Step size 0.1 with per-layer clamp to prevent coordinate explosion
-        # across 4 layers. Without clamp, coords can reach ~2600Å vs target ~170Å.
+        # Step size 0.1 with per-layer clamp to prevent coordinate explosion.
+        # Input coords are normalized to unit scale, so clamp at 0.5 per layer
+        # (4 layers × 0.5 = max 2.0 displacement in normalized space).
         coord_update = 0.1 * coord_update
-        coord_update = coord_update.clamp(-10.0, 10.0)  # Max 10Å displacement per layer
+        coord_update = coord_update.clamp(-0.5, 0.5)
         x_new = x + coord_update
 
         # Node update: aggregate edge messages
@@ -168,8 +169,10 @@ class CircRNA3DModel(nn.Module):
             x_init[:, i, 1] = radius * np.sin(angle)
             x_init[:, i, 2] = rise_per_nt * i
 
-        # Center coordinates
+        # Center and normalize to unit norm for stable EGNN input
         x_init = x_init - x_init.mean(dim=1, keepdim=True)
+        init_scale = torch.norm(x_init, dim=(1,2), keepdim=True).clamp(min=1.0)
+        x_init = x_init / init_scale
 
         # EGNN refinement
         x = x_init.clone()
