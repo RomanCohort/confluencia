@@ -334,6 +334,8 @@ class CircRNADataset(Dataset):
         mapping = {'A': 0, 'U': 1, 'G': 2, 'C': 3}
         seq_ids = torch.tensor([mapping.get(b, 4) for b in seq], dtype=torch.long)
         coords_tensor = torch.tensor(coords, dtype=torch.float32)
+        # Replace Inf/NaN with 0 (corrupt data protection)
+        coords_tensor = torch.where(torch.isfinite(coords_tensor), coords_tensor, torch.zeros_like(coords_tensor))
 
         # Use actual coords length (may differ from seq length due to data issues)
         actual_L = coords_tensor.shape[0]
