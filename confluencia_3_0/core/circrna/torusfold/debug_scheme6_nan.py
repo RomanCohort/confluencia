@@ -32,7 +32,7 @@ args = argparse.Namespace(
 print("\n=== Loading data ===")
 labels_dir = 'data/circrna_3d_merged'
 try:
-    sequences, coords_labels, pair_labels, metadata = load_pseudo_labels(labels_dir)
+    sequences, coords_labels, pair_labels, confidence_weights, metadata = load_pseudo_labels(labels_dir)
     print(f"  Loaded {len(sequences)} samples")
 
     # Check for data issues
@@ -51,7 +51,7 @@ try:
 
     # Build dataset and test collation
     print("\n=== Testing collate_fn ===")
-    ds = CircRNADataset(sequences[:20], coords_labels[:20], pair_labels[:20])
+    ds = CircRNADataset(sequences[:20], coords_labels[:20], pair_labels[:20], confidence_weights[:20] if confidence_weights else None)
     from torch.utils.data import DataLoader
     loader = DataLoader(ds, batch_size=4, shuffle=False, collate_fn=collate_fn)
 
