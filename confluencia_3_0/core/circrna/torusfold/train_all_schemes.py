@@ -1273,7 +1273,8 @@ def train_scheme3(train_loader, val_loader, args, device):
             # 2. BSJ closure: absolute error in Angstroms
             target_closure = torch.norm(target_coords[:, 0] - target_coords[:, -1], dim=-1)
             pred_closure = torch.norm(coords_refined[:, 0] - coords_refined[:, -1], dim=-1)
-            closure_loss = torch.mean((pred_closure - target_closure) ** 2)
+            closure_error = (pred_closure - target_closure).clamp(-50, 50)
+            closure_loss = torch.mean(closure_error ** 2)
 
             # 3. Bond length MSE in Angstroms^2
             bond_loss = 0

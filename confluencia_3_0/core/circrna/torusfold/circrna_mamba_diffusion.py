@@ -441,10 +441,13 @@ class CircMambaDiffusionModel(nn.Module):
         # Losses
         noise_loss = F.mse_loss(noise_pred, noise)
 
-        # Closure auxiliary loss
+        # Closure auxiliary loss (with clamp to prevent gradient explosion)
+        # coords_pred can have large values during early training, causing
+        # closure_dist >> bond_length and (closure_dist - 5.9)^2 to explode.
         coords_pred = coords_noisy - noise_pred
         closure_dist = torch.norm(coords_pred[:, 0] - coords_pred[:, -1], dim=-1)
-        closure_loss = ((closure_dist - self.config.bond_length) ** 2).mean()
+        closure_error = (closure_dist - self.config.bond_length).clamp(-50, 50)
+        closure_loss = (closure_error ** 2).mean()
 
         return {
             'noise_loss': noise_loss,
