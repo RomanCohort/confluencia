@@ -12,8 +12,9 @@ PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(o
 sys.path.insert(0, PROJECT_ROOT)
 
 from confluencia_3_0.core.circrna.torusfold.train_all_schemes import (
-    load_pseudo_labels, CircRNADataset, collate_fn, CircRNA3DModel
+    load_pseudo_labels, CircRNADataset, collate_fn
 )
+from confluencia_3_0.core.circrna.torusfold.train_torusfold_3d import CircRNA3DModel
 
 
 def main():
