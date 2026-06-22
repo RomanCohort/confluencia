@@ -201,6 +201,23 @@ def load_pseudo_labels(labels_dir, n_seqs=None, max_len=None):
     if n_missing > 0:
         print(f"  Skipped {n_missing} entries with missing/mismatched coords")
 
+    # Filter out samples with NaN/Inf in coords (corrupt data)
+    valid_mask = []
+    n_invalid = 0
+    for i, coords in enumerate(coords_labels):
+        if np.isnan(coords).any() or np.isinf(coords).any():
+            n_invalid += 1
+            valid_mask.append(False)
+        else:
+            valid_mask.append(True)
+    if n_invalid > 0:
+        print(f"  Filtered {n_invalid} samples with NaN/Inf coords")
+        sequences = [s for s, v in zip(sequences, valid_mask) if v]
+        coords_labels = [c for c, v in zip(coords_labels, valid_mask) if v]
+        pair_labels = [p for p, v in zip(pair_labels, valid_mask) if v]
+        confidence_weights = [cw for cw, v in zip(confidence_weights, valid_mask) if v]
+        metadata = [m for m, v in zip(metadata, valid_mask) if v]
+
     # Filter by max_len if specified
     if max_len is not None:
         keep = [i for i, m in enumerate(metadata) if m['length'] <= max_len]
