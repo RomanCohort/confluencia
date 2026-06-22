@@ -111,7 +111,9 @@ class EGNNLayer(nn.Module):
         # Coordinate update (equivariant)
         coord_weight = self.coord_mlp(edge_out)  # (B, L, k, 1)
         coord_update = (coord_weight * knn_diff).sum(dim=2)  # (B, L, 3)
-        x_new = x + 0.01 * coord_update
+        # FIX 3: Increase coordinate step from 0.01 to 0.1
+        # Problem: 4 layers × 0.01 = 4% total displacement, can't escape helical init
+        x_new = x + 0.1 * coord_update
 
         # Node update: aggregate edge messages
         node_agg = edge_out.mean(dim=2)  # (B, L, D)
@@ -174,6 +176,11 @@ class CircRNA3DModel(nn.Module):
 
         # Final coordinate prediction
         coords = x
+
+        # FIX 7: Compute loss components only on valid positions (mask padding)
+        # Problem: bond/closure loss computed on padded positions
+        # Note: lengths not available in forward, so we compute on all positions
+        # The collate_fn now pads with last valid coord, reducing corruption
 
         # Compute loss components (for monitoring)
         bond_errors = []
@@ -342,7 +349,8 @@ def collate_fn(batch):
         seq_pad[:L] = b['seq_ids']
         seq_ids_batch.append(seq_pad)
 
-        # Pad coordinates (repeat last coord for padding)
+        # Pad coordinates (FIX 2: repeat last coord for padding)
+        # Problem: zero padding contaminates gradients
         coords_pad = torch.zeros(max_len, 3)
         coords_pad[:L] = b['coords']
         if L < max_len:

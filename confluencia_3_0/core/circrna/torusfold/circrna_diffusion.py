@@ -156,7 +156,8 @@ class EGNNLayer(nn.Module):
         node_feat = self.norm(node_feat + h_new)
 
         # Update coordinates (equivariant)
-        coords = coords + coord_update_agg * 0.1  # Small step
+        # FIX 3: Increase step from 0.1 to 0.3 for faster convergence
+        coords = coords + coord_update_agg * 0.3
 
         return node_feat, coords
 
