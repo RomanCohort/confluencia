@@ -1104,70 +1104,57 @@ def train_scheme6(train_loader, val_loader, args, device):
 
         avg_train = train_loss / max(len(train_loader) - nan_batches, 1)
 
-        # Validation: RMSD in Angstroms
+        # Validation: use model train-mode loss as proxy (fast, no sampling)
         model.eval()
-        val_rmsd = 0
-        n_val_samples = 0
+        val_loss_sum = 0
+        n_val_batches = 0
         with torch.no_grad():
             for batch in val_loader:
                 seq_ids = batch['seq_ids'].to(device)
                 target = batch['coords'].to(device)
                 lengths = batch['lengths']
 
-                # Skip batch if target is all zeros (corrupt data replaced)
-                if target.abs().sum() < 1e-3:
+                if target.abs().sum() < 1e-3 or torch.isnan(target).any() or torch.isinf(target).any():
                     continue
 
-                # Use full model forward in sample mode for realistic RMSD
-                out = model(seq_ids, mode='sample')
-                pred = out['coords']
+                B, L, _ = target.shape
 
-                # Denormalize: pred is in normalized space, target in Angstroms
-                # Use target scale for denormalization
+                # Normalize target
                 target_centered = target - target.mean(dim=1, keepdim=True)
                 target_scale = torch.norm(target_centered, dim=(1,2), keepdim=True).clamp(min=1.0)
-                pred_centered = pred - pred.mean(dim=1, keepdim=True)
-                pred_denorm = pred_centered * target_scale + target.mean(dim=1, keepdim=True)
+                target_norm = target_centered / target_scale
 
-                B = len(lengths)
+                # Forward through model (train mode computes loss)
+                out = model(seq_ids, mode='train')
+                pred_coords = out['coords']
+                diff_loss = out.get('diffusion_loss', None)
+
+                pred_centered = pred_coords - pred_coords.mean(dim=1, keepdim=True)
+                pred_norm = pred_centered / target_scale
+
+                # Coord loss
+                coord_loss = 0
+                n_valid = 0
                 for b in range(B):
                     valid_L = lengths[b]
-                    p = pred_denorm[b, :valid_L]
-                    t = target[b, :valid_L]
-
-                    if torch.isnan(p).any() or torch.isinf(p).any():
+                    if valid_L < 4:
                         continue
-                    if t.abs().sum() < 1e-3:
-                        continue
+                    diff = pred_norm[b, :valid_L] - target_norm[b, :valid_L]
+                    coord_loss += torch.mean(diff ** 2)
+                    n_valid += 1
+                coord_loss = coord_loss / max(n_valid, 1)
 
-                    p_c = p - p.mean(dim=0)
-                    t_c = t - t.mean(dim=0)
+                # Total val loss
+                if diff_loss is not None and not (torch.isnan(diff_loss) or torch.isinf(diff_loss)):
+                    batch_loss = (diff_loss + 0.1 * coord_loss).item()
+                else:
+                    batch_loss = coord_loss.item()
 
-                    if p_c.abs().sum() < 1e-6 or t_c.abs().sum() < 1e-6:
-                        continue
+                if not (np.isnan(batch_loss) or np.isinf(batch_loss)):
+                    val_loss_sum += batch_loss
+                    n_val_batches += 1
 
-                    # Kabsch alignment
-                    H = t_c.T @ p_c
-                    try:
-                        U, S, Vt = torch.linalg.svd(H)
-                        d = torch.sign(torch.det(Vt.T @ U.T))
-                        D = torch.diag(torch.tensor([1, 1, d], device=device, dtype=torch.float32))
-                        R = Vt.T @ D @ U.T
-                        p_aligned = (R @ p_c.T).T
-                        rmsd = torch.sqrt(torch.mean(torch.sum((p_aligned - t_c) ** 2, dim=1)))
-                    except Exception:
-                        rmsd = torch.sqrt(torch.mean(torch.sum((p_c - t_c) ** 2, dim=1)))
-
-                    if not (torch.isnan(rmsd) or torch.isinf(rmsd)):
-                        val_rmsd += rmsd.item()
-                        n_val_samples += 1
-
-        # Fallback if no valid samples: use training loss as proxy
-        if n_val_samples == 0:
-            avg_val = avg_train  # Use train loss as val proxy
-            print(f"  WARNING: No valid val samples, using train loss as proxy")
-        else:
-            avg_val = val_rmsd / n_val_samples
+        avg_val = val_loss_sum / max(n_val_batches, 1) if n_val_batches > 0 else avg_train
         scheduler.step(avg_val)
 
         if avg_val < best_val:
@@ -1178,7 +1165,7 @@ def train_scheme6(train_loader, val_loader, args, device):
             patience_counter += 1
 
         print(f"  Epoch {epoch+1}/{args.epochs} train={avg_train:.4f} "
-              f"val={avg_val:.4f} pat={patience_counter}/10")
+              f"val={avg_val:.4f} (n={n_val_batches}) nan={nan_batches} pat={patience_counter}/10")
 
         if patience_counter >= 10:
             print(f"  Early stopping at epoch {epoch+1}")
