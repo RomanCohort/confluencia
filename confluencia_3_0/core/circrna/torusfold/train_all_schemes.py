@@ -888,6 +888,12 @@ def train_scheme6(train_loader, val_loader, args, device):
             else:
                 loss = coord_loss
 
+            # NaN check - skip batch if loss is NaN
+            if torch.isnan(loss) or torch.isinf(loss):
+                print(f"  NaN/Inf in loss, skipping batch...")
+                optimizer.zero_grad()
+                continue
+
             # Apply confidence weighting
             loss = loss * conf_scale * 2.0
 

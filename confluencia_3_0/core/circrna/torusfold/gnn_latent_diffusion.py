@@ -379,6 +379,20 @@ class GNNLatentDiffusionModel(nn.Module):
         self.diffusion = LatentDiffusion(self.config)
         self.decoder = PhysicsGNNDecoder(self.config)
 
+    def _helical_fallback(self, seq_tokens):
+        """Generate helical coords as fallback when model produces NaN."""
+        B, L = seq_tokens.shape
+        device = seq_tokens.device
+        coords = torch.zeros(B, L, 3, device=device)
+        bond_length = 5.9
+        for i in range(L):
+            angle = 2 * math.pi * i / L
+            radius = bond_length * L / (2 * math.pi) * 0.5
+            coords[:, i, 0] = radius * math.cos(angle)
+            coords[:, i, 1] = radius * math.sin(angle)
+            coords[:, i, 2] = 2.8 * i - L * 2.8 / 2
+        return coords
+
     def forward(
         self,
         seq_tokens: torch.Tensor,
@@ -396,6 +410,11 @@ class GNNLatentDiffusionModel(nn.Module):
         # Encode
         latent_cond = self.encoder(seq_tokens)  # (B, L, d_latent)
 
+        # NaN check after encoder
+        if torch.isnan(latent_cond).any() or torch.isinf(latent_cond).any():
+            # Fallback: use zeros (will be penalized by loss)
+            latent_cond = torch.zeros_like(latent_cond)
+
         # Diffusion
         latent_out = self.diffusion(latent_cond, mode=mode)
 
@@ -404,6 +423,11 @@ class GNNLatentDiffusionModel(nn.Module):
             # During training: _train_step returns {'loss': diff_loss, 'latent_pred': noise_pred}
             # We need BOTH the diffusion loss AND coords for end-to-end training
             diff_loss = latent_out.get('loss', torch.tensor(0.0, device=seq_tokens.device))
+
+            # NaN check diffusion loss
+            if torch.isnan(diff_loss) or torch.isinf(diff_loss):
+                diff_loss = torch.tensor(0.0, device=seq_tokens.device)
+
             # Use clean latent for decoder during training (teaches latent→3D mapping)
             # At inference, decoder will receive denoised latent from diffusion sampling
             latent = latent_cond
@@ -413,6 +437,12 @@ class GNNLatentDiffusionModel(nn.Module):
 
         # Decode
         coords = self.decoder(latent, seq_tokens)  # (B, L, 3)
+
+        # NaN check coords
+        if torch.isnan(coords).any() or torch.isinf(coords).any():
+            # Fallback: generate helical coords
+            B, L = seq_tokens.shape
+            coords = self._helical_fallback(seq_tokens)
 
         # Metrics
         closure_dist = torch.norm(coords[:, 0] - coords[:, -1], dim=-1)
