@@ -1000,13 +1000,13 @@ def train_scheme6(train_loader, val_loader, args, device):
                 target = batch['coords'].to(device)
                 lengths = batch['lengths']
 
-                # Skip if target has Inf/NaN
-                if torch.isinf(target).any() or torch.isnan(target).any():
+                # Skip batch if target is all zeros (corrupt data replaced)
+                if target.abs().sum() < 1e-3:
                     continue
 
-                # Use train mode for validation (faster, no sampling)
-                out = model(seq_ids, mode='train')
-                pred = out['coords']
+                # Forward: use encoder+decoder directly (skip diffusion for speed)
+                latent = model.encoder(seq_ids)
+                pred = model.decoder(latent, seq_ids)
 
                 B = len(lengths)
                 for b in range(B):
@@ -1015,6 +1015,8 @@ def train_scheme6(train_loader, val_loader, args, device):
                     t = target[b, :valid_L]
 
                     if torch.isnan(p).any() or torch.isinf(p).any():
+                        continue
+                    if t.abs().sum() < 1e-3:  # Skip zero targets
                         continue
 
                     p_c = p - p.mean(dim=0)
@@ -1040,7 +1042,12 @@ def train_scheme6(train_loader, val_loader, args, device):
                         val_rmsd += rmsd.item()
                         n_val_samples += 1
 
-        avg_val = val_rmsd / max(n_val_samples, 1)
+        # Fallback if no valid samples: use training loss as proxy
+        if n_val_samples == 0:
+            avg_val = avg_train  # Use train loss as val proxy
+            print(f"  WARNING: No valid val samples, using train loss as proxy")
+        else:
+            avg_val = val_rmsd / n_val_samples
         scheduler.step(avg_val)
 
         if avg_val < best_val:
