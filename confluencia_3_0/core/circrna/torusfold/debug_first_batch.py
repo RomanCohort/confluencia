@@ -7,7 +7,8 @@ import json
 import torch
 import numpy as np
 
-PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+_here = os.path.abspath(__file__)
+PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(_here)))))
 sys.path.insert(0, PROJECT_ROOT)
 
 from confluencia_3_0.core.circrna.torusfold.train_all_schemes import (
