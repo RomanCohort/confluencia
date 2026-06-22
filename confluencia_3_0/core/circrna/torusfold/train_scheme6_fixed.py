@@ -105,26 +105,30 @@ def train_scheme6_fixed(labels_dir, output_dir, epochs=100, batch_size=4, lr=5e-
             pred_coords = out['coords']
             diff_loss = out.get('diffusion_loss', None)
 
-            # Denormalize for physics losses (use target scale)
-            pred_centered = pred_coords - pred_coords.mean(dim=1, keepdim=True)
-            pred_denorm = pred_centered * target_scale + target.mean(dim=1, keepdim=True)
-
-            # Losses
+            # Coordinate reconstruction loss (normalized space)
             pred_centered = pred_coords - pred_coords.mean(dim=1, keepdim=True)
             coord_loss = F.mse_loss(pred_centered, target_norm)
 
-            pred_closure = torch.norm(pred_denorm[:, 0] - pred_denorm[:, -1], dim=-1)
-            closure_loss = F.mse_loss(pred_closure, torch.full_like(pred_closure, bond_length))
+            # Closure loss in normalized space: encourage first≈last
+            # In normalized space, BSJ distance should be ≈ bond_length / target_scale
+            bond_length_norm = bond_length / target_scale.squeeze(-1)  # (B, 1) -> (B,)
+            pred_closure_norm = torch.norm(pred_centered[:, 0] - pred_centered[:, -1], dim=-1)  # (B,)
+            closure_loss = F.mse_loss(pred_closure_norm, bond_length_norm.squeeze(-1))
 
+            # Bond consistency in normalized space
+            bond_norm_target = bond_length / target_scale.squeeze(-1)  # (B,)
             bond_loss = torch.tensor(0.0, device=device)
             for b in range(B):
                 valid_L = lengths[b]
                 if valid_L < 4:
                     continue
-                bonds = torch.norm(pred_denorm[b, 1:valid_L] - pred_denorm[b, :valid_L-1], dim=-1)
-                bsj = torch.norm(pred_denorm[b, 0] - pred_denorm[b, valid_L-1])
+                bonds = torch.norm(
+                    pred_centered[b, 1:valid_L] - pred_centered[b, :valid_L-1], dim=-1
+                )
+                bsj = torch.norm(pred_centered[b, 0] - pred_centered[b, valid_L-1])
                 all_bonds = torch.cat([bonds, bsj.unsqueeze(0)])
-                bond_loss += F.mse_loss(all_bonds, torch.full_like(all_bonds, bond_length))
+                target_bond = bond_norm_target[b].expand(all_bonds.shape[0])
+                bond_loss += F.mse_loss(all_bonds, target_bond)
             bond_loss /= max(B, 1)
 
             # Total
