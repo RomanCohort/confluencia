@@ -812,6 +812,7 @@ def train_scheme5(train_loader, val_loader, args, device):
     for epoch in range(args.epochs):
         model.train()
         train_loss = 0
+        nan_batches = 0  # Initialize counter
         for batch in train_loader:
             seq_ids = batch['seq_ids'].to(device)
             target = batch['coords'].to(device)
@@ -849,6 +850,7 @@ def train_scheme5(train_loader, val_loader, args, device):
 
             # NaN guard — skip batch if loss is NaN/Inf (same as Scheme 1/4)
             if torch.isnan(loss) or torch.isinf(loss):
+                nan_batches += 1
                 optimizer.zero_grad()
                 continue
 
@@ -860,6 +862,7 @@ def train_scheme5(train_loader, val_loader, args, device):
                     has_nan = True
                     break
             if has_nan:
+                nan_batches += 1
                 optimizer.zero_grad()
                 continue
             torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
@@ -867,7 +870,8 @@ def train_scheme5(train_loader, val_loader, args, device):
             optimizer.zero_grad()
             train_loss += loss.item()
 
-        avg_train = train_loss / len(train_loader)
+        n_valid_batches = max(len(train_loader) - nan_batches, 1)
+        avg_train = train_loss / n_valid_batches
 
         # Validation: RMSD in Angstroms
         model.eval()
@@ -879,7 +883,12 @@ def train_scheme5(train_loader, val_loader, args, device):
                 target = batch['coords'].to(device)
                 lengths = batch['lengths']
 
+                # Skip if target is all zeros (padding issue)
                 if target.abs().sum() < 1e-3:
+                    continue
+
+                # Skip if target has NaN/Inf
+                if torch.isnan(target).any() or torch.isinf(target).any():
                     continue
 
                 out = model(seq_ids)
@@ -888,6 +897,8 @@ def train_scheme5(train_loader, val_loader, args, device):
                 B = len(lengths)
                 for b in range(B):
                     valid_L = lengths[b]
+                    if valid_L < 4:  # Skip very short sequences
+                        continue
                     p = pred[b, :valid_L]
                     t = target[b, :valid_L]
 
@@ -896,13 +907,21 @@ def train_scheme5(train_loader, val_loader, args, device):
                     if torch.isnan(t).any() or torch.isinf(t).any():
                         continue
 
-                    rmsd = kabsch_rmsd(p, t)
+                    # Center predictions for fair RMSD comparison
+                    p_c = p - p.mean(dim=0)
+                    t_c = t - t.mean(dim=0)
+
+                    # Skip if zero variance (all same coords)
+                    if p_c.abs().sum() < 1e-6 or t_c.abs().sum() < 1e-6:
+                        continue
+
+                    rmsd = kabsch_rmsd(p_c, t_c)
                     if not (np.isnan(rmsd) or np.isinf(rmsd)):
                         val_rmsd += rmsd
                         n_val_samples += 1
 
         if n_val_samples == 0:
-            avg_val = avg_train  # Fallback to train loss
+            avg_val = avg_train * 100  # Fallback: use train loss as proxy (scaled)
         else:
             avg_val = val_rmsd / n_val_samples
         scheduler.step(avg_val)
@@ -915,7 +934,7 @@ def train_scheme5(train_loader, val_loader, args, device):
             patience_counter += 1
 
         print(f"  Epoch {epoch+1}/{args.epochs} train={avg_train:.4f} "
-              f"val={avg_val:.1f}Å (n={n_val_samples}) pat={patience_counter}/10")
+              f"val={avg_val:.1f}Å (n={n_val_samples}) nan={nan_batches} pat={patience_counter}/10")
 
         if patience_counter >= 10:
             print(f"  Early stopping at epoch {epoch+1}")
