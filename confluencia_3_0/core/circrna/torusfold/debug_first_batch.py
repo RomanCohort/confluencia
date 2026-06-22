@@ -65,7 +65,7 @@ def main():
         print(f"  pred has NaN: {torch.isnan(pred).any()}")
         print(f"  pred range: [{pred.min():.2f}, {pred.max():.2f}]")
         print(f"  bond_loss: {out['bond_loss']:.4f}")
-        print(f"  closure_loss: {out['closure_loss']:.4f}")
+        print(f"  closure_loss: {out['closure_loss'].mean():.4f}")
 
     # Compute training loss
     B, L, _ = target.shape
