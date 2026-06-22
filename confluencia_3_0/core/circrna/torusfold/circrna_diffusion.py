@@ -111,6 +111,12 @@ class EGNNLayer(nn.Module):
         # Gather source and target node features
         src, dst = edge_index[0], edge_index[1]  # (E,)
 
+        # Debug: check edge_index bounds
+        if src.max() >= L or dst.max() >= L:
+            # Edge index out of bounds - this should never happen
+            # Return input unchanged
+            return node_feat, coords
+
         h_src = node_feat[:, src]   # (B, E, d_node)
         h_dst = node_feat[:, dst]   # (B, E, d_node)
 
@@ -119,8 +125,8 @@ class EGNNLayer(nn.Module):
         x_dst = coords[:, dst]      # (B, E, 3)
         rel_coords = x_src - x_dst  # (B, E, 3)
 
-        # Distance (rotation invariant)
-        dist = torch.norm(rel_coords, dim=-1, keepdim=True)  # (B, E, 1)
+        # Distance (rotation invariant) - clamp to avoid NaN from zero distance
+        dist = torch.norm(rel_coords, dim=-1, keepdim=True).clamp(min=1e-6)  # (B, E, 1)
 
         # Message input
         msg_input = torch.cat([h_src, h_dst, edge_feat, dist], dim=-1)
@@ -581,11 +587,11 @@ class CircRNADiffusionModel(nn.Module):
             if mask.any():
                 edge_feat[:, mask, et] = 1.0
 
-        # Add distance to edge features
+        # Add distance to edge features (normalized and clamped)
         src, dst = edge_index[0], edge_index[1]
-        dist = torch.norm(coords[:, src] - coords[:, dst], dim=-1, keepdim=True)
+        dist = torch.norm(coords[:, src] - coords[:, dst], dim=-1, keepdim=True).clamp(max=100)
         if self.config.d_edge > 2:
-            edge_feat[:, :, 2] = dist.squeeze(-1) / 20.0  # Normalize
+            edge_feat[:, :, 2] = (dist.squeeze(-1) / 20.0).clamp(-5, 5)  # Normalize and clamp
 
         # Node features: condition + time
         node_feat = cond + t_emb.unsqueeze(1)  # (B, L, d_node)
