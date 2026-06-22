@@ -885,14 +885,18 @@ def train_scheme5(train_loader, val_loader, args, device):
 
         avg_train = train_loss / len(train_loader)
 
-        # Validation: RMSD in Å (not normalized MSE)
+        # Validation: RMSD in Angstroms
         model.eval()
         val_rmsd = 0
+        n_val_samples = 0
         with torch.no_grad():
             for batch in val_loader:
                 seq_ids = batch['seq_ids'].to(device)
                 target = batch['coords'].to(device)
                 lengths = batch['lengths']
+
+                if target.abs().sum() < 1e-3:
+                    continue
 
                 out = model(seq_ids)
                 pred = out['coords']
@@ -902,11 +906,21 @@ def train_scheme5(train_loader, val_loader, args, device):
                     valid_L = lengths[b]
                     p = pred[b, :valid_L]
                     t = target[b, :valid_L]
-                    if not (torch.isnan(p).any() or torch.isinf(p).any()):
-                        val_rmsd += kabsch_rmsd(p, t)
-                val_rmsd /= B
 
-        avg_val = val_rmsd / len(val_loader)
+                    if torch.isnan(p).any() or torch.isinf(p).any():
+                        continue
+                    if torch.isnan(t).any() or torch.isinf(t).any():
+                        continue
+
+                    rmsd = kabsch_rmsd(p, t)
+                    if not (np.isnan(rmsd) or np.isinf(rmsd)):
+                        val_rmsd += rmsd
+                        n_val_samples += 1
+
+        if n_val_samples == 0:
+            avg_val = avg_train  # Fallback to train loss
+        else:
+            avg_val = val_rmsd / n_val_samples
         scheduler.step(avg_val)
 
         if avg_val < best_val:
@@ -917,7 +931,7 @@ def train_scheme5(train_loader, val_loader, args, device):
             patience_counter += 1
 
         print(f"  Epoch {epoch+1}/{args.epochs} train={avg_train:.4f} "
-              f"val={avg_val:.4f} pat={patience_counter}/10")
+              f"val={avg_val:.1f}Å (n={n_val_samples}) pat={patience_counter}/10")
 
         if patience_counter >= 10:
             print(f"  Early stopping at epoch {epoch+1}")
