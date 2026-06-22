@@ -431,6 +431,12 @@ def train_scheme1(train_loader, val_loader, args, device):
             seq_ids = batch['seq_ids'].to(device)
             target = batch['coords'].to(device)
             lengths = batch['lengths']
+
+            # Skip batches with Inf/NaN in target coords (corrupt data)
+            if torch.isinf(target).any() or torch.isnan(target).any():
+                nan_batches += 1
+                optimizer.zero_grad()
+                continue
             conf_scale = batch.get('confidence', torch.tensor(0.5)).mean().item()
 
             # FIX 1: Normalize coords using TARGET scale only (not independent scales)
@@ -555,6 +561,9 @@ def train_scheme4(train_loader, val_loader, args, device):
     best_val = float('inf')
     patience_counter = 0
 
+    # Use mixed precision for numerical stability on large graphs
+    scaler = torch.cuda.amp.GradScaler() if device.type == 'cuda' else None
+
     for epoch in range(args.epochs):
         model.train()
         train_loss = 0
@@ -574,27 +583,34 @@ def train_scheme4(train_loader, val_loader, args, device):
             coords_scale = torch.norm(coords_centered, dim=(1,2), keepdim=True).clamp(min=1.0)
             coords_norm = coords_centered / coords_scale
 
-            # Forward diffusion + denoising
-            out = model(seq_tokens=seq_ids, coords_target=coords_norm, pair_probs=pair_probs)
+            # Forward with mixed precision
+            with torch.cuda.amp.autocast(enabled=(scaler is not None)):
+                out = model(seq_tokens=seq_ids, coords_target=coords_norm, pair_probs=pair_probs)
 
-            # Extract losses from diffusion model output
-            noise_loss = out.get('noise_loss', torch.tensor(0.0, device=device))
-            closure_loss = out.get('closure_loss', torch.tensor(0.0, device=device))
-            loss = out.get('total_loss', noise_loss + 0.1 * closure_loss)
+                # Extract losses from diffusion model output
+                noise_loss = out.get('noise_loss', torch.tensor(0.0, device=device))
+                closure_loss = out.get('closure_loss', torch.tensor(0.0, device=device))
+                loss = out.get('total_loss', noise_loss + 0.1 * closure_loss)
 
             # NaN check
             if torch.isnan(loss) or torch.isinf(loss):
                 nan_batches += 1
-                print(f"  NaN/Inf detected in batch, skipping...")
                 optimizer.zero_grad()
                 continue
 
             # Apply confidence weighting
             loss = loss * conf_scale * 2.0
 
-            loss.backward()
-            torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
-            optimizer.step()
+            if scaler is not None:
+                scaler.scale(loss).backward()
+                scaler.unscale_(optimizer)
+                torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
+                scaler.step(optimizer)
+                scaler.update()
+            else:
+                loss.backward()
+                torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
+                optimizer.step()
             optimizer.zero_grad()
             train_loss += loss.item()
 
@@ -758,6 +774,12 @@ def train_scheme5(train_loader, val_loader, args, device):
             seq_ids = batch['seq_ids'].to(device)
             target = batch['coords'].to(device)
             lengths = batch['lengths']
+
+            # Skip batches with Inf/NaN in target coords (corrupt data)
+            if torch.isinf(target).any() or torch.isnan(target).any():
+                nan_batches += 1
+                optimizer.zero_grad()
+                continue
             conf_scale = batch.get('confidence', torch.tensor(0.5)).mean().item()
 
             # FIX 1: Normalize target coords
@@ -886,6 +908,12 @@ def train_scheme6(train_loader, val_loader, args, device):
             seq_ids = batch['seq_ids'].to(device)
             target = batch['coords'].to(device)
             lengths = batch['lengths']
+
+            # Skip batches with Inf/NaN in target coords (corrupt data)
+            if torch.isinf(target).any() or torch.isnan(target).any():
+                nan_batches += 1
+                optimizer.zero_grad()
+                continue
 
             # Normalize target coords using target scale only
             B, L, _ = target.shape
@@ -1497,7 +1525,7 @@ SCHEME_MAX_LEN = {
     1: 1000,  # EGNN with k-NN sparse edges, O(k*L) memory
     2: None,  # Pure physics, no limit
     3: 1000,  # Transformer - A800 80GB can handle
-    4: 1000,  # EGNN - A800 can handle
+    4: 500,   # EGNN - reduce to 500 to prevent scatter_add NaN in backward
     5: 1000,  # Attention - A800 80GB can handle
     6: 800,   # GNN O(L^2) - A800 can handle
     7: None,  # Mamba O(L) + O(L*w), no limit

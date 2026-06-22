@@ -136,20 +136,26 @@ class EGNNLayer(nn.Module):
         coord_weight = self.coord_mlp(messages)  # (B, E, 1)
         coord_update = coord_weight * rel_coords  # (B, E, 3)
 
-        # Aggregate messages per node
-        node_update = torch.zeros_like(node_feat)  # (B, L, d_node)
-        coord_update_agg = torch.zeros_like(coords)  # (B, L, 3)
+        # Aggregate messages per node using index_add (more stable than scatter_add)
+        # index_add_ has better numerical stability in backward pass
+        node_update = torch.zeros_like(node_feat)
+        coord_update_agg = torch.zeros_like(coords)
 
-        # Scatter add (simplified for batched operation)
+        # Use index_add for each batch
         for b in range(B):
-            node_update[b].scatter_add_(0, dst.unsqueeze(1).expand(-1, self.d_node), messages[b])
-            coord_update_agg[b].scatter_add_(0, dst.unsqueeze(1).expand(-1, 3), coord_update[b])
+            # Expand dst indices for node features: (E,) -> (E, d_node)
+            dst_expanded = dst.unsqueeze(1).expand(-1, self.d_node)
+            node_update[b].index_add_(0, dst, messages[b])
 
-        # Count neighbors for normalization
+            # For coords: (E,) -> (E, 3)
+            dst_coords = dst.unsqueeze(1).expand(-1, 3)
+            coord_update_agg[b].index_add_(0, dst, coord_update[b])
+
+        # Count neighbors using index_add
         neighbor_count = torch.zeros(B, L, 1, device=node_feat.device)
         for b in range(B):
-            ones = torch.ones(E, 1, device=node_feat.device)
-            neighbor_count[b].scatter_add_(0, dst.unsqueeze(1), ones)
+            ones = torch.ones(E, device=node_feat.device)
+            neighbor_count[b, :, 0].index_add_(0, dst, ones)
 
         neighbor_count = neighbor_count.clamp(min=1)
 
