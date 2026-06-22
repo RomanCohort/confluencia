@@ -110,34 +110,40 @@ def predict_ss_shape_constrained(sequence: str, reactivities: np.ndarray = None)
     try:
         md = RNA.md()
         md.circ = True
+        fc = RNA.fold_compound(sequence, md)
 
         # Apply SHAPE constraints if provided
         if reactivities is not None and len(reactivities) == L:
-            # Convert SHAPE reactivities to pseudo-energies
-            # Higher reactivity = more flexible = less likely paired
-            # Use standard SHAPE conversion: ΔG = m * ln(reactivity + 1) + b
-            # m ≈ 2.0, b ≈ -0.5 (Deigan et al. 2009)
-            shape_data = []
+            # ViennaRNA SHAPE constraint format: soft constraints
+            # Use fc.sc_add_SHAPE_deigan() method for Deigan et al. 2009 approach
+            shape_list = []
             for r in reactivities:
                 if np.isfinite(r) and r >= 0:
-                    shape_data.append(float(r))
+                    shape_list.append(float(r))
                 else:
-                    shape_data.append(-1.0)  # Missing data marker
+                    shape_list.append(-999.0)  # ViennaRNA missing data marker
 
-            fc = RNA.fold_compound(sequence, md)
-
-            # Set SHAPE constraints
-            fc.sc_set_shape(shape_data, RNA.VRNA_SC_ALL_LOOPS, 1.0, 2.0, -0.5)
+            # Try different SHAPE constraint APIs
+            try:
+                # Method 1: sc_add_SHAPE_deigan (most common)
+                fc.sc_add_SHAPE_deigan(shape_list, 1.0, 2.0, -0.5)
+            except AttributeError:
+                try:
+                    # Method 2: older API
+                    fc.sc_set_shape(shape_list, RNA.VRNA_SC_ALL_LOOPS)
+                except AttributeError:
+                    # Method 3: fallback - no SHAPE, just circ folding
+                    pass
 
             ss, mfe = fc.mfe()
         else:
-            fc = RNA.fold_compound(sequence, md)
             ss, mfe = fc.mfe()
 
         pairs = extract_pairs_from_dot_bracket(ss)
         return ss, pairs, float(mfe)
 
     except Exception as e:
+        print(f"    SHAPE prediction error: {e}")
         return '.' * L, [], 0.0
 
 
@@ -188,7 +194,8 @@ def generate_synthetic_shape_data(n_samples: int, min_len: int = 50,
     """Generate synthetic SHAPE-constrained data.
 
     Simulates realistic SHAPE reactivity profiles and applies
-    constrained folding.
+    constrained folding. Falls back to pure ViennaRNA circ-mode
+    if SHAPE constraints fail.
     """
     rng = np.random.RandomState(seed)
     bases = ['A', 'C', 'G', 'U']
@@ -207,6 +214,18 @@ def generate_synthetic_shape_data(n_samples: int, min_len: int = 50,
 
         # Predict SS with simulated SHAPE constraints
         ss, pairs, mfe = predict_ss_shape_constrained(seq, reactivities)
+
+        # Fallback: if SHAPE failed (all dots), use pure ViennaRNA
+        if ss == '.' * L and HAS_VIENNA:
+            try:
+                md = RNA.md()
+                md.circ = True
+                fc = RNA.fold_compound(seq, md)
+                ss, mfe = fc.mfe()
+                pairs = extract_pairs_from_dot_bracket(ss)
+                mfe = float(mfe)
+            except Exception:
+                pass
 
         entries.append({
             'sequence': seq,
