@@ -94,18 +94,20 @@ def train_scheme6_fixed(labels_dir, output_dir, epochs=100, batch_size=4, lr=5e-
 
             B, L, _ = target.shape
 
-            # Normalize by std (more stable)
+            # Normalize: center per sample, scale per sample (more stable)
             target_centered = target - target.mean(dim=1, keepdim=True)
-            target_std = target_centered.std().clamp(min=1.0)
-            target_norm = target_centered / target_std
+            # Use per-sample norm, not global std
+            target_scale = torch.norm(target_centered, dim=(1,2), keepdim=True).clamp(min=1.0)
+            target_norm = target_centered / target_scale
 
             # Forward
             out = model(seq_ids, mode='train')
             pred_coords = out['coords']
             diff_loss = out.get('diffusion_loss', None)
 
-            # Denormalize for physics losses
-            pred_denorm = pred_coords * target_std + target.mean(dim=1, keepdim=True)
+            # Denormalize for physics losses (use target scale)
+            pred_centered = pred_coords - pred_coords.mean(dim=1, keepdim=True)
+            pred_denorm = pred_centered * target_scale + target.mean(dim=1, keepdim=True)
 
             # Losses
             pred_centered = pred_coords - pred_coords.mean(dim=1, keepdim=True)
