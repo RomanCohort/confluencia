@@ -22,7 +22,7 @@ from confluencia_3_0.core.circrna.torusfold.gnn_latent_diffusion import (
     GNNLatentDiffusionModel, GNNLatentConfig
 )
 from confluencia_3_0.core.circrna.torusfold.train_all_schemes import (
-    load_pseudo_labels, CircRNADataset, collate_fn, build_args,
+    load_pseudo_labels, CircRNADataset, collate_fn,
 )
 from torch.utils.data import DataLoader
 
