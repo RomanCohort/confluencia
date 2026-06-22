@@ -138,18 +138,14 @@ class EGNNLayer(nn.Module):
 
         # Aggregate messages per node using index_add (more stable than scatter_add)
         # index_add_ has better numerical stability in backward pass
+        # Force float32 for index_add — AMP autocast may produce half tensors
         node_update = torch.zeros_like(node_feat)
         coord_update_agg = torch.zeros_like(coords)
 
-        # Use index_add for each batch
         for b in range(B):
-            # Expand dst indices for node features: (E,) -> (E, d_node)
-            dst_expanded = dst.unsqueeze(1).expand(-1, self.d_node)
-            node_update[b].index_add_(0, dst, messages[b])
+            node_update[b].index_add_(0, dst, messages[b].float())
 
-            # For coords: (E,) -> (E, 3)
-            dst_coords = dst.unsqueeze(1).expand(-1, 3)
-            coord_update_agg[b].index_add_(0, dst, coord_update[b])
+            coord_update_agg[b].index_add_(0, dst, coord_update[b].float())
 
         # Count neighbors using index_add
         neighbor_count = torch.zeros(B, L, 1, device=node_feat.device)
