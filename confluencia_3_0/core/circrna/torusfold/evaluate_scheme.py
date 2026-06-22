@@ -105,14 +105,24 @@ def evaluate(model, scheme_id, loader, device, n_samples=1):
     all_tm_scores = []
     n_evaluated = 0
     n_failed = 0
+    n_batches = 0
+    n_skipped_inf = 0
+    n_skipped_zero = 0
 
     for batch in loader:
+        n_batches += 1
         seq_ids = batch['seq_ids'].to(device)
         target = batch['coords'].to(device)
         lengths = batch['lengths']
 
         # Skip corrupt data
         if torch.isinf(target).any() or torch.isnan(target).any():
+            n_skipped_inf += 1
+            continue
+
+        # Skip zero targets (replaced Inf data)
+        if target.abs().sum() < 1e-3:
+            n_skipped_zero += 1
             continue
 
         B = len(lengths)
@@ -175,8 +185,11 @@ def evaluate(model, scheme_id, loader, device, n_samples=1):
                 n_evaluated += 1
 
     results = {
+        'n_batches': n_batches,
         'n_evaluated': n_evaluated,
         'n_failed': n_failed,
+        'n_skipped_inf': n_skipped_inf,
+        'n_skipped_zero': n_skipped_zero,
         'rmsd_mean': float(np.mean(all_rmsds)) if all_rmsds else float('inf'),
         'rmsd_median': float(np.median(all_rmsds)) if all_rmsds else float('inf'),
         'rmsd_std': float(np.std(all_rmsds)) if all_rmsds else 0,
@@ -210,6 +223,8 @@ def main():
     parser.add_argument('--scheme', type=int, required=True)
     parser.add_argument('--checkpoint', type=str, required=True)
     parser.add_argument('--labels', type=str, default='data/circrna_3d_merged')
+    parser.add_argument('--test-data', type=str, default=None,
+                        help='Alternative test data directory (e.g., data/pdb_3d)')
     parser.add_argument('--batch-size', type=int, default=2)
     parser.add_argument('--n-samples', type=int, default=1,
                         help='Number of samples for diffusion models')
@@ -229,33 +244,47 @@ def main():
     print(f"  Evaluating Scheme {args.scheme}")
     print("=" * 60)
     print(f"  Checkpoint: {args.checkpoint}")
-    print(f"  Data: {args.labels}")
+
+    # Use alternative test data if specified
+    data_dir = args.test_data if args.test_data else args.labels
+    print(f"  Data: {data_dir}")
 
     # Load data
-    sequences, coords_labels, pair_labels, confidence_weights, metadata = load_pseudo_labels(args.labels)
+    sequences, coords_labels, pair_labels, confidence_weights, metadata = load_pseudo_labels(data_dir)
     print(f"  Total: {len(sequences)} samples")
 
-    # Use last 10% as test (same split logic)
-    n_test = min(args.max_samples, len(sequences) // 10)
-    test_start = len(sequences) - n_test
-
-    test_seqs = sequences[test_start:]
-    test_coords = coords_labels[test_start:]
-    test_pairs = pair_labels[test_start:]
-    test_confs = confidence_weights[test_start:]
-
-    # Filter out corrupt samples for evaluation
+    # Use first N clean samples (not last 10% which may be all-Inf)
     clean_mask = []
-    for i, c in enumerate(test_coords):
-        if np.isfinite(c).all() and c.shape[0] == len(test_seqs[i]) and c.shape[0] >= 4:
+    for i, c in enumerate(coords_labels):
+        if np.isfinite(c).all() and c.shape[0] == len(sequences[i]) and c.shape[0] >= 4:
             clean_mask.append(True)
         else:
             clean_mask.append(False)
 
-    test_seqs = [s for s, m in zip(test_seqs, clean_mask) if m]
-    test_coords = [c for c, m in zip(test_coords, clean_mask) if m]
-    test_pairs = [p for p, m in zip(test_pairs, clean_mask) if m]
-    test_confs = [cw for cw, m in zip(test_confs, clean_mask) if m]
+    # Pick clean samples from first 90% (training region, but we use for eval)
+    n_train = int(0.9 * len(sequences))
+    eval_candidates = [(i, s, c, p, cw) for i, (s, c, p, cw, m)
+                       in enumerate(zip(sequences, coords_labels, pair_labels,
+                                       confidence_weights, clean_mask))
+                       if m and i < n_train]
+
+    # Take first max_samples
+    eval_candidates = eval_candidates[:args.max_samples]
+
+    if not eval_candidates:
+        print("  ERROR: No clean samples found! Using all samples regardless of quality.")
+        eval_candidates = [(i, sequences[i], coords_labels[i], pair_labels[i],
+                           confidence_weights[i])
+                          for i in range(min(args.max_samples, len(sequences)))]
+    else:
+        print(f"  Found {len(clean_mask)-sum(clean_mask)} dirty, "
+              f"{sum(clean_mask)} clean samples")
+        print(f"  Using {len(eval_candidates)} clean samples for evaluation")
+
+    test_seqs = [e[1] for e in eval_candidates]
+    test_coords = [e[2] for e in eval_candidates]
+    test_pairs = [e[3] for e in eval_candidates]
+    test_confs = [e[4] for e in eval_candidates]
 
     print(f"  Test: {len(test_seqs)} clean samples")
 
