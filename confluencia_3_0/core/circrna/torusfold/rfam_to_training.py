@@ -172,32 +172,24 @@ def download_rfam_seed(output_path: str) -> bool:
 
 def open_rfam_file(path: str):
     """Open Rfam file, trying multiple encodings."""
-    if path.endswith('.gz'):
-        # Try utf-8 first, then latin-1
-        for encoding in ['utf-8', 'latin-1']:
+    import io
+    for encoding in ['utf-8', 'latin-1', 'cp1252']:
+        try:
+            if path.endswith('.gz'):
+                binary_f = gzip.open(path, 'rb')
+            else:
+                binary_f = open(path, 'rb')
+            text_f = io.TextIOWrapper(binary_f, encoding=encoding, errors='replace')
+            # Test read
+            test = text_f.read(2048)
+            text_f.seek(0)
+            return text_f
+        except (UnicodeDecodeError, UnicodeError):
             try:
-                f = gzip.open(path, 'rt', encoding=encoding)
-                # Test read
-                f.read(1024)
-                f.seek(0)
-                return f
-            except (UnicodeDecodeError, UnicodeError):
-                if encoding == 'utf-8':
-                    continue
-                else:
-                    raise
-    else:
-        for encoding in ['utf-8', 'latin-1']:
-            try:
-                f = open(path, 'r', encoding=encoding)
-                f.read(1024)
-                f.seek(0)
-                return f
-            except (UnicodeDecodeError, UnicodeError):
-                if encoding == 'utf-8':
-                    continue
-                else:
-                    raise
+                binary_f.close()
+            except Exception:
+                pass
+            continue
     return None
 
 
