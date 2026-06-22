@@ -1244,15 +1244,26 @@ def train_scheme3(train_loader, val_loader, args, device):
             # Problem: teacher forcing causes distribution mismatch at test time
             B, L = seq_ids.shape
 
+            # FIX: Normalize target coords (same as Scheme 1/5/6)
+            # Without normalization, coord_loss ~12000 Å² and convergence is very slow
+            target_centered = target_coords - target_coords.mean(dim=1, keepdim=True)
+            target_scale = torch.norm(target_centered, dim=(1,2), keepdim=True).clamp(min=1.0)
+            target_norm = target_centered / target_scale
+
             coords_init = torch.zeros(B, L, 3, device=device)
             for b in range(B):
                 valid_L = lengths[b]
                 coords_init[b, :valid_L] = generate_helical_init(valid_L, device=device)
 
-            # Refine with Generator
-            coords_refined = model(seq_ids, coords_init)
+            # Normalize init coords to same scale as target
+            init_centered = coords_init - coords_init.mean(dim=1, keepdim=True)
+            init_scale = torch.norm(init_centered, dim=(1,2), keepdim=True).clamp(min=1.0)
+            coords_init_norm = init_centered / target_scale  # Use target scale
 
-            # 1. Coordinate MSE loss in Angstroms (raw scale)
+            # Refine with Generator
+            coords_refined = model(seq_ids, coords_init_norm)
+
+            # 1. Coordinate MSE loss on normalized coords
             coord_loss = 0
             n_valid = 0
             for b in range(B):
@@ -1260,30 +1271,29 @@ def train_scheme3(train_loader, val_loader, args, device):
                 if valid_L < 4:
                     continue
                 pred = coords_refined[b, :valid_L]
-                target = target_coords[b, :valid_L]
+                target = target_norm[b, :valid_L]
                 # Center both for fair comparison (translation-invariant)
                 pred_c = pred - pred.mean(dim=0)
                 target_c = target - target.mean(dim=0)
-                # MSE in Angstroms^2
                 mse = torch.mean(torch.sum((pred_c - target_c) ** 2, dim=1))
                 coord_loss += mse
                 n_valid += 1
             coord_loss /= max(n_valid, 1)
 
-            # 2. BSJ closure: absolute error in Angstroms
-            target_closure = torch.norm(target_coords[:, 0] - target_coords[:, -1], dim=-1)
+            # 2. BSJ closure: error in normalized space
+            target_closure = torch.norm(target_norm[:, 0] - target_norm[:, -1], dim=-1)
             pred_closure = torch.norm(coords_refined[:, 0] - coords_refined[:, -1], dim=-1)
-            closure_error = (pred_closure - target_closure).clamp(-50, 50)
+            closure_error = (pred_closure - target_closure).clamp(-5, 5)
             closure_loss = torch.mean(closure_error ** 2)
 
-            # 3. Bond length MSE in Angstroms^2
+            # 3. Bond length consistency in normalized space
             bond_loss = 0
             n_bond = 0
             for b in range(B):
                 valid_L = lengths[b]
                 if valid_L > 1:
                     cr_pred = coords_refined[b, :valid_L]
-                    cr_target = target_coords[b, :valid_L]
+                    cr_target = target_norm[b, :valid_L]
                     idx = torch.arange(valid_L, device=device)
                     nxt = (idx + 1) % valid_L
                     d_pred = torch.norm(cr_pred[nxt] - cr_pred[idx], dim=-1)
@@ -1292,7 +1302,7 @@ def train_scheme3(train_loader, val_loader, args, device):
                     n_bond += 1
             bond_loss /= max(n_bond, 1)
 
-            # Combined loss (all in Angstroms^2 scale)
+            # Combined loss (normalized scale)
             loss = coord_loss + 0.1 * closure_loss + 0.1 * bond_loss
 
             # Apply confidence weighting
@@ -1312,7 +1322,7 @@ def train_scheme3(train_loader, val_loader, args, device):
         for k in train_metrics:
             train_metrics[k] /= len(train_loader)
 
-        # Validation: RMSD in Angstroms (raw scale, matches training)
+        # Validation: RMSD in Angstroms (denormalize from normalized space)
         model.eval()
         val_loss = 0
 
@@ -1323,23 +1333,35 @@ def train_scheme3(train_loader, val_loader, args, device):
                 lengths = batch['lengths']
 
                 B, L = seq_ids.shape
+
+                # Normalize target (same as training)
+                target_centered = target_coords - target_coords.mean(dim=1, keepdim=True)
+                target_scale = torch.norm(target_centered, dim=(1,2), keepdim=True).clamp(min=1.0)
+
                 # Use helical init for validation (matches deployment)
                 coords_init = torch.zeros(B, L, 3, device=device)
                 for b in range(B):
                     valid_L = lengths[b]
                     coords_init[b, :valid_L] = generate_helical_init(valid_L, device=device)
 
-                coords_refined = model(seq_ids, coords_init)
+                # Normalize init coords to target scale
+                init_centered = coords_init - coords_init.mean(dim=1, keepdim=True)
+                coords_init_norm = init_centered / target_scale
+
+                coords_refined = model(seq_ids, coords_init_norm)
 
                 # Skip NaN/Inf
                 if torch.isnan(coords_refined).any() or torch.isinf(coords_refined).any():
                     continue
 
+                # Denormalize predictions back to Å for RMSD reporting
+                pred_denorm = coords_refined * target_scale + target_coords.mean(dim=1, keepdim=True)
+
                 # RMSD in Angstroms (centered, translation-invariant)
                 val_rmsd = 0
                 for b in range(B):
                     valid_L = lengths[b]
-                    p = coords_refined[b, :valid_L]
+                    p = pred_denorm[b, :valid_L]
                     t = target_coords[b, :valid_L]
                     p_c = p - p.mean(dim=0)
                     t_c = t - t.mean(dim=0)
