@@ -581,7 +581,7 @@ def train_scheme4(train_loader, val_loader, args, device):
     patience_counter = 0
 
     # Use mixed precision for numerical stability on large graphs
-    scaler = torch.cuda.amp.GradScaler() if device.type == 'cuda' else None
+    scaler = torch.amp.GradScaler('cuda') if device.type == 'cuda' else None
 
     for epoch in range(args.epochs):
         model.train()
@@ -603,7 +603,7 @@ def train_scheme4(train_loader, val_loader, args, device):
             coords_norm = coords_centered / coords_scale
 
             # Forward with mixed precision
-            with torch.cuda.amp.autocast(enabled=(scaler is not None)):
+            with torch.amp.autocast('cuda', enabled=(scaler is not None)):
                 out = model(seq_tokens=seq_ids, coords_target=coords_norm, pair_probs=pair_probs)
 
                 # Extract losses from diffusion model output
@@ -671,7 +671,7 @@ def train_scheme4(train_loader, val_loader, args, device):
                 # Fallback: use training step output
                 if pred_coords is None:
                     try:
-                        with torch.cuda.amp.autocast(enabled=(device.type == 'cuda')):
+                        with torch.amp.autocast('cuda', enabled=(device.type == 'cuda')):
                             out = model(seq_tokens=seq_ids, coords_target=coords_norm, pair_probs=None)
                             # coords_pred from _train_step
                             pred_coords = out.get('coords_pred', None)
@@ -724,7 +724,10 @@ def train_scheme4(train_loader, val_loader, args, device):
                         val_rmsd += rmsd.item()
                         n_val_samples += 1
 
-        avg_val = val_rmsd / max(n_val_samples, 1)
+        if n_val_samples == 0:
+            avg_val = avg_train  # Use train loss as proxy if no valid samples
+        else:
+            avg_val = val_rmsd / n_val_samples
         scheduler.step(avg_val)
 
         if avg_val < best_val:
@@ -735,7 +738,7 @@ def train_scheme4(train_loader, val_loader, args, device):
             patience_counter += 1
 
         print(f"  Epoch {epoch+1}/{args.epochs} train={avg_train:.4f} "
-              f"val={avg_val:.4f} nan={nan_batches} pat={patience_counter}/10")
+              f"val={avg_val:.1f}Å (n={n_val_samples}) nan={nan_batches} pat={patience_counter}/10")
 
         if patience_counter >= 10:
             print(f"  Early stopping at epoch {epoch+1}")
