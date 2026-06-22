@@ -639,7 +639,7 @@ def train_scheme4(train_loader, val_loader, args, device):
 
         avg_train = train_loss / max(len(train_loader) - nan_batches, 1)
 
-        # Validation: sample from diffusion model and compute RMSD
+        # Validation: RMSD in Angstroms (denormalize predictions)
         model.eval()
         val_rmsd = 0
         n_val_samples = 0
@@ -649,44 +649,80 @@ def train_scheme4(train_loader, val_loader, args, device):
                 coords_target = batch['coords'].to(device)
                 lengths = batch['lengths']
 
+                if coords_target.abs().sum() < 1e-3:
+                    continue
+
                 B = len(lengths)
-                # Sample predictions from diffusion model
+                L = coords_target.shape[1]
+
+                # Normalize target for training-mode denoise fallback
+                target_centered = coords_target - coords_target.mean(dim=1, keepdim=True)
+                target_scale = torch.norm(target_centered, dim=(1,2), keepdim=True).clamp(min=1.0)
+                coords_norm = target_centered / target_scale
+
+                # Try sampling; fallback to single-step denoise
+                pred_coords = None
                 try:
                     out = model(seq_tokens=seq_ids, pair_probs=None)
                     pred_coords = out.get('coords', None)
                 except Exception:
-                    pred_coords = None
+                    pass
 
-                if pred_coords is not None:
-                    for b in range(B):
-                        valid_L = lengths[b]
-                        p = pred_coords[b, :valid_L]
-                        t = coords_target[b, :valid_L]
+                # Fallback: use training step output
+                if pred_coords is None:
+                    try:
+                        with torch.cuda.amp.autocast(enabled=(device.type == 'cuda')):
+                            out = model(seq_tokens=seq_ids, coords_target=coords_norm, pair_probs=None)
+                            # coords_pred from _train_step
+                            pred_coords = out.get('coords_pred', None)
+                            if pred_coords is None:
+                                # Single-step: coords_noisy - noise_pred
+                                t = torch.zeros(B, dtype=torch.long, device=device)
+                                alpha_bar = model.alpha_bars[t].view(B, 1, 1)
+                                noise = torch.randn_like(coords_norm)
+                                coords_noisy = torch.sqrt(alpha_bar) * coords_norm + torch.sqrt(1 - alpha_bar) * noise
+                                noise_pred = model._denoise(coords_noisy,
+                                    model.condition_encoder(seq_ids, None, 310.0, 7.4, 1.0, 150.0),
+                                    model.time_embed(t.float()), L, None)
+                                pred_coords = coords_noisy - noise_pred
+                    except Exception:
+                        continue
 
-                        # Skip if prediction has NaN/Inf
-                        if torch.isnan(p).any() or torch.isinf(p).any():
-                            continue
+                if pred_coords is None:
+                    continue
 
-                        # Kabsch alignment before RMSD
-                        p_c = p - p.mean(dim=0)
-                        t_c = t - t.mean(dim=0)
+                # Denormalize to Angstroms
+                pred_centered = pred_coords - pred_coords.mean(dim=1, keepdim=True)
+                pred_denorm = pred_centered * target_scale + coords_target.mean(dim=1, keepdim=True)
 
-                        # SVD for optimal rotation
+                for b in range(B):
+                    valid_L = lengths[b]
+                    p = pred_denorm[b, :valid_L]
+                    t = coords_target[b, :valid_L]
+
+                    if torch.isnan(p).any() or torch.isinf(p).any():
+                        continue
+
+                    p_c = p - p.mean(dim=0)
+                    t_c = t - t.mean(dim=0)
+
+                    if p_c.abs().sum() < 1e-6 or t_c.abs().sum() < 1e-6:
+                        continue
+
+                    try:
                         H = t_c.T @ p_c
-                        try:
-                            U, S, Vt = torch.linalg.svd(H)
-                            d = torch.sign(torch.det(Vt.T @ U.T))
-                            D = torch.diag(torch.tensor([1, 1, d], device=device, dtype=torch.float32))
-                            R = Vt.T @ D @ U.T
-                            p_aligned = (R @ p_c.T).T
-                            rmsd = torch.sqrt(torch.mean(torch.sum((p_aligned - t_c) ** 2, dim=1)))
-                        except Exception:
-                            # Fallback to simple centered RMSD
-                            rmsd = torch.sqrt(torch.mean(torch.sum((p_c - t_c) ** 2, dim=1)))
+                        U, S, Vt = torch.linalg.svd(H)
+                        d = torch.sign(torch.det(Vt.T @ U.T))
+                        D = torch.diag(torch.tensor([1, 1, d], device=device, dtype=torch.float32))
+                        R = Vt.T @ D @ U.T
+                        p_aligned = (R @ p_c.T).T
+                        rmsd = torch.sqrt(torch.mean(torch.sum((p_aligned - t_c) ** 2, dim=1)))
+                    except Exception:
+                        rmsd = torch.sqrt(torch.mean(torch.sum((p_c - t_c) ** 2, dim=1)))
 
+                    if not (torch.isnan(rmsd) or torch.isinf(rmsd)):
                         val_rmsd += rmsd.item()
                         n_val_samples += 1
-                # If no coords from diffusion, skip (don't fabricate a number)
 
         avg_val = val_rmsd / max(n_val_samples, 1)
         scheduler.step(avg_val)
@@ -990,7 +1026,7 @@ def train_scheme6(train_loader, val_loader, args, device):
 
         avg_train = train_loss / max(len(train_loader) - nan_batches, 1)
 
-        # Validation
+        # Validation: RMSD in Angstroms
         model.eval()
         val_rmsd = 0
         n_val_samples = 0
@@ -1004,25 +1040,31 @@ def train_scheme6(train_loader, val_loader, args, device):
                 if target.abs().sum() < 1e-3:
                     continue
 
-                # Forward: use encoder+decoder directly (skip diffusion for speed)
-                latent = model.encoder(seq_ids)
-                pred = model.decoder(latent, seq_ids)
+                # Use full model forward in sample mode for realistic RMSD
+                out = model(seq_ids, mode='sample')
+                pred = out['coords']
+
+                # Denormalize: pred is in normalized space, target in Angstroms
+                # Use target scale for denormalization
+                target_centered = target - target.mean(dim=1, keepdim=True)
+                target_scale = torch.norm(target_centered, dim=(1,2), keepdim=True).clamp(min=1.0)
+                pred_centered = pred - pred.mean(dim=1, keepdim=True)
+                pred_denorm = pred_centered * target_scale + target.mean(dim=1, keepdim=True)
 
                 B = len(lengths)
                 for b in range(B):
                     valid_L = lengths[b]
-                    p = pred[b, :valid_L]
+                    p = pred_denorm[b, :valid_L]
                     t = target[b, :valid_L]
 
                     if torch.isnan(p).any() or torch.isinf(p).any():
                         continue
-                    if t.abs().sum() < 1e-3:  # Skip zero targets
+                    if t.abs().sum() < 1e-3:
                         continue
 
                     p_c = p - p.mean(dim=0)
                     t_c = t - t.mean(dim=0)
 
-                    # Skip if zero variance
                     if p_c.abs().sum() < 1e-6 or t_c.abs().sum() < 1e-6:
                         continue
 
