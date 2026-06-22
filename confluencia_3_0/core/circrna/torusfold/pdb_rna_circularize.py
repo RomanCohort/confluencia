@@ -802,7 +802,13 @@ def run_pipeline(
         min_length=min_length,
         max_length=max_length,
     )
-    print(f"  Total PDB IDs to process: {len(pdb_ids)}")
+    # For efficiency, only download enough PDBs to likely get target_samples
+    # Roughly 10-20% of PDBs yield valid RNA chains, so download ~5x target
+    max_downloads = min(len(pdb_ids), target_samples * 5 + 50)
+    if max_downloads < len(pdb_ids):
+        print(f"  Limiting downloads to {max_downloads} (need ~{target_samples} samples)")
+    pdb_ids_to_download = pdb_ids[:max_downloads]
+    print(f"  Total PDB IDs to process: {len(pdb_ids_to_download)}")
     print()
 
     # ------------------------------------------------------------------
@@ -810,9 +816,15 @@ def run_pipeline(
     # ------------------------------------------------------------------
     print("[2/5] Downloading and parsing PDB files...")
     rna_fragments: List[Dict] = []  # {pdb_id, chain_id, sequence, coords}
-    dl_bar = ProgressBar(len(pdb_ids), prefix="Download")
+    dl_bar = ProgressBar(len(pdb_ids_to_download), prefix="Download")
 
-    for pdb_id in pdb_ids:
+    for pdb_id in pdb_ids_to_download:
+        dl_bar.update(1)
+
+        # Early stop if we have enough fragments
+        if len(rna_fragments) >= target_samples * 2:
+            print(f"\n  Found {len(rna_fragments)} fragments, enough for {target_samples} target")
+            break
         dl_bar.update(1)
         pdb_path = download_pdb(pdb_id, pdb_cache)
         if pdb_path is None:
