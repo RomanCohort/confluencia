@@ -96,9 +96,12 @@ def extract_pairs_from_dot_bracket(ss: str) -> list:
 
 
 def predict_ss_shape_constrained(sequence: str, reactivities: np.ndarray = None) -> tuple:
-    """Predict secondary structure with SHAPE constraints.
+    """Predict secondary structure.
 
-    Uses ViennaRNA SHAPE constraint support if available.
+    Uses ViennaRNA circ-mode. SHAPE constraints are not applied
+    due to API compatibility issues - but circ-mode prediction
+    still produces valid secondary structures with pairings.
+
     Returns (dot_bracket, pair_constraints, mfe).
     """
     L = len(sequence)
@@ -111,39 +114,13 @@ def predict_ss_shape_constrained(sequence: str, reactivities: np.ndarray = None)
         md = RNA.md()
         md.circ = True
         fc = RNA.fold_compound(sequence, md)
-
-        # Apply SHAPE constraints if provided
-        if reactivities is not None and len(reactivities) == L:
-            # ViennaRNA SHAPE constraint format: soft constraints
-            # Use fc.sc_add_SHAPE_deigan() method for Deigan et al. 2009 approach
-            shape_list = []
-            for r in reactivities:
-                if np.isfinite(r) and r >= 0:
-                    shape_list.append(float(r))
-                else:
-                    shape_list.append(-999.0)  # ViennaRNA missing data marker
-
-            # Try different SHAPE constraint APIs
-            try:
-                # Method 1: sc_add_SHAPE_deigan (most common)
-                fc.sc_add_SHAPE_deigan(shape_list, 1.0, 2.0, -0.5)
-            except AttributeError:
-                try:
-                    # Method 2: older API
-                    fc.sc_set_shape(shape_list, RNA.VRNA_SC_ALL_LOOPS)
-                except AttributeError:
-                    # Method 3: fallback - no SHAPE, just circ folding
-                    pass
-
-            ss, mfe = fc.mfe()
-        else:
-            ss, mfe = fc.mfe()
+        ss, mfe = fc.mfe()
 
         pairs = extract_pairs_from_dot_bracket(ss)
         return ss, pairs, float(mfe)
 
     except Exception as e:
-        print(f"    SHAPE prediction error: {e}")
+        print(f"    ViennaRNA error: {e}")
         return '.' * L, [], 0.0
 
 
@@ -191,11 +168,10 @@ def generate_coords_from_constraints(L: int, pair_constraints: list) -> np.ndarr
 
 def generate_synthetic_shape_data(n_samples: int, min_len: int = 50,
                                    max_len: int = 500, seed: int = 42) -> List[Dict]:
-    """Generate synthetic SHAPE-constrained data.
+    """Generate synthetic RNA structures with ViennaRNA circ-mode.
 
-    Simulates realistic SHAPE reactivity profiles and applies
-    constrained folding. Falls back to pure ViennaRNA circ-mode
-    if SHAPE constraints fail.
+    Simulates SHAPE reactivity profiles (for metadata) and uses
+    ViennaRNA circ-mode for structure prediction.
     """
     rng = np.random.RandomState(seed)
     bases = ['A', 'C', 'G', 'U']
@@ -205,27 +181,13 @@ def generate_synthetic_shape_data(n_samples: int, min_len: int = 50,
         L = rng.randint(min_len, max_len + 1)
         seq = ''.join(rng.choice(bases, L))
 
-        # Simulate SHAPE reactivities
-        # Typical range: 0-2, with ~20% high (unpaired), ~30% low (paired)
-        reactivities = rng.beta(1.5, 3.0, L) * 2.0  # Beta distribution ~SHAPE
-        # Add noise
+        # Simulate SHAPE reactivities (for metadata only)
+        reactivities = rng.beta(1.5, 3.0, L) * 2.0
         reactivities += rng.normal(0, 0.1, L)
         reactivities = np.clip(reactivities, 0, 2.5)
 
-        # Predict SS with simulated SHAPE constraints
+        # Predict SS with ViennaRNA circ-mode
         ss, pairs, mfe = predict_ss_shape_constrained(seq, reactivities)
-
-        # Fallback: if SHAPE failed (all dots), use pure ViennaRNA
-        if ss == '.' * L and HAS_VIENNA:
-            try:
-                md = RNA.md()
-                md.circ = True
-                fc = RNA.fold_compound(seq, md)
-                ss, mfe = fc.mfe()
-                pairs = extract_pairs_from_dot_bracket(ss)
-                mfe = float(mfe)
-            except Exception:
-                pass
 
         entries.append({
             'sequence': seq,
