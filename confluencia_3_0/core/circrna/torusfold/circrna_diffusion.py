@@ -156,8 +156,9 @@ class EGNNLayer(nn.Module):
         node_feat = self.norm(node_feat + h_new)
 
         # Update coordinates (equivariant)
-        # FIX 3: Increase step from 0.1 to 0.3 for faster convergence
-        coords = coords + coord_update_agg * 0.3
+        # Clamp coord update to prevent NaN from gradient explosion
+        coord_update_agg = coord_update_agg.clamp(-5.0, 5.0)
+        coords = coords + coord_update_agg * 0.1  # Reduce step from 0.3 to 0.1
 
         return node_feat, coords
 
@@ -459,6 +460,14 @@ class CircRNADiffusionModel(nn.Module):
         coords_noisy = torch.sqrt(alpha_bar) * coords_target + \
                        torch.sqrt(1 - alpha_bar) * noise
 
+        # Check for NaN in noisy coords
+        if torch.isnan(coords_noisy).any() or torch.isinf(coords_noisy).any():
+            return {
+                'noise_loss': torch.tensor(float('nan'), device=device),
+                'closure_loss': torch.tensor(float('nan'), device=device),
+                'total_loss': torch.tensor(float('nan'), device=device),
+            }
+
         # Encode conditions
         cond = self.condition_encoder(
             seq_tokens, ss_tokens, temperature, pH, Mg_conc, Na_conc
@@ -469,6 +478,14 @@ class CircRNADiffusionModel(nn.Module):
 
         # Predict noise via EGNN
         noise_pred = self._denoise(coords_noisy, cond, t_emb, L, pair_probs)
+
+        # Check for NaN in noise_pred
+        if torch.isnan(noise_pred).any() or torch.isinf(noise_pred).any():
+            return {
+                'noise_loss': torch.tensor(float('nan'), device=device),
+                'closure_loss': torch.tensor(float('nan'), device=device),
+                'total_loss': torch.tensor(float('nan'), device=device),
+            }
 
         # Loss
         noise_loss = F.mse_loss(noise_pred, noise)
