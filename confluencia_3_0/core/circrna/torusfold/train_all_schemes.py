@@ -868,17 +868,25 @@ def train_scheme6(train_loader, val_loader, args, device):
 
             out = model(seq_ids, mode='train')
             pred_coords = out['coords']
+            diff_loss = out.get('diffusion_loss', None)
 
             # FIX: Use TARGET scale for prediction
             pred_centered = pred_coords - pred_coords.mean(dim=1, keepdim=True)
             pred_norm = pred_centered / target_scale  # Use target scale!
 
-            loss = 0
+            # Coordinate reconstruction loss
+            coord_loss = 0
             for b in range(B):
                 valid_L = lengths[b]
                 diff = pred_norm[b, :valid_L] - target_norm[b, :valid_L]
-                loss += torch.mean(diff ** 2)
-            loss /= B
+                coord_loss += torch.mean(diff ** 2)
+            coord_loss /= B
+
+            # Total loss: diffusion (primary) + coordinate (auxiliary)
+            if diff_loss is not None and not (torch.isnan(diff_loss) or torch.isinf(diff_loss)):
+                loss = diff_loss + 0.1 * coord_loss
+            else:
+                loss = coord_loss
 
             # Apply confidence weighting
             loss = loss * conf_scale * 2.0

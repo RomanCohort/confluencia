@@ -401,22 +401,12 @@ class GNNLatentDiffusionModel(nn.Module):
 
         # Handle train (returns dict) vs sample (returns tensor)
         if isinstance(latent_out, dict):
-            # FIX 4: Compute proper denoised latent for decoder
-            # Problem: decoder was receiving noise_pred (predicted noise) instead
-            # of denoised latent, making it impossible to learn latent→3D mapping
-            noise_pred = latent_out.get('latent_pred', None)
+            # During training: _train_step returns {'loss': diff_loss, 'latent_pred': noise_pred}
+            # We need BOTH the diffusion loss AND coords for end-to-end training
             diff_loss = latent_out.get('loss', torch.tensor(0.0, device=seq_tokens.device))
-
-            if noise_pred is not None and self.training:
-                # Compute denoised latent: x0 = (x_noisy - sqrt(1-alpha_bar) * noise_pred) / sqrt(alpha_bar)
-                # We need the noisy latent and timestep from _train_step
-                # Since _train_step doesn't expose them, we re-derive from the loss dict
-                # Alternative: pass denoised latent through a separate path
-                # For now, use the conditioning latent (clean signal) as decoder input during training
-                # This teaches the decoder the correct latent→3D mapping
-                latent = latent_cond  # Use clean encoder output during training
-            else:
-                latent = latent_cond
+            # Use clean latent for decoder during training (teaches latent→3D mapping)
+            # At inference, decoder will receive denoised latent from diffusion sampling
+            latent = latent_cond
         else:
             latent = latent_out
             diff_loss = None
