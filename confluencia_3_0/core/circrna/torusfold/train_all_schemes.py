@@ -865,7 +865,12 @@ def train_scheme6(train_loader, val_loader, args, device):
         d_node=args.d_hidden,
     )
     model = GNNLatentDiffusionModel(config).to(device)
-    optimizer = torch.optim.AdamW(model.parameters(), lr=args.lr)
+
+    # Lower LR for Scheme 6 (latent diffusion is sensitive)
+    lr = min(args.lr, 1e-4)
+    print(f"  Using LR={lr} (capped at 1e-4)")
+
+    optimizer = torch.optim.AdamW(model.parameters(), lr=lr, weight_decay=1e-5)
     scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
         optimizer, mode='min', factor=0.5, patience=5
     )
@@ -876,13 +881,13 @@ def train_scheme6(train_loader, val_loader, args, device):
     for epoch in range(args.epochs):
         model.train()
         train_loss = 0
+        nan_batches = 0
         for batch in train_loader:
             seq_ids = batch['seq_ids'].to(device)
             target = batch['coords'].to(device)
             lengths = batch['lengths']
-            conf_scale = batch.get('confidence', torch.tensor(0.5)).mean().item()
 
-            # FIX 1: Normalize target coords using target scale only
+            # Normalize target coords using target scale only
             B, L, _ = target.shape
             target_centered = target - target.mean(dim=1, keepdim=True)
             target_scale = torch.norm(target_centered, dim=(1,2), keepdim=True).clamp(min=1.0)
@@ -892,17 +897,21 @@ def train_scheme6(train_loader, val_loader, args, device):
             pred_coords = out['coords']
             diff_loss = out.get('diffusion_loss', None)
 
-            # FIX: Use TARGET scale for prediction
+            # Use TARGET scale for prediction
             pred_centered = pred_coords - pred_coords.mean(dim=1, keepdim=True)
-            pred_norm = pred_centered / target_scale  # Use target scale!
+            pred_norm = pred_centered / target_scale
 
-            # Coordinate reconstruction loss
+            # Coordinate reconstruction loss (only valid positions)
             coord_loss = 0
+            n_valid = 0
             for b in range(B):
                 valid_L = lengths[b]
+                if valid_L < 4:
+                    continue
                 diff = pred_norm[b, :valid_L] - target_norm[b, :valid_L]
                 coord_loss += torch.mean(diff ** 2)
-            coord_loss /= B
+                n_valid += 1
+            coord_loss = coord_loss / max(n_valid, 1)
 
             # Total loss: diffusion (primary) + coordinate (auxiliary)
             if diff_loss is not None and not (torch.isnan(diff_loss) or torch.isinf(diff_loss)):
@@ -910,22 +919,29 @@ def train_scheme6(train_loader, val_loader, args, device):
             else:
                 loss = coord_loss
 
-            # NaN check - skip batch if loss is NaN
+            # NaN check
             if torch.isnan(loss) or torch.isinf(loss):
-                print(f"  NaN/Inf in loss, skipping batch...")
+                nan_batches += 1
                 optimizer.zero_grad()
                 continue
 
-            # Apply confidence weighting
-            loss = loss * conf_scale * 2.0
-
             loss.backward()
-            torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
+            # Aggressive gradient clipping for stability
+            grad_norm = torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=0.5)
+            if torch.isnan(torch.tensor(grad_norm)):
+                optimizer.zero_grad()
+                nan_batches += 1
+                continue
+
             optimizer.step()
             optimizer.zero_grad()
             train_loss += loss.item()
 
-        avg_train = train_loss / len(train_loader)
+        if nan_batches > len(train_loader) // 2:
+            print(f"  Too many NaN batches ({nan_batches}), stopping")
+            return float('inf')
+
+        avg_train = train_loss / max(len(train_loader) - nan_batches, 1)
 
         # Validation
         model.eval()
