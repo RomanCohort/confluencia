@@ -365,13 +365,21 @@ def main():
 
     # Re-index with merged_ prefix
     json_entries = []
+    n_skipped_mismatch = 0
     for i, entry in enumerate(all_entries):
         new_id = f"merged_{i:05d}"
 
-        # Copy coords
+        # Copy coords and VERIFY length matches sequence
         src_coords = entry["coords_path"]
         dst_coords = os.path.join(coords_dir, f"{new_id}.npy")
         coords = np.load(src_coords)
+
+        seq_len = len(entry["sequence"])
+        coord_len = coords.shape[0]
+        if seq_len != coord_len:
+            n_skipped_mismatch += 1
+            continue  # Skip mismatched entries
+
         np.save(dst_coords, coords)
 
         # Build JSON entry (without internal fields like coords_path)
@@ -399,6 +407,9 @@ def main():
 
         if (i + 1) % 2000 == 0:
             print(f"  Saved: {i+1}/{len(all_entries)}")
+
+    if n_skipped_mismatch > 0:
+        print(f"  Skipped {n_skipped_mismatch} entries with seq/coords length mismatch")
 
     # Save sequences.json
     with open(os.path.join(output_dir, "sequences.json"), "w") as f:
