@@ -111,9 +111,11 @@ class EGNNLayer(nn.Module):
         # Coordinate update (equivariant)
         coord_weight = self.coord_mlp(edge_out)  # (B, L, k, 1)
         coord_update = (coord_weight * knn_diff).sum(dim=2)  # (B, L, 3)
-        # FIX 3: Increase coordinate step from 0.01 to 0.1
-        # Problem: 4 layers × 0.01 = 4% total displacement, can't escape helical init
-        x_new = x + 0.1 * coord_update
+        # Step size 0.1 with per-layer clamp to prevent coordinate explosion
+        # across 4 layers. Without clamp, coords can reach ~2600Å vs target ~170Å.
+        coord_update = 0.1 * coord_update
+        coord_update = coord_update.clamp(-10.0, 10.0)  # Max 10Å displacement per layer
+        x_new = x + coord_update
 
         # Node update: aggregate edge messages
         node_agg = edge_out.mean(dim=2)  # (B, L, D)
@@ -177,21 +179,20 @@ class CircRNA3DModel(nn.Module):
         # Final coordinate prediction
         coords = x
 
-        # FIX 7: Compute loss components only on valid positions (mask padding)
-        # Problem: bond/closure loss computed on padded positions
-        # Note: lengths not available in forward, so we compute on all positions
-        # The collate_fn now pads with last valid coord, reducing corruption
+        # Compute bond/closure metrics for monitoring ONLY (no grad graph)
+        # These values can be extremely large (bond~1e4, closure~1e7) and
+        # cause gradient overflow during backward() even though Scheme 1
+        # training only uses coordinate MSE loss on coords.
+        with torch.no_grad():
+            bond_errors = []
+            for i in range(L):
+                j = (i + 1) % L
+                d = torch.norm(coords[:, j] - coords[:, i], dim=-1)
+                bond_errors.append((d - bond_length) ** 2)
+            bond_loss = torch.stack(bond_errors).mean()
 
-        # Compute loss components (for monitoring)
-        bond_errors = []
-        for i in range(L):
-            j = (i + 1) % L
-            d = torch.norm(coords[:, j] - coords[:, i], dim=-1)
-            bond_errors.append((d - bond_length) ** 2)
-        bond_loss = torch.stack(bond_errors).mean()
-
-        closure_dist = torch.norm(coords[:, 0] - coords[:, -1], dim=-1)
-        closure_loss = (closure_dist - bond_length) ** 2
+            closure_dist = torch.norm(coords[:, 0] - coords[:, -1], dim=-1)
+            closure_loss = (closure_dist - bond_length) ** 2
 
         return {
             'coords': coords,
