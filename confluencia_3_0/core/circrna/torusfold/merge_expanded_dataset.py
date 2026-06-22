@@ -99,7 +99,7 @@ def _normalize_pair_constraints(pairs: list, ss: str, length: int, sequence: str
     """Normalize pair_constraints to [[i,j], ...] format.
 
     If pairs is empty but ss has brackets, extract from ss.
-    If both empty, fall back to ViennaRNA fold.
+    If both empty, fall back to ViennaRNA fold (only for sequences < 300 nt).
     """
     normalized = []
     for p in pairs:
@@ -112,11 +112,13 @@ def _normalize_pair_constraints(pairs: list, ss: str, length: int, sequence: str
     if not normalized and ss and ss != "." * length:
         normalized = _extract_pairs_from_dot_bracket(ss)
 
-    # If still empty, use ViennaRNA circ-mode as fallback
-    if not normalized and sequence and len(sequence) == length:
+    # ViennaRNA fallback only for short sequences (< 300 nt) to avoid slowness
+    if not normalized and sequence and len(sequence) == length and length < 300:
         try:
             import RNA
-            fc = RNA.fold_compound(sequence)
+            md = RNA.md()
+            md.circ = True
+            fc = RNA.fold_compound(sequence, md)
             (ss_vrna, _) = fc.mfe()
             normalized = _extract_pairs_from_dot_bracket(ss_vrna)
         except ImportError:
@@ -141,10 +143,13 @@ def load_source(source_name: str, source_dir: str) -> Tuple[list, int, int]:
     with open(seq_path, "r") as f:
         raw_entries = json.load(f)
 
+    print(f"  [{source_name}] Loading {len(raw_entries)} entries...")
+
     entries = []
     n_skipped = 0
+    n_no_pairs = 0
 
-    for item in raw_entries:
+    for idx, item in enumerate(raw_entries):
         seq_id = item.get("id", "")
         sequence = item.get("sequence", "")
         length = item.get("length", 0)
@@ -161,6 +166,9 @@ def load_source(source_name: str, source_dir: str) -> Tuple[list, int, int]:
         ss = item.get("secondary_structure", "")
         raw_pairs = item.get("pair_constraints", [])
         pair_constraints = _normalize_pair_constraints(raw_pairs, ss, length, sequence)
+
+        if not pair_constraints:
+            n_no_pairs += 1
 
         # If ss is missing, construct from pairs or use all-dots
         if not ss:
@@ -198,7 +206,7 @@ def load_source(source_name: str, source_dir: str) -> Tuple[list, int, int]:
         entries.append(entry)
 
     print(f"  [{source_name}] Loaded {len(entries)}/{len(raw_entries)} "
-          f"({n_skipped} skipped)")
+          f"({n_skipped} skipped, {n_no_pairs} no pairs)")
     return entries, len(entries), n_skipped
 
 
