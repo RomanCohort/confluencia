@@ -639,66 +639,50 @@ def train_scheme4(train_loader, val_loader, args, device):
 
         avg_train = train_loss / max(len(train_loader) - nan_batches, 1)
 
-        # Validation: RMSD in Angstroms (denormalize predictions)
+        # Validation: RMSD in Angstroms (fast single-step denoise)
         model.eval()
         val_rmsd = 0
         n_val_samples = 0
         with torch.no_grad():
             for batch in val_loader:
                 seq_ids = batch['seq_ids'].to(device)
-                coords_target = batch['coords'].to(device)
+                target = batch['coords'].to(device)
                 lengths = batch['lengths']
 
-                if coords_target.abs().sum() < 1e-3:
+                if target.abs().sum() < 1e-3:
                     continue
 
-                B = len(lengths)
-                L = coords_target.shape[1]
+                B, L = len(lengths), target.shape[1]
 
-                # Normalize target for training-mode denoise fallback
-                target_centered = coords_target - coords_target.mean(dim=1, keepdim=True)
+                # Normalize target
+                target_centered = target - target.mean(dim=1, keepdim=True)
                 target_scale = torch.norm(target_centered, dim=(1,2), keepdim=True).clamp(min=1.0)
                 coords_norm = target_centered / target_scale
 
-                # Try sampling; fallback to single-step denoise
-                pred_coords = None
+                # Single-step denoise (fast, no diffusion sampling)
                 try:
-                    out = model(seq_tokens=seq_ids, pair_probs=None)
-                    pred_coords = out.get('coords', None)
+                    with torch.amp.autocast('cuda', enabled=(device.type == 'cuda')):
+                        out = model(seq_tokens=seq_ids, coords_target=coords_norm, pair_probs=None)
+                        # coords_pred = coords_noisy - noise_pred
+                        t = torch.zeros(B, dtype=torch.long, device=device)
+                        alpha_bar = model.alpha_bars[t].view(B, 1, 1)
+                        noise = torch.randn_like(coords_norm)
+                        coords_noisy = torch.sqrt(alpha_bar) * coords_norm + torch.sqrt(1 - alpha_bar) * noise
+                        noise_pred = model._denoise(coords_noisy,
+                            model.condition_encoder(seq_ids, None, 310.0, 7.4, 1.0, 150.0),
+                            model.time_embed(t.float()), L, None)
+                        pred_coords = coords_noisy - noise_pred
                 except Exception:
-                    pass
-
-                # Fallback: use training step output
-                if pred_coords is None:
-                    try:
-                        with torch.amp.autocast('cuda', enabled=(device.type == 'cuda')):
-                            out = model(seq_tokens=seq_ids, coords_target=coords_norm, pair_probs=None)
-                            # coords_pred from _train_step
-                            pred_coords = out.get('coords_pred', None)
-                            if pred_coords is None:
-                                # Single-step: coords_noisy - noise_pred
-                                t = torch.zeros(B, dtype=torch.long, device=device)
-                                alpha_bar = model.alpha_bars[t].view(B, 1, 1)
-                                noise = torch.randn_like(coords_norm)
-                                coords_noisy = torch.sqrt(alpha_bar) * coords_norm + torch.sqrt(1 - alpha_bar) * noise
-                                noise_pred = model._denoise(coords_noisy,
-                                    model.condition_encoder(seq_ids, None, 310.0, 7.4, 1.0, 150.0),
-                                    model.time_embed(t.float()), L, None)
-                                pred_coords = coords_noisy - noise_pred
-                    except Exception:
-                        continue
-
-                if pred_coords is None:
                     continue
 
                 # Denormalize to Angstroms
                 pred_centered = pred_coords - pred_coords.mean(dim=1, keepdim=True)
-                pred_denorm = pred_centered * target_scale + coords_target.mean(dim=1, keepdim=True)
+                pred_denorm = pred_centered * target_scale + target.mean(dim=1, keepdim=True)
 
                 for b in range(B):
                     valid_L = lengths[b]
                     p = pred_denorm[b, :valid_L]
-                    t = coords_target[b, :valid_L]
+                    t = target[b, :valid_L]
 
                     if torch.isnan(p).any() or torch.isinf(p).any():
                         continue

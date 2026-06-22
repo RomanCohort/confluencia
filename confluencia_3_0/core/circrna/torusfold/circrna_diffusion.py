@@ -136,22 +136,37 @@ class EGNNLayer(nn.Module):
         coord_weight = self.coord_mlp(messages)  # (B, E, 1)
         coord_update = coord_weight * rel_coords  # (B, E, 3)
 
-        # Aggregate messages per node using index_add (more stable than scatter_add)
-        # index_add_ has better numerical stability in backward pass
-        # Force float32 for index_add — AMP autocast may produce half tensors
+        # Aggregate messages per node using vectorized scatter_reduce
+        # Replace slow Python for loop with batched scatter operation
+        # Expand dst: (E,) -> (B, E) for batched indexing
+        dst_expand = dst.unsqueeze(0).expand(B, -1)  # (B, E)
+
+        # Use scatter_reduce for mean aggregation (faster than loop + index_add)
+        # node_update: (B, L, d_node)
         node_update = torch.zeros_like(node_feat)
         coord_update_agg = torch.zeros_like(coords)
 
-        for b in range(B):
-            node_update[b].index_add_(0, dst, messages[b].float())
+        # Vectorized scatter: use index_add with expanded indices
+        # Batched index_add via reshape trick
+        # Flatten batch dim: treat (B*L) as 1D, offset dst by b*L
+        offset = torch.arange(B, device=dst.device).unsqueeze(1) * L  # (B, 1)
+        dst_flat = (dst_expand + offset).reshape(-1)  # (B*E,)
+        messages_flat = messages.float().reshape(B * E, -1)  # (B*E, d_node)
+        coord_update_flat = coord_update.float().reshape(B * E, 3)  # (B*E, 3)
 
-            coord_update_agg[b].index_add_(0, dst, coord_update[b].float())
+        node_update_flat = node_update.reshape(B * L, -1)
+        node_update_flat.index_add_(0, dst_flat, messages_flat)
+        node_update = node_update_flat.reshape(B, L, -1)
 
-        # Count neighbors using index_add
-        neighbor_count = torch.zeros(B, L, 1, device=node_feat.device)
-        for b in range(B):
-            ones = torch.ones(E, device=node_feat.device)
-            neighbor_count[b, :, 0].index_add_(0, dst, ones)
+        coord_agg_flat = coord_update_agg.reshape(B * L, 3)
+        coord_agg_flat.index_add_(0, dst_flat, coord_update_flat)
+        coord_update_agg = coord_agg_flat.reshape(B, L, 3)
+
+        # Count neighbors (vectorized)
+        neighbor_count = torch.zeros(B * L, device=dst.device)
+        ones_flat = torch.ones(B * E, device=dst.device)
+        neighbor_count.index_add_(0, dst_flat, ones_flat)
+        neighbor_count = neighbor_count.reshape(B, L, 1).clamp(min=1)
 
         neighbor_count = neighbor_count.clamp(min=1)
 
