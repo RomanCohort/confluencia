@@ -1631,7 +1631,8 @@ def train_scheme3(train_loader, val_loader, args, device):
                     continue
 
                 # Denormalize predictions back to Å for RMSD reporting
-                pred_denorm = coords_refined * target_scale + target_coords.mean(dim=1, keepdim=True)
+                pred_centered = coords_refined - coords_refined.mean(dim=1, keepdim=True)
+                pred_denorm = pred_centered * target_scale + target_coords.mean(dim=1, keepdim=True)
 
                 # RMSD in Angstroms (centered, translation-invariant)
                 for b in range(B):
