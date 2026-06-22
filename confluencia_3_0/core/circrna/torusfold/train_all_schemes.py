@@ -474,9 +474,10 @@ def train_scheme1(train_loader, val_loader, args, device):
             if not torch.isnan(loss):
                 train_loss += loss.item()
 
-        # Validation: RMSD on normalized coords (consistent with training)
+        # Validation: RMSD in Angstroms (denormalize for interpretable metric)
         model.eval()
         val_rmsd = 0
+        n_val_samples = 0
         with torch.no_grad():
             for batch in val_loader:
                 seq_ids = batch['seq_ids'].to(device)
@@ -490,26 +491,23 @@ def train_scheme1(train_loader, val_loader, args, device):
                 if torch.isnan(pred).any() or torch.isinf(pred).any():
                     continue
 
-                # FIX 1: Use TARGET scale for both (consistent with training)
-                target_centered = target - target.mean(dim=1, keepdim=True)
-                target_scale = torch.norm(target_centered, dim=(1,2), keepdim=True).clamp(min=1.0)
-                target_norm = target_centered / target_scale
-
-                pred_centered = pred - pred.mean(dim=1, keepdim=True)
-                pred_norm = pred_centered / target_scale  # Use target scale!
-
+                # Denormalize: pred is in raw coordinate space from EGNN
+                # Use Kabsch-aligned RMSD in Angstroms for fair comparison
                 B = len(lengths)
                 for b in range(B):
                     valid_L = lengths[b]
-                    p = pred_norm[b, :valid_L]
-                    t = target_norm[b, :valid_L]
-                    msd = torch.mean(torch.sum((p - t) ** 2, dim=1))
-                    rmsd = torch.sqrt(msd.clamp(min=0))
-                    if not torch.isnan(rmsd) and not torch.isinf(rmsd):
-                        val_rmsd += rmsd.item()
-                val_rmsd /= max(B, 1)
+                    p = pred[b, :valid_L]
+                    t = target[b, :valid_L]
+                    # Center both
+                    p_c = p - p.mean(dim=0)
+                    t_c = t - t.mean(dim=0)
+                    # Kabsch alignment
+                    rmsd = kabsch_rmsd(p_c, t_c)
+                    if not np.isnan(rmsd) and not np.isinf(rmsd):
+                        val_rmsd += rmsd
+                        n_val_samples += 1
 
-        avg_val = val_rmsd / max(len(val_loader), 1)
+        avg_val = val_rmsd / max(n_val_samples, 1)
         scheduler.step(avg_val)
 
         if avg_val < best_val:
