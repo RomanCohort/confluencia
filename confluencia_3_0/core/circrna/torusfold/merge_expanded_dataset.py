@@ -58,6 +58,20 @@ SOURCE_PRIORITY = {
     "synthetic": 7,
 }
 
+# Source confidence weights for training loss weighting
+SOURCE_CONFIDENCE = {
+    "pdb_circularized": 1.0,       # Real PDB structure, highest quality
+    "pdb_circularized_aug": 0.95,
+    "shape_experimental": 0.9,     # SHAPE-constrained folding
+    "isrnacirc": 0.7,              # Predicted but validated
+    "isrnacirc_aug": 0.65,
+    "circbase_real": 0.5,          # ViennaRNA predicted
+    "medium_synth": 0.4,           # Synthetic with constraints
+    "synthetic": 0.3,              # Pure synthetic
+    "af3_predicted": 1.0,          # AlphaFold3 prediction
+    "rfam_consensus": 0.8,         # Rfam consensus structure
+}
+
 
 def _extract_pairs_from_dot_bracket(ss: str) -> list:
     """Extract base pairs from dot-bracket notation. Supports ( ) [ ]."""
@@ -155,13 +169,17 @@ def load_source(source_name: str, source_dir: str) -> Tuple[list, int, int]:
             n_skipped += 1
             continue
 
+        # Determine source name for confidence lookup
+        source_name_disp = item.get("source", source_name)
+
         entry = {
             "id": seq_id,
             "sequence": sequence,
             "secondary_structure": ss,
             "pair_constraints": pair_constraints,
             "length": length,
-            "source": item.get("source", source_name),
+            "source": source_name_disp,
+            "confidence": SOURCE_CONFIDENCE.get(source_name_disp, 0.3),
             "mfe": item.get("mfe", None),
             "coords_path": coord_file,
         }
@@ -348,6 +366,7 @@ def main():
             "pair_constraints": entry["pair_constraints"],
             "length": entry["length"],
             "source": entry["source"],
+            "confidence": entry.get("confidence", 0.3),
             "mfe": entry.get("mfe"),
         }
 

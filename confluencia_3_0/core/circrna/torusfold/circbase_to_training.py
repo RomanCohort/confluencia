@@ -84,12 +84,16 @@ def predict_ss_circ(sequence: str) -> tuple:
 
 
 def generate_coords_from_constraints(L: int, pair_constraints: list) -> np.ndarray:
-    """Generate 3D coords from pair constraints using gradient descent."""
+    """Generate 3D coords from pair constraints using gradient descent.
+
+    Includes BSJ closure constraint: first and last nucleotide must be
+    ~bond_length apart (5.9 Å) to form the back-splice junction.
+    """
     bond_length = 5.9
     pair_distance = 10.6
 
     coords = np.zeros((L, 3))
-    # Initialize as circular helix
+    # Initialize as circular helix (already circular by construction)
     for i in range(L):
         angle = 2 * np.pi * i / L
         radius = bond_length * L / (2 * np.pi) * 0.5
@@ -98,7 +102,7 @@ def generate_coords_from_constraints(L: int, pair_constraints: list) -> np.ndarr
     # Refine with constraint satisfaction
     for step in range(300):
         grad = np.zeros_like(coords)
-        # Bond constraints (circular)
+        # Bond constraints (circular, includes BSJ: last→first)
         for i in range(L):
             nxt = (i + 1) % L
             diff = coords[nxt] - coords[i]
@@ -115,6 +119,13 @@ def generate_coords_from_constraints(L: int, pair_constraints: list) -> np.ndarr
                 force = (dist - pair_distance) * diff / dist
                 grad[pi] += force * 0.05
                 grad[pj] -= force * 0.05
+        # BSJ closure: strengthen first-last bond (higher weight)
+        bsj_diff = coords[0] - coords[L - 1]
+        bsj_dist = np.linalg.norm(bsj_diff)
+        if bsj_dist > 0:
+            bsj_force = 0.15 * (bsj_dist - bond_length) * bsj_diff / bsj_dist
+            grad[L - 1] += bsj_force
+            grad[0] -= bsj_force
         # Centering
         grad -= coords.mean(axis=0) * 0.01
         coords -= grad

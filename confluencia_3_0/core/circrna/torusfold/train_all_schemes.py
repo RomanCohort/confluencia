@@ -112,7 +112,22 @@ def load_pseudo_labels(labels_dir, n_seqs=None, max_len=None):
     sequences = []
     coords_labels = []
     pair_labels = []  # For schemes needing pair probs
+    confidence_weights = []  # Per-sample confidence from source quality
     metadata = []
+
+    # Default confidence by source
+    DEFAULT_CONFIDENCE = {
+        "pdb_circularized": 1.0,
+        "pdb_circularized_aug": 0.95,
+        "shape_experimental": 0.9,
+        "isrnacirc": 0.7,
+        "isrnacirc_aug": 0.65,
+        "circbase_real": 0.5,
+        "medium_synth": 0.4,
+        "synthetic": 0.3,
+        "af3_predicted": 1.0,
+        "rfam_consensus": 0.8,
+    }
 
     for i, item in enumerate(seq_data):
         seq = item['sequence']
@@ -136,6 +151,21 @@ def load_pseudo_labels(labels_dir, n_seqs=None, max_len=None):
                 pair_prob[p1, p2] = 0.85
                 pair_prob[p2, p1] = 0.85
 
+        # BSJ flanking: boost pair probability near back-splice junction
+        # In circRNA, nucleotides flanking the BSJ are more likely to pair
+        bsj_window = min(8, L // 4)
+        for j in range(bsj_window):
+            for k in range(max(0, L - bsj_window), L):
+                if pair_prob[j, k] == 0:
+                    b1, b2 = seq[j], seq[k]
+                    if complement.get(b1) == b2 or (b1 in 'GU' and b2 in 'GU'):
+                        pair_prob[j, k] = 0.25
+                        pair_prob[k, j] = 0.25
+                elif pair_prob[j, k] < 0.85:
+                    # Boost existing pairs near BSJ
+                    pair_prob[j, k] = min(0.95, pair_prob[j, k] * 1.2)
+                    pair_prob[k, j] = pair_prob[j, k]
+
         # Fill loops with heuristic pairing
         for j in range(L):
             for k in range(j + 4, min(j + 20, L)):
@@ -150,10 +180,17 @@ def load_pseudo_labels(labels_dir, n_seqs=None, max_len=None):
 
         pair_labels.append(pair_prob)
 
+        # Confidence weight from source quality
+        source = item.get('source', 'synthetic')
+        conf = item.get('confidence', DEFAULT_CONFIDENCE.get(source, 0.3))
+        confidence_weights.append(conf)
+
         # Add to metadata
         metadata.append({
             'id': item['id'],
             'length': L,
+            'source': source,
+            'confidence': conf,
         })
 
     # Filter by max_len if specified
@@ -162,12 +199,15 @@ def load_pseudo_labels(labels_dir, n_seqs=None, max_len=None):
         sequences = [sequences[i] for i in keep]
         coords_labels = [coords_labels[i] for i in keep]
         pair_labels = [pair_labels[i] for i in keep]
+        confidence_weights = [confidence_weights[i] for i in keep]
         metadata = [metadata[i] for i in keep]
         print(f"  After max_len={max_len} filter: {len(sequences)} samples")
 
+    avg_conf = np.mean(confidence_weights)
     print(f"  Loaded {len(sequences)} pseudo-labels from {labels_dir}")
+    print(f"  Average confidence: {avg_conf:.3f}")
 
-    return sequences, coords_labels, pair_labels, metadata
+    return sequences, coords_labels, pair_labels, confidence_weights, metadata
 
 
 def generate_3d_pseudo_labels(n_seqs=500, min_len=30, max_len=500, seed=42):
@@ -253,10 +293,11 @@ def generate_3d_pseudo_labels(n_seqs=500, min_len=30, max_len=500, seed=42):
 
 
 class CircRNADataset(Dataset):
-    def __init__(self, sequences, coords_labels, pair_labels=None):
+    def __init__(self, sequences, coords_labels, pair_labels=None, confidence_weights=None):
         self.sequences = sequences
         self.coords_labels = coords_labels
         self.pair_labels = pair_labels
+        self.confidence_weights = confidence_weights
 
     def __len__(self):
         return len(self.sequences)
@@ -275,6 +316,9 @@ class CircRNADataset(Dataset):
             pair_tensor = torch.tensor(self.pair_labels[idx], dtype=torch.float32)
             item['pair_probs'] = pair_tensor
 
+        if self.confidence_weights is not None:
+            item['confidence'] = torch.tensor(self.confidence_weights[idx], dtype=torch.float32)
+
         return item
 
 
@@ -282,7 +326,9 @@ def collate_fn(batch):
     max_len = max(b['length'] for b in batch)
     seq_ids_batch, coords_batch, lengths = [], [], []
     has_pairs = 'pair_probs' in batch[0]
+    has_conf = 'confidence' in batch[0]
     pair_batch = [] if has_pairs else None
+    conf_batch = [] if has_conf else None
 
     for b in batch:
         L = b['length']
@@ -290,8 +336,13 @@ def collate_fn(batch):
         seq_pad[:L] = b['seq_ids']
         seq_ids_batch.append(seq_pad)
 
-        coords_pad = torch.zeros(max_len, 3)
-        coords_pad[:L] = b['coords']
+        # FIX 2: Pad with last valid coord instead of zeros
+        # Problem: zero padding contaminates mean/norm calculations
+        if L < max_len:
+            coords_pad = b['coords'][-1:].expand(max_len, 3).clone()
+            coords_pad[:L] = b['coords']
+        else:
+            coords_pad = b['coords'].clone()
         coords_batch.append(coords_pad)
         lengths.append(L)
 
@@ -300,6 +351,9 @@ def collate_fn(batch):
             pp[:L, :L] = b['pair_probs']
             pair_batch.append(pp)
 
+        if has_conf:
+            conf_batch.append(b['confidence'])
+
     result = {
         'seq_ids': torch.stack(seq_ids_batch),
         'coords': torch.stack(coords_batch),
@@ -307,6 +361,8 @@ def collate_fn(batch):
     }
     if has_pairs:
         result['pair_probs'] = torch.stack(pair_batch)
+    if has_conf:
+        result['confidence'] = torch.stack(conf_batch)
     return result
 
 
@@ -346,8 +402,10 @@ def train_scheme1(train_loader, val_loader, args, device):
             seq_ids = batch['seq_ids'].to(device)
             target = batch['coords'].to(device)
             lengths = batch['lengths']
+            conf_scale = batch.get('confidence', torch.tensor(0.5)).mean().item()
 
-            # Normalize coords (center + scale) to prevent numerical explosion
+            # FIX 1: Normalize coords using TARGET scale only (not independent scales)
+            # Problem: independent normalization destroys spatial scale signal
             B, L, _ = target.shape
             target_centered = target - target.mean(dim=1, keepdim=True)
             target_scale = torch.norm(target_centered, dim=(1,2), keepdim=True).clamp(min=1.0)
@@ -356,10 +414,9 @@ def train_scheme1(train_loader, val_loader, args, device):
             out = model(seq_ids)
             pred = out['coords']
 
-            # Normalize prediction similarly
+            # FIX: Use TARGET scale for prediction (not independent scale)
             pred_centered = pred - pred.mean(dim=1, keepdim=True)
-            pred_scale = torch.norm(pred_centered, dim=(1,2), keepdim=True).clamp(min=1.0)
-            pred_norm = pred_centered / pred_scale
+            pred_norm = pred_centered / target_scale  # Use target scale!
 
             # MSE on normalized coords (per-residue)
             loss = 0
@@ -368,6 +425,9 @@ def train_scheme1(train_loader, val_loader, args, device):
                 diff = pred_norm[b, :valid_L] - target_norm[b, :valid_L]
                 loss += torch.mean(diff ** 2)
             loss /= B
+
+            # Apply confidence weighting: higher quality data gets higher loss weight
+            loss = loss * conf_scale * 2.0  # *2 to normalize around 1.0
 
             loss.backward()
             # Check for NaN gradients
@@ -401,14 +461,13 @@ def train_scheme1(train_loader, val_loader, args, device):
                 if torch.isnan(pred).any() or torch.isinf(pred).any():
                     continue
 
-                # Normalize both (same as training)
+                # FIX 1: Use TARGET scale for both (consistent with training)
                 target_centered = target - target.mean(dim=1, keepdim=True)
                 target_scale = torch.norm(target_centered, dim=(1,2), keepdim=True).clamp(min=1.0)
                 target_norm = target_centered / target_scale
 
                 pred_centered = pred - pred.mean(dim=1, keepdim=True)
-                pred_scale = torch.norm(pred_centered, dim=(1,2), keepdim=True).clamp(min=1.0)
-                pred_norm = pred_centered / pred_scale
+                pred_norm = pred_centered / target_scale  # Use target scale!
 
                 B = len(lengths)
                 for b in range(B):
@@ -480,6 +539,7 @@ def train_scheme4(train_loader, val_loader, args, device):
             pair_probs = batch.get('pair_probs', None)
             if pair_probs is not None:
                 pair_probs = pair_probs.to(device)
+            conf_scale = batch.get('confidence', torch.tensor(0.5)).mean().item()
 
             # Normalize target coords to prevent numerical instability
             B, L, _ = coords_target.shape
@@ -501,6 +561,9 @@ def train_scheme4(train_loader, val_loader, args, device):
                 print(f"  NaN/Inf detected in batch, skipping...")
                 optimizer.zero_grad()
                 continue
+
+            # Apply confidence weighting
+            loss = loss * conf_scale * 2.0
 
             loss.backward()
             torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
@@ -660,8 +723,9 @@ def train_scheme5(train_loader, val_loader, args, device):
             seq_ids = batch['seq_ids'].to(device)
             target = batch['coords'].to(device)
             lengths = batch['lengths']
+            conf_scale = batch.get('confidence', torch.tensor(0.5)).mean().item()
 
-            # Normalize target coords
+            # FIX 1: Normalize target coords
             B, L, _ = target.shape
             target_centered = target - target.mean(dim=1, keepdim=True)
             target_scale = torch.norm(target_centered, dim=(1,2), keepdim=True).clamp(min=1.0)
@@ -670,10 +734,9 @@ def train_scheme5(train_loader, val_loader, args, device):
             out = model(seq_ids)
             pred = out['coords']
 
-            # Normalize prediction
+            # FIX: Use TARGET scale for prediction
             pred_centered = pred - pred.mean(dim=1, keepdim=True)
-            pred_scale = torch.norm(pred_centered, dim=(1,2), keepdim=True).clamp(min=1.0)
-            pred_norm = pred_centered / pred_scale
+            pred_norm = pred_centered / target_scale  # Use target scale!
 
             loss = 0
             for b in range(B):
@@ -681,6 +744,9 @@ def train_scheme5(train_loader, val_loader, args, device):
                 diff = pred_norm[b, :valid_L] - target_norm[b, :valid_L]
                 loss += torch.mean(diff ** 2)
             loss /= B
+
+            # Apply confidence weighting
+            loss = loss * conf_scale * 2.0
 
             loss.backward()
             torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
@@ -690,7 +756,7 @@ def train_scheme5(train_loader, val_loader, args, device):
 
         avg_train = train_loss / len(train_loader)
 
-        # Validation: use RMSD in Å (not normalized MSE)
+        # Validation: RMSD in Å (not normalized MSE)
         model.eval()
         val_rmsd = 0
         with torch.no_grad():
@@ -765,8 +831,9 @@ def train_scheme6(train_loader, val_loader, args, device):
             seq_ids = batch['seq_ids'].to(device)
             target = batch['coords'].to(device)
             lengths = batch['lengths']
+            conf_scale = batch.get('confidence', torch.tensor(0.5)).mean().item()
 
-            # Normalize target coords
+            # FIX 1: Normalize target coords using target scale only
             B, L, _ = target.shape
             target_centered = target - target.mean(dim=1, keepdim=True)
             target_scale = torch.norm(target_centered, dim=(1,2), keepdim=True).clamp(min=1.0)
@@ -775,10 +842,9 @@ def train_scheme6(train_loader, val_loader, args, device):
             out = model(seq_ids, mode='train')
             pred_coords = out['coords']
 
-            # Normalize prediction
+            # FIX: Use TARGET scale for prediction
             pred_centered = pred_coords - pred_coords.mean(dim=1, keepdim=True)
-            pred_scale = torch.norm(pred_centered, dim=(1,2), keepdim=True).clamp(min=1.0)
-            pred_norm = pred_centered / pred_scale
+            pred_norm = pred_centered / target_scale  # Use target scale!
 
             loss = 0
             for b in range(B):
@@ -786,6 +852,9 @@ def train_scheme6(train_loader, val_loader, args, device):
                 diff = pred_norm[b, :valid_L] - target_norm[b, :valid_L]
                 loss += torch.mean(diff ** 2)
             loss /= B
+
+            # Apply confidence weighting
+            loss = loss * conf_scale * 2.0
 
             loss.backward()
             torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
@@ -919,6 +988,7 @@ def train_scheme7(train_loader, val_loader, args, device):
             if pair_probs is not None:
                 pair_probs = pair_probs.to(device)
             lengths = batch['lengths']
+            conf_scale = batch.get('confidence', torch.tensor(0.5)).mean().item()
 
             # Normalize target coords
             B, L, _ = coords_target.shape
@@ -941,6 +1011,9 @@ def train_scheme7(train_loader, val_loader, args, device):
                 nan_batches += 1
                 optimizer.zero_grad()
                 continue
+
+            # Apply confidence weighting
+            loss = loss * conf_scale * 2.0
 
             loss.backward()
             torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
@@ -1136,20 +1209,16 @@ def train_scheme3(train_loader, val_loader, args, device):
             seq_ids = batch['seq_ids'].to(device)
             target_coords = batch['coords'].to(device)
             lengths = batch['lengths']
+            conf_scale = batch.get('confidence', torch.tensor(0.5)).mean().item()
 
-            # Mixed initialization: gradually reduce teacher forcing
+            # FIX 6: Always use helical init (no teacher forcing)
+            # Problem: teacher forcing causes distribution mismatch at test time
             B, L = seq_ids.shape
-            tf_prob = max(0.0, 1.0 - epoch / (args.epochs * 0.5))  # 100% → 0% over first half
 
             coords_init = torch.zeros(B, L, 3, device=device)
             for b in range(B):
                 valid_L = lengths[b]
-                if rng.random() < tf_prob:
-                    # Teacher forcing: start from target + noise
-                    coords_init[b, :valid_L] = target_coords[b, :valid_L] + torch.randn(valid_L, 3, device=device) * 1.0
-                else:
-                    # Helical init: start from scratch
-                    coords_init[b, :valid_L] = generate_helical_init(valid_L, device=device)
+                coords_init[b, :valid_L] = generate_helical_init(valid_L, device=device)
 
             # Refine with Generator
             coords_refined = model(seq_ids, coords_init)
@@ -1195,6 +1264,9 @@ def train_scheme3(train_loader, val_loader, args, device):
 
             # Combined loss (all in Angstroms^2 scale)
             loss = coord_loss + 0.1 * closure_loss + 0.1 * bond_loss
+
+            # Apply confidence weighting
+            loss = loss * conf_scale * 2.0
 
             loss.backward()
             torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
@@ -1339,7 +1411,7 @@ def main():
     if args.labels and os.path.exists(args.labels):
         print(f"  Loading from: {args.labels}")
         max_len_filter = args.max_len if args.max_len > 0 else None
-        sequences, coords_labels, pair_labels, metadata = load_pseudo_labels(
+        sequences, coords_labels, pair_labels, confidence_weights, metadata = load_pseudo_labels(
             args.labels, max_len=max_len_filter)
     else:
         print(f"  Generating pseudo-labels (n={args.n_train})")
@@ -1350,6 +1422,8 @@ def main():
             max_len=gen_max_len,
             seed=args.seed
         )
+        # Generated data has uniform confidence
+        confidence_weights = [0.3] * len(sequences)
 
     if len(sequences) < 10:
         print("ERROR: Not enough pseudo-labels.")
@@ -1389,6 +1463,7 @@ def main():
             seq_s = [sequences[i] for i in keep]
             coord_s = [coords_labels[i] for i in keep]
             pair_s = [pair_labels[i] for i in keep]
+            conf_s = [confidence_weights[i] for i in keep]
             n_filtered = len(keep)
             if n_filtered < len(sequences):
                 print(f"\n  Scheme {scheme_id}: filtered {len(sequences)} -> {n_filtered} "
@@ -1397,6 +1472,7 @@ def main():
             seq_s = sequences
             coord_s = coords_labels
             pair_s = pair_labels
+            conf_s = confidence_weights
             n_filtered = len(sequences)
             print(f"\n  Scheme {scheme_id}: using all {n_filtered} samples (no length limit)")
 
@@ -1412,9 +1488,9 @@ def main():
         # Split for this scheme
         split = int(0.9 * n_use)
         train_ds = CircRNADataset(
-            seq_s[:split], coord_s[:split], pair_s[:split])
+            seq_s[:split], coord_s[:split], pair_s[:split], conf_s[:split])
         val_ds = CircRNADataset(
-            seq_s[split:n_use], coord_s[split:n_use], pair_s[split:n_use])
+            seq_s[split:n_use], coord_s[split:n_use], pair_s[split:n_use], conf_s[split:n_use])
 
         train_loader = DataLoader(train_ds, batch_size=args.batch_size,
                                   shuffle=True, collate_fn=collate_fn,
