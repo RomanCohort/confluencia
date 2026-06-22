@@ -101,19 +101,13 @@ def load_pseudo_labels(labels_dir, n_seqs=None, max_len=None):
     if n_seqs is not None:
         seq_data = seq_data[:n_seqs]
 
-    # Load coordinates
-    coords_files = glob.glob(os.path.join(labels_dir, 'coords', '*.npy'))
-    coords_files.sort()
-
-    if len(coords_files) != len(seq_data):
-        raise ValueError(f"Mismatch: {len(coords_files)} .npy files, "
-                         f"{len(seq_data)} sequences")
-
+    # Load coordinates by matching json id (not glob sort, which may mismatch)
     sequences = []
     coords_labels = []
     pair_labels = []  # For schemes needing pair probs
     confidence_weights = []  # Per-sample confidence from source quality
     metadata = []
+    n_missing = 0
 
     # Default confidence by source
     DEFAULT_CONFIDENCE = {
@@ -130,11 +124,22 @@ def load_pseudo_labels(labels_dir, n_seqs=None, max_len=None):
     }
 
     for i, item in enumerate(seq_data):
-        seq = item['sequence']
-        sequences.append(seq)
+        seq_id = item.get('id', f'pseudo_{i:05d}')
+        coords_path = os.path.join(labels_dir, 'coords', f'{seq_id}.npy')
 
-        # Load coords
-        coords = np.load(coords_files[i])  # (L, 3)
+        if not os.path.exists(coords_path):
+            n_missing += 1
+            continue
+
+        seq = item['sequence']
+        coords = np.load(coords_path)  # (L, 3)
+
+        # Verify coords shape matches sequence length
+        if coords.shape[0] != len(seq):
+            n_missing += 1
+            continue
+
+        sequences.append(seq)
         coords_labels.append(coords)
 
         # Parse pairs from constraints (optional field)
@@ -192,6 +197,9 @@ def load_pseudo_labels(labels_dir, n_seqs=None, max_len=None):
             'source': source,
             'confidence': conf,
         })
+
+    if n_missing > 0:
+        print(f"  Skipped {n_missing} entries with missing/mismatched coords")
 
     # Filter by max_len if specified
     if max_len is not None:
@@ -310,7 +318,16 @@ class CircRNADataset(Dataset):
         seq_ids = torch.tensor([mapping.get(b, 4) for b in seq], dtype=torch.long)
         coords_tensor = torch.tensor(coords, dtype=torch.float32)
 
-        item = {'seq_ids': seq_ids, 'coords': coords_tensor, 'length': len(seq)}
+        # Use actual coords length (may differ from seq length due to data issues)
+        actual_L = coords_tensor.shape[0]
+        if len(seq) != actual_L:
+            # Truncate or pad seq to match coords
+            if len(seq) > actual_L:
+                seq_ids = seq_ids[:actual_L]
+            else:
+                seq_ids = torch.cat([seq_ids, torch.zeros(actual_L - len(seq), dtype=torch.long)])
+
+        item = {'seq_ids': seq_ids, 'coords': coords_tensor, 'length': actual_L}
 
         if self.pair_labels is not None:
             pair_tensor = torch.tensor(self.pair_labels[idx], dtype=torch.float32)
@@ -336,9 +353,21 @@ def collate_fn(batch):
         seq_pad[:L] = b['seq_ids']
         seq_ids_batch.append(seq_pad)
 
-        # FIX 2: Pad with last valid coord instead of zeros
-        # Problem: zero padding contaminates mean/norm calculations
-        if L < max_len:
+        # Pad with last valid coord instead of zeros
+        # Verify data consistency first
+        coords_actual_shape = b['coords'].shape[0]
+        if coords_actual_shape != L:
+            # Data mismatch: coords shape differs from declared length
+            # Use actual coords length for padding
+            actual_L = coords_actual_shape
+            if actual_L < max_len:
+                coords_pad = b['coords'][-1:].expand(max_len, 3).clone()
+                coords_pad[:actual_L] = b['coords']
+            else:
+                coords_pad = b['coords'][:max_len].clone()
+            # Update length to actual
+            L = actual_L
+        elif L < max_len:
             coords_pad = b['coords'][-1:].expand(max_len, 3).clone()
             coords_pad[:L] = b['coords']
         else:
