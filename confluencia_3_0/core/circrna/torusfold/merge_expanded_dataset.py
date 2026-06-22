@@ -51,25 +51,28 @@ SOURCE_PRIORITY = {
     "isrnacirc": 0,
     "isrnacirc_aug": 1,
     "shape_experimental": 2,
-    "circbase_real": 3,
-    "pdb_circularized": 4,
-    "pdb_circularized_aug": 5,
-    "medium_synth": 6,
-    "synthetic": 7,
+    "shape_expanded": 2,
+    "rfam_consensus": 3,
+    "circbase_real": 4,
+    "pdb_circularized": 5,
+    "pdb_circularized_aug": 6,
+    "medium_synth": 7,
+    "synthetic": 8,
 }
 
 # Source confidence weights for training loss weighting
 SOURCE_CONFIDENCE = {
     "pdb_circularized": 1.0,       # Real PDB structure, highest quality
     "pdb_circularized_aug": 0.95,
+    "af3_predicted": 1.0,          # AlphaFold3 prediction
     "shape_experimental": 0.9,     # SHAPE-constrained folding
+    "shape_expanded": 0.85,        # SHAPE-constrained (expanded sources)
+    "rfam_consensus": 0.8,         # Rfam consensus structure
     "isrnacirc": 0.7,              # Predicted but validated
     "isrnacirc_aug": 0.65,
     "circbase_real": 0.5,          # ViennaRNA predicted
     "medium_synth": 0.4,           # Synthetic with constraints
     "synthetic": 0.3,              # Pure synthetic
-    "af3_predicted": 1.0,          # AlphaFold3 prediction
-    "rfam_consensus": 0.8,         # Rfam consensus structure
 }
 
 
@@ -262,6 +265,10 @@ def main():
                         help="PDB circularized dataset directory")
     parser.add_argument("--medium-dir", type=str, default="",
                         help="Medium-length dataset directory")
+    parser.add_argument("--rfam-dir", type=str, default="",
+                        help="Rfam consensus structure dataset directory")
+    parser.add_argument("--shape-exp-dir", type=str, default="",
+                        help="Expanded SHAPE dataset directory")
     parser.add_argument("--output", type=str, required=True,
                         help="Output directory for merged dataset")
     parser.add_argument("--skip-validation", action="store_true",
@@ -286,7 +293,9 @@ def main():
     sources = [
         ("isrnacirc", args.isrnacirc_dir),
         ("shape", args.shape_dir),
+        ("shape_expanded", args.shape_exp_dir),
         ("pdb", args.pdb_dir),
+        ("rfam", args.rfam_dir),
         ("medium", args.medium_dir),
     ]
 

@@ -14,7 +14,7 @@ echo "  Step 1: Check available data sources"
 echo "============================================================"
 
 # Count samples in each source
-for d in data/circbase_real_3d confluencia_3_0/data/pdb_3d data/shape_3d data/shape_constrained data/medium_length_3d data/pseudo_labels; do
+for d in data/circbase_real_3d confluencia_3_0/data/pdb_3d data/shape_3d data/shape_constrained data/shape_expanded data/medium_length_3d data/rfam_3d data/pseudo_labels; do
   if [ -f "$d/sequences.json" ]; then
     n=$(python3 -c "import json; print(len(json.load(open('$d/sequences.json'))))")
     echo "  $d: $n samples"
@@ -59,6 +59,12 @@ if [ -f "confluencia_3_0/data/pdb_3d/sequences.json" ]; then
 fi
 if [ -f "data/medium_length_3d/sequences.json" ]; then
   ARGS="$ARGS --medium-dir data/medium_length_3d"
+fi
+if [ -f "data/rfam_3d/sequences.json" ]; then
+  ARGS="$ARGS --rfam-dir data/rfam_3d"
+fi
+if [ -f "data/shape_expanded/sequences.json" ]; then
+  ARGS="$ARGS --shape-exp-dir data/shape_expanded"
 fi
 
 echo "  Merge command args: $ARGS"
