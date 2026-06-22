@@ -707,6 +707,9 @@ def train_scheme5(train_loader, val_loader, args, device):
                 for _ in range(n_blocks)
             ])
             self.coord_head = nn.Linear(d_model, 3)
+            # Small init for coord head to prevent large initial outputs causing NaN
+            nn.init.normal_(self.coord_head.weight, std=0.01)
+            nn.init.zeros_(self.coord_head.bias)
             self.bond_length = 5.9
 
         def forward(self, seq_ids, coords_init=None):
@@ -723,14 +726,19 @@ def train_scheme5(train_loader, val_loader, args, device):
             coords = self.coord_head(h)  # (B, L, 3)
 
             # Physics-informed closure correction (soft, differentiable)
-            # Shift first and last atoms toward each other slightly
+            # Use clone() to avoid in-place modification of graph tensor
             closure_dist = torch.norm(coords[:, 0] - coords[:, -1], dim=-1, keepdim=True)
             # Clamp to prevent gradient explosion
             closure_error = (closure_dist - self.bond_length).clamp(-20, 20)
             correction = 0.05 * closure_error
             mid_point = (coords[:, 0] + coords[:, -1]) / 2
-            coords[:, 0] = coords[:, 0] - correction * (coords[:, 0] - mid_point) / closure_dist.clamp(min=1.0)
-            coords[:, -1] = coords[:, -1] - correction * (coords[:, -1] - mid_point) / closure_dist.clamp(min=1.0)
+            # Guard against near-zero closure_dist causing NaN division
+            safe_dist = closure_dist.clamp(min=1.0)
+            direction_first = (coords[:, 0] - mid_point) / safe_dist
+            direction_last = (coords[:, -1] - mid_point) / safe_dist
+            coords = coords.clone()
+            coords[:, 0] = coords[:, 0] - correction * direction_first
+            coords[:, -1] = coords[:, -1] - correction * direction_last
 
             return {'coords': coords}
 
@@ -775,7 +783,21 @@ def train_scheme5(train_loader, val_loader, args, device):
             # Apply confidence weighting
             loss = loss * conf_scale * 2.0
 
+            # NaN guard — skip batch if loss is NaN/Inf (same as Scheme 1/4)
+            if torch.isnan(loss) or torch.isinf(loss):
+                optimizer.zero_grad()
+                continue
+
             loss.backward()
+            # Check for NaN gradients (same as Scheme 1)
+            has_nan = False
+            for p in model.parameters():
+                if p.grad is not None and torch.isnan(p.grad).any():
+                    has_nan = True
+                    break
+            if has_nan:
+                optimizer.zero_grad()
+                continue
             torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
             optimizer.step()
             optimizer.zero_grad()
@@ -1226,7 +1248,12 @@ def train_scheme3(train_loader, val_loader, args, device):
 
     # Use helical coords for fast initialization (avoid slow solver per batch)
     def generate_helical_init(L, bond_length=5.9, device='cpu'):
-        """Generate fast helical initial coords (ensures closure)."""
+        """Generate fast helical initial coords (ensures closure).
+
+        Returns coords centered at origin with unit-norm for stable training.
+        Raw helical coords are centered and normalized so coord_proj
+        receives inputs in a reasonable range (~[-1, 1]) regardless of L.
+        """
         coords = torch.zeros(L, 3, device=device)
         rise_per_nt = 2.8
         for i in range(L):
@@ -1235,11 +1262,17 @@ def train_scheme3(train_loader, val_loader, args, device):
             coords[i, 0] = radius * np.cos(angle)
             coords[i, 1] = radius * np.sin(angle)
             coords[i, 2] = rise_per_nt * i - L * rise_per_nt / 2
+        # Center and normalize to unit norm for stable input to coord_proj
+        coords = coords - coords.mean(dim=0)
+        norm = torch.norm(coords)
+        if norm > 1e-6:
+            coords = coords / norm
         return coords
 
     best_val = float('inf')
     patience_counter = 0
     rng = np.random.RandomState(args.seed)
+    nan_batches = 0  # Track NaN batches for early warning
 
     for epoch in range(args.epochs):
         model.train()
@@ -1252,12 +1285,17 @@ def train_scheme3(train_loader, val_loader, args, device):
             lengths = batch['lengths']
             conf_scale = batch.get('confidence', torch.tensor(0.5)).mean().item()
 
-            # FIX 6: Always use helical init (no teacher forcing)
+            # FIX: Always use helical init (no teacher forcing)
             # Problem: teacher forcing causes distribution mismatch at test time
             B, L = seq_ids.shape
 
-            # FIX: Normalize target coords (same as Scheme 1/5/6)
-            # Without normalization, coord_loss ~12000 Å² and convergence is very slow
+            # Skip batches with very short sequences (cause numerical issues)
+            min_valid_L = min(lengths)
+            if min_valid_L < 4:
+                continue
+
+            # FIX: Normalize target coords to unit norm
+            # This ensures loss is computed in a stable numerical range
             target_centered = target_coords - target_coords.mean(dim=1, keepdim=True)
             target_scale = torch.norm(target_centered, dim=(1,2), keepdim=True).clamp(min=1.0)
             target_norm = target_centered / target_scale
@@ -1267,21 +1305,23 @@ def train_scheme3(train_loader, val_loader, args, device):
                 valid_L = lengths[b]
                 coords_init[b, :valid_L] = generate_helical_init(valid_L, device=device)
 
-            # Normalize init coords to same scale as target
-            init_centered = coords_init - coords_init.mean(dim=1, keepdim=True)
-            init_scale = torch.norm(init_centered, dim=(1,2), keepdim=True).clamp(min=1.0)
-            coords_init_norm = init_centered / target_scale  # Use target scale
+            # Helical init is already unit-norm, use directly
+            coords_init_norm = coords_init
 
             # Refine with Generator
             coords_refined = model(seq_ids, coords_init_norm)
+
+            # NaN check: skip batch if prediction contains NaN/Inf
+            if torch.isnan(coords_refined).any() or torch.isinf(coords_refined).any():
+                nan_batches += 1
+                optimizer.zero_grad()
+                continue
 
             # 1. Coordinate MSE loss on normalized coords
             coord_loss = 0
             n_valid = 0
             for b in range(B):
                 valid_L = lengths[b]
-                if valid_L < 4:
-                    continue
                 pred = coords_refined[b, :valid_L]
                 target = target_norm[b, :valid_L]
                 # Center both for fair comparison (translation-invariant)
@@ -1317,26 +1357,51 @@ def train_scheme3(train_loader, val_loader, args, device):
             # Combined loss (normalized scale)
             loss = coord_loss + 0.1 * closure_loss + 0.1 * bond_loss
 
+            # NaN check on loss
+            if torch.isnan(loss) or torch.isinf(loss):
+                nan_batches += 1
+                optimizer.zero_grad()
+                continue
+
             # Apply confidence weighting
             loss = loss * conf_scale * 2.0
 
+            # Zero grad BEFORE backward (standard practice)
+            optimizer.zero_grad()
             loss.backward()
+            # Check for NaN gradients after backward
+            has_nan_grad = False
+            for p in model.parameters():
+                if p.grad is not None and torch.isnan(p.grad).any():
+                    has_nan_grad = True
+                    break
+            if has_nan_grad:
+                nan_batches += 1
+                optimizer.zero_grad()
+                continue
+
             torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
             optimizer.step()
-            optimizer.zero_grad()
 
             train_loss += loss.item()
             train_metrics['coord'] += coord_loss.item()
             train_metrics['closure'] += closure_loss.item()
             train_metrics['bond'] += bond_loss.item()
 
-        train_loss /= len(train_loader)
+        # Early warning if too many NaN batches
+        if nan_batches > len(train_loader) // 2:
+            print(f"  WARNING: Too many NaN batches ({nan_batches}), stopping training")
+            return float('inf')
+
+        n_valid_batches = max(len(train_loader) - nan_batches, 1)
+        train_loss /= n_valid_batches
         for k in train_metrics:
-            train_metrics[k] /= len(train_loader)
+            train_metrics[k] /= n_valid_batches
 
         # Validation: RMSD in Angstroms (denormalize from normalized space)
         model.eval()
         val_loss = 0
+        n_val_samples = 0
 
         with torch.no_grad():
             for batch in val_loader:
@@ -1356,9 +1421,8 @@ def train_scheme3(train_loader, val_loader, args, device):
                     valid_L = lengths[b]
                     coords_init[b, :valid_L] = generate_helical_init(valid_L, device=device)
 
-                # Normalize init coords to target scale
-                init_centered = coords_init - coords_init.mean(dim=1, keepdim=True)
-                coords_init_norm = init_centered / target_scale
+                # Helical init is already unit-norm, use directly
+                coords_init_norm = coords_init
 
                 coords_refined = model(seq_ids, coords_init_norm)
 
@@ -1370,7 +1434,6 @@ def train_scheme3(train_loader, val_loader, args, device):
                 pred_denorm = coords_refined * target_scale + target_coords.mean(dim=1, keepdim=True)
 
                 # RMSD in Angstroms (centered, translation-invariant)
-                val_rmsd = 0
                 for b in range(B):
                     valid_L = lengths[b]
                     p = pred_denorm[b, :valid_L]
@@ -1379,10 +1442,10 @@ def train_scheme3(train_loader, val_loader, args, device):
                     t_c = t - t.mean(dim=0)
                     rmsd = torch.sqrt(torch.mean(torch.sum((p_c - t_c) ** 2, dim=1)).clamp(min=0))
                     if not torch.isnan(rmsd) and not torch.isinf(rmsd):
-                        val_rmsd += rmsd.item()
-                val_loss += val_rmsd / max(B, 1)
+                        val_loss += rmsd.item()
+                        n_val_samples += 1
 
-        val_loss /= max(len(val_loader), 1)
+        val_loss /= max(n_val_samples, 1)
         scheduler.step(val_loss)
 
         # Early stopping
@@ -1396,7 +1459,10 @@ def train_scheme3(train_loader, val_loader, args, device):
         print(f"  Epoch {epoch+1}/{args.epochs} "
               f"train={train_loss:.4f} (coord={train_metrics['coord']:.3f}, "
               f"closure={train_metrics['closure']:.3f}, bond={train_metrics['bond']:.3f}) "
-              f"val={val_loss:.1f}Å pat={patience_counter}/10")
+              f"val={val_loss:.1f}Å nan={nan_batches} pat={patience_counter}/10")
+
+        # Reset NaN counter per epoch
+        nan_batches = 0
 
         if patience_counter >= 10:
             print(f"  Early stopping at epoch {epoch+1}")
