@@ -851,6 +851,10 @@ def train_scheme5(train_loader, val_loader, args, device):
         model.eval()
         val_rmsd = 0
         n_val_samples = 0
+        n_skipped_zero_target = 0
+        n_skipped_nan = 0
+        n_skipped_short = 0
+        n_skipped_zero_var = 0
         with torch.no_grad():
             for batch in val_loader:
                 seq_ids = batch['seq_ids'].to(device)
@@ -859,10 +863,12 @@ def train_scheme5(train_loader, val_loader, args, device):
 
                 # Skip if target is all zeros (padding issue)
                 if target.abs().sum() < 1e-3:
+                    n_skipped_zero_target += 1
                     continue
 
                 # Skip if target has NaN/Inf
                 if torch.isnan(target).any() or torch.isinf(target).any():
+                    n_skipped_nan += 1
                     continue
 
                 out = model(seq_ids)
@@ -872,6 +878,7 @@ def train_scheme5(train_loader, val_loader, args, device):
                 for b in range(B):
                     valid_L = lengths[b]
                     if valid_L < 4:  # Skip very short sequences
+                        n_skipped_short += 1
                         continue
                     p = pred[b, :valid_L]
                     t = target[b, :valid_L]
@@ -887,6 +894,7 @@ def train_scheme5(train_loader, val_loader, args, device):
 
                     # Skip if zero variance (all same coords)
                     if p_c.abs().sum() < 1e-6 or t_c.abs().sum() < 1e-6:
+                        n_skipped_zero_var += 1
                         continue
 
                     rmsd = kabsch_rmsd(p_c, t_c)
@@ -896,6 +904,9 @@ def train_scheme5(train_loader, val_loader, args, device):
 
         if n_val_samples == 0:
             avg_val = avg_train * 100  # Fallback: use train loss as proxy (scaled)
+            # Print why validation failed
+            if epoch == 0:
+                print(f"  [WARN] No valid val samples! Skipped: zero_target={n_skipped_zero_target}, nan={n_skipped_nan}, short={n_skipped_short}, zero_var={n_skipped_zero_var}")
         else:
             avg_val = val_rmsd / n_val_samples
         scheduler.step(avg_val)
