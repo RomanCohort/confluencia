@@ -801,8 +801,9 @@ def train_scheme5(train_loader, val_loader, args, device):
             # Conservative init: xavier uniform for stable training
             nn.init.xavier_uniform_(self.coord_head.weight, gain=0.01)
             nn.init.zeros_(self.coord_head.bias)
-            # Learnable output scale to let model adjust magnitude
-            self.output_scale = nn.Parameter(torch.tensor(1.0))
+            # Learnable output scale: start at ~50Å (typical circRNA radius)
+            # This prevents initial predictions being too small relative to Å-scale targets
+            self.output_scale = nn.Parameter(torch.tensor(50.0))
             self.bond_length = 5.9
 
         def forward(self, seq_ids, coords_init=None):
@@ -864,6 +865,12 @@ def train_scheme5(train_loader, val_loader, args, device):
             out = model(seq_ids)
             pred = out['coords']
 
+            # Skip if prediction contains NaN/Inf (unstable model)
+            if torch.isnan(pred).any() or torch.isinf(pred).any():
+                nan_batches += 1
+                optimizer.zero_grad()
+                continue
+
             # Loss: per-residue MSE in Å units (not normalized!)
             # This gives meaningful loss values
             B = len(lengths)
@@ -883,7 +890,7 @@ def train_scheme5(train_loader, val_loader, args, device):
 
                 # RMSD for logging
                 rmsd = kabsch_rmsd(p_c, t_c)
-                if not np.isnan(rmsd):
+                if not (np.isnan(rmsd) or np.isinf(rmsd)) and rmsd < 10000:
                     batch_rmsd += rmsd
 
             loss /= B
@@ -899,12 +906,27 @@ def train_scheme5(train_loader, val_loader, args, device):
                 continue
 
             loss.backward()
+            # Check for NaN gradients before stepping
+            has_nan_grad = False
+            for p in model.parameters():
+                if p.grad is not None and (torch.isnan(p.grad).any() or torch.isinf(p.grad).any()):
+                    has_nan_grad = True
+                    break
+            if has_nan_grad:
+                nan_batches += 1
+                optimizer.zero_grad()
+                continue
             torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=0.1)  # Aggressive for S5 stability
             optimizer.step()
             optimizer.zero_grad()
 
             train_loss += loss.item()
             train_rmsd += batch_rmsd
+
+        # Early abort if too many NaN batches
+        if nan_batches > len(train_loader) // 2:
+            print(f"  Too many NaN batches ({nan_batches}/{len(train_loader)}), stopping training")
+            return float('inf')
 
         n_valid_batches = max(len(train_loader) - nan_batches, 1)
         avg_train = train_loss / n_valid_batches
@@ -967,11 +989,12 @@ def train_scheme5(train_loader, val_loader, args, device):
                         continue
 
                     rmsd = kabsch_rmsd(p_c, t_c)
-                    if not (np.isnan(rmsd) or np.isinf(rmsd)):
+                    # Skip NaN, Inf, or physically meaningless RMSD (>10000Å)
+                    if np.isnan(rmsd) or np.isinf(rmsd) or rmsd > 10000:
+                        n_skipped_nan_rmsd += 1
+                    else:
                         val_rmsd += rmsd
                         n_val_samples += 1
-                    else:
-                        n_skipped_nan_rmsd += 1
 
         if n_val_samples == 0:
             avg_val = avg_train * 100  # Fallback: use train loss as proxy (scaled)
@@ -1872,11 +1895,21 @@ def main():
     labels_dir = args.labels
     if not labels_dir:
         # Auto-search for existing labeled data directories
+        # Search relative to script location AND cwd
+        script_dir = str(Path(__file__).resolve().parents[4])
         search_paths = [
             'data/circrna_3d_merged',      # Merged dataset (best)
             'data/circbase_real_3d',        # IsRNAcirc + augmented
             'data/pdb_circrna',             # PDB circularized
             'data/shape_3d',                # icSHAPE-constrained
+            os.path.join(script_dir, 'data/circrna_3d_merged'),
+            os.path.join(script_dir, 'data/circbase_real_3d'),
+            os.path.join(script_dir, 'data/pdb_circrna'),
+            os.path.join(script_dir, 'data/shape_3d'),
+            '/root/data/circrna_3d_merged',  # AutoDL common mount
+            '/root/data/circbase_real_3d',
+            '/autodl-tmp/data/circrna_3d_merged',  # AutoDL tmp mount
+            '/autodl-tmp/data/circbase_real_3d',
         ]
         for candidate in search_paths:
             seq_file = os.path.join(candidate, 'sequences.json')
