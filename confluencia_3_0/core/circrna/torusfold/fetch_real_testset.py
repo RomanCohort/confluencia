@@ -394,14 +394,26 @@ def write_torusfold_dataset(
         # Save coordinates
         np.save(coords_dir / f'{sid}.npy', coords)
 
-        # Build sequence entry
+        # Confidence based on method quality
+        method = sample.get('method')
+        if method == 'X-RAY':
+            conf = 1.0
+        elif method == 'CRYO-EM':
+            res = sample.get('resolution')
+            conf = 0.95 if res and res < 3.0 else 0.9
+        elif method == 'NMR':
+            conf = 0.85
+        else:
+            conf = 0.7
+
+        # Build sequence entry (compatible with load_pseudo_labels)
         entry = {
             'id': sid,
             'sequence': sample['sequence'],
             'length': len(sample['sequence']),
             'source': sample.get('source', 'unknown'),
-            'confidence': sample.get('confidence', 0.5),
-            'method': sample.get('method', 'unknown'),
+            'confidence': conf,
+            'method': method or 'unknown',
             'resolution': sample.get('resolution'),
             'quality_score': round(sample.get('quality_score', 0), 2),
         }
@@ -638,10 +650,12 @@ def main():
     print(f"  Train pool:   {output_dir / 'training_pool'}/  ({len(train_pool)} samples)")
     print(f"  Summary:      {output_dir / 'split_summary.json'}")
     print(f"\n  Next steps on AutoDL:")
-    print(f"    1. Upload training_pool/ to AutoDL")
-    print(f"    2. Expand: python augment_pseudo_labels.py --input training_pool/ --output data/expanded --n-aug 20")
-    print(f"    3. Train:  python train_all_schemes.py --schemes 1 4 6 7 --labels data/expanded")
-    print(f"    4. Eval:   python evaluate_scheme.py --scheme 7 --checkpoint models/torusfold/scheme7_best.pt --test-data {test_dir}")
+    print(f"    1. Training pool is already usable — {len(train_pool)} high-quality samples")
+    print(f"    2. Either use directly:")
+    print(f"       python train_all_schemes.py --schemes 1 4 6 7 --labels {output_dir / 'training_pool'}")
+    print(f"    3. Or expand further:")
+    print(f"       python augment_pseudo_labels.py --input {output_dir / 'training_pool'} --output data/expanded --n-aug 5")
+    print(f"    4. Eval on held-out test set:")
 
 
 if __name__ == '__main__':
