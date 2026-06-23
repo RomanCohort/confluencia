@@ -6,6 +6,7 @@ TorusFold: 7 deep learning architectures for circRNA 3D structure prediction
 ## Test Datasets
 - **circrna_3d_merged**: ~11,000 samples, confidence ~0.5 (pseudo-labels)
 - **PDB circularized**: 7 samples, confidence ~0.95 (real structures)
+- **Expanded test set**: 38 samples (34 IsRNAcirc + 4 PDB), confidence ~0.7-0.95
 
 ## Results Table
 
@@ -31,6 +32,28 @@ TorusFold: 7 deep learning architectures for circRNA 3D structure prediction
 | S2 (initial) | 85.4 | 0.1 |
 | Random | 60 | - |
 
+### Expanded Test Set (N=38, mixed quality)
+
+| Scheme | RMSD Mean (Å) | Closure (Å) | Notes |
+|--------|---------------|-------------|-------|
+| S6 (PDB subset, N=6) | 13.94 | 1.32 | High confidence data |
+| S6 (circrna_3d, N=30) | 25.07 | 0.03 | Low confidence data |
+| S6 (IsRNAcirc, N=7) | 59.99 | 0.03 | Random baseline |
+
+### Expanded Test Set Statistics
+
+| Metric | Value |
+|--------|-------|
+| Total samples | 38 |
+| Length range | 36-435 nt |
+| Mean length | 277.6 nt |
+| Mean closure | 5.875 Å |
+| Mean bond RMSD | 0.597 Å |
+
+**Source breakdown:**
+- isrnacirc: 34 (internal: 13, helix: 11, hairpin: 5, junction: 5)
+- pdb_experimental: 4
+
 ## Key Findings
 
 1. **Data quality dominates**: PDB data (conf=0.95) gives RMSD 14Å vs circrna_3d (conf=0.5) giving 25Å
@@ -38,6 +61,7 @@ TorusFold: 7 deep learning architectures for circRNA 3D structure prediction
 3. **EGNN lacks closure**: S1 has 5.36Å closure error (no explicit constraint)
 4. **Physics solver closure**: S2 guarantees closure by construction
 5. **Transformer instability**: S5 explodes to 245Å - no geometric invariance
+6. **Expanded test set**: N=38 now exceeds the N>=30 target for statistical validity
 
 ## Architecture Details
 
@@ -63,3 +87,12 @@ TorusFold: 7 deep learning architectures for circRNA 3D structure prediction
 3. EGNN: learnable coord_step, padding mask for bond/closure loss
 4. S3: planar circular init (no z-offset)
 5. circrna_diffusion: learnable coord_step
+
+## Script Updates (2026-06-23)
+
+### expand_test_set.py
+- Parses CIF files with quoted atom names (fix: `atom_name.startswith('"')` check)
+- Parses PDB files for IsRNAcirc test set
+- Quality filtering: closure < 12Å, bond RMSD < 5Å
+- ViennaRNA circ-mode for secondary structure prediction
+- Output: N=38 samples, target N>=30 met

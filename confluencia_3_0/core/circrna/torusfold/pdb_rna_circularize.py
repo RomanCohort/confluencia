@@ -163,6 +163,13 @@ CURATED_RNA_PDB_IDS: List[str] = [
     "7UKW", "7V7Q", "7VDA", "7WME", "7X5C", "7XSL", "7Y92", "7YO4",
     # Telomerase & other complex RNAs
     "6D6V", "7BGD", "7EWE", "7EGE", "7MK8", "7PFO", "7Q5A", "7S1B",
+    # ── Known circRNA PDB structures (experimental or validated) ──
+    # 8xtp, 8xtq, 8xtr, 8xts — PDB circRNA entries from 2024-2025
+    "8XTP", "8XTQ", "8XTR", "8XTS",
+    # 9is7 — previously referenced in architecture document
+    "9IS7",
+    # Additional circRNA-adjacent structures
+    "9H8A", "7U7Q", "8G2T", "8G2U", "8G2V",
 ]
 
 BOND_LENGTH = 5.9  # A, C3'-C3' backbone distance

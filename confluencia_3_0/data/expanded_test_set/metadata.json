@@ -1,0 +1,34 @@
+{
+  "total": 38,
+  "target": 30,
+  "meets_target": true,
+  "length_range": [
+    36,
+    435
+  ],
+  "mean_length": 277.6,
+  "mean_closure": 5.875,
+  "mean_bond_rmsd": 0.597,
+  "sources": {
+    "pdb_experimental": 4,
+    "isrnacirc": 34
+  },
+  "categories": {
+    "unknown": 4,
+    "hairpin": 5,
+    "helix": 11,
+    "internal": 13,
+    "junction": 5
+  },
+  "length_distribution": {
+    "100-200": 6,
+    "20-50": 1,
+    "200-500": 31
+  },
+  "quality_thresholds": {
+    "max_closure": 12.0,
+    "max_bond_rmsd": 5.0
+  },
+  "min_length": 20,
+  "max_length": 500
+}
