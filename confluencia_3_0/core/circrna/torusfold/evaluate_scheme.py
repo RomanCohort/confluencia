@@ -49,8 +49,18 @@ def kabsch_rmsd(pred, target):
 def build_model(scheme_id, args, device):
     """Build model for given scheme."""
     if scheme_id == 1:
+        # Scheme 1: Use Scheme1Model wrapper (contains egnn=CircRNA3DModel)
+        # Checkpoint keys have 'egnn.' prefix, must match this structure
+        import torch.nn as nn
         from confluencia_3_0.core.circrna.torusfold.train_torusfold_3d import CircRNA3DModel
-        return CircRNA3DModel(d_hidden=args.d_hidden, n_layers=args.n_layers).to(device)
+        class Scheme1Model(nn.Module):
+            """EGNN backbone wrapper (matches train_all_schemes.py structure)."""
+            def __init__(self, d_hidden=128, n_layers=4):
+                super().__init__()
+                self.egnn = CircRNA3DModel(d_hidden=d_hidden, n_layers=n_layers)
+            def forward(self, seq_ids):
+                return self.egnn(seq_ids)
+        return Scheme1Model(d_hidden=args.d_hidden, n_layers=args.n_layers).to(device)
     elif scheme_id == 2:
         # Scheme 2: IsRNAcirc-inspired physics solver (zero training)
         # Pipeline: SS prediction -> coarse-grained 3D folding -> closure refinement
@@ -430,6 +440,10 @@ def evaluate(model, scheme_id, loader, device, n_samples=1):
                 elif scheme_id == 6:
                     # Full diffusion sampling (not just encoder→decoder)
                     out = model(seq_ids, mode='sample')
+                    pred = out['coords']
+                elif scheme_id == 1:
+                    # Scheme 1: CircRNA3DModel.forward(seq_ids) — no mode param
+                    out = model(seq_ids)
                     pred = out['coords']
                 else:
                     out = model(seq_ids, mode='sample')
