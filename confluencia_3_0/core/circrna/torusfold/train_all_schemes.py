@@ -931,6 +931,9 @@ def train_scheme5(train_loader, val_loader, args, device):
                 out = model(seq_ids)
                 pred = out['coords']
 
+                # Clamp predictions to prevent overflow
+                pred = pred.clamp(-1000, 1000)
+
                 B = len(lengths)
                 for b in range(B):
                     valid_L = lengths[b]
@@ -1173,7 +1176,7 @@ def train_scheme6(train_loader, val_loader, args, device):
             loss.backward()
             # Aggressive gradient clipping for stability
             grad_norm = torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=0.5)
-            if torch.isnan(torch.tensor(grad_norm)):
+            if torch.isnan(grad_norm) or torch.isinf(grad_norm):
                 optimizer.zero_grad()
                 nan_batches += 1
                 continue
