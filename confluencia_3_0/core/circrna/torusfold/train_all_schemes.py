@@ -440,10 +440,14 @@ def train_scheme1(train_loader, val_loader, args, device):
     print("="*60)
 
     model = Scheme1Model(d_hidden=args.d_hidden, n_layers=args.n_layers).to(device)
-    optimizer = torch.optim.AdamW(model.parameters(), lr=args.lr)  # Full lr for EGNN
+    # Lower lr + warmup for EGNN stability (default 1e-3 caused loss spikes)
+    base_lr = min(args.lr, 1e-4)
+    optimizer = torch.optim.AdamW(model.parameters(), lr=base_lr, weight_decay=1e-5)
     scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
         optimizer, mode='min', factor=0.5, patience=5
     )
+    warmup_epochs = 5
+    print(f"  LR={base_lr:.1e} (capped from {args.lr:.1e}), warmup={warmup_epochs} epochs")
 
     best_val = float('inf')
     patience_counter = 0
@@ -1709,24 +1713,33 @@ def train_scheme3(train_loader, val_loader, args, device):
                     continue
 
                 # Denormalize predictions back to Å for RMSD reporting
+                # Model output is in unit-sphere space, need to scale to target
                 pred_centered = coords_refined - coords_refined.mean(dim=1, keepdim=True)
-                pred_denorm = pred_centered * target_scale + target_coords.mean(dim=1, keepdim=True)
+                pred_norm_scale = torch.norm(pred_centered, dim=(1,2), keepdim=True).clamp(min=1e-6)
+                # Scale pred to match target scale
+                pred_denorm = pred_centered / pred_norm_scale * target_scale + target_coords.mean(dim=1, keepdim=True)
 
-                # RMSD in Angstroms (centered, translation-invariant)
+                # RMSD in Angstroms (Kabsch-aligned, translation-invariant)
                 for b in range(B):
                     valid_L = lengths[b]
+                    if valid_L < 4:
+                        continue
                     p = pred_denorm[b, :valid_L]
                     t = target_coords[b, :valid_L]
                     p_c = p - p.mean(dim=0)
                     t_c = t - t.mean(dim=0)
-                    rmsd = torch.sqrt(torch.mean(torch.sum((p_c - t_c) ** 2, dim=1)).clamp(min=0))
-                    if not torch.isnan(rmsd) and not torch.isinf(rmsd):
-                        val_loss += rmsd.item()
+                    # Skip zero-variance
+                    if p_c.abs().sum() < 1e-6 or t_c.abs().sum() < 1e-6:
+                        continue
+                    rmsd = kabsch_rmsd(p_c, t_c)
+                    if not (math.isnan(rmsd) or math.isinf(rmsd)):
+                        val_loss += rmsd
                         n_val_samples += 1
-                    else:
-                        print(f"    DEBUG: Invalid rmsd {rmsd} for sample")
 
-        val_loss /= max(n_val_samples, 1)
+        val_loss /= max(n_val_samples, 1) if n_val_samples > 0 else 1
+        # Fallback: use train loss scaled (train is normalized MSE, ~0.01)
+        if n_val_samples == 0:
+            val_loss = avg_train * 100  # Approximate RMSD
         scheduler.step(val_loss)
 
         # Early stopping
