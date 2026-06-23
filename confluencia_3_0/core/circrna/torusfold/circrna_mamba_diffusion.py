@@ -18,6 +18,9 @@ Memory comparison (L=1000, batch=4, d=128):
     Scheme 4 EGNN:  ~25 GB (O(L²) edge features)
     Scheme 7 Mamba: ~8 GB  (O(L) SSM + O(L×w) local attention)
 
+Speed: Auto-detects mamba-ssm CUDA kernels for 10-100x speedup.
+       Falls back to pure-Python SSM if mamba-ssm is not installed.
+
 References:
     - ZigMa: DiT-style Mamba diffusion (Zigzag scan for non-1D data)
     - MAD: Mamba for reconstruction + DiT for dependency
@@ -33,6 +36,17 @@ from typing import Dict, List, Optional, Tuple
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+
+# ── Detect mamba-ssm CUDA kernels ──────────────────────────────
+
+try:
+    from mamba_ssm import Mamba as MambaSSM
+    HAS_MAMBA_SSM = True
+    print("  [circrna_mamba_diffusion] Using mamba-ssm CUDA kernels (fast)")
+except ImportError:
+    HAS_MAMBA_SSM = False
+    print("  [circrna_mamba_diffusion] mamba-ssm not found, using pure-Python SSM (slow)")
+    print("    Install with: pip install mamba-ssm --no-build-isolation")
 
 
 @dataclass
@@ -63,6 +77,8 @@ class SelectiveSSM(nn.Module):
     With input-dependent selection:
         B, C, Δ are functions of x (not fixed)
         This is what makes Mamba "selective" vs standard SSM.
+
+    Uses mamba-ssm CUDA kernels when available for 10-100x speedup.
     """
 
     def __init__(self, d_model: int, d_state: int = 64, dt_rank: int = 16):
@@ -71,16 +87,24 @@ class SelectiveSSM(nn.Module):
         self.d_state = d_state
         self.dt_rank = dt_rank
 
-        # Input-dependent projections
-        self.x_proj = nn.Linear(d_model, dt_rank + d_state * 2, bias=False)
-        self.dt_proj = nn.Linear(dt_rank, d_model, bias=True)
-
-        # SSM parameters (learned, but not input-dependent)
-        self.A_log = nn.Parameter(torch.log(torch.arange(1, d_state + 1, dtype=torch.float32).repeat(d_model, 1)))
-        self.D = nn.Parameter(torch.ones(d_model))
-
-        # Output projection
-        self.out_proj = nn.Linear(d_model, d_model, bias=False)
+        if HAS_MAMBA_SSM:
+            # Use CUDA-optimized Mamba block
+            self.mamba = MambaSSM(
+                d_model=d_model,
+                d_state=d_state,
+                d_conv=4,        # Local convolution width
+                expand=1,        # No expansion (keep d_model)
+                dt_rank=dt_rank,
+            )
+            self._use_cuda = True
+        else:
+            # Pure-Python fallback (slow)
+            self.x_proj = nn.Linear(d_model, dt_rank + d_state * 2, bias=False)
+            self.dt_proj = nn.Linear(dt_rank, d_model, bias=True)
+            self.A_log = nn.Parameter(torch.log(torch.arange(1, d_state + 1, dtype=torch.float32).repeat(d_model, 1)))
+            self.D = nn.Parameter(torch.ones(d_model))
+            self.out_proj = nn.Linear(d_model, d_model, bias=False)
+            self._use_cuda = False
 
     def forward(self, x: torch.Tensor, circular: bool = False) -> torch.Tensor:
         """
@@ -91,58 +115,71 @@ class SelectiveSSM(nn.Module):
         Returns:
             (B, L, D) output sequence
         """
+        if self._use_cuda:
+            return self._forward_cuda(x, circular)
+        else:
+            return self._forward_python(x, circular)
+
+    def _forward_cuda(self, x: torch.Tensor, circular: bool = False) -> torch.Tensor:
+        """Fast path using mamba-ssm CUDA kernels."""
+        # mamba-ssm handles the full SSM computation in CUDA
+        y = self.mamba(x)
+
+        if circular:
+            # Circular wrap: concatenate x with itself for wrap-around context
+            # The CUDA kernel processes sequentially, so we feed the
+            # sequence twice and take the second pass output
+            x_double = torch.cat([x, x], dim=1)  # (B, 2L, D)
+            y_double = self.mamba(x_double)
+            y_circ = y_double[:, x.shape[1]:]  # Take second half
+            y = 0.7 * y + 0.3 * y_circ
+
+        return y
+
+    def _forward_python(self, x: torch.Tensor, circular: bool = False) -> torch.Tensor:
+        """Slow fallback: pure-Python sequential scan."""
         B, L, D = x.shape
         device = x.device
 
-        # SSM parameters
-        A = -torch.exp(self.A_log.float())  # (D, N) ensure negative for stability
+        A = -torch.exp(self.A_log.float())
         D_param = self.D.float()
 
-        # Input-dependent B, C, Δ
-        x_proj = self.x_proj(x)  # (B, L, dt_rank + 2*N)
-        dt = F.softplus(self.dt_proj(x_proj[:, :, :self.dt_rank]))  # (B, L, D)
-        B_ssm = x_proj[:, :, self.dt_rank:self.dt_rank + self.d_state]  # (B, L, N)
-        C_ssm = x_proj[:, :, self.dt_rank + self.d_state:]  # (B, L, N)
+        x_proj = self.x_proj(x)
+        dt = F.softplus(self.dt_proj(x_proj[:, :, :self.dt_rank]))
+        B_ssm = x_proj[:, :, self.dt_rank:self.dt_rank + self.d_state]
+        C_ssm = x_proj[:, :, self.dt_rank + self.d_state:]
 
-        # Discretize A: A_bar = exp(Δ * A)
-        dA = torch.exp(dt.unsqueeze(-1) * A.unsqueeze(0).unsqueeze(0))  # (B, L, D, N)
-        dB = dt.unsqueeze(-1) * B_ssm.unsqueeze(2)  # (B, L, D, N)
+        dA = torch.exp(dt.unsqueeze(-1) * A.unsqueeze(0).unsqueeze(0))
+        dB = dt.unsqueeze(-1) * B_ssm.unsqueeze(2)
 
-        # Parallel scan (simplified for clarity)
         y = self._sequential_scan(x, dA, dB, C_ssm, D_param, circular)
-
         return self.out_proj(y)
 
     def _sequential_scan(self, x, dA, dB, C, D_skip, circular):
         """Sequential scan with optional circular wrap-around."""
         B, L, D_dim, N = dA.shape
 
-        # Forward scan
         h = torch.zeros(B, D_dim, N, device=x.device, dtype=x.dtype)
         ys = []
 
         for t in range(L):
-            h = dA[:, t] * h + dB[:, t] * x[:, t].unsqueeze(-1)  # (B, D, N)
-            y_t = torch.einsum('bdn,bn->bd', h, C[:, t])  # (B, D)
+            h = dA[:, t] * h + dB[:, t] * x[:, t].unsqueeze(-1)
+            y_t = torch.einsum('bdn,bn->bd', h, C[:, t])
             ys.append(y_t)
 
-        y_forward = torch.stack(ys, dim=1)  # (B, L, D)
+        y_forward = torch.stack(ys, dim=1)
 
         if circular:
-            # Wrap-around: pass final state back to start
-            h_circ = h.clone()  # Final hidden state
+            h_circ = h.clone()
             ys_circ = []
             for t in range(L):
                 h_circ = dA[:, t] * h_circ + dB[:, t] * x[:, t].unsqueeze(-1)
                 y_t = torch.einsum('bdn,bn->bd', h_circ, C[:, t])
                 ys_circ.append(y_t)
             y_circular = torch.stack(ys_circ, dim=1)
-            # Mix forward and circular scans
             y_forward = 0.7 * y_forward + 0.3 * y_circular
 
-        # Residual connection with skip parameter
         y_forward = y_forward + D_skip.unsqueeze(0).unsqueeze(0) * x
-
         return y_forward
 
 
@@ -198,6 +235,8 @@ class CircularLocalAttention(nn.Module):
     2. BSJ flanking region — captures circular topology
 
     Complexity: O(L × (w + bsj_flank)) instead of O(L²)
+
+    Optimized: mask built with vectorized ops instead of Python loops.
     """
 
     def __init__(self, d_model: int, n_heads: int = 4, window: int = 20, bsj_flank: int = 20):
@@ -215,6 +254,32 @@ class CircularLocalAttention(nn.Module):
         )
         self.norm2 = nn.LayerNorm(d_model)
 
+    def _build_mask(self, L: int, device: torch.device) -> torch.Tensor:
+        """Build sparse attention mask with vectorized ops (fast).
+
+        True = masked (not attended to).
+        """
+        # Distance matrix with circular wrap
+        idx = torch.arange(L, device=device)
+        # Circular distance: min(|i-j|, L - |i-j|)
+        diff = (idx.unsqueeze(0) - idx.unsqueeze(1)).abs()
+        circ_diff = torch.min(diff, L - diff)
+
+        # Mask: attend if circular distance <= window
+        mask = circ_diff > self.window
+
+        # BSJ flanking: positions near 0 and near L-1 attend to each other
+        if L > self.bsj_flank * 2:
+            head_region = torch.arange(self.bsj_flank, device=device)
+            tail_region = torch.arange(L - self.bsj_flank, L, device=device)
+            # head <-> tail cross-attention
+            for i in head_region:
+                mask[i, tail_region] = False
+            for j in tail_region:
+                mask[j, head_region] = False
+
+        return mask
+
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """
         Args:
@@ -226,25 +291,9 @@ class CircularLocalAttention(nn.Module):
         B, L, D = x.shape
         residual = x
 
-        # Build sparse attention mask
-        # True = masked (not attended to)
-        mask = torch.ones(L, L, dtype=torch.bool, device=x.device)
+        # Build sparse attention mask (vectorized, fast)
+        mask = self._build_mask(L, x.device)
 
-        for i in range(L):
-            # Local window (circular wrap)
-            for w in range(-self.window, self.window + 1):
-                j = (i + w) % L  # Circular indexing
-                mask[i, j] = False
-
-            # BSJ flanking: positions near 0 attend to positions near L-1 and vice versa
-            if i < self.bsj_flank:
-                for j in range(max(0, L - self.bsj_flank), L):
-                    mask[i, j] = False
-            if i >= L - self.bsj_flank:
-                for j in range(min(self.bsj_flank, L)):
-                    mask[i, j] = False
-
-        # MultiheadAttention expects mask as (L, S) where True = ignore
         x_norm = self.norm(x)
         attn_out, _ = self.attn(x_norm, x_norm, x_norm, attn_mask=mask)
         x = residual + attn_out

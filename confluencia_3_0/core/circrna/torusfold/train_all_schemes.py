@@ -1197,26 +1197,31 @@ def train_scheme7(train_loader, val_loader, args, device):
 
     Memory: ~8GB for L=1000, batch=4, d=128 (vs ~25GB for Scheme 4 EGNN).
 
-    Performance note: The pure-Python SSM scan is O(L) per layer but slow.
-    For faster training, consider installing mamba-ssm with CUDA kernels.
+    Auto-detects mamba-ssm CUDA kernels for 10-100x speedup.
+    If mamba-ssm is not installed, uses reduced config for pure-Python fallback.
     """
     print("\n" + "="*60)
     print("  Training Scheme 7: Mamba+Transformer Hybrid Diffusion")
     print("="*60)
 
     from confluencia_3_0.core.circrna.torusfold.circrna_mamba_diffusion import (
-        CircMambaDiffusionModel, CircMambaConfig
+        CircMambaDiffusionModel, CircMambaConfig, HAS_MAMBA_SSM
     )
 
-    # Reduce layers and diffusion steps for faster training
-    # The pure-Python SSM is slow, so use minimal config by default
-    n_mamba_layers = min(getattr(args, 'n_mamba_layers', 4), 2)  # Cap at 2 for speed
-    n_attn_layers = min(getattr(args, 'n_attn_layers', 2), 1)   # Cap at 1 for speed
-    n_diffusion_steps = min(args.diffusion_steps, 20)          # Cap at 20 for speed
+    # Auto-detect: use full config if CUDA Mamba is available, reduced if pure Python
+    if HAS_MAMBA_SSM:
+        n_mamba_layers = getattr(args, 'n_mamba_layers', 4)
+        n_attn_layers = getattr(args, 'n_attn_layers', 2)
+        n_diffusion_steps = min(args.diffusion_steps, 50)
+        print(f"  CUDA Mamba detected — using full config")
+    else:
+        n_mamba_layers = min(getattr(args, 'n_mamba_layers', 4), 2)
+        n_attn_layers = min(getattr(args, 'n_attn_layers', 2), 1)
+        n_diffusion_steps = min(args.diffusion_steps, 20)
+        print(f"  NOTE: pure-Python SSM — using reduced config for speed")
+        print(f"        Install mamba-ssm with CUDA kernels for full speed")
 
-    print(f"  NOTE: Using reduced config for speed (pure-Python SSM is slow)")
-    print(f"        n_mamba={n_mamba_layers}, n_attn={n_attn_layers}, n_diff={n_diffusion_steps}")
-    print(f"        For faster training, install mamba-ssm with CUDA kernels")
+    print(f"  Config: n_mamba={n_mamba_layers}, n_attn={n_attn_layers}, n_diff={n_diffusion_steps}")
 
     config = CircMambaConfig(
         d_model=args.d_hidden,
