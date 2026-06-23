@@ -206,10 +206,14 @@ def download_circrna_3dfold(output_dir: Path) -> Path:
 
     print("  Cloning CircRNA-3DFold...")
     try:
-        subprocess.run(
+        # Try git lfs, but don't fail if not installed
+        result = subprocess.run(
             ['git', 'lfs', 'install'],
-            check=True, capture_output=True
+            capture_output=True
         )
+        if result.returncode != 0:
+            print("  ⚠ git-lfs not available, cloning without LFS...")
+
         subprocess.run(
             ['git', 'clone', '--depth', '1',
              'https://github.com/RNA-folding-lab/CircRNA-3DFold.git',
@@ -225,6 +229,9 @@ def download_circrna_3dfold(output_dir: Path) -> Path:
              str(repo_dir)],
             check=False, capture_output=True, timeout=600
         )
+    except subprocess.CalledProcessError as e:
+        print(f"  ⚠ Git clone failed: {e}")
+        # Try wget fallback
     except FileNotFoundError:
         print("  ⚠ git not found, trying wget...")
         # Fallback: download zip
