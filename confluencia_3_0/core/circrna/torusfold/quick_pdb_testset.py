@@ -133,13 +133,15 @@ def main():
     os.makedirs(f'{args.output}/coords', exist_ok=True)
     sequences = []
     for i, r in enumerate(results):
+        seq_id = r['id']
         sequences.append({
-            'id': r['id'],
+            'id': seq_id,
             'sequence': r['sequence'],
             'length': len(r['sequence']),
             'pair_constraints': [],
         })
-        np.save(f'{args.output}/coords/pseudo_{i:04d}.npy', r['coords'])
+        # File name must match seq_id (load_pseudo_labels uses f'{seq_id}.npy')
+        np.save(f'{args.output}/coords/{seq_id}.npy', r['coords'])
 
     with open(f'{args.output}/sequences.json', 'w') as f:
         json.dump(sequences, f, indent=2)
