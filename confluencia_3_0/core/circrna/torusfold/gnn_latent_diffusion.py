@@ -243,7 +243,13 @@ class LatentDiffusion(nn.Module):
         return latent
 
     def _train_step(self, latent_target):
-        """Training step (returns loss)."""
+        """Training step (returns loss + denoised latent for decoder).
+
+        Key fix: returns DENOISED latent (not noise_pred) so the decoder
+        learns from the same distribution it sees at inference time.
+        Without this fix, decoder receives clean latent during training
+        but noisy/denoised latent during inference → distribution mismatch.
+        """
         B, L, d_latent = latent_target.shape
         device = latent_target.device
 
@@ -261,10 +267,17 @@ class LatentDiffusion(nn.Module):
         combined = torch.cat([latent_noisy, t_emb.unsqueeze(1).expand(-1, L, -1)], dim=-1)
         noise_pred = self.denoiser(combined)
 
-        # Loss
+        # Loss: predict the noise
         loss = F.mse_loss(noise_pred, noise)
 
-        return {'loss': loss, 'latent_pred': noise_pred}
+        # Denoised latent: x_0 = (x_t - sqrt(1-alpha_bar) * eps_pred) / sqrt(alpha_bar)
+        # This is what the decoder should receive during training
+        alpha_bar_t = self.alpha_bars[t].view(B, 1, 1)
+        latent_denoised = (latent_noisy - torch.sqrt(1 - alpha_bar_t) * noise_pred) / torch.sqrt(alpha_bar_t)
+        # Clamp to prevent extreme values
+        latent_denoised = latent_denoised.clamp(-5, 5)
+
+        return {'loss': loss, 'latent_pred': noise_pred, 'latent_denoised': latent_denoised}
 
 
 class PhysicsGNNDecoder(nn.Module):
@@ -420,17 +433,18 @@ class GNNLatentDiffusionModel(nn.Module):
 
         # Handle train (returns dict) vs sample (returns tensor)
         if isinstance(latent_out, dict):
-            # During training: _train_step returns {'loss': diff_loss, 'latent_pred': noise_pred}
-            # We need BOTH the diffusion loss AND coords for end-to-end training
+            # During training: use DENOISED latent for decoder (not clean latent!)
+            # This fixes the teacher forcing distribution mismatch:
+            #   Old: decoder sees clean latent at train, noisy at inference
+            #   New: decoder sees denoised latent at train, denoised at inference
             diff_loss = latent_out.get('loss', torch.tensor(0.0, device=seq_tokens.device))
 
             # NaN check diffusion loss
             if torch.isnan(diff_loss) or torch.isinf(diff_loss):
                 diff_loss = torch.tensor(0.0, device=seq_tokens.device)
 
-            # Use clean latent for decoder during training (teaches latent→3D mapping)
-            # At inference, decoder will receive denoised latent from diffusion sampling
-            latent = latent_cond
+            # Use denoised latent for decoder (key fix!)
+            latent = latent_out.get('latent_denoised', latent_cond)
         else:
             latent = latent_out
             diff_loss = None

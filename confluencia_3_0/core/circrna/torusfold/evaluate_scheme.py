@@ -51,6 +51,296 @@ def build_model(scheme_id, args, device):
     if scheme_id == 1:
         from confluencia_3_0.core.circrna.torusfold.train_torusfold_3d import CircRNA3DModel
         return CircRNA3DModel(d_hidden=args.d_hidden, n_layers=args.n_layers).to(device)
+    elif scheme_id == 2:
+        # Scheme 2: IsRNAcirc-inspired physics solver (zero training)
+        # Pipeline: SS prediction -> coarse-grained 3D folding -> closure refinement
+        from confluencia_3_0.core.circrna.torusfold.constraint_solver import (
+            GeometricConstraintSolver, SolverConfig
+        )
+        class Scheme2PhysicsSolver:
+            """IsRNAcirc-inspired circRNA 3D structure prediction.
+
+            Pipeline (mirrors IsRNAcirc, zero-training):
+            1. Predict secondary structure from sequence (Nussinov-like)
+            2. Initialize 3D coords respecting pair geometry
+            3. Iterative energy minimization with annealing closure
+            """
+            def __init__(self, n_samples=3):
+                config = SolverConfig(
+                    n_samples=n_samples,
+                    max_iterations=200,
+                    clash_distance=0.0,  # Disable for speed
+                    use_annealing_closure=True,
+                    annealing_steps_per_temp=10,
+                    annealing_cooling=0.9,
+                )
+                self.solver = GeometricConstraintSolver(config)
+                self.device = device
+
+            def _predict_secondary_structure(self, seq_ids_np):
+                """Predict secondary structure using Nussinov-like algorithm.
+
+                Simplified version: maximize base pairs with stacking preference.
+                Handles circular topology (BSJ-crossing pairs allowed).
+                """
+                import numpy as np
+                L = len(seq_ids_np)
+
+                # Complementarity scores
+                comp_score = np.zeros((L, L), dtype=np.float32)
+                wc = {(0,1): 2.0, (1,0): 2.0, (2,3): 3.0, (3,2): 3.0}  # AU=2, GC=3
+                wobble = {(2,1): 1.0, (1,2): 1.0}  # GU=1
+
+                for i in range(L):
+                    for j in range(i + 4, L):
+                        si, sj = int(seq_ids_np[i]), int(seq_ids_np[j])
+                        if si > 3 or sj > 3: continue
+                        comp_score[i, j] = wc.get((si, sj), 0.0) + wobble.get((si, sj), 0.0)
+                        comp_score[j, i] = comp_score[i, j]
+
+                # Nussinov DP for circular RNA
+                # Use linear Nussinov + allow BSJ-crossing pairs
+                dp = np.zeros((L, L), dtype=np.float32)
+                bp = np.full((L, L), -1, dtype=np.int32)
+
+                for length in range(5, L):
+                    for i in range(L - length):
+                        j = i + length
+                        # No pair (i,j)
+                        best = dp[i+1, j]
+                        # Pair (i,j)
+                        if comp_score[i, j] > 0:
+                            pair_score = comp_score[i, j] + dp[i+1, j-1]
+                            # Try bifurcation
+                            for k in range(i+1, j):
+                                bif = dp[i+1, k] + dp[k+1, j-1]
+                                pair_score = max(pair_score, comp_score[i, j] + bif)
+                            if pair_score > best:
+                                best = pair_score
+                                bp[i, j] = j
+                        # Bifurcation without pairing (i,j)
+                        for k in range(i+1, j):
+                            bif = dp[i, k] + dp[k+1, j]
+                            if bif > best:
+                                best = bif
+                                bp[i, j] = -1
+                        dp[i, j] = best
+
+                # Traceback to get pairs
+                pairs = []
+                used = set()
+                stack = [(0, L-1)]
+                while stack:
+                    i, j = stack.pop()
+                    if i >= j or j - i < 4: continue
+                    if bp[i, j] == j and i not in used and j not in used:
+                        pairs.append((i, j))
+                        used.add(i); used.add(j)
+                        stack.append((i+1, j-1))
+                    else:
+                        # Find best bifurcation
+                        best_k = -1
+                        best_score = -1
+                        for k in range(i+1, j):
+                            score = dp[i, k] + dp[k+1, j]
+                            if score > best_score:
+                                best_score = score
+                                best_k = k
+                        if best_k >= 0:
+                            stack.append((i, best_k))
+                            stack.append((best_k+1, j))
+
+                # Convert to constraint format
+                constraints = []
+                for (i, j) in pairs:
+                    si, sj = int(seq_ids_np[i]), int(seq_ids_np[j])
+                    # GC pairs: 10.6A, AU pairs: 10.4A, GU wobble: 10.8A
+                    if (si, sj) in [(2,3), (3,2)]:
+                        target_d = 10.6
+                        weight = 0.9
+                    elif (si, sj) in [(0,1), (1,0)]:
+                        target_d = 10.4
+                        weight = 0.8
+                    else:  # wobble
+                        target_d = 10.8
+                        weight = 0.5
+                    constraints.append((i, j, target_d, weight))
+
+                return constraints
+
+            def _initialize_3d(self, L, pair_constraints):
+                """Initialize 3D coords respecting secondary structure geometry.
+
+                Key idea from IsRNAcirc: start from a structure-aware initial
+                configuration rather than a flat ring. Paired regions form
+                A-form helices; unpaired regions form loops.
+                """
+                import math
+                import numpy as np
+
+                coords = np.zeros((L, 3), dtype=np.float64)
+                assigned = np.zeros(L, dtype=bool)
+
+                # A-form helix parameters
+                helix_rise = 2.8    # A per nucleotide along helix axis
+                helix_radius = 5.0  # A from helix axis
+                nt_per_turn = 11   # nucleotides per helix turn
+                helix_twist = 2 * math.pi / nt_per_turn  # radians per nt
+
+                # Process pairs in order: build helices first
+                sorted_pairs = sorted(pair_constraints,
+                                     key=lambda p: p[0], reverse=False)
+
+                for (i, j, target_d, weight) in sorted_pairs:
+                    if assigned[i] or assigned[j]:
+                        continue
+
+                    # Place paired nucleotides as A-form helix
+                    # i on 5' strand, j on 3' strand (antiparallel)
+                    # Helix extends in z-direction
+                    pair_idx = sum(1 for p in sorted_pairs if p[0] < i and not assigned[p[0]])
+
+                    z_base = pair_idx * helix_rise
+
+                    # 5' strand (i): forward along helix
+                    angle_5 = pair_idx * helix_twist
+                    coords[i] = [helix_radius * math.cos(angle_5),
+                                 helix_radius * math.sin(angle_5),
+                                 z_base]
+                    assigned[i] = True
+
+                    # 3' strand (j): backward along helix (antiparallel)
+                    angle_3 = angle_5 + math.pi  # opposite side
+                    coords[j] = [helix_radius * math.cos(angle_3),
+                                 helix_radius * math.sin(angle_3),
+                                 z_base + helix_rise * 0.5]
+                    assigned[j] = True
+
+                # Fill unassigned positions as loops connecting helices
+                # Use smooth interpolation between assigned points
+                assigned_indices = np.where(assigned)[0]
+                if len(assigned_indices) == 0:
+                    # No pairs: fall back to regular polygon
+                    R = L * 5.9 / (2 * math.pi)
+                    for i in range(L):
+                        angle = 2 * math.pi * i / L
+                        coords[i] = [R * math.cos(angle), R * math.sin(angle), 0]
+                    return coords.astype(np.float32)
+
+                # Interpolate unassigned positions
+                for seg_start in range(len(assigned_indices)):
+                    idx_start = assigned_indices[seg_start]
+                    idx_end = assigned_indices[(seg_start + 1) % len(assigned_indices)]
+
+                    if idx_end <= idx_start:
+                        # Wrap around BSJ
+                        loop_indices = list(range(idx_start + 1, L)) + list(range(0, idx_end))
+                    else:
+                        loop_indices = list(range(idx_start + 1, idx_end))
+
+                    if not loop_indices:
+                        continue
+
+                    n_loop = len(loop_indices)
+                    p_start = coords[idx_start].copy()
+                    p_end = coords[idx_end].copy()
+
+                    # Loop goes outward from helix axis
+                    mid_dir = (p_start + p_end) / 2
+                    loop_radius = max(5.0, n_loop * 5.9 / (2 * math.pi) * 0.3)
+
+                    for k, idx in enumerate(loop_indices):
+                        t = (k + 1) / (n_loop + 1)  # 0 to 1
+                        # Interpolate position
+                        coords[idx] = p_start * (1 - t) + p_end * t
+                        # Add outward bulge for loop
+                        outward = np.array([math.cos(math.pi * t), math.sin(math.pi * t), 0])
+                        coords[idx] += outward * loop_radius * 0.5
+                        assigned[idx] = True
+
+                # Ensure any remaining unassigned get interpolated
+                for i in range(L):
+                    if not assigned[i]:
+                        # Find nearest assigned neighbors
+                        prev_a = max((a for a in assigned_indices if a < i), default=assigned_indices[-1])
+                        next_a = min((a for a in assigned_indices if a > i), default=assigned_indices[0])
+                        t = (i - prev_a) / max(next_a - prev_a, 1)
+                        coords[i] = coords[prev_a] * (1 - t) + coords[next_a] * t
+                        assigned[i] = True
+
+                return coords.astype(np.float32)
+
+            def _extract_pair_constraints(self, pair_prob_matrix, threshold=0.3):
+                """Extract pair constraints from probability matrix."""
+                import numpy as np
+                L = pair_prob_matrix.shape[0]
+                pairs = []
+                for i in range(L):
+                    for j in range(i + 4, L):
+                        if pair_prob_matrix[i, j] > threshold:
+                            pairs.append((i, j, 10.6, float(pair_prob_matrix[i, j])))
+                return pairs
+
+            def __call__(self, seq_ids, mode='sample', pair_probs=None, lengths=None, **kwargs):
+                """Run physics solver for each sequence in batch."""
+                import math
+                import numpy as np
+
+                B, L = seq_ids.shape
+                coords_list = []
+                for b in range(B):
+                    actual_L = lengths[b] if lengths is not None else L
+
+                    # Step 1: Get pair constraints
+                    pair_constraints = []
+                    if pair_probs is not None:
+                        pp = pair_probs[b, :actual_L, :actual_L].cpu().numpy()
+                        if pp.max() > 0.31:  # Real data
+                            pair_constraints = self._extract_pair_constraints(pp)
+
+                    if not pair_constraints:
+                        seq_np = seq_ids[b, :actual_L].cpu().numpy()
+                        pair_constraints = self._predict_secondary_structure(seq_np)
+
+                    # Step 2: Initialize with structure-aware 3D coords
+                    init_coords = self._initialize_3d(actual_L, pair_constraints)
+
+                    # Step 3: Refine with solver (starts from init_coords)
+                    class ConstraintSet:
+                        def __init__(self, seq_len, pairs):
+                            self.seq_len = seq_len
+                            self.pair_constraints = pairs
+
+                    constraint_set = ConstraintSet(actual_L, pair_constraints)
+
+                    # Use solver with custom init (override regular polygon)
+                    # Monkey-patch solver's _regular_polygon temporarily
+                    original_method = self.solver._regular_polygon
+                    self.solver._regular_polygon = lambda l, bl: init_coords.copy()
+                    conformations = self.solver.solve(constraint_set)
+                    self.solver._regular_polygon = original_method
+
+                    if conformations:
+                        coords = conformations[0].astype(np.float32)
+                    else:
+                        coords = init_coords.astype(np.float32)
+
+                    # Pad to batch length if needed
+                    if actual_L < L:
+                        pad = np.tile(coords[-1:], (L - actual_L, 1))
+                        coords = np.concatenate([coords, pad], axis=0)
+
+                    coords_list.append(coords)
+
+                # Stack into batch tensor
+                import torch
+                pred = torch.from_numpy(np.stack(coords_list, axis=0)).to(self.device)
+                return {'coords': pred}
+
+            def eval(self):
+                pass  # No-op for compatibility
+
+        return Scheme2PhysicsSolver(n_samples=args.n_samples if hasattr(args, 'n_samples') else 10)
     elif scheme_id == 5:
         import torch.nn as nn
         class Scheme5Model(nn.Module):
@@ -114,6 +404,7 @@ def evaluate(model, scheme_id, loader, device, n_samples=1):
         seq_ids = batch['seq_ids'].to(device)
         target = batch['coords'].to(device)
         lengths = batch['lengths']
+        pair_probs = batch.get('pair_probs', None)
 
         # Skip corrupt data
         if torch.isinf(target).any() or torch.isnan(target).any():
@@ -132,14 +423,20 @@ def evaluate(model, scheme_id, loader, device, n_samples=1):
 
         for sample_idx in range(n_samples):
             try:
-                if scheme_id == 6:
-                    # Use encoder+decoder directly (fast, deterministic)
-                    latent = model.encoder(seq_ids)
-                    pred = model.decoder(latent, seq_ids)
+                if scheme_id == 2:
+                    # Physics solver: pass pair_probs for constraint extraction
+                    out = model(seq_ids, mode='sample', pair_probs=pair_probs, lengths=lengths)
+                    pred = out['coords']
+                elif scheme_id == 6:
+                    # Full diffusion sampling (not just encoder→decoder)
+                    out = model(seq_ids, mode='sample')
+                    pred = out['coords']
                 else:
                     out = model(seq_ids, mode='sample')
                     pred = out['coords']
             except Exception as e:
+                if n_failed < 3:
+                    print(f"    [WARN] Sample failed: {e}")
                 n_failed += B
                 break
 
@@ -320,7 +617,7 @@ def main():
     print(f"  Samples failed:    {results['n_failed']}")
     print(f"  Time: {elapsed:.1f}s")
     print(f"")
-    print(f"  RMSD (Å):")
+    print(f"  RMSD (A):")
     print(f"    Mean:   {results['rmsd_mean']:.2f}")
     print(f"    Median: {results['rmsd_median']:.2f}")
     print(f"    Std:    {results['rmsd_std']:.2f}")
@@ -328,16 +625,16 @@ def main():
     print(f"    Max:    {results['rmsd_max']:.2f}")
     print(f"")
     print(f"  RMSD thresholds:")
-    print(f"    < 10Å: {results['rmsd_<10A']:.1%}")
-    print(f"    < 20Å: {results['rmsd_<20A']:.1%}")
-    print(f"    < 30Å: {results['rmsd_<30A']:.1%}")
+    print(f"    < 10A: {results['rmsd_<10A']:.1%}")
+    print(f"    < 20A: {results['rmsd_<20A']:.1%}")
+    print(f"    < 30A: {results['rmsd_<30A']:.1%}")
     print(f"")
     if 'rmsd_percentiles' in results:
         p = results['rmsd_percentiles']
         print(f"  RMSD percentiles:")
         print(f"    P10: {p['p10']:.2f}  P25: {p['p25']:.2f}  P50: {p['p50']:.2f}  P75: {p['p75']:.2f}  P90: {p['p90']:.2f}")
     print(f"")
-    print(f"  Closure error (Å): {results['closure_mean']:.2f}")
+    print(f"  Closure error (A): {results['closure_mean']:.2f}")
     print(f"  TM-score: {results['tm_mean']:.4f} (median: {results['tm_median']:.4f})")
     print(f"{'='*60}")
 

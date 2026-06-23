@@ -927,7 +927,9 @@ def run_pipeline(
     print(f"[5/5] Augmenting {len(passed_fragments)} structures x{augment_multiplier}...")
 
     # Compute how many base structures we need to reach the target
-    needed_base = math.ceil(target_samples / augment_multiplier)
+    # Handle augment_multiplier=0 case
+    effective_augment = max(augment_multiplier, 1)
+    needed_base = math.ceil(target_samples / effective_augment)
     if len(passed_fragments) > needed_base:
         # Subsample to avoid exceeding target
         indices = rng.choice(len(passed_fragments), needed_base, replace=False)

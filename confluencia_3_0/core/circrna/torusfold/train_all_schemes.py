@@ -969,9 +969,9 @@ def train_scheme6(train_loader, val_loader, args, device):
 
             B, L, _ = target.shape
 
-            # Normalize: center + scale by std (more stable than norm)
+            # Normalize: center + scale by per-sample std
             target_centered = target - target.mean(dim=1, keepdim=True)
-            target_std = target_centered.std().clamp(min=1.0)
+            target_std = target_centered.std(dim=(1, 2), keepdim=True).clamp(min=1.0)  # (B, 1, 1)
             target_norm = target_centered / target_std
 
             # Forward
@@ -980,14 +980,14 @@ def train_scheme6(train_loader, val_loader, args, device):
             diff_loss = out.get('diffusion_loss', None)
             closure_dist = out.get('closure_distance', None)
 
-            # Denormalize prediction
+            # Denormalize prediction (per-sample)
             pred_denorm = pred_coords * target_std + target.mean(dim=1, keepdim=True)
 
             # Coordinate reconstruction loss (normalized)
             pred_centered = pred_coords - pred_coords.mean(dim=1, keepdim=True)
             coord_loss = F.mse_loss(pred_centered, target_norm)
 
-            # Closure loss: encourage BSJ distance ≈ bond_length
+            # Closure loss: encourage BSJ distance ≈ bond_length (in Angstroms)
             pred_closure = torch.norm(pred_denorm[:, 0] - pred_denorm[:, -1], dim=-1)
             closure_loss = F.mse_loss(pred_closure, torch.full_like(pred_closure, bond_length))
 

@@ -137,7 +137,7 @@ class GeometricConstraintSolver:
 
         For each pair (i, j, target_d, weight):
         - Compute current distance d_curr
-        - If d_curr differs from target_d, move j toward/away from i
+        - If d_curr differs from target_d, move both i and j symmetrically
         - Weight determines how much to move (higher = more movement)
 
         This is a local optimization, not global. Each pair is treated
@@ -146,15 +146,27 @@ class GeometricConstraintSolver:
         """
         max_iter = max_iter or self.config.max_iterations
         coords = coords.copy()
+        L = len(coords)
 
         pair_constraints = constraint_set.pair_constraints
         if not pair_constraints:
             return coords
 
+        # Filter out BSJ-adjacent pairs (conflict with closure)
+        filtered_pairs = []
+        for (i, j, target_d, weight) in pair_constraints:
+            # Skip pairs that cross or are adjacent to BSJ
+            if (i <= 2 and j >= L - 3) or (j <= 2 and i >= L - 3):
+                continue
+            filtered_pairs.append((i, j, target_d, weight))
+
+        if not filtered_pairs:
+            return coords
+
         for iteration in range(max_iter):
             max_error = 0.0
 
-            for (i, j, target_d, weight) in pair_constraints:
+            for (i, j, target_d, weight) in filtered_pairs:
                 # Current distance
                 d_curr = np.linalg.norm(coords[j] - coords[i])
 
@@ -162,7 +174,7 @@ class GeometricConstraintSolver:
                 error = abs(d_curr - target_d)
                 max_error = max(max_error, error)
 
-                if error < 0.1:  # Within tolerance
+                if error < 0.5:  # Within tolerance
                     continue
 
                 # Direction vector from i to j
@@ -175,12 +187,13 @@ class GeometricConstraintSolver:
 
                 # Movement amount: proportional to error and weight
                 move_amount = (target_d - d_curr) * weight * 0.3
-                move_amount = np.clip(move_amount, -2.0, 2.0)  # Limit max movement
+                move_amount = np.clip(move_amount, -5.0, 5.0)  # Allow larger moves
 
-                # Move j toward/away from i
-                coords[j] += move_amount * direction
+                # Move both i and j symmetrically (half each)
+                coords[j] += 0.5 * move_amount * direction
+                coords[i] -= 0.5 * move_amount * direction
 
-            if max_error < 0.5:  # All constraints satisfied
+            if max_error < 1.0:  # All constraints approximately satisfied
                 break
 
         return coords
@@ -311,7 +324,7 @@ class GeometricConstraintSolver:
         return best_coords
 
     def _has_clashes(self, coords: np.ndarray) -> bool:
-        """Check for steric clashes (non-bonded atoms too close).
+        """Check for steric clashes (vectorized).
 
         Clash: any pair (i, j) where |i-j| > 1 and distance < clash_distance.
         (Adjacent pairs are bonded, so allowed to be close.)
@@ -322,17 +335,20 @@ class GeometricConstraintSolver:
         L = len(coords)
         clash_dist = self.config.clash_distance
 
-        for i in range(L):
-            for j in range(i + 2, L):  # Skip adjacent (|i-j|=1)
-                # Also skip closure pair (i=0, j=L-1)
-                if i == 0 and j == L - 1:
-                    continue
+        if L < 4:
+            return False
 
-                d = np.linalg.norm(coords[j] - coords[i])
-                if d < clash_dist:
-                    return True
+        # Compute pairwise distance matrix
+        diff = coords[:, np.newaxis, :] - coords[np.newaxis, :, :]
+        dist_matrix = np.sqrt(np.sum(diff ** 2, axis=2) + 1e-8)
 
-        return False
+        # Create mask for valid check pairs
+        i_idx, j_idx = np.triu_indices(L, k=2)  # |i-j| >= 2
+        # Exclude BSJ pair (0, L-1)
+        mask = ~((i_idx == 0) & (j_idx == L - 1))
+
+        valid_dists = dist_matrix[i_idx[mask], j_idx[mask]]
+        return bool(np.any(valid_dists < clash_dist))
 
     def _local_relax(self, coords: np.ndarray, constraint_set) -> np.ndarray:
         """Local relaxation to reduce energy.
@@ -359,7 +375,7 @@ class GeometricConstraintSolver:
         return coords
 
     def _compute_cg_energy(self, coords: np.ndarray, constraint_set) -> float:
-        """Compute coarse-grained energy with extended physics terms.
+        """Compute coarse-grained energy with extended physics terms (vectorized).
 
         Energy components:
         1. Bond energy: k_bond * Σ(d - bond_length)²
@@ -383,54 +399,49 @@ class GeometricConstraintSolver:
 
         energy = 0.0
 
-        # 1. Bond energy
-        for i in range(L):
-            j = (i + 1) % L
-            d = np.linalg.norm(coords[j] - coords[i])
-            energy += k_bond * (d - bond_length) ** 2
+        # 1. Bond energy (vectorized)
+        next_coords = np.roll(coords, -1, axis=0)
+        bond_dists = np.linalg.norm(next_coords - coords, axis=1)
+        energy += k_bond * np.sum((bond_dists - bond_length) ** 2)
 
         # 2. Pair energy
         for (i, j, target_d, weight) in constraint_set.pair_constraints:
             d = np.linalg.norm(coords[j] - coords[i])
             energy += k_pair * weight * (d - target_d) ** 2
 
-        # 3. Clash energy
-        for i in range(L):
-            for j in range(i + 2, L):
-                if i == 0 and j == L - 1:
-                    continue
-                d = np.linalg.norm(coords[j] - coords[i])
-                if d < clash_dist:
-                    energy += k_clash * (clash_dist - d) ** 2
+        # 3. Clash energy (vectorized with distance matrix)
+        # Only check non-adjacent pairs (|i-j| > 1) excluding BSJ
+        if L > 10:  # Only for longer sequences where clashes matter
+            diff = coords[:, np.newaxis, :] - coords[np.newaxis, :, :]
+            dist_matrix = np.sqrt(np.sum(diff ** 2, axis=2) + 1e-8)
 
-        # 4. Base stacking energy (adjacent bases prefer ~3.4Å vertical separation)
-        # Stacking is along the helical axis (z-direction for A-form)
+            # Create mask for valid pairs (non-adjacent, not BSJ)
+            i_idx, j_idx = np.triu_indices(L, k=2)  # Upper triangle, |i-j| >= 2
+            mask = ~((i_idx == 0) & (j_idx == L - 1))  # Exclude BSJ
+            valid_i, valid_j = i_idx[mask], j_idx[mask]
+
+            valid_dists = dist_matrix[valid_i, valid_j]
+            clashes = valid_dists[valid_dists < clash_dist]
+            energy += k_clash * np.sum((clash_dist - clashes) ** 2)
+
+        # 4. Base stacking energy (vectorized)
         stack_distance = 3.4  # Å, A-form RNA stacking distance
-        for i in range(L):
-            j = (i + 1) % L
-            dz = abs(coords[j, 2] - coords[i, 2])
-            energy += k_stack * (dz - stack_distance) ** 2
+        dz = np.abs(np.roll(coords[:, 2], -1) - coords[:, 2])
+        energy += k_stack * np.sum((dz - stack_distance) ** 2)
 
-        # 5. Electrostatic repulsion (phosphate backbone, -1 charge each)
-        # Simplified: q²/d for non-bonded pairs within cutoff
-        elec_cutoff = 20.0  # Å, beyond this electrostatics negligible
-        for i in range(L):
-            for j in range(i + 2, L):
-                if i == 0 and j == L - 1:
-                    continue
-                d = np.linalg.norm(coords[j] - coords[i])
-                if d < elec_cutoff and d > 0.1:
-                    energy += k_elec / d  # Coulomb-like repulsion
+        # 5. Electrostatic repulsion (vectorized with cutoff)
+        if L > 10:
+            elec_cutoff = 20.0
+            valid_dists_elec = dist_matrix[valid_i, valid_j]
+            within_cutoff = valid_dists_elec[(valid_dists_elec < elec_cutoff) & (valid_dists_elec > 0.1)]
+            energy += k_elec * np.sum(1.0 / within_cutoff)
 
-        # 6. A-form RNA dihedral preference
-        # Preferred backbone dihedral angles for A-form RNA
-        for i in range(L - 2):
-            v1 = coords[i+1] - coords[i]
-            v2 = coords[i+2] - coords[i+1]
-            # Simplified: prefer consistent bond angles (~106° for A-form)
-            cos_angle = np.dot(v1, v2) / (np.linalg.norm(v1) * np.linalg.norm(v2) + 1e-8)
-            # A-form bond angle: ~106° → cos(106°) ≈ -0.276
-            energy += k_dih * (cos_angle - (-0.276)) ** 2
+        # 6. A-form RNA dihedral preference (simplified, O(L))
+        v1 = coords[1:-1] - coords[:-2]
+        v2 = coords[2:] - coords[1:-1]
+        norms = np.linalg.norm(v1, axis=1, keepdims=True) * np.linalg.norm(v2, axis=1, keepdims=True) + 1e-8
+        cos_angles = np.sum(v1 * v2, axis=1)[:, np.newaxis] / norms
+        energy += k_dih * np.sum((cos_angles - (-0.276)) ** 2)
 
         return energy
 
