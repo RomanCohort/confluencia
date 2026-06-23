@@ -825,7 +825,6 @@ def run_pipeline(
         if len(rna_fragments) >= target_samples * 2:
             print(f"\n  Found {len(rna_fragments)} fragments, enough for {target_samples} target")
             break
-        dl_bar.update(1)
         pdb_path = download_pdb(pdb_id, pdb_cache)
         if pdb_path is None:
             continue
