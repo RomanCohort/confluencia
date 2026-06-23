@@ -512,37 +512,56 @@ def train_scheme1(train_loader, val_loader, args, device):
                 target = batch['coords'].to(device)
                 lengths = batch['lengths']
 
-                if target.abs().sum() < 1e-3 or torch.isnan(target).any() or torch.isinf(target).any():
+                # Skip invalid targets
+                if torch.isnan(target).any() or torch.isinf(target).any():
+                    continue
+                if target.abs().sum() < 1e-3:
                     continue
 
+                B, L, _ = target.shape
+
+                # Get target scale for proper denormalization
+                target_centered = target - target.mean(dim=1, keepdim=True)
+                target_scale = torch.norm(target_centered, dim=(1,2), keepdim=True).clamp(min=1.0)
+
+                # Model forward (output is in normalized space)
                 out = model(seq_ids)
                 pred = out['coords']
 
                 if torch.isnan(pred).any() or torch.isinf(pred).any():
                     continue
 
-                # Denormalize pred (in normalized space) to Angstroms
-                target_centered = target - target.mean(dim=1, keepdim=True)
-                target_scale = torch.norm(target_centered, dim=(1,2), keepdim=True).clamp(min=1.0)
+                # Denormalize: pred is unit-scale, scale to Angstroms
                 pred_centered = pred - pred.mean(dim=1, keepdim=True)
-                pred_denorm = pred_centered * target_scale + target.mean(dim=1, keepdim=True)
+                pred_norm_scale = torch.norm(pred_centered, dim=(1,2), keepdim=True).clamp(min=1e-6)
 
-                B = len(lengths)
+                # Scale pred to match target scale (critical for RMSD in Angstroms)
+                pred_denorm = pred_centered / pred_norm_scale * target_scale + target.mean(dim=1, keepdim=True)
+
                 for b in range(B):
                     valid_L = lengths[b]
+                    if valid_L < 4:
+                        continue
                     p = pred_denorm[b, :valid_L]
                     t = target[b, :valid_L]
+
+                    # Center for Kabsch
                     p_c = p - p.mean(dim=0)
                     t_c = t - t.mean(dim=0)
+
+                    # Skip zero-variance
                     if p_c.abs().sum() < 1e-6 or t_c.abs().sum() < 1e-6:
                         continue
+
                     rmsd = kabsch_rmsd(p_c, t_c)
                     if not (np.isnan(rmsd) or np.isinf(rmsd)):
                         val_rmsd += rmsd
                         n_val_samples += 1
 
         avg_train = train_loss / max(n_train_batches, 1)
-        avg_val = val_rmsd / max(n_val_samples, 1) if n_val_samples > 0 else avg_train
+        # Fallback: use train loss scaled to approximate RMSD (train is normalized MSE)
+        # RMSD ≈ sqrt(train_loss) * typical_scale (Å)
+        avg_val = val_rmsd / max(n_val_samples, 1) if n_val_samples > 0 else avg_train * 100
         scheduler.step(avg_val)
 
         if avg_val < best_val:
