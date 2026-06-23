@@ -196,66 +196,126 @@ def parse_pdb_simple(pdb_path: Path) -> Optional[Dict]:
 # Data Source: CircRNA-3DFold
 # ═══════════════════════════════════════════════════════════════
 
-def download_circrna_3dfold(output_dir: Path) -> Path:
-    """Clone CircRNA-3DFold repo (includes dataset in data/)."""
-    repo_dir = output_dir / 'CircRNA-3DFold'
+def download_with_fallback(name: str, zip_url: str, zenodo_url: str,
+                            output_dir: Path) -> Optional[Path]:
+    """Download a dataset with multiple fallback strategies.
 
-    if repo_dir.exists():
-        print(f"  CircRNA-3DFold already exists at {repo_dir}")
+    Strategy order: wget zip → curl zip → zenodo → git clone
+    """
+    # Determine expected directory name from zip
+    repo_slug = zip_url.split('/')[-1].replace('.zip', '')  # e.g. CircRNA-3DFold-main
+    repo_dir = output_dir / repo_slug.replace('-main', '')
+
+    if repo_dir.exists() and any(repo_dir.rglob('*')):
+        print(f"  {name} already exists at {repo_dir}")
         return repo_dir
 
-    print("  Cloning CircRNA-3DFold...")
+    # Strategy 1: wget the GitHub zip archive (no auth needed)
+    print(f"  Downloading {name} via wget...")
+    zip_path = output_dir / f'{name}.zip'
     try:
-        # Try git lfs, but don't fail if not installed
         result = subprocess.run(
-            ['git', 'lfs', 'install'],
-            capture_output=True
+            ['wget', '-q', '--no-check-certificate', zip_url, '-O', str(zip_path)],
+            capture_output=True, timeout=300
         )
-        if result.returncode != 0:
-            print("  ⚠ git-lfs not available, cloning without LFS...")
+        if result.returncode == 0 and zip_path.exists() and zip_path.stat().st_size > 1000:
+            print(f"  ✓ Downloaded zip ({zip_path.stat().st_size / 1024 / 1024:.1f} MB)")
+            subprocess.run(['unzip', '-q', '-o', str(zip_path), '-d', str(output_dir)],
+                           capture_output=True)
+            zip_path.unlink(missing_ok=True)
+            # Find extracted directory
+            extracted = output_dir / repo_slug
+            if extracted.exists():
+                extracted.rename(repo_dir)
+            if repo_dir.exists():
+                print(f"  ✓ Extracted to {repo_dir}")
+                return repo_dir
+    except Exception as e:
+        print(f"  wget failed: {e}")
 
-        subprocess.run(
-            ['git', 'clone', '--depth', '1',
-             'https://github.com/RNA-folding-lab/CircRNA-3DFold.git',
-             str(repo_dir)],
-            check=True, capture_output=True, timeout=600
+    # Strategy 2: curl the GitHub zip archive
+    print(f"  Trying curl...")
+    try:
+        result = subprocess.run(
+            ['curl', '-sL', zip_url, '-o', str(zip_path)],
+            capture_output=True, timeout=300
         )
-        print(f"  ✓ Cloned to {repo_dir}")
-    except subprocess.TimeoutExpired:
-        print("  ⚠ Git clone timed out, trying without LFS...")
-        subprocess.run(
-            ['git', 'clone', '--depth', '1',
-             'https://github.com/RNA-folding-lab/CircRNA-3DFold.git',
-             str(repo_dir)],
-            check=False, capture_output=True, timeout=600
-        )
-    except subprocess.CalledProcessError as e:
-        print(f"  ⚠ Git clone failed: {e}")
-        # Try wget fallback
-    except FileNotFoundError:
-        print("  ⚠ git not found, trying wget...")
-        # Fallback: download zip
-        zip_url = 'https://github.com/RNA-folding-lab/CircRNA-3DFold/archive/refs/heads/main.zip'
-        zip_path = output_dir / 'CircRNA-3DFold.zip'
+        if result.returncode == 0 and zip_path.exists() and zip_path.stat().st_size > 1000:
+            print(f"  ✓ Downloaded zip ({zip_path.stat().st_size / 1024 / 1024:.1f} MB)")
+            subprocess.run(['unzip', '-q', '-o', str(zip_path), '-d', str(output_dir)],
+                           capture_output=True)
+            zip_path.unlink(missing_ok=True)
+            extracted = output_dir / repo_slug
+            if extracted.exists():
+                extracted.rename(repo_dir)
+            if repo_dir.exists():
+                print(f"  ✓ Extracted to {repo_dir}")
+                return repo_dir
+    except Exception as e:
+        print(f"  curl failed: {e}")
+
+    # Strategy 3: Zenodo
+    if zenodo_url:
+        print(f"  Trying Zenodo: {zenodo_url}")
         try:
-            subprocess.run(
-                ['wget', '-q', zip_url, '-O', str(zip_path)],
-                check=True, timeout=300
+            result = subprocess.run(
+                ['wget', '-q', '--no-check-certificate', zenodo_url, '-O', str(zip_path)],
+                capture_output=True, timeout=600
             )
-            subprocess.run(
-                ['unzip', '-q', str(zip_path), '-d', str(output_dir)],
-                check=True
-            )
-            repo_dir = output_dir / 'CircRNA-3DFold-main'
-            print(f"  ✓ Downloaded zip to {repo_dir}")
+            if result.returncode == 0 and zip_path.exists() and zip_path.stat().st_size > 1000:
+                subprocess.run(['unzip', '-q', '-o', str(zip_path), '-d', str(output_dir)],
+                               capture_output=True)
+                zip_path.unlink(missing_ok=True)
+                # Zenodo may extract differently
+                for d in output_dir.iterdir():
+                    if d.is_dir() and d.name != repo_dir.name and name.lower() in d.name.lower():
+                        return d
+                if repo_dir.exists():
+                    return repo_dir
         except Exception as e:
-            print(f"  ✗ Download failed: {e}")
-            print("  Please manually download from:")
-            print("    https://github.com/RNA-folding-lab/CircRNA-3DFold")
-            print("    https://zenodo.org/records/14627860")
-            return None
+            print(f"  Zenodo failed: {e}")
 
-    return repo_dir
+    # Strategy 4: git clone (last resort, may need auth)
+    print(f"  Trying git clone (may require auth)...")
+    git_url = zip_url.replace('/archive/refs/heads/main.zip', '.git')
+    try:
+        subprocess.run(
+            ['git', 'clone', '--depth', '1', git_url, str(repo_dir)],
+            capture_output=True, timeout=600
+        )
+        if repo_dir.exists():
+            print(f"  ✓ Cloned to {repo_dir}")
+            return repo_dir
+    except Exception as e:
+        print(f"  git clone failed: {e}")
+
+    print(f"  ✗ All download strategies failed for {name}")
+    print(f"  Please manually download from:")
+    if zenodo_url:
+        print(f"    Zenodo: {zenodo_url}")
+    print(f"    GitHub: {zip_url.replace('/archive/refs/heads/main.zip', '')}")
+    print(f"  Then: python fetch_real_testset.py --input /path/to/downloaded/data --keep 30")
+    return None
+
+
+def download_circrna_3dfold(output_dir: Path) -> Optional[Path]:
+    """Download CircRNA-3DFold dataset."""
+    return download_with_fallback(
+        name='CircRNA-3DFold',
+        zip_url='https://github.com/RNA-folding-lab/CircRNA-3DFold/archive/refs/heads/main.zip',
+        zenodo_url='https://zenodo.org/records/14627860/files/dataset.zip',
+        output_dir=output_dir,
+    )
+
+
+def download_deepfold_rna(output_dir: Path) -> Optional[Path]:
+    """Download DeepFold-RNA dataset."""
+    return download_with_fallback(
+        name='DeepFold-RNA',
+        zip_url='https://github.com/robpearc/DeepFold-RNA/archive/refs/heads/main.zip',
+        zenodo_url='',  # No known Zenodo
+        output_dir=output_dir,
+    )
 
 
 def scan_pdb_files(data_dir: Path) -> List[Path]:
@@ -283,31 +343,10 @@ def scan_pdb_files(data_dir: Path) -> List[Path]:
 
 
 # ═══════════════════════════════════════════════════════════════
-# Data Source: DeepFold-RNA
+# Data Source: DeepFold-RNA (handled by download_with_fallback)
 # ═══════════════════════════════════════════════════════════════
 
-def download_deepfold_rna(output_dir: Path) -> Path:
-    """Clone DeepFold-RNA repo."""
-    repo_dir = output_dir / 'DeepFold-RNA'
-
-    if repo_dir.exists():
-        print(f"  DeepFold-RNA already exists at {repo_dir}")
-        return repo_dir
-
-    print("  Cloning DeepFold-RNA...")
-    try:
-        subprocess.run(
-            ['git', 'clone', '--depth', '1',
-             'https://github.com/robpearc/DeepFold-RNA.git',
-             str(repo_dir)],
-            check=True, capture_output=True, timeout=300
-        )
-        print(f"  ✓ Cloned to {repo_dir}")
-    except Exception as e:
-        print(f"  ✗ Clone failed: {e}")
-        return None
-
-    return repo_dir
+# download_deepfold_rna defined above with download_circrna_3dfold
 
 
 # ═══════════════════════════════════════════════════════════════
