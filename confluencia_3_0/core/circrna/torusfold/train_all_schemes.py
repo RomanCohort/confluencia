@@ -1737,9 +1737,10 @@ def main():
     parser = argparse.ArgumentParser(description='Train all TorusFold schemes')
     parser.add_argument('--schemes', type=int, nargs='+', default=[1, 2, 3, 4, 5, 6, 7])
     parser.add_argument('--labels', type=str, default='',
-                        help='Path to pre-generated pseudo-labels directory')
+                        help='Path to pre-generated labels directory. '
+                             'Auto-searches data/circbase_real_3d, data/circrna_3d_merged if empty.')
     parser.add_argument('--n-train', type=int, default=500,
-                        help='Number of samples (used if no --labels)')
+                        help='Number of samples (only used if no labeled data found)')
     parser.add_argument('--min-len', type=int, default=30)
     parser.add_argument('--max-len', type=int, default=0,
                         help='Maximum sequence length (0=no limit, load all data). '
@@ -1773,14 +1774,32 @@ def main():
     print("="*60)
     print(f"  Schemes: {args.schemes}")
 
-    # Load pseudo-labels
-    if args.labels and os.path.exists(args.labels):
-        print(f"  Loading from: {args.labels}")
+    # Load labeled data (auto-search if --labels not specified)
+    labels_dir = args.labels
+    if not labels_dir:
+        # Auto-search for existing labeled data directories
+        search_paths = [
+            'data/circrna_3d_merged',      # Merged dataset (best)
+            'data/circbase_real_3d',        # IsRNAcirc + augmented
+            'data/pdb_circrna',             # PDB circularized
+            'data/shape_3d',                # icSHAPE-constrained
+        ]
+        for candidate in search_paths:
+            seq_file = os.path.join(candidate, 'sequences.json')
+            if os.path.exists(seq_file):
+                labels_dir = candidate
+                print(f"  Auto-detected labeled data: {candidate}")
+                break
+
+    if labels_dir and os.path.exists(labels_dir):
+        print(f"  Loading from: {labels_dir}")
         max_len_filter = args.max_len if args.max_len > 0 else None
         sequences, coords_labels, pair_labels, confidence_weights, metadata = load_pseudo_labels(
-            args.labels, max_len=max_len_filter)
+            labels_dir, max_len=max_len_filter)
     else:
-        print(f"  Generating pseudo-labels (n={args.n_train})")
+        print(f"  WARNING: No labeled data found. Generating synthetic pseudo-labels (n={args.n_train})")
+        print(f"           For better results, run data collection first:")
+        print(f"           python -m confluencia_3_0.core.circrna.torusfold.merge_expanded_dataset --output data/circrna_3d_merged")
         gen_max_len = args.max_len if args.max_len > 0 else 500
         sequences, coords_labels, pair_labels, metadata = generate_3d_pseudo_labels(
             n_seqs=args.n_train,
