@@ -144,6 +144,14 @@ def load_pseudo_labels(labels_dir, n_seqs=None, max_len=None):
             n_missing += 1
             continue
 
+        # Filter out corrupt coords (NaN/Inf/zero)
+        if np.isnan(coords).any() or np.isinf(coords).any():
+            n_missing += 1
+            continue
+        if np.abs(coords).max() == 0:
+            n_missing += 1
+            continue
+
         sequences.append(seq)
         coords_labels.append(coords)
 
