@@ -775,18 +775,15 @@ def train_scheme5(train_loader, val_loader, args, device):
     print("="*60)
 
     class Scheme5Model(nn.Module):
-        """Transformer with physics-informed positional encoding for circRNA.
+        """Transformer with circular positional encoding for circRNA.
 
-        Uses standard Transformer (O(L^2) attention) instead of
-        CircPairformer's O(L^2) pair representation which causes OOM
-        at L>200. Physics bias injected via rotary positional encoding
-        adapted for circular topology.
+        Predicts in normalized unit-sphere space (like Scheme 1/3).
+        Denormalization to Å happens in the loss/validation code using target_scale.
         """
         def __init__(self, d_model=128, n_heads=4, n_blocks=4):
             super().__init__()
+            self.d_model = d_model
             self.embed = nn.Embedding(5, d_model)
-            # Circular positional encoding
-            self.circ_pos = nn.Embedding(512, d_model)  # max 512 positions
             self.blocks = nn.ModuleList([
                 nn.TransformerEncoderLayer(
                     d_model=d_model,
@@ -797,44 +794,37 @@ def train_scheme5(train_loader, val_loader, args, device):
                 )
                 for _ in range(n_blocks)
             ])
+            self.ln = nn.LayerNorm(d_model)
             self.coord_head = nn.Linear(d_model, 3)
-            # Conservative init: xavier uniform for stable training
             nn.init.xavier_uniform_(self.coord_head.weight, gain=0.01)
             nn.init.zeros_(self.coord_head.bias)
-            # Learnable output scale: start at ~50Å (typical circRNA radius)
-            # This prevents initial predictions being too small relative to Å-scale targets
-            self.output_scale = nn.Parameter(torch.tensor(50.0))
-            self.bond_length = 5.9
 
-        def forward(self, seq_ids, coords_init=None):
+        def forward(self, seq_ids):
             B, L = seq_ids.shape
             device = seq_ids.device
 
-            # Circular positional indices
-            pos = torch.arange(L, device=device) % 512
-            h = self.embed(seq_ids) + self.circ_pos(pos)  # (B, L, D)
+            # Sinusoidal circular position encoding (no length limit)
+            pos = torch.arange(L, device=device).float()
+            dim = self.d_model
+            pe = torch.zeros(L, dim, device=device)
+            div_term = torch.exp(
+                torch.arange(0, dim, 2, device=device).float() * (-np.log(10000.0) / dim)
+            )
+            phase = 2 * np.pi * pos / L  # circular!
+            pe[:, 0::2] = torch.sin(phase.unsqueeze(1) * div_term.unsqueeze(0))
+            pe[:, 1::2] = torch.cos(phase.unsqueeze(1) * div_term.unsqueeze(0))
+
+            h = self.embed(seq_ids) + pe.unsqueeze(0)  # (B, L, D)
 
             for block in self.blocks:
                 h = block(h)
 
-            coords = self.coord_head(h) * self.output_scale.clamp(max=100.0)  # (B, L, 3) scaled to Å
+            h = self.ln(h)
+            coords_norm = self.coord_head(h)  # (B, L, 3) in unit-sphere space
 
-            # Physics-informed closure correction (soft, differentiable)
-            closure_dist = torch.norm(coords[:, 0] - coords[:, -1], dim=-1, keepdim=True)
-            closure_error = (closure_dist - self.bond_length).clamp(-20, 20)
-            correction = 0.1 * closure_error  # Increased from 0.05
-            mid_point = (coords[:, 0] + coords[:, -1]) / 2
-            safe_dist = closure_dist.clamp(min=1.0)
-            direction_first = (coords[:, 0] - mid_point) / safe_dist
-            direction_last = (coords[:, -1] - mid_point) / safe_dist
-            coords = coords.clone()
-            coords[:, 0] = coords[:, 0] - correction * direction_first
-            coords[:, -1] = coords[:, -1] + correction * direction_last
-
-            return {'coords': coords}
+            return {'coords': coords_norm}
 
     model = Scheme5Model(d_model=args.d_hidden, n_blocks=args.n_layers).to(device)
-    # Lower LR for Transformer stability
     lr = min(args.lr, 1e-4)
     optimizer = torch.optim.AdamW(model.parameters(), lr=lr, weight_decay=1e-5)
     scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
@@ -848,65 +838,57 @@ def train_scheme5(train_loader, val_loader, args, device):
     for epoch in range(args.epochs):
         model.train()
         train_loss = 0
-        train_rmsd = 0  # Track actual RMSD in Å
+        train_rmsd_sum = 0.0
         nan_batches = 0
+        n_train_batches = 0
+
         for batch in train_loader:
             seq_ids = batch['seq_ids'].to(device)
             target = batch['coords'].to(device)
             lengths = batch['lengths']
 
-            # Skip batches with Inf/NaN in target coords (corrupt data)
+            # Skip corrupt target data
             if torch.isinf(target).any() or torch.isnan(target).any():
                 nan_batches += 1
-                optimizer.zero_grad()
                 continue
+
             conf_scale = batch.get('confidence', torch.tensor(0.5)).mean().item()
+
+            # Normalize target to unit-sphere (same as Scheme 1)
+            B, L, _ = target.shape
+            target_centered = target - target.mean(dim=1, keepdim=True)
+            target_scale = torch.norm(target_centered, dim=(1,2), keepdim=True).clamp(min=1.0)
+            target_norm = target_centered / target_scale
 
             out = model(seq_ids)
             pred = out['coords']
 
-            # Skip if prediction contains NaN/Inf (unstable model)
+            # Skip NaN/Inf predictions
             if torch.isnan(pred).any() or torch.isinf(pred).any():
                 nan_batches += 1
                 optimizer.zero_grad()
                 continue
 
-            # Loss: per-residue MSE in Å units (not normalized!)
-            # This gives meaningful loss values
-            B = len(lengths)
+            # Normalize pred using TARGET scale (same as Scheme 1)
+            pred_centered = pred - pred.mean(dim=1, keepdim=True)
+            pred_norm = pred_centered / target_scale
+
+            # MSE on normalized coords
             loss = 0
-            batch_rmsd = 0
             for b in range(B):
                 valid_L = lengths[b]
-                p = pred[b, :valid_L]
-                t = target[b, :valid_L]
-
-                # Center both
-                p_c = p - p.mean(dim=0)
-                t_c = t - t.mean(dim=0)
-
-                # MSE loss
-                loss += torch.mean(torch.sum((p_c - t_c) ** 2, dim=1))
-
-                # RMSD for logging
-                rmsd = kabsch_rmsd(p_c, t_c)
-                if not (np.isnan(rmsd) or np.isinf(rmsd)) and rmsd < 10000:
-                    batch_rmsd += rmsd
-
+                diff = pred_norm[b, :valid_L] - target_norm[b, :valid_L]
+                loss += torch.mean(diff ** 2)
             loss /= B
-            batch_rmsd /= B
+            loss = loss * conf_scale * 2.0
 
-            # Apply confidence weighting
-            loss = loss * conf_scale
-
-            # NaN guard
             if torch.isnan(loss) or torch.isinf(loss):
                 nan_batches += 1
                 optimizer.zero_grad()
                 continue
 
             loss.backward()
-            # Check for NaN gradients before stepping
+            # NaN gradient check
             has_nan_grad = False
             for p in model.parameters():
                 if p.grad is not None and (torch.isnan(p.grad).any() or torch.isinf(p.grad).any()):
@@ -916,93 +898,87 @@ def train_scheme5(train_loader, val_loader, args, device):
                 nan_batches += 1
                 optimizer.zero_grad()
                 continue
-            torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=0.1)  # Aggressive for S5 stability
+
+            torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
             optimizer.step()
             optimizer.zero_grad()
 
+            n_train_batches += 1
             train_loss += loss.item()
-            train_rmsd += batch_rmsd
 
-        # Early abort if too many NaN batches
+            # Train RMSD in Å for logging
+            with torch.no_grad():
+                for b in range(B):
+                    valid_L = lengths[b]
+                    if valid_L < 4:
+                        continue
+                    p_denorm = pred_centered[b, :valid_L] / torch.norm(
+                        pred_centered[b], dim=(0,1), keepdim=True
+                    ).clamp(min=1e-6) * target_scale[b] + target[b].mean(dim=0, keepdim=True)
+                    t_denorm = target[b, :valid_L]
+                    p_c = p_denorm - p_denorm.mean(dim=0)
+                    t_c = t_denorm - t_denorm.mean(dim=0)
+                    if p_c.abs().sum() > 1e-6 and t_c.abs().sum() > 1e-6:
+                        rmsd = kabsch_rmsd(p_c, t_c)
+                        if not (np.isnan(rmsd) or np.isinf(rmsd)) and rmsd < 10000:
+                            train_rmsd_sum += rmsd
+
         if nan_batches > len(train_loader) // 2:
             print(f"  Too many NaN batches ({nan_batches}/{len(train_loader)}), stopping training")
             return float('inf')
 
-        n_valid_batches = max(len(train_loader) - nan_batches, 1)
-        avg_train = train_loss / n_valid_batches
-        avg_train_rmsd = train_rmsd / n_valid_batches
+        avg_train = train_loss / max(n_train_batches, 1)
+        avg_train_rmsd = train_rmsd_sum / max(n_train_batches, 1)
 
-        # Validation: RMSD in Angstroms
+        # Validation: RMSD in Å (same denormalization as Scheme 1)
         model.eval()
         val_rmsd = 0
         n_val_samples = 0
-        n_skipped_zero_target = 0
-        n_skipped_nan = 0
-        n_skipped_short = 0
-        n_skipped_zero_var = 0
-        n_skipped_nan_pred = 0
-        n_skipped_nan_rmsd = 0
         with torch.no_grad():
             for batch in val_loader:
                 seq_ids = batch['seq_ids'].to(device)
                 target = batch['coords'].to(device)
                 lengths = batch['lengths']
 
-                # Skip if target is all zeros (padding issue)
+                if torch.isnan(target).any() or torch.isinf(target).any():
+                    continue
                 if target.abs().sum() < 1e-3:
-                    n_skipped_zero_target += 1
                     continue
 
-                # Skip if target has NaN/Inf
-                if torch.isnan(target).any() or torch.isinf(target).any():
-                    n_skipped_nan += 1
-                    continue
+                B, L, _ = target.shape
+                target_centered = target - target.mean(dim=1, keepdim=True)
+                target_scale = torch.norm(target_centered, dim=(1,2), keepdim=True).clamp(min=1.0)
 
                 out = model(seq_ids)
                 pred = out['coords']
 
-                # Clamp predictions to prevent overflow
-                pred = pred.clamp(-1000, 1000)
+                if torch.isnan(pred).any() or torch.isinf(pred).any():
+                    continue
 
-                B = len(lengths)
+                # Denormalize: pred → target scale
+                pred_centered = pred - pred.mean(dim=1, keepdim=True)
+                pred_norm_scale = torch.norm(pred_centered, dim=(1,2), keepdim=True).clamp(min=1e-6)
+                pred_denorm = pred_centered / pred_norm_scale * target_scale + target.mean(dim=1, keepdim=True)
+
                 for b in range(B):
                     valid_L = lengths[b]
-                    if valid_L < 4:  # Skip very short sequences
-                        n_skipped_short += 1
+                    if valid_L < 4:
                         continue
-                    p = pred[b, :valid_L]
+                    p = pred_denorm[b, :valid_L]
                     t = target[b, :valid_L]
-
-                    if torch.isnan(p).any() or torch.isinf(p).any():
-                        n_skipped_nan_pred += 1
-                        continue
-                    if torch.isnan(t).any() or torch.isinf(t).any():
-                        continue
-
-                    # Center predictions for fair RMSD comparison
                     p_c = p - p.mean(dim=0)
                     t_c = t - t.mean(dim=0)
-
-                    # Skip if zero variance (all same coords)
                     if p_c.abs().sum() < 1e-6 or t_c.abs().sum() < 1e-6:
-                        n_skipped_zero_var += 1
                         continue
-
                     rmsd = kabsch_rmsd(p_c, t_c)
-                    # Skip NaN, Inf, or physically meaningless RMSD (>10000Å)
-                    if np.isnan(rmsd) or np.isinf(rmsd) or rmsd > 10000:
-                        n_skipped_nan_rmsd += 1
-                    else:
+                    if not (np.isnan(rmsd) or np.isinf(rmsd)) and rmsd < 10000:
                         val_rmsd += rmsd
                         n_val_samples += 1
 
-        if n_val_samples == 0:
-            avg_val = avg_train * 100  # Fallback: use train loss as proxy (scaled)
-            # Print why validation failed
-            if epoch == 0:
-                print(f"  [WARN] No valid val samples! Skipped: zero_target={n_skipped_zero_target}, nan={n_skipped_nan}, short={n_skipped_short}, zero_var={n_skipped_zero_var}")
-        else:
+        if n_val_samples > 0:
             avg_val = val_rmsd / n_val_samples
+        else:
+            avg_val = avg_train * 100
         scheduler.step(avg_val)
 
         if avg_val < best_val:
@@ -1012,17 +988,15 @@ def train_scheme5(train_loader, val_loader, args, device):
         else:
             patience_counter += 1
 
-        if epoch == 0 and n_val_samples == 0:
-            print(f"  [WARN] No valid val! z_target={n_skipped_zero_target} nan_target={n_skipped_nan} short={n_skipped_short} z_var={n_skipped_zero_var} nan_pred={n_skipped_nan_pred} nan_rmsd={n_skipped_nan_rmsd}")
-
-        print(f"  Epoch {epoch+1}/{args.epochs} train_rmsd={avg_train_rmsd:.1f}Å "
-              f"val={avg_val:.1f}Å (n={n_val_samples}) nan={nan_batches} pat={patience_counter}/10")
+        current_lr = optimizer.param_groups[0]['lr']
+        print(f"  Epoch {epoch+1}/{args.epochs} train={avg_train:.4f} train_rmsd={avg_train_rmsd:.1f}Å "
+              f"val={avg_val:.1f}Å (n={n_val_samples}) lr={current_lr:.1e} nan={nan_batches} pat={patience_counter}/10")
 
         if patience_counter >= 10:
             print(f"  Early stopping at epoch {epoch+1}")
             break
 
-    print(f"  Best val loss: {best_val:.4f}")
+    print(f"  Best val: {best_val:.4f}")
     return best_val
 
 
