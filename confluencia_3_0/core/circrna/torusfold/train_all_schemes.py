@@ -48,23 +48,27 @@ def kabsch_rmsd(pred: torch.Tensor, target: torch.Tensor) -> float:
     Returns:
         RMSD in Angstroms after optimal superposition
     """
-    p_c = pred - pred.mean(dim=0)
-    t_c = target - target.mean(dim=0)
+    # Detach to avoid autograd issues and ensure clean computation
+    p_c = (pred - pred.mean(dim=0)).detach().double()
+    t_c = (target - target.mean(dim=0)).detach().double()
 
     # Kabsch SVD alignment
     H = t_c.T @ p_c
     try:
         U, S, Vt = torch.linalg.svd(H)
-        d = torch.sign(torch.det(Vt.T @ U.T))
-        D = torch.diag(torch.tensor([1, 1, d], device=pred.device, dtype=torch.float32))
+        d = torch.det(Vt.T @ U.T).sign()
+        D = torch.diag(torch.tensor([1.0, 1.0, d.item()], device=pred.device, dtype=torch.float64))
         R = Vt.T @ D @ U.T
         p_aligned = (R @ p_c.T).T
         rmsd = torch.sqrt(torch.mean(torch.sum((p_aligned - t_c) ** 2, dim=1)))
     except Exception:
-        # Fallback: simple centered RMSD
+        # Fallback: simple centered RMSD (no alignment)
         rmsd = torch.sqrt(torch.mean(torch.sum((p_c - t_c) ** 2, dim=1)))
 
-    return rmsd.item()
+    result = rmsd.float().item()
+    if math.isnan(result) or math.isinf(result):
+        return float('inf')
+    return result
 
 
 # ═══════════════════════════════════════════════════════════════
