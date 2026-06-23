@@ -1851,7 +1851,7 @@ def train_scheme3(train_loader, val_loader, args, device):
         val_loss /= max(n_val_samples, 1) if n_val_samples > 0 else 1
         # Fallback: use train loss scaled (train is normalized MSE, ~0.01)
         if n_val_samples == 0:
-            val_loss = avg_train * 100  # Approximate RMSD
+            val_loss = train_loss * 100  # Approximate RMSD from train loss
         scheduler.step(val_loss)
 
         # Early stopping
