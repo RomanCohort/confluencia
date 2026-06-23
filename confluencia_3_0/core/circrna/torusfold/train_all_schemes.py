@@ -739,9 +739,13 @@ def train_scheme5(train_loader, val_loader, args, device):
                 for _ in range(n_blocks)
             ])
             self.coord_head = nn.Linear(d_model, 3)
-            # Small init for coord head to prevent large initial outputs causing NaN
+            # Init coord_head with appropriate scale so output is ~O(L * 5.9) in coords
+            # Expected output: ~200A radius for L=100. With d_model=128, hidden ~1/sqrt(128)=0.09
+            # Need scale factor ~200 so init_output ~ N(0, 0.09*200) ≈ N(0, 18) — reasonable
             nn.init.normal_(self.coord_head.weight, std=0.01)
             nn.init.zeros_(self.coord_head.bias)
+            # Learnable output scale to let model adjust magnitude
+            self.output_scale = nn.Parameter(torch.tensor(20.0))
             self.bond_length = 5.9
 
         def forward(self, seq_ids, coords_init=None):
@@ -755,22 +759,19 @@ def train_scheme5(train_loader, val_loader, args, device):
             for block in self.blocks:
                 h = block(h)
 
-            coords = self.coord_head(h)  # (B, L, 3)
+            coords = self.coord_head(h) * self.output_scale  # (B, L, 3) scaled to Å
 
             # Physics-informed closure correction (soft, differentiable)
-            # Use clone() to avoid in-place modification of graph tensor
             closure_dist = torch.norm(coords[:, 0] - coords[:, -1], dim=-1, keepdim=True)
-            # Clamp to prevent gradient explosion
             closure_error = (closure_dist - self.bond_length).clamp(-20, 20)
-            correction = 0.05 * closure_error
+            correction = 0.1 * closure_error  # Increased from 0.05
             mid_point = (coords[:, 0] + coords[:, -1]) / 2
-            # Guard against near-zero closure_dist causing NaN division
             safe_dist = closure_dist.clamp(min=1.0)
             direction_first = (coords[:, 0] - mid_point) / safe_dist
             direction_last = (coords[:, -1] - mid_point) / safe_dist
             coords = coords.clone()
             coords[:, 0] = coords[:, 0] - correction * direction_first
-            coords[:, -1] = coords[:, -1] - correction * direction_last
+            coords[:, -1] = coords[:, -1] + correction * direction_last
 
             return {'coords': coords}
 
@@ -786,7 +787,8 @@ def train_scheme5(train_loader, val_loader, args, device):
     for epoch in range(args.epochs):
         model.train()
         train_loss = 0
-        nan_batches = 0  # Initialize counter
+        train_rmsd = 0  # Track actual RMSD in Å
+        nan_batches = 0
         for batch in train_loader:
             seq_ids = batch['seq_ids'].to(device)
             target = batch['coords'].to(device)
@@ -799,53 +801,54 @@ def train_scheme5(train_loader, val_loader, args, device):
                 continue
             conf_scale = batch.get('confidence', torch.tensor(0.5)).mean().item()
 
-            # FIX 1: Normalize target coords
-            B, L, _ = target.shape
-            target_centered = target - target.mean(dim=1, keepdim=True)
-            target_scale = torch.norm(target_centered, dim=(1,2), keepdim=True).clamp(min=1.0)
-            target_norm = target_centered / target_scale
-
             out = model(seq_ids)
             pred = out['coords']
 
-            # FIX: Use TARGET scale for prediction
-            pred_centered = pred - pred.mean(dim=1, keepdim=True)
-            pred_norm = pred_centered / target_scale  # Use target scale!
-
+            # Loss: per-residue MSE in Å units (not normalized!)
+            # This gives meaningful loss values
+            B = len(lengths)
             loss = 0
+            batch_rmsd = 0
             for b in range(B):
                 valid_L = lengths[b]
-                diff = pred_norm[b, :valid_L] - target_norm[b, :valid_L]
-                loss += torch.mean(diff ** 2)
+                p = pred[b, :valid_L]
+                t = target[b, :valid_L]
+
+                # Center both
+                p_c = p - p.mean(dim=0)
+                t_c = t - t.mean(dim=0)
+
+                # MSE loss
+                loss += torch.mean(torch.sum((p_c - t_c) ** 2, dim=1))
+
+                # RMSD for logging
+                rmsd = kabsch_rmsd(p_c, t_c)
+                if not np.isnan(rmsd):
+                    batch_rmsd += rmsd
+
             loss /= B
+            batch_rmsd /= B
 
             # Apply confidence weighting
-            loss = loss * conf_scale * 2.0
+            loss = loss * conf_scale
 
-            # NaN guard — skip batch if loss is NaN/Inf (same as Scheme 1/4)
+            # NaN guard
             if torch.isnan(loss) or torch.isinf(loss):
                 nan_batches += 1
                 optimizer.zero_grad()
                 continue
 
             loss.backward()
-            # Check for NaN gradients (same as Scheme 1)
-            has_nan = False
-            for p in model.parameters():
-                if p.grad is not None and torch.isnan(p.grad).any():
-                    has_nan = True
-                    break
-            if has_nan:
-                nan_batches += 1
-                optimizer.zero_grad()
-                continue
             torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
             optimizer.step()
             optimizer.zero_grad()
+
             train_loss += loss.item()
+            train_rmsd += batch_rmsd
 
         n_valid_batches = max(len(train_loader) - nan_batches, 1)
         avg_train = train_loss / n_valid_batches
+        avg_train_rmsd = train_rmsd / n_valid_batches
 
         # Validation: RMSD in Angstroms
         model.eval()
@@ -918,7 +921,10 @@ def train_scheme5(train_loader, val_loader, args, device):
         else:
             patience_counter += 1
 
-        print(f"  Epoch {epoch+1}/{args.epochs} train={avg_train:.4f} "
+        if epoch == 0 and n_val_samples == 0:
+            print(f"  [WARN] No valid val! z_target={n_skipped_zero_target} nan={n_skipped_nan} short={n_skipped_short} z_var={n_skipped_zero_var}")
+
+        print(f"  Epoch {epoch+1}/{args.epochs} train_rmsd={avg_train_rmsd:.1f}Å "
               f"val={avg_val:.1f}Å (n={n_val_samples}) nan={nan_batches} pat={patience_counter}/10")
 
         if patience_counter >= 10:
