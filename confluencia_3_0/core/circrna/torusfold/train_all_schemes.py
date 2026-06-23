@@ -5,7 +5,7 @@ train_all_schemes.py — Train all 7 TorusFold schemes on 3D pseudo-labels.
 Each scheme has its own architecture and training pipeline:
   - Scheme 1: DL+Physics Cascade (EGNN → Physics refinement)
   - Scheme 2: Batch+Physics Filter (Batch sampling → Energy filter)
-  - Scheme 3: True Dual-Engine (Solver init → EGNN refinement, small delta space)
+  - Scheme 3: Dual-Engine [DEFERRED — uses best model as teacher after S1/S6/S7 training]
   - Scheme 4: DDPM+EGNN Guided (Diffusion with closure reward)
   - Scheme 5: Physics-Biased Attention [DEPRECATED — NaN explosion, CPU bottleneck]
   - Scheme 6: GNN Latent Diffusion (Encoder → Latent diffusion → Decoder)
@@ -1307,98 +1307,109 @@ def train_scheme2(args):
 
 
 def train_scheme3(train_loader, val_loader, args, device):
-    """Scheme 3: True Dual-Engine Iterative (Solver Init → Neural Refinement).
+    """Scheme 3: Dual-Engine with Best-Model Teacher.
 
-    Key fix over the deprecated version: uses GeometricConstraintSolver (Scheme 2)
-    output as initialization instead of planar circular geometry. This means:
-    - Init is already ~2Å RMSD with guaranteed closure (not 60Å from planar circle)
-    - Delta prediction space is small (2-5Å corrections), preventing coordinate explosion
-    - Bond/closure losses are auxiliary (solver already satisfies them)
+    DEFERRED — Train other schemes first, then use the best-performing model
+    as the teacher/init for Scheme 3's EGNN refinement.
 
-    Architecture: EGNN refinement on top of solver-initialized coordinates.
+    Rationale:
+    - AF3 has steric clash issues (Stein et al. 2024), not reliable as teacher
+    - S2 (GeometricConstraintSolver) RMSD ~25Å on real data, too poor as teacher
+    - Best strategy: train S1/S6/S7 first, pick winner, use it as init
+
+    To train S3 after other schemes are done:
+        python train_all_schemes.py --schemes 3 --teacher-model models/torusfold/scheme6_best.pt
     """
+    teacher_path = getattr(args, 'teacher_model', '')
+
+    if not teacher_path or not os.path.exists(teacher_path):
+        print("\n" + "="*60)
+        print("  Scheme 3: Dual-Engine (DEFERRED — waiting for best model)")
+        print("="*60)
+        print("  No --teacher-model specified or file not found.")
+        print("  Train other schemes first, then run:")
+        print("    python train_all_schemes.py --schemes 3 \\")
+        print("      --teacher-model models/torusfold/scheme6_best.pt")
+        print()
+        print("  S3 will use the best model's predictions as initialization")
+        print("  for EGNN refinement (small delta prediction on high-quality init).")
+        return float('inf')
+
     print("\n" + "="*60)
-    print("  Training Scheme 3: True Dual-Engine (Solver → EGNN Refinement)")
+    print("  Training Scheme 3: Dual-Engine (Best-Model → EGNN Refinement)")
     print("="*60)
+    print(f"  Teacher model: {teacher_path}")
 
-    from confluencia_3_0.core.circrna.torusfold.constraint_solver import (
-        GeometricConstraintSolver, SolverConfig
-    )
+    # Load teacher model for generating initializations
+    # Try each scheme model type until one loads successfully
+    teacher_model = None
+    teacher_scheme = None
 
-    # Solver config for initialization (fast: few samples, no annealing)
-    solver_config = SolverConfig(
-        n_samples=3,              # Few samples for speed (training init, not final)
-        use_annealing_closure=True,
-        bond_length=5.9,
-        pair_distance=10.6,
-    )
-    solver = GeometricConstraintSolver(solver_config)
-    print(f"  Solver config: n_samples={solver_config.n_samples}, annealing=True")
+    # Try Scheme 6 (GNN Latent Diffusion)
+    try:
+        from confluencia_3_0.core.circrna.torusfold.gnn_latent_diffusion import (
+            GNNLatentDiffusionModel, GNNLatentConfig
+        )
+        config = GNNLatentConfig(d_node=args.d_hidden)
+        teacher_model = GNNLatentDiffusionModel(config).to(device)
+        teacher_model.load_state_dict(torch.load(teacher_path, map_location=device, weights_only=False))
+        teacher_model.eval()
+        teacher_scheme = 6
+        print(f"  Loaded teacher as Scheme 6 (GNN Latent Diffusion)")
+    except Exception:
+        pass
 
-    # Build EGNN refinement model (reuses CircRNA3DModel but with delta prediction)
+    # Try Scheme 1 (EGNN)
+    if teacher_model is None:
+        try:
+            teacher_model = Scheme1Model(d_hidden=args.d_hidden, n_layers=args.n_layers).to(device)
+            teacher_model.load_state_dict(torch.load(teacher_path, map_location=device, weights_only=False))
+            teacher_model.eval()
+            teacher_scheme = 1
+            print(f"  Loaded teacher as Scheme 1 (EGNN)")
+        except Exception:
+            pass
+
+    if teacher_model is None:
+        print(f"  ERROR: Could not load teacher model from {teacher_path}")
+        print(f"  Supported formats: Scheme 1 (EGNN), Scheme 6 (GNN Latent Diffusion)")
+        return float('inf')
+
+    # Build EGNN refinement model
     class Scheme3DualEngine(nn.Module):
-        """EGNN refinement on solver-initialized coordinates.
-
-        Takes solver output coords → projects to features → EGNN refines → delta coords.
-        Small delta prediction because solver init is already ~2Å RMSD.
-        """
+        """EGNN refinement on teacher-initialized coordinates."""
         def __init__(self, d_hidden=128, n_layers=3):
             super().__init__()
             self.embed = nn.Embedding(5, d_hidden)
             self.coord_proj = nn.Linear(3, d_hidden)
-
-            # EGNN layers for equivariant refinement
             from confluencia_3_0.core.circrna.torusfold.train_torusfold_3d import EGNNLayer
             self.egnn_layers = nn.ModuleList([
                 EGNNLayer(d_hidden) for _ in range(n_layers)
             ])
-
-            # Small-init delta head (gain=0.01 to start with near-zero deltas)
             self.delta_head = nn.Sequential(
                 nn.Linear(d_hidden, d_hidden // 2),
                 nn.SiLU(),
                 nn.Linear(d_hidden // 2, 3),
             )
-            # Initialize delta head with small weights
             nn.init.zeros_(self.delta_head[-1].bias)
             nn.init.xavier_uniform_(self.delta_head[-1].weight, gain=0.01)
 
         def forward(self, seq_ids, coords_init):
-            """
-            Args:
-                seq_ids: (B, L) sequence tokens
-                coords_init: (B, L, 3) solver-initialized coordinates (Å space)
-
-            Returns:
-                coords_refined: (B, L, 3) in Å space (solver + small delta)
-            """
             B, L, _ = coords_init.shape
-
-            # Combine sequence + coordinate features
-            seq_feat = self.embed(seq_ids)       # (B, L, D)
-            coord_feat = self.coord_proj(coords_init)  # (B, L, D)
+            seq_feat = self.embed(seq_ids)
+            coord_feat = self.coord_proj(coords_init)
             h = seq_feat + coord_feat
-
-            # EGNN equivariant refinement (operates on coords_init)
             x = coords_init.clone()
             for layer in self.egnn_layers:
                 h, x = layer(h, x)
-
-            # Small delta prediction on top of EGNN-refined coords
-            delta = self.delta_head(h)  # (B, L, 3) — small by construction
-            coords_refined = x + delta
-
-            return coords_refined
+            delta = self.delta_head(h)
+            return x + delta
 
     model = Scheme3DualEngine(
         d_model=args.d_hidden,
-        n_layers=min(args.n_layers, 3),  # 3 layers sufficient for small deltas
+        n_layers=min(args.n_layers, 3),
     ).to(device)
 
-    n_params = sum(p.numel() for p in model.parameters())
-    print(f"  Model params: {n_params:,} ({n_params/1e6:.1f}M)")
-
-    # Lower LR for stable delta prediction
     lr = min(args.lr, 5e-5)
     optimizer = torch.optim.AdamW(model.parameters(), lr=lr, weight_decay=1e-5)
     scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
@@ -1406,18 +1417,16 @@ def train_scheme3(train_loader, val_loader, args, device):
     )
     warmup_epochs = 5
     bond_length = 5.9
-    print(f"  LR={lr:.1e}, warmup={warmup_epochs} epochs")
+    print(f"  LR={lr:.1e}, warmup={warmup_epochs}")
 
-    # Pre-compute solver initializations for training data (cache to avoid re-solving)
-    # This is the key fix: solver init is computed ONCE, not per-batch
-    print("  Pre-computing solver initializations for training data...")
-    solver_init_cache = {}
+    # Pre-compute teacher initializations
+    print("  Pre-computing teacher initializations...")
+    init_cache = {}
 
     best_val = float('inf')
     patience_counter = 0
 
     for epoch in range(args.epochs):
-        # Warmup
         if epoch < warmup_epochs:
             warmup_factor = (epoch + 1) / warmup_epochs
             for pg in optimizer.param_groups:
@@ -1443,98 +1452,58 @@ def train_scheme3(train_loader, val_loader, args, device):
             B, L, _ = target.shape
             conf_scale = batch.get('confidence', torch.tensor(0.5)).mean().item()
 
-            # === KEY FIX: Use solver initialization, not planar circle ===
-            # Generate solver coords for each sample in batch
+            # Generate teacher initializations
             coords_init = torch.zeros(B, L, 3, device=device)
             for b in range(B):
                 valid_L = lengths[b]
-                # Use cache key based on sequence content + length
                 seq_str = ''.join(['AUCG'[s] if s < 4 else 'N' for s in seq_ids[b, :valid_L].tolist()])
                 cache_key = (seq_str, valid_L)
 
-                if cache_key not in solver_init_cache:
-                    # Run solver to get initial coordinates
-                    try:
-                        # Build constraint set from sequence
-                        complement = {'A': 'U', 'U': 'A', 'G': 'C', 'C': 'G'}
-                        pair_constraints = []
-                        for j in range(valid_L):
-                            for k in range(j + 4, min(j + 20, valid_L)):
-                                if complement.get(seq_str[j]) == seq_str[k]:
-                                    pair_constraints.append((j, k, 10.6, 1.0))
-
-                        # Try ViennaRNA for better constraints
+                if cache_key not in init_cache:
+                    with torch.no_grad():
                         try:
-                            import RNA
-                            md = RNA.md()
-                            md.circ = True
-                            fc = RNA.fold_compound(seq_str, md)
-                            structure, mfe = fc.mfe()
-                            stack = []
-                            for pos, char in enumerate(structure):
-                                if char == '(':
-                                    stack.append(pos)
-                                elif char == ')' and stack:
-                                    pair_constraints.append((stack.pop(), pos, 10.6, 1.0))
-                        except (ImportError, Exception):
-                            pass
+                            if teacher_scheme == 6:
+                                out = teacher_model(seq_ids[b:b+1, :valid_L], mode='inference')
+                            else:
+                                out = teacher_model(seq_ids[b:b+1, :valid_L])
+                            teacher_coords = out['coords'][0].cpu().numpy()
+                            if np.isnan(teacher_coords).any() or np.isinf(teacher_coords).any():
+                                raise ValueError("NaN/Inf in teacher output")
+                            init_cache[cache_key] = teacher_coords
+                        except Exception:
+                            # Fallback: regular polygon
+                            R = valid_L * bond_length / (2 * np.pi)
+                            fallback = np.zeros((valid_L, 3), dtype=np.float32)
+                            for i in range(valid_L):
+                                angle = 2 * np.pi * i / valid_L
+                                fallback[i, 0] = R * np.cos(angle)
+                                fallback[i, 1] = R * np.sin(angle)
+                            init_cache[cache_key] = fallback
 
-                        class CS:
-                            def __init__(self, n, pairs):
-                                self.seq_len = n
-                                self.pair_constraints = pairs
-
-                        cs = CS(valid_L, pair_constraints)
-                        conformations = solver.solve(cs)
-
-                        if conformations and len(conformations) > 0:
-                            init_coords_np = conformations[0]  # (L, 3) best by energy
-                        else:
-                            # Fallback: regular polygon (solver failed)
-                            init_coords_np = solver._regular_polygon(valid_L, bond_length)
-                    except Exception:
-                        # Fallback: regular polygon
-                        R = valid_L * bond_length / (2 * np.pi)
-                        init_coords_np = np.zeros((valid_L, 3), dtype=np.float32)
-                        for i in range(valid_L):
-                            angle = 2 * np.pi * i / valid_L
-                            init_coords_np[i, 0] = R * np.cos(angle)
-                            init_coords_np[i, 1] = R * np.sin(angle)
-
-                    solver_init_cache[cache_key] = init_coords_np
-
-                init_np = solver_init_cache[cache_key]
+                init_np = init_cache[cache_key]
                 init_tensor = torch.tensor(init_np, dtype=torch.float32, device=device)
-
-                # Handle length mismatch (padding)
                 if init_tensor.shape[0] < L:
-                    # Pad with last valid coord
                     pad = init_tensor[-1:].expand(L - init_tensor.shape[0], -1)
                     init_tensor = torch.cat([init_tensor, pad], dim=0)
                 elif init_tensor.shape[0] > L:
                     init_tensor = init_tensor[:L]
-
                 coords_init[b] = init_tensor
 
-            # Normalize: center + scale by target (same as Scheme 1)
+            # Normalize
             target_centered = target - target.mean(dim=1, keepdim=True)
             target_scale = torch.norm(target_centered, dim=(1,2), keepdim=True).clamp(min=1.0)
             target_norm = target_centered / target_scale
-
-            # Normalize init coords to same scale as target
             init_centered = coords_init - coords_init.mean(dim=1, keepdim=True)
             init_norm = init_centered / target_scale
 
-            # Forward: EGNN refinement on solver-initialized coords
             coords_refined = model(seq_ids, init_norm)
 
-            # NaN check
             if torch.isnan(coords_refined).any() or torch.isinf(coords_refined).any():
                 nan_batches += 1
                 optimizer.zero_grad()
                 continue
 
-            # 1. Coordinate MSE loss (normalized space, per-residue)
+            # Coord loss
             coord_loss = 0
             for b in range(B):
                 valid_L = lengths[b]
@@ -1543,7 +1512,7 @@ def train_scheme3(train_loader, val_loader, args, device):
                 coord_loss += torch.mean(torch.sum((pred_c - tgt_c) ** 2, dim=1))
             coord_loss /= B
 
-            # 2. Closure loss in denormalized Å space
+            # Closure loss
             pred_centered = coords_refined - coords_refined.mean(dim=1, keepdim=True)
             pred_norm_scale = torch.norm(pred_centered, dim=(1,2), keepdim=True).clamp(min=1e-6)
             pred_denorm = pred_centered / pred_norm_scale * target_scale + target.mean(dim=1, keepdim=True)
@@ -1553,9 +1522,9 @@ def train_scheme3(train_loader, val_loader, args, device):
                                         device=device, dtype=torch.float32)
             closure_loss = (closure_mask * (closure_dists - bond_length) ** 2).sum() / closure_mask.sum().clamp(min=1.0)
 
-            # 3. Bond consistency (vectorized per-batch)
+            # Bond loss
             bond_loss = torch.tensor(0.0, device=device)
-            n_bond_samples = 0
+            n_bond = 0
             for b in range(B):
                 valid_L = lengths[b]
                 if valid_L < 4:
@@ -1564,17 +1533,12 @@ def train_scheme3(train_loader, val_loader, args, device):
                 bsj_bond = torch.norm(pred_denorm[b, 0] - pred_denorm[b, valid_L-1])
                 all_bonds = torch.cat([bonds, bsj_bond.unsqueeze(0)])
                 bond_loss = bond_loss + F.mse_loss(all_bonds, torch.full_like(all_bonds, bond_length))
-                n_bond_samples += 1
-            bond_loss = bond_loss / max(n_bond_samples, 1)
+                n_bond += 1
+            bond_loss = bond_loss / max(n_bond, 1)
 
-            # Combined loss: coord (primary) + closure (strong) + bond (auxiliary)
-            # Higher closure weight than old S3 because solver init already has good closure
             loss = coord_loss + 5.0 * closure_loss + 0.5 * bond_loss
-
-            # Confidence weighting
             loss = loss * conf_scale * 2.0
 
-            # NaN check on loss
             if torch.isnan(loss) or torch.isinf(loss):
                 nan_batches += 1
                 optimizer.zero_grad()
@@ -1582,12 +1546,10 @@ def train_scheme3(train_loader, val_loader, args, device):
 
             optimizer.zero_grad()
             loss.backward()
-            # Check NaN gradients
-            has_nan_grad = False
-            for p in model.parameters():
-                if p.grad is not None and torch.isnan(p.grad).any():
-                    has_nan_grad = True
-                    break
+            has_nan_grad = any(
+                p.grad is not None and torch.isnan(p.grad).any()
+                for p in model.parameters()
+            )
             if has_nan_grad:
                 nan_batches += 1
                 optimizer.zero_grad()
@@ -1602,7 +1564,6 @@ def train_scheme3(train_loader, val_loader, args, device):
                 valid_closure = closure_dists[closure_mask.bool()]
                 if len(valid_closure) > 0:
                     train_closure_sum += valid_closure.mean().item()
-                # Track RMSD
                 for b in range(B):
                     valid_L = lengths[b]
                     if valid_L < 4:
@@ -1616,7 +1577,6 @@ def train_scheme3(train_loader, val_loader, args, device):
                         if not (np.isnan(rmsd) or np.isinf(rmsd)):
                             train_rmsd_sum += rmsd
 
-        # Early warning
         if nan_batches > len(train_loader) // 2:
             print(f"  Too many NaN batches ({nan_batches}), stopping")
             return float('inf')
@@ -1643,59 +1603,32 @@ def train_scheme3(train_loader, val_loader, args, device):
 
                 B, L, _ = target.shape
 
-                # Solver init for validation (same as training)
                 coords_init = torch.zeros(B, L, 3, device=device)
                 for b in range(B):
                     valid_L = lengths[b]
                     seq_str = ''.join(['AUCG'[s] if s < 4 else 'N' for s in seq_ids[b, :valid_L].tolist()])
                     cache_key = (seq_str, valid_L)
 
-                    if cache_key not in solver_init_cache:
-                        # Same solver logic as training
+                    if cache_key not in init_cache:
                         try:
-                            complement = {'A': 'U', 'U': 'A', 'G': 'C', 'C': 'G'}
-                            pair_constraints = []
-                            for j in range(valid_L):
-                                for k in range(j + 4, min(j + 20, valid_L)):
-                                    if complement.get(seq_str[j]) == seq_str[k]:
-                                        pair_constraints.append((j, k, 10.6, 1.0))
-                            try:
-                                import RNA
-                                md = RNA.md()
-                                md.circ = True
-                                fc = RNA.fold_compound(seq_str, md)
-                                structure, mfe = fc.mfe()
-                                stack = []
-                                for pos, char in enumerate(structure):
-                                    if char == '(':
-                                        stack.append(pos)
-                                    elif char == ')' and stack:
-                                        pair_constraints.append((stack.pop(), pos, 10.6, 1.0))
-                            except (ImportError, Exception):
-                                pass
-
-                            class CS:
-                                def __init__(self, n, pairs):
-                                    self.seq_len = n
-                                    self.pair_constraints = pairs
-
-                            cs = CS(valid_L, pair_constraints)
-                            conformations = solver.solve(cs)
-                            if conformations and len(conformations) > 0:
-                                init_coords_np = conformations[0]
+                            if teacher_scheme == 6:
+                                out = teacher_model(seq_ids[b:b+1, :valid_L], mode='inference')
                             else:
-                                init_coords_np = solver._regular_polygon(valid_L, bond_length)
+                                out = teacher_model(seq_ids[b:b+1, :valid_L])
+                            teacher_coords = out['coords'][0].cpu().numpy()
+                            if np.isnan(teacher_coords).any() or np.isinf(teacher_coords).any():
+                                raise ValueError("NaN/Inf")
+                            init_cache[cache_key] = teacher_coords
                         except Exception:
                             R = valid_L * bond_length / (2 * np.pi)
-                            init_coords_np = np.zeros((valid_L, 3), dtype=np.float32)
+                            fallback = np.zeros((valid_L, 3), dtype=np.float32)
                             for i in range(valid_L):
                                 angle = 2 * np.pi * i / valid_L
-                                init_coords_np[i, 0] = R * np.cos(angle)
-                                init_coords_np[i, 1] = R * np.sin(angle)
+                                fallback[i, 0] = R * np.cos(angle)
+                                fallback[i, 1] = R * np.sin(angle)
+                            init_cache[cache_key] = fallback
 
-                        solver_init_cache[cache_key] = init_coords_np
-
-                    init_np = solver_init_cache[cache_key]
+                    init_np = init_cache[cache_key]
                     init_tensor = torch.tensor(init_np, dtype=torch.float32, device=device)
                     if init_tensor.shape[0] < L:
                         pad = init_tensor[-1:].expand(L - init_tensor.shape[0], -1)
@@ -1704,7 +1637,6 @@ def train_scheme3(train_loader, val_loader, args, device):
                         init_tensor = init_tensor[:L]
                     coords_init[b] = init_tensor
 
-                # Normalize
                 target_centered = target - target.mean(dim=1, keepdim=True)
                 target_scale = torch.norm(target_centered, dim=(1,2), keepdim=True).clamp(min=1.0)
                 init_centered = coords_init - coords_init.mean(dim=1, keepdim=True)
@@ -1715,7 +1647,6 @@ def train_scheme3(train_loader, val_loader, args, device):
                 if torch.isnan(coords_refined).any() or torch.isinf(coords_refined).any():
                     continue
 
-                # Denormalize
                 pred_centered = coords_refined - coords_refined.mean(dim=1, keepdim=True)
                 pred_norm_scale = torch.norm(pred_centered, dim=(1,2), keepdim=True).clamp(min=1e-6)
                 pred_denorm = pred_centered / pred_norm_scale * target_scale + target.mean(dim=1, keepdim=True)
@@ -1749,7 +1680,7 @@ def train_scheme3(train_loader, val_loader, args, device):
             patience_counter += 1
 
         current_lr = optimizer.param_groups[0]['lr']
-        print(f"  Epoch {epoch+1}/{args.epochs} train={avg_train:.4f} train_rmsd={avg_train_rmsd:.1f}Å "
+        print(f"  Epoch {epoch+1}/{args.epochs} train={avg_train:.4f} rmsd={avg_train_rmsd:.1f}Å "
               f"closure={avg_train_closure:.2f}Å "
               f"val={avg_val:.1f}Å val_closure={avg_val_closure:.2f}Å "
               f"lr={current_lr:.1e} nan={nan_batches} pat={patience_counter}/10")
@@ -1759,7 +1690,7 @@ def train_scheme3(train_loader, val_loader, args, device):
             break
 
     print(f"  Best val: {best_val:.4f}")
-    print(f"  Solver init cache size: {len(solver_init_cache)}")
+    print(f"  Init cache size: {len(init_cache)}")
     return best_val
 
 
@@ -1781,7 +1712,7 @@ SCHEME_MAX_LEN = {
 SCHEME_DATA_REQUIREMENTS = {
     1: {'min_samples': 200, 'recommended': 500, 'epochs': 50,  'reason': 'EGNN轻量，Physics部分无需训练'},
     2: {'min_samples': 0,   'recommended': 0,   'epochs': 0,   'reason': '纯物理求解器，无需训练'},
-    3: {'min_samples': 300, 'recommended': 500, 'epochs': 50,  'reason': '双引擎：solver初始化+EGNN微调（小delta空间）'},
+    3: {'min_samples': 300, 'recommended': 500, 'epochs': 50,  'reason': '双引擎：需先训练其他scheme，用最优模型做teacher'},
     4: {'min_samples': 500, 'recommended': 1000,'epochs': 100, 'reason': '扩散模型需要大量数据'},
     5: {'min_samples': 0,   'recommended': 0,   'epochs': 0,   'reason': 'DEPRECATED — Transformer无几何归纳偏置'},
     6: {'min_samples': 500, 'recommended': 1000,'epochs': 100, 'reason': 'Encoder+Diffusion+Decoder最重'},
@@ -1818,6 +1749,8 @@ def main():
     parser.add_argument('--output', type=str, default='models/torusfold')
     parser.add_argument('--w-closure', type=float, default=5.0,
                         help='Closure penalty weight for Scheme 1 (default: 5.0)')
+    parser.add_argument('--teacher-model', type=str, default='',
+                        help='Path to best model checkpoint for Scheme 3 teacher init')
     parser.add_argument('--seed', type=int, default=42)
     args = parser.parse_args()
 
