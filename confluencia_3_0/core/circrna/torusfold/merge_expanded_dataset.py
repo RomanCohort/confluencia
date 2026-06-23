@@ -244,23 +244,64 @@ def validate_entry(entry: dict) -> Optional[str]:
 
 
 def deduplicate(entries: list) -> list:
-    """Deduplicate entries by sequence. Keep highest-quality source."""
-    seen: Dict[str, Tuple[int, int]] = {}  # seq -> (index, priority)
+    """Deduplicate entries by (sequence, source) to preserve augmentations.
 
+    Augmented samples (pdb_circularized_aug, isrnacirc_aug) have the same
+    sequence but different coords (rotation + noise), which are valuable
+    for training. We deduplicate by (sequence, source) instead of just
+    sequence to keep these augmented variants.
+
+    Within each (sequence, source) group, keep the entry with best quality
+    metrics (lower augmentation_index, lower closure_distance, etc).
+    """
+    # Group by (sequence, source)
+    groups: Dict[Tuple[str, str], List[int]] = {}
     for i, entry in enumerate(entries):
         seq = entry["sequence"]
         source = entry.get("source", "unknown")
-        priority = SOURCE_PRIORITY.get(source, 99)
+        key = (seq, source)
+        if key not in groups:
+            groups[key] = []
+        groups[key].append(i)
 
-        if seq not in seen or priority < seen[seq][1]:
-            seen[seq] = (i, priority)
+    # For each group, keep all entries (augmentations are preserved)
+    # But for duplicate entries within same source, prefer:
+    # 1. augmentation_index=0 or None (original) over aug copies
+    # 2. lower closure_distance (better circularization quality)
+    keep_indices = []
+    for key, indices in groups.items():
+        if len(indices) == 1:
+            keep_indices.append(indices[0])
+        else:
+            # Sort by quality: prefer original (aug_idx=0 or None) then by quality metrics
+            best = indices[0]
+            best_aug = entries[best].get("augmentation_index", 0) or 0
+            best_closure = entries[best].get("closure_distance", 999) or 999
 
-    keep_indices = sorted(v[0] for v in seen.values())
+            for idx in indices[1:]:
+                entry = entries[idx]
+                aug_idx = entry.get("augmentation_index", 0) or 0
+                closure = entry.get("closure_distance", 999) or 999
+
+                # Keep if better quality
+                if aug_idx < best_aug or (aug_idx == best_aug and closure < best_closure):
+                    best = idx
+                    best_aug = aug_idx
+                    best_closure = closure
+
+            # For augmented sources, keep ALL variants (they have different coords)
+            source = key[1]
+            if source in ("pdb_circularized_aug", "isrnacirc_aug", "medium_aug"):
+                keep_indices.extend(indices)  # Keep all augmentations
+            else:
+                keep_indices.append(best)  # Keep only best for non-aug sources
+
+    keep_indices = sorted(set(keep_indices))
     unique = [entries[i] for i in keep_indices]
     n_dup = len(entries) - len(unique)
 
     if n_dup > 0:
-        print(f"  Removed {n_dup} duplicate sequences (kept higher-quality source)")
+        print(f"  Removed {n_dup} duplicate entries (kept unique (seq,source) pairs)")
     return unique
 
 
@@ -280,6 +321,12 @@ def main():
                         help="Rfam consensus structure dataset directory")
     parser.add_argument("--shape-exp-dir", type=str, default="",
                         help="Expanded SHAPE dataset directory")
+    parser.add_argument("--rosetta-dir", type=str, default="",
+                        help="Rosetta predicted dataset directory")
+    parser.add_argument("--circbase-dir", type=str, default="",
+                        help="CircBase real 3D dataset directory")
+    parser.add_argument("--pdb3d-dir", type=str, default="",
+                        help="PDB 3D dataset directory (non-circularized)")
     parser.add_argument("--output", type=str, required=True,
                         help="Output directory for merged dataset")
     parser.add_argument("--skip-validation", action="store_true",
@@ -306,6 +353,9 @@ def main():
         ("shape", args.shape_dir),
         ("shape_expanded", args.shape_exp_dir),
         ("pdb", args.pdb_dir),
+        ("pdb3d", args.pdb3d_dir),
+        ("rosetta", args.rosetta_dir),
+        ("circbase", args.circbase_dir),
         ("rfam", args.rfam_dir),
         ("medium", args.medium_dir),
     ]
