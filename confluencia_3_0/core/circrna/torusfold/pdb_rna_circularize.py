@@ -297,8 +297,12 @@ def download_pdb(
     cache_dir: str,
     retries: int = 3,
     backoff: float = 2.0,
+    cache_only: bool = False,
 ) -> Optional[str]:
     """Download a PDB file with caching.
+
+    Args:
+        cache_only: If True, only return cached files; skip all downloads.
 
     Returns:
         Path to the cached PDB file, or None on failure.
@@ -309,6 +313,9 @@ def download_pdb(
 
     if os.path.exists(cached_path):
         return cached_path
+
+    if cache_only:
+        return None
 
     url = f"{RCSB_DOWNLOAD_URL}/{pdb_id_upper}.pdb"
 
@@ -779,6 +786,7 @@ def run_pipeline(
     max_bond_rmsd: float = 3.0,
     noise_scale: float = 0.3,
     seed: int = 42,
+    cache_only: bool = False,
 ) -> None:
     """Execute the full PDB RNA circularization pipeline."""
     rng = np.random.RandomState(seed)
@@ -804,11 +812,18 @@ def run_pipeline(
     print()
 
     print("[1/5] Searching RCSB PDB and building ID pool...")
-    pdb_ids = get_pdb_ids(
-        max_resolution=max_resolution,
-        min_length=min_length,
-        max_length=max_length,
-    )
+    if cache_only:
+        # Scan cache directory for existing .pdb files instead of searching RCSB
+        import glob as _glob
+        cached_pdbs = _glob.glob(os.path.join(pdb_cache, "*.pdb"))
+        pdb_ids = [os.path.splitext(os.path.basename(p))[0].upper() for p in cached_pdbs]
+        print(f"  Cache-only mode: found {len(pdb_ids)} PDB files in cache")
+    else:
+        pdb_ids = get_pdb_ids(
+            max_resolution=max_resolution,
+            min_length=min_length,
+            max_length=max_length,
+        )
     # For efficiency, only download enough PDBs to likely get target_samples
     # Roughly 10-20% of PDBs yield valid RNA chains, so download ~5x target
     max_downloads = min(len(pdb_ids), target_samples * 5 + 50)
@@ -832,7 +847,7 @@ def run_pipeline(
         if len(rna_fragments) >= target_samples * 2:
             print(f"\n  Found {len(rna_fragments)} fragments, enough for {target_samples} target")
             break
-        pdb_path = download_pdb(pdb_id, pdb_cache)
+        pdb_path = download_pdb(pdb_id, pdb_cache, cache_only=cache_only)
         if pdb_path is None:
             continue
 
@@ -1098,6 +1113,8 @@ def main():
                         help="Gaussian noise scale for augmentation (default: 0.3)")
     parser.add_argument("--seed", type=int, default=42,
                         help="Random seed (default: 42)")
+    parser.add_argument("--cache-only", action="store_true",
+                        help="Only use cached PDB files; skip all downloads")
     args = parser.parse_args()
 
     run_pipeline(
@@ -1114,6 +1131,7 @@ def main():
         max_bond_rmsd=args.max_bond_rmsd,
         noise_scale=args.noise_scale,
         seed=args.seed,
+        cache_only=args.cache_only,
     )
 
 
