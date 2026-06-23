@@ -95,11 +95,11 @@ def _extract_pairs_from_dot_bracket(ss: str) -> list:
     return pairs
 
 
-def _normalize_pair_constraints(pairs: list, ss: str, length: int, sequence: str = "") -> list:
+def _normalize_pair_constraints(pairs: list, ss: str, length: int, sequence: str = "", seq_id: str = "") -> list:
     """Normalize pair_constraints to [[i,j], ...] format.
 
     If pairs is empty but ss has brackets, extract from ss.
-    If both empty, fall back to ViennaRNA fold (only for sequences < 300 nt).
+    If both empty, raise ValueError — no fallback allowed.
     """
     normalized = []
     for p in pairs:
@@ -112,17 +112,13 @@ def _normalize_pair_constraints(pairs: list, ss: str, length: int, sequence: str
     if not normalized and ss and ss != "." * length:
         normalized = _extract_pairs_from_dot_bracket(ss)
 
-    # ViennaRNA fallback only for short sequences (< 300 nt) to avoid slowness
-    if not normalized and sequence and len(sequence) == length and length < 300:
-        try:
-            import RNA
-            md = RNA.md()
-            md.circ = True
-            fc = RNA.fold_compound(sequence, md)
-            (ss_vrna, _) = fc.mfe()
-            normalized = _extract_pairs_from_dot_bracket(ss_vrna)
-        except ImportError:
-            pass
+    # NO FALLBACK — data must have pair_constraints or valid secondary_structure
+    if not normalized:
+        raise ValueError(
+            f"No pair_constraints for {seq_id or 'unknown'} (L={length}). "
+            "Data sources must provide pair_constraints or secondary_structure. "
+            "Regenerate data with updated pipelines."
+        )
 
     return normalized
 
@@ -165,7 +161,7 @@ def load_source(source_name: str, source_dir: str) -> Tuple[list, int, int]:
         # Normalize pair_constraints
         ss = item.get("secondary_structure", "")
         raw_pairs = item.get("pair_constraints", [])
-        pair_constraints = _normalize_pair_constraints(raw_pairs, ss, length, sequence)
+        pair_constraints = _normalize_pair_constraints(raw_pairs, ss, length, sequence, seq_id)
 
         if not pair_constraints:
             n_no_pairs += 1
