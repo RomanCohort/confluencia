@@ -83,6 +83,9 @@ class EGNNLayer(nn.Module):
             nn.Linear(d_node // 2, 1),
         )
 
+        # Learnable coordinate step size
+        self.coord_step = nn.Parameter(torch.tensor(0.1))
+
         # Node update
         self.node_mlp = nn.Sequential(
             nn.Linear(d_node * 2, d_node),
@@ -181,7 +184,7 @@ class EGNNLayer(nn.Module):
         # Update coordinates (equivariant)
         # Clamp coord update to prevent NaN from gradient explosion
         coord_update_agg = coord_update_agg.clamp(-5.0, 5.0)
-        coords = coords + coord_update_agg * 0.1  # Reduce step from 0.3 to 0.1
+        coords = coords + coord_update_agg * self.coord_step  # Learnable step
 
         return node_feat, coords
 

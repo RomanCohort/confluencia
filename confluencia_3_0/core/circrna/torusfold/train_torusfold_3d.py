@@ -54,6 +54,8 @@ class EGNNLayer(nn.Module):
             nn.SiLU(),
             nn.Linear(d_hidden, d_hidden)
         )
+        # Learnable coordinate step size (initialized at 0.1)
+        self.coord_step = nn.Parameter(torch.tensor(0.1))
 
     def forward(self, h: torch.Tensor, x: torch.Tensor) -> tuple:
         """h: (B, L, D), x: (B, L, 3)
@@ -111,10 +113,8 @@ class EGNNLayer(nn.Module):
         # Coordinate update (equivariant)
         coord_weight = self.coord_mlp(edge_out)  # (B, L, k, 1)
         coord_update = (coord_weight * knn_diff).sum(dim=2)  # (B, L, 3)
-        # Step size 0.1 with per-layer clamp to prevent coordinate explosion.
-        # Input coords are normalized to unit scale, so clamp at 0.5 per layer
-        # (4 layers × 0.5 = max 2.0 displacement in normalized space).
-        coord_update = 0.1 * coord_update
+        # Learnable step size with per-layer clamp
+        coord_update = self.coord_step * coord_update
         coord_update = coord_update.clamp(-0.5, 0.5)
         x_new = x + coord_update
 
@@ -149,25 +149,26 @@ class CircRNA3DModel(nn.Module):
         # BSJ closure enforcement
         self.bsj_weight = nn.Parameter(torch.tensor(10.0))
 
-    def forward(self, seq_ids: torch.Tensor) -> dict:
-        """seq_ids: (B, L) with 0=A, 1=U, 2=G, 3=C, 4=unk"""
+    def forward(self, seq_ids: torch.Tensor, lengths=None) -> dict:
+        """seq_ids: (B, L) with 0=A, 1=U, 2=G, 3=C, 4=unk
+           lengths: (B,) valid lengths for masking padding positions
+        """
         B, L = seq_ids.shape
         device = seq_ids.device
 
         # Embed sequence
         h = self.embed(seq_ids)  # (B, L, D)
 
-        # Initialize coordinates (helical backbone)
+        # Initialize coordinates (planar circular for circRNA)
         x_init = torch.zeros(B, L, 3, device=device)
         bond_length = 5.9
-        rise_per_nt = 2.8  # A-form RNA
 
         for i in range(L):
             angle = 2 * np.pi * i / L
             radius = bond_length * L / (2 * np.pi) * 0.5
             x_init[:, i, 0] = radius * np.cos(angle)
             x_init[:, i, 1] = radius * np.sin(angle)
-            x_init[:, i, 2] = rise_per_nt * i
+            # z = 0: planar circle (no rise_per_nt for circRNA)
 
         # Center and normalize to unit norm for stable EGNN input
         x_init = x_init - x_init.mean(dim=1, keepdim=True)
@@ -182,20 +183,38 @@ class CircRNA3DModel(nn.Module):
         # Final coordinate prediction
         coords = x
 
-        # Compute bond/closure metrics for monitoring ONLY (no grad graph)
-        # These values can be extremely large (bond~1e4, closure~1e7) and
-        # cause gradient overflow during backward() even though Scheme 1
-        # training only uses coordinate MSE loss on coords.
+        # Compute bond/closure metrics masked to valid positions
         with torch.no_grad():
             bond_errors = []
+            n_bond = 0
             for i in range(L):
                 j = (i + 1) % L
-                d = torch.norm(coords[:, j] - coords[:, i], dim=-1)
-                bond_errors.append((d - bond_length) ** 2)
-            bond_loss = torch.stack(bond_errors).mean()
+                # Skip if either position is padding
+                if lengths is not None:
+                    batch_mask = (i < lengths) & (j < lengths)
+                    if batch_mask.sum() == 0:
+                        continue
+                    d = torch.norm(coords[:, j] - coords[:, i], dim=-1)
+                    err = (d - bond_length) ** 2
+                    # Only count valid positions
+                    bond_errors.append(err[batch_mask].mean())
+                    n_bond += batch_mask.sum().item()
+                else:
+                    d = torch.norm(coords[:, j] - coords[:, i], dim=-1)
+                    bond_errors.append((d - bond_length) ** 2)
+                    n_bond += B
 
-            closure_dist = torch.norm(coords[:, 0] - coords[:, -1], dim=-1)
-            closure_loss = (closure_dist - bond_length) ** 2
+            bond_loss = torch.stack(bond_errors).mean() if bond_errors else torch.tensor(0.0, device=device)
+
+            if lengths is not None:
+                valid_first = (0 < lengths)
+                valid_last = (L - 1 < lengths) if L > 1 else valid_first
+                valid_both = valid_first & valid_last
+                closure_dist = torch.norm(coords[:, 0] - coords[:, -1], dim=-1)
+                closure_loss = ((closure_dist - bond_length) ** 2)[valid_both].mean() if valid_both.sum() > 0 else torch.tensor(0.0, device=device)
+            else:
+                closure_dist = torch.norm(coords[:, 0] - coords[:, -1], dim=-1)
+                closure_loss = (closure_dist - bond_length) ** 2
 
         return {
             'coords': coords,

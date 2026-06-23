@@ -53,13 +53,17 @@ def kabsch_rmsd(pred: torch.Tensor, target: torch.Tensor) -> float:
     p_c = (pred - pred.mean(dim=0)).detach().double()
     t_c = (target - target.mean(dim=0)).detach().double()
 
-    # Kabsch SVD alignment
-    H = t_c.T @ p_c
+    # Kabsch SVD alignment: align p_c onto t_c
+    # H = P^T @ Q, then R = V @ D @ U^T (with D = diag(1, 1, det(V @ U^T)))
+    H = p_c.T @ t_c  # (3, 3)
     try:
         U, S, Vt = torch.linalg.svd(H)
-        d = torch.det(Vt.T @ U.T).sign()
+        d = torch.det(Vt.T @ U.T).sign()  # det(V @ U^T)
+        # Handle degenerate case: if det is 0, d=1 (no reflection correction needed)
+        if d.item() == 0:
+            d = torch.tensor(1.0, device=pred.device, dtype=torch.float64)
         D = torch.diag(torch.tensor([1.0, 1.0, d.item()], device=pred.device, dtype=torch.float64))
-        R = Vt.T @ D @ U.T
+        R = Vt.T @ D @ U.T  # V @ D @ U^T
         p_aligned = (R @ p_c.T).T
         rmsd = torch.sqrt(torch.mean(torch.sum((p_aligned - t_c) ** 2, dim=1)))
     except Exception:
@@ -777,13 +781,16 @@ def train_scheme5(train_loader, val_loader, args, device):
     class Scheme5Model(nn.Module):
         """Transformer with circular positional encoding for circRNA.
 
-        Predicts in normalized unit-sphere space (like Scheme 1/3).
-        Denormalization to Å happens in the loss/validation code using target_scale.
+        Predicts DELTAS from helical init (not absolute coords).
+        Helical init provides geometric anchor → model only needs to
+        learn corrections, which is far more stable.
         """
         def __init__(self, d_model=128, n_heads=4, n_blocks=4):
             super().__init__()
             self.d_model = d_model
             self.embed = nn.Embedding(5, d_model)
+            # Coordinate projection: helical init (3) → feature space
+            self.coord_proj = nn.Linear(3, d_model)
             self.blocks = nn.ModuleList([
                 nn.TransformerEncoderLayer(
                     d_model=d_model,
@@ -795,11 +802,18 @@ def train_scheme5(train_loader, val_loader, args, device):
                 for _ in range(n_blocks)
             ])
             self.ln = nn.LayerNorm(d_model)
-            self.coord_head = nn.Linear(d_model, 3)
-            nn.init.xavier_uniform_(self.coord_head.weight, gain=0.01)
-            nn.init.zeros_(self.coord_head.bias)
+            self.delta_head = nn.Linear(d_model, 3)
+            # Small init for delta: start near identity (helical init ≈ target)
+            nn.init.xavier_uniform_(self.delta_head.weight, gain=0.01)
+            nn.init.zeros_(self.delta_head.bias)
 
-        def forward(self, seq_ids):
+        def forward(self, seq_ids, coords_init):
+            """Predict refined coords as helical_init + delta.
+
+            Args:
+                seq_ids: (B, L) sequence tokens
+                coords_init: (B, L, 3) helical init coords (unit-sphere)
+            """
             B, L = seq_ids.shape
             device = seq_ids.device
 
@@ -814,15 +828,17 @@ def train_scheme5(train_loader, val_loader, args, device):
             pe[:, 0::2] = torch.sin(phase.unsqueeze(1) * div_term.unsqueeze(0))
             pe[:, 1::2] = torch.cos(phase.unsqueeze(1) * div_term.unsqueeze(0))
 
-            h = self.embed(seq_ids) + pe.unsqueeze(0)  # (B, L, D)
+            # Combine sequence + coordinate features
+            h = self.embed(seq_ids) + pe.unsqueeze(0) + self.coord_proj(coords_init)  # (B, L, D)
 
             for block in self.blocks:
                 h = block(h)
 
             h = self.ln(h)
-            coords_norm = self.coord_head(h)  # (B, L, 3) in unit-sphere space
+            delta = self.delta_head(h)  # (B, L, 3) small corrections
+            coords_refined = coords_init + delta
 
-            return {'coords': coords_norm}
+            return {'coords': coords_refined}
 
     model = Scheme5Model(d_model=args.d_hidden, n_blocks=args.n_layers).to(device)
     lr = min(args.lr, 1e-4)
@@ -831,6 +847,22 @@ def train_scheme5(train_loader, val_loader, args, device):
         optimizer, mode='min', factor=0.5, patience=5
     )
     print(f"  LR={lr:.1e} (capped from {args.lr:.1e})")
+
+    def generate_helical_init_s5(L, bond_length=5.9, device='cpu'):
+        """Generate planar circular init (no z-offset)."""
+        coords = torch.zeros(L, 3, device=device)
+        for i in range(L):
+            angle = 2 * np.pi * i / L
+            radius = bond_length * L / (2 * np.pi) * 0.5
+            coords[i, 0] = radius * np.cos(angle)
+            coords[i, 1] = radius * np.sin(angle)
+            # z = 0 (planar circle for circRNA)
+        # Center and normalize to unit sphere
+        coords = coords - coords.mean(dim=0)
+        norm = torch.norm(coords)
+        if norm > 1e-6:
+            coords = coords / norm
+        return coords
 
     best_val = float('inf')
     patience_counter = 0
@@ -846,6 +878,7 @@ def train_scheme5(train_loader, val_loader, args, device):
             seq_ids = batch['seq_ids'].to(device)
             target = batch['coords'].to(device)
             lengths = batch['lengths']
+            B, L = seq_ids.shape
 
             # Skip corrupt target data
             if torch.isinf(target).any() or torch.isnan(target).any():
@@ -854,13 +887,24 @@ def train_scheme5(train_loader, val_loader, args, device):
 
             conf_scale = batch.get('confidence', torch.tensor(0.5)).mean().item()
 
-            # Normalize target to unit-sphere (same as Scheme 1)
-            B, L, _ = target.shape
+            # Normalize target to unit-sphere
             target_centered = target - target.mean(dim=1, keepdim=True)
             target_scale = torch.norm(target_centered, dim=(1,2), keepdim=True).clamp(min=1.0)
             target_norm = target_centered / target_scale
 
-            out = model(seq_ids)
+            # Generate planar circular init as input
+            coords_init = torch.zeros(B, L, 3, device=device)
+            for b in range(B):
+                valid_L = lengths[b]
+                if valid_L > 0:
+                    init_coords = generate_helical_init_s5(valid_L, device=device)
+                    coords_init[b, :valid_L] = init_coords
+                    # Pad with last valid coord
+                    if valid_L < L:
+                        coords_init[b, valid_L:] = init_coords[-1:].expand(L - valid_L, -1)
+
+            # Predict delta from helical init
+            out = model(seq_ids, coords_init)
             pred = out['coords']
 
             # Skip NaN/Inf predictions
@@ -869,25 +913,51 @@ def train_scheme5(train_loader, val_loader, args, device):
                 optimizer.zero_grad()
                 continue
 
-            # Normalize pred using TARGET scale (same as Scheme 1)
-            pred_centered = pred - pred.mean(dim=1, keepdim=True)
-            pred_norm = pred_centered / target_scale
-
-            # MSE on normalized coords
-            loss = 0
+            # Loss: MSE on normalized coords + closure penalty
+            coord_loss = 0
+            closure_loss = 0
+            bond_loss = 0
+            n_valid_samples = 0
             for b in range(B):
                 valid_L = lengths[b]
-                diff = pred_norm[b, :valid_L] - target_norm[b, :valid_L]
-                loss += torch.mean(diff ** 2)
-            loss /= B
-            loss = loss * conf_scale * 2.0
+                if valid_L < 4:
+                    continue
+                n_valid_samples += 1
+                p = pred[b, :valid_L]  # (valid_L, 3)
+                t = target_norm[b, :valid_L]  # (valid_L, 3)
+                diff = p - t
+                coord_loss += torch.mean(torch.sum(diff ** 2, dim=1))
 
-            if torch.isnan(loss) or torch.isinf(loss):
+                # Closure: distance between first and last should be ~bond_length
+                closure_dist = torch.norm(p[0] - p[-1])
+                closure_error = (closure_dist - 5.9).clamp(-10, 10)
+                closure_loss += closure_error ** 2
+
+                # Bond: consecutive residues should be ~5.9Å apart
+                if valid_L > 1:
+                    idx = torch.arange(valid_L - 1, device=device)
+                    d = torch.norm(p[idx + 1] - p[idx], dim=-1)
+                    bond_error = (d - 5.9).clamp(-10, 10)
+                    bond_loss += torch.mean(bond_error ** 2)
+                # Last residue → first residue (circular)
+                d_circ = torch.norm(p[0] - p[-1])
+                bond_circ_error = (d_circ - 5.9).clamp(-10, 10)
+                bond_loss += bond_circ_error ** 2
+
+            if n_valid_samples == 0:
+                continue
+            coord_loss /= n_valid_samples
+            closure_loss /= n_valid_samples
+            bond_loss /= n_valid_samples
+            total_loss = coord_loss + 0.1 * closure_loss + 0.1 * bond_loss
+            total_loss = total_loss * conf_scale * 2.0
+
+            if torch.isnan(total_loss) or torch.isinf(total_loss):
                 nan_batches += 1
                 optimizer.zero_grad()
                 continue
 
-            loss.backward()
+            total_loss.backward()
             # NaN gradient check
             has_nan_grad = False
             for p in model.parameters():
@@ -904,7 +974,7 @@ def train_scheme5(train_loader, val_loader, args, device):
             optimizer.zero_grad()
 
             n_train_batches += 1
-            train_loss += loss.item()
+            train_loss += total_loss.item()
 
             # Train RMSD in Å for logging
             with torch.no_grad():
@@ -912,14 +982,15 @@ def train_scheme5(train_loader, val_loader, args, device):
                     valid_L = lengths[b]
                     if valid_L < 4:
                         continue
-                    p_denorm = pred_centered[b, :valid_L] / torch.norm(
-                        pred_centered[b], dim=(0,1), keepdim=True
-                    ).clamp(min=1e-6) * target_scale[b] + target[b].mean(dim=0, keepdim=True)
+                    # Denormalize: pred is in unit-sphere, scale to Å
+                    p_c = pred[b, :valid_L] - pred[b, :valid_L].mean(dim=0)
+                    t_c = target_norm[b, :valid_L] - target_norm[b, :valid_L].mean(dim=0)
+                    p_denorm = p_c / torch.norm(p_c).clamp(min=1e-6) * target_scale[b].squeeze() + target[b, :valid_L].mean(dim=0)
                     t_denorm = target[b, :valid_L]
-                    p_c = p_denorm - p_denorm.mean(dim=0)
-                    t_c = t_denorm - t_denorm.mean(dim=0)
-                    if p_c.abs().sum() > 1e-6 and t_c.abs().sum() > 1e-6:
-                        rmsd = kabsch_rmsd(p_c, t_c)
+                    pd = p_denorm - p_denorm.mean(dim=0)
+                    td = t_denorm - t_denorm.mean(dim=0)
+                    if pd.abs().sum() > 1e-6 and td.abs().sum() > 1e-6:
+                        rmsd = kabsch_rmsd(pd, td)
                         if not (np.isnan(rmsd) or np.isinf(rmsd)) and rmsd < 10000:
                             train_rmsd_sum += rmsd
 
@@ -930,7 +1001,7 @@ def train_scheme5(train_loader, val_loader, args, device):
         avg_train = train_loss / max(n_train_batches, 1)
         avg_train_rmsd = train_rmsd_sum / max(n_train_batches, 1)
 
-        # Validation: RMSD in Å (same denormalization as Scheme 1)
+        # Validation: RMSD in Å
         model.eval()
         val_rmsd = 0
         n_val_samples = 0
@@ -945,11 +1016,21 @@ def train_scheme5(train_loader, val_loader, args, device):
                 if target.abs().sum() < 1e-3:
                     continue
 
-                B, L, _ = target.shape
+                B, L = seq_ids.shape
                 target_centered = target - target.mean(dim=1, keepdim=True)
                 target_scale = torch.norm(target_centered, dim=(1,2), keepdim=True).clamp(min=1.0)
 
-                out = model(seq_ids)
+                # Generate helical init for validation
+                coords_init = torch.zeros(B, L, 3, device=device)
+                for b in range(B):
+                    valid_L = lengths[b]
+                    if valid_L > 0:
+                        init_coords = generate_helical_init_s5(valid_L, device=device)
+                        coords_init[b, :valid_L] = init_coords
+                        if valid_L < L:
+                            coords_init[b, valid_L:] = init_coords[-1:].expand(L - valid_L, -1)
+
+                out = model(seq_ids, coords_init)
                 pred = out['coords']
 
                 if torch.isnan(pred).any() or torch.isinf(pred).any():
@@ -1545,20 +1626,19 @@ def train_scheme3(train_loader, val_loader, args, device):
 
     # Use helical coords for fast initialization (avoid slow solver per batch)
     def generate_helical_init(L, bond_length=5.9, device='cpu'):
-        """Generate fast helical initial coords (ensures closure).
+        """Generate planar circular init (no z-offset) for circRNA.
 
+        circRNA is a closed loop — planar circle is more physically
+        appropriate than a helix with linear z-offset.
         Returns coords centered at origin with unit-norm for stable training.
-        Raw helical coords are centered and normalized so coord_proj
-        receives inputs in a reasonable range (~[-1, 1]) regardless of L.
         """
         coords = torch.zeros(L, 3, device=device)
-        rise_per_nt = 2.8
         for i in range(L):
             angle = 2 * np.pi * i / L
             radius = bond_length * L / (2 * np.pi) * 0.5
             coords[i, 0] = radius * np.cos(angle)
             coords[i, 1] = radius * np.sin(angle)
-            coords[i, 2] = rise_per_nt * i - L * rise_per_nt / 2
+            # z = 0: planar circle for circRNA (no rise_per_nt)
         # Center and normalize to unit norm for stable input to coord_proj
         coords = coords - coords.mean(dim=0)
         norm = torch.norm(coords)
