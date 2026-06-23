@@ -1513,7 +1513,11 @@ def train_scheme3(train_loader, val_loader, args, device):
             coords_init = torch.zeros(B, L, 3, device=device)
             for b in range(B):
                 valid_L = lengths[b]
-                coords_init[b, :valid_L] = generate_helical_init(valid_L, device=device)
+                init_coords = generate_helical_init(valid_L, device=device)
+                coords_init[b, :valid_L] = init_coords
+                # Fill padding with last valid coord to avoid zeros causing NaN
+                if valid_L < L:
+                    coords_init[b, valid_L:] = init_coords[-1:].expand(L - valid_L, -1)
 
             # Helical init is already unit-norm, use directly
             coords_init_norm = coords_init
@@ -1612,14 +1616,22 @@ def train_scheme3(train_loader, val_loader, args, device):
         model.eval()
         val_loss = 0
         n_val_samples = 0
+        n_val_batches = 0
+        n_val_skipped = 0
 
         with torch.no_grad():
             for batch in val_loader:
+                n_val_batches += 1
                 seq_ids = batch['seq_ids'].to(device)
                 target_coords = batch['coords'].to(device)
                 lengths = batch['lengths']
 
                 B, L = seq_ids.shape
+
+                # Skip empty or corrupt target coords
+                if target_coords.abs().sum() < 1e-3:
+                    n_val_skipped += 1
+                    continue
 
                 # Normalize target (same as training)
                 target_centered = target_coords - target_coords.mean(dim=1, keepdim=True)
@@ -1629,7 +1641,11 @@ def train_scheme3(train_loader, val_loader, args, device):
                 coords_init = torch.zeros(B, L, 3, device=device)
                 for b in range(B):
                     valid_L = lengths[b]
-                    coords_init[b, :valid_L] = generate_helical_init(valid_L, device=device)
+                    init_coords = generate_helical_init(valid_L, device=device)
+                    coords_init[b, :valid_L] = init_coords
+                    # Fill padding with last valid coord to avoid zeros causing NaN
+                    if valid_L < L:
+                        coords_init[b, valid_L:] = init_coords[-1:].expand(L - valid_L, -1)
 
                 # Helical init is already unit-norm, use directly
                 coords_init_norm = coords_init
@@ -1638,6 +1654,7 @@ def train_scheme3(train_loader, val_loader, args, device):
 
                 # Skip NaN/Inf
                 if torch.isnan(coords_refined).any() or torch.isinf(coords_refined).any():
+                    n_val_skipped += 1
                     continue
 
                 # Denormalize predictions back to Å for RMSD reporting
@@ -1655,6 +1672,8 @@ def train_scheme3(train_loader, val_loader, args, device):
                     if not torch.isnan(rmsd) and not torch.isinf(rmsd):
                         val_loss += rmsd.item()
                         n_val_samples += 1
+                    else:
+                        print(f"    DEBUG: Invalid rmsd {rmsd} for sample")
 
         val_loss /= max(n_val_samples, 1)
         scheduler.step(val_loss)
@@ -1670,7 +1689,8 @@ def train_scheme3(train_loader, val_loader, args, device):
         print(f"  Epoch {epoch+1}/{args.epochs} "
               f"train={train_loss:.4f} (coord={train_metrics['coord']:.3f}, "
               f"closure={train_metrics['closure']:.3f}, bond={train_metrics['bond']:.3f}) "
-              f"val={val_loss:.1f}Å nan={nan_batches} pat={patience_counter}/10")
+              f"val={val_loss:.1f}Å (n={n_val_samples}/{n_val_batches},skip={n_val_skipped}) "
+              f"nan={nan_batches} pat={patience_counter}/10")
 
         # Reset NaN counter per epoch
         nan_batches = 0
