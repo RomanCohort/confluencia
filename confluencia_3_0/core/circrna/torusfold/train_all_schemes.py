@@ -453,8 +453,15 @@ def train_scheme1(train_loader, val_loader, args, device):
     patience_counter = 0
 
     for epoch in range(args.epochs):
+        # Warmup: linearly ramp lr from base_lr*0.01 to base_lr over warmup_epochs
+        if epoch < warmup_epochs:
+            warmup_factor = (epoch + 1) / warmup_epochs
+            for pg in optimizer.param_groups:
+                pg['lr'] = base_lr * warmup_factor
+
         model.train()
         train_loss = 0
+        train_rmsd_sum = 0.0
         n_train_batches = 0
         nan_batches = 0
         for batch in train_loader:
@@ -510,6 +517,20 @@ def train_scheme1(train_loader, val_loader, args, device):
             n_train_batches += 1
             if not torch.isnan(loss):
                 train_loss += loss.item()
+                # Track train RMSD in Å for comparable logging
+                with torch.no_grad():
+                    for b in range(B):
+                        valid_L = lengths[b]
+                        if valid_L < 4:
+                            continue
+                        p_denorm = pred_centered[b, :valid_L] / torch.norm(pred_centered[b], dim=(0,1), keepdim=True).clamp(min=1e-6) * target_scale[b] + target[b].mean(dim=0, keepdim=True)
+                        t_denorm = target[b, :valid_L]
+                        p_c = p_denorm - p_denorm.mean(dim=0)
+                        t_c = t_denorm - t_denorm.mean(dim=0)
+                        if p_c.abs().sum() > 1e-6 and t_c.abs().sum() > 1e-6:
+                            rmsd = kabsch_rmsd(p_c, t_c)
+                            if not (np.isnan(rmsd) or np.isinf(rmsd)):
+                                train_rmsd_sum += rmsd
 
         # Validation: RMSD in Angstroms
         model.eval()
@@ -568,6 +589,7 @@ def train_scheme1(train_loader, val_loader, args, device):
                         n_val_samples += 1
 
         avg_train = train_loss / max(n_train_batches, 1)
+        avg_train_rmsd = train_rmsd_sum / max(n_train_batches, 1) if n_train_batches > 0 else float('inf')
         # Fallback: use train loss scaled to approximate RMSD (train is normalized MSE)
         # RMSD ≈ sqrt(train_loss) * typical_scale (Å)
         avg_val = val_rmsd / max(n_val_samples, 1) if n_val_samples > 0 else avg_train * 100
@@ -580,8 +602,9 @@ def train_scheme1(train_loader, val_loader, args, device):
         else:
             patience_counter += 1
 
-        print(f"  Epoch {epoch+1}/{args.epochs} train={avg_train:.4f} "
-              f"val={avg_val:.1f}Å (n={n_val_samples}) nan={nan_batches} pat={patience_counter}/10")
+        current_lr = optimizer.param_groups[0]['lr']
+        print(f"  Epoch {epoch+1}/{args.epochs} train={avg_train:.4f} train_rmsd={avg_train_rmsd:.1f}Å "
+              f"val={avg_val:.1f}Å (n={n_val_samples}) lr={current_lr:.1e} nan={nan_batches} pat={patience_counter}/10")
 
         if patience_counter >= 10:
             print(f"  Early stopping at epoch {epoch+1}")
@@ -767,13 +790,11 @@ def train_scheme5(train_loader, val_loader, args, device):
                 for _ in range(n_blocks)
             ])
             self.coord_head = nn.Linear(d_model, 3)
-            # Init coord_head with appropriate scale so output is ~O(L * 5.9) in coords
-            # Expected output: ~200A radius for L=100. With d_model=128, hidden ~1/sqrt(128)=0.09
-            # Need scale factor ~200 so init_output ~ N(0, 0.09*200) ≈ N(0, 18) — reasonable
-            nn.init.normal_(self.coord_head.weight, std=0.01)
+            # Conservative init: xavier uniform for stable training
+            nn.init.xavier_uniform_(self.coord_head.weight, gain=0.01)
             nn.init.zeros_(self.coord_head.bias)
             # Learnable output scale to let model adjust magnitude
-            self.output_scale = nn.Parameter(torch.tensor(10.0))
+            self.output_scale = nn.Parameter(torch.tensor(1.0))
             self.bond_length = 5.9
 
         def forward(self, seq_ids, coords_init=None):
@@ -787,7 +808,7 @@ def train_scheme5(train_loader, val_loader, args, device):
             for block in self.blocks:
                 h = block(h)
 
-            coords = self.coord_head(h) * self.output_scale  # (B, L, 3) scaled to Å
+            coords = self.coord_head(h) * self.output_scale.clamp(max=100.0)  # (B, L, 3) scaled to Å
 
             # Physics-informed closure correction (soft, differentiable)
             closure_dist = torch.norm(coords[:, 0] - coords[:, -1], dim=-1, keepdim=True)
@@ -804,10 +825,13 @@ def train_scheme5(train_loader, val_loader, args, device):
             return {'coords': coords}
 
     model = Scheme5Model(d_model=args.d_hidden, n_blocks=args.n_layers).to(device)
-    optimizer = torch.optim.AdamW(model.parameters(), lr=args.lr)
+    # Lower LR for Transformer stability
+    lr = min(args.lr, 1e-4)
+    optimizer = torch.optim.AdamW(model.parameters(), lr=lr, weight_decay=1e-5)
     scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
         optimizer, mode='min', factor=0.5, patience=5
     )
+    print(f"  LR={lr:.1e} (capped from {args.lr:.1e})")
 
     best_val = float('inf')
     patience_counter = 0
@@ -867,7 +891,7 @@ def train_scheme5(train_loader, val_loader, args, device):
                 continue
 
             loss.backward()
-            torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
+            torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=0.1)  # Aggressive for S5 stability
             optimizer.step()
             optimizer.zero_grad()
 
