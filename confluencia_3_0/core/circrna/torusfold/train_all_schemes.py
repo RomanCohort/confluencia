@@ -1293,6 +1293,201 @@ def train_scheme7(train_loader, val_loader, args, device):
 
 
 # ═══════════════════════════════════════════════════════════════
+# Scheme 8: Sparse Pair-Guided Hybrid Diffusion
+# ═══════════════════════════════════════════════════════════════
+
+def train_scheme8(train_loader, val_loader, args, device):
+    """Scheme 8: Sparse Pair-Guided Hybrid Diffusion for circRNA.
+
+    Key advantage: O(L·K) complexity instead of O(L²).
+    Can handle sequences up to L=2000 on 24GB GPU.
+
+    Architecture:
+      Mamba Encoder → BSJ Anchor Attention → Sparse Pair Attention (Top-K)
+      → Global Context Gate → Hybrid Denoiser (Mamba + Local Attn)
+
+    Memory: ~0.16 GB for L=1000, B=4, d=128 (vs ~2 GB for Scheme 6).
+    """
+    print("\n" + "="*60)
+    print("  Training Scheme 8: Sparse Pair-Guided Hybrid Diffusion")
+    print("="*60)
+
+    from confluencia_3_0.core.circrna.torusfold.scheme8_sparse_pair import (
+        Scheme8Model, Scheme8Config, estimate_memory_usage, compare_scheme6_memory
+    )
+
+    # Config
+    K = getattr(args, 'scheme8_k', 20)
+    d_global = getattr(args, 'scheme8_d_global', 32)
+    bsj_flank = getattr(args, 'scheme8_bsj_flank', 30)
+    n_denoiser_blocks = getattr(args, 'scheme8_n_blocks', 4)
+    window = getattr(args, 'scheme8_window', 25)
+
+    # Auto-detect: reduce config if no CUDA Mamba
+    from confluencia_3_0.core.circrna.torusfold.circrna_mamba_diffusion import HAS_MAMBA_SSM
+    if HAS_MAMBA_SSM:
+        n_mamba_layers = getattr(args, 'n_mamba_layers', 2)
+        n_sparse_layers = 2
+        n_diffusion_steps = min(args.diffusion_steps, 50)
+        print(f"  CUDA Mamba detected — using full config")
+    else:
+        n_mamba_layers = 1
+        n_sparse_layers = 1
+        n_diffusion_steps = min(args.diffusion_steps, 20)
+        print(f"  NOTE: pure-Python SSM — using reduced config")
+
+    config = Scheme8Config(
+        d_model=args.d_hidden,
+        d_ssm=max(32, args.d_hidden // 2),
+        d_pair=max(32, args.d_hidden // 2),
+        d_global=d_global,
+        n_mamba_layers=n_mamba_layers,
+        n_sparse_layers=n_sparse_layers,
+        n_denoiser_blocks=n_denoiser_blocks,
+        n_diffusion_steps=n_diffusion_steps,
+        K=K,
+        bsj_flank=bsj_flank,
+        attn_window=window,
+        bond_length=5.9,
+        closure_weight=1.0,
+        use_gradient_checkpointing=True,
+    )
+    model = Scheme8Model(config).to(device)
+
+    # Print parameter count and memory estimate
+    n_params = sum(p.numel() for p in model.parameters())
+    print(f"  Parameters: {n_params:,} ({n_params/1e6:.1f}M)")
+    print(f"  Config: d_model={config.d_model}, d_ssm={config.d_ssm}, "
+          f"K={K}, d_global={d_global}, bsj_flank={bsj_flank}, "
+          f"n_mamba={n_mamba_layers}, n_sparse={n_sparse_layers}, "
+          f"n_denoiser={n_denoiser_blocks}, window={window}")
+
+    # Memory comparison
+    for L_test in [500, 1000, 2000]:
+        mem = estimate_memory_usage(L_test, B=4, d=config.d_model, K=K, bsj_flank=bsj_flank)
+        cmp = compare_scheme6_memory(L_test)
+        print(f"  L={L_test}: S8 total={mem['total']:.3f}GB, "
+              f"S6 pair_repr={cmp['scheme6_pair_repr']:.3f}GB, "
+              f"ratio={cmp['ratio']:.1f}x")
+
+    optimizer = torch.optim.AdamW(model.parameters(), lr=args.lr * 0.3)
+    scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
+        optimizer, mode='min', factor=0.5, patience=5
+    )
+
+    best_val = float('inf')
+    patience_counter = 0
+
+    for epoch in range(args.epochs):
+        model.train()
+        train_loss = 0
+        nan_batches = 0
+        train_metrics = {'noise': 0, 'closure': 0}
+        n_batches = len(train_loader)
+
+        for batch_idx, batch in enumerate(train_loader):
+            if batch_idx % 10 == 0:
+                print(f"\r  Training batch {batch_idx+1}/{n_batches}", end="", flush=True)
+
+            seq_ids = batch['seq_ids'].to(device)
+            coords_target = batch['coords'].to(device)
+            pair_probs = batch.get('pair_probs', None)
+            if pair_probs is not None:
+                pair_probs = pair_probs.to(device)
+            lengths = batch['lengths']
+            conf_scale = batch.get('confidence', torch.tensor(0.5)).mean().item()
+
+            # Normalize target coords
+            B, L, _ = coords_target.shape
+            coords_centered = coords_target - coords_target.mean(dim=1, keepdim=True)
+            coords_scale = torch.norm(coords_centered, dim=(1, 2), keepdim=True).clamp(min=1.0)
+            coords_norm = coords_centered / coords_scale
+
+            # Forward: diffusion training step
+            out = model(
+                seq_tokens=seq_ids,
+                pair_probs=pair_probs,
+                coords_target=coords_norm,
+            )
+
+            noise_loss = out.get('noise_loss', torch.tensor(0.0, device=device))
+            closure_loss = out.get('closure_loss', torch.tensor(0.0, device=device))
+            loss = out.get('total_loss', noise_loss + 0.1 * closure_loss)
+
+            if torch.isnan(loss) or torch.isinf(loss):
+                nan_batches += 1
+                optimizer.zero_grad()
+                continue
+
+            # Apply confidence weighting
+            loss = loss * conf_scale * 2.0
+
+            loss.backward()
+            torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
+            optimizer.step()
+            optimizer.zero_grad()
+
+            train_loss += loss.item()
+            train_metrics['noise'] += noise_loss.item()
+            train_metrics['closure'] += closure_loss.item()
+
+        print(f"\r  Training complete: {n_batches} batches, {nan_batches} NaN batches")
+
+        if nan_batches > len(train_loader) // 2:
+            print(f"  Too many NaN batches ({nan_batches}), stopping")
+            return float('inf')
+
+        n_valid_batches = max(len(train_loader) - nan_batches, 1)
+        avg_train = train_loss / n_valid_batches
+        avg_noise = train_metrics['noise'] / n_valid_batches
+        avg_closure = train_metrics['closure'] / n_valid_batches
+
+        # Validation
+        print("  Validating...", end="", flush=True)
+        model.eval()
+        val_loss = 0
+        n_val_batches = 0
+        with torch.no_grad():
+            for batch in val_loader:
+                seq_ids = batch['seq_ids'].to(device)
+                coords_target = batch['coords'].to(device)
+                pair_probs = batch.get('pair_probs', None)
+                if pair_probs is not None:
+                    pair_probs = pair_probs.to(device)
+
+                coords_centered = coords_target - coords_target.mean(dim=1, keepdim=True)
+                coords_scale = torch.norm(coords_centered, dim=(1, 2), keepdim=True).clamp(min=1.0)
+                coords_norm = coords_centered / coords_scale
+
+                out = model(seq_tokens=seq_ids, pair_probs=pair_probs, coords_target=coords_norm)
+                val_loss += out.get('total_loss', torch.tensor(0.0)).item()
+                n_val_batches += 1
+
+        avg_val = val_loss / max(n_val_batches, 1)
+        print(f" done")
+
+        scheduler.step(avg_val)
+
+        if avg_val < best_val:
+            best_val = avg_val
+            patience_counter = 0
+            torch.save(model.state_dict(), f"{args.output}/scheme8_best.pt")
+        else:
+            patience_counter += 1
+
+        print(f"  Epoch {epoch+1}/{args.epochs} train={avg_train:.4f} "
+              f"(noise={avg_noise:.4f}, closure={avg_closure:.4f}) "
+              f"val={avg_val:.4f} nan={nan_batches} pat={patience_counter}/10")
+
+        if patience_counter >= 10:
+            print(f"  Early stopping at epoch {epoch+1}")
+            break
+
+    print(f"  Best val loss: {best_val:.4f}")
+    return best_val
+
+
+# ═══════════════════════════════════════════════════════════════
 # Scheme 2 & 3: Non-parametric (no training needed)
 # ═══════════════════════════════════════════════════════════════
 
@@ -1707,6 +1902,7 @@ SCHEME_MAX_LEN = {
     5: None,  # DEPRECATED — not used
     6: 800,   # GNN O(L^2) - A800 can handle
     7: None,  # Mamba O(L) + O(L*w), no limit
+    8: None,  # Sparse pair O(L*K), no limit — designed for L>500
 }
 
 SCHEME_DATA_REQUIREMENTS = {
@@ -1717,11 +1913,12 @@ SCHEME_DATA_REQUIREMENTS = {
     5: {'min_samples': 0,   'recommended': 0,   'epochs': 0,   'reason': 'DEPRECATED — Transformer无几何归纳偏置'},
     6: {'min_samples': 500, 'recommended': 1000,'epochs': 100, 'reason': 'Encoder+Diffusion+Decoder最重'},
     7: {'min_samples': 500, 'recommended': 1000,'epochs': 100, 'reason': 'Mamba+Transformer混合扩散，O(L)可处理长序列'},
+    8: {'min_samples': 500, 'recommended': 1000,'epochs': 100, 'reason': '稀疏配对混合扩散，O(L·K)可处理L>500长序列'},
 }
 
 def main():
     parser = argparse.ArgumentParser(description='Train all TorusFold schemes')
-    parser.add_argument('--schemes', type=int, nargs='+', default=[1, 2, 3, 4, 5, 6, 7])
+    parser.add_argument('--schemes', type=int, nargs='+', default=[1, 2, 3, 4, 5, 6, 7, 8])
     parser.add_argument('--labels', type=str, default='',
                         help='Path to pre-generated labels directory. '
                              'Auto-searches data/circbase_real_3d, data/circrna_3d_merged if empty.')
@@ -1746,6 +1943,16 @@ def main():
                         help='Local attention window size for Scheme 7')
     parser.add_argument('--bsj-flank', type=int, default=20,
                         help='BSJ flanking region size for Scheme 7')
+    parser.add_argument('--scheme8-k', type=int, default=20,
+                        help='Top-K pair candidates per position for Scheme 8 (default: 20)')
+    parser.add_argument('--scheme8-d-global', type=int, default=32,
+                        help='Global context dimension for Scheme 8 (default: 32)')
+    parser.add_argument('--scheme8-bsj-flank', type=int, default=30,
+                        help='BSJ flanking region size for Scheme 8 (default: 30)')
+    parser.add_argument('--scheme8-n-blocks', type=int, default=4,
+                        help='Number of hybrid denoiser blocks for Scheme 8 (default: 4)')
+    parser.add_argument('--scheme8-window', type=int, default=25,
+                        help='Local attention window size for Scheme 8 (default: 25)')
     parser.add_argument('--output', type=str, default='models/torusfold')
     parser.add_argument('--w-closure', type=float, default=5.0,
                         help='Closure penalty weight for Scheme 1 (default: 5.0)')
@@ -1912,6 +2119,8 @@ def main():
             val_loss = train_scheme6(train_loader, val_loader, args, device)
         elif scheme_id == 7:
             val_loss = train_scheme7(train_loader, val_loader, args, device)
+        elif scheme_id == 8:
+            val_loss = train_scheme8(train_loader, val_loader, args, device)
         else:
             print(f"  Unknown scheme {scheme_id}, skipping")
             args.epochs = original_epochs
