@@ -745,7 +745,7 @@ def train_scheme5(train_loader, val_loader, args, device):
             nn.init.normal_(self.coord_head.weight, std=0.01)
             nn.init.zeros_(self.coord_head.bias)
             # Learnable output scale to let model adjust magnitude
-            self.output_scale = nn.Parameter(torch.tensor(20.0))
+            self.output_scale = nn.Parameter(torch.tensor(10.0))
             self.bond_length = 5.9
 
         def forward(self, seq_ids, coords_init=None):
@@ -858,6 +858,8 @@ def train_scheme5(train_loader, val_loader, args, device):
         n_skipped_nan = 0
         n_skipped_short = 0
         n_skipped_zero_var = 0
+        n_skipped_nan_pred = 0
+        n_skipped_nan_rmsd = 0
         with torch.no_grad():
             for batch in val_loader:
                 seq_ids = batch['seq_ids'].to(device)
@@ -887,6 +889,7 @@ def train_scheme5(train_loader, val_loader, args, device):
                     t = target[b, :valid_L]
 
                     if torch.isnan(p).any() or torch.isinf(p).any():
+                        n_skipped_nan_pred += 1
                         continue
                     if torch.isnan(t).any() or torch.isinf(t).any():
                         continue
@@ -904,6 +907,8 @@ def train_scheme5(train_loader, val_loader, args, device):
                     if not (np.isnan(rmsd) or np.isinf(rmsd)):
                         val_rmsd += rmsd
                         n_val_samples += 1
+                    else:
+                        n_skipped_nan_rmsd += 1
 
         if n_val_samples == 0:
             avg_val = avg_train * 100  # Fallback: use train loss as proxy (scaled)
@@ -922,7 +927,7 @@ def train_scheme5(train_loader, val_loader, args, device):
             patience_counter += 1
 
         if epoch == 0 and n_val_samples == 0:
-            print(f"  [WARN] No valid val! z_target={n_skipped_zero_target} nan={n_skipped_nan} short={n_skipped_short} z_var={n_skipped_zero_var}")
+            print(f"  [WARN] No valid val! z_target={n_skipped_zero_target} nan_target={n_skipped_nan} short={n_skipped_short} z_var={n_skipped_zero_var} nan_pred={n_skipped_nan_pred} nan_rmsd={n_skipped_nan_rmsd}")
 
         print(f"  Epoch {epoch+1}/{args.epochs} train_rmsd={avg_train_rmsd:.1f}Å "
               f"val={avg_val:.1f}Å (n={n_val_samples}) nan={nan_batches} pat={patience_counter}/10")
