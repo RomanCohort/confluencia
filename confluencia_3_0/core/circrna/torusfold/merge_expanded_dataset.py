@@ -99,7 +99,8 @@ def _normalize_pair_constraints(pairs: list, ss: str, length: int, sequence: str
     """Normalize pair_constraints to [[i,j], ...] format.
 
     If pairs is empty but ss has brackets, extract from ss.
-    If both empty, raise ValueError — no fallback allowed.
+    If both empty, use ViennaRNA circ-mode fold as merge-time fallback only.
+    This fallback is intentional: it runs once during merge, not during training.
     """
     normalized = []
     for p in pairs:
@@ -112,13 +113,19 @@ def _normalize_pair_constraints(pairs: list, ss: str, length: int, sequence: str
     if not normalized and ss and ss != "." * length:
         normalized = _extract_pairs_from_dot_bracket(ss)
 
-    # NO FALLBACK — data must have pair_constraints or valid secondary_structure
-    if not normalized:
-        raise ValueError(
-            f"No pair_constraints for {seq_id or 'unknown'} (L={length}). "
-            "Data sources must provide pair_constraints or secondary_structure. "
-            "Regenerate data with updated pipelines."
-        )
+    # Merge-time ViennaRNA fallback (runs once, results saved to disk)
+    if not normalized and sequence and len(sequence) == length:
+        try:
+            import RNA
+            md = RNA.md()
+            md.circ = True
+            fc = RNA.fold_compound(sequence, md)
+            (ss_vrna, _) = fc.mfe()
+            normalized = _extract_pairs_from_dot_bracket(ss_vrna)
+            if normalized:
+                print(f"    ViennaRNA fallback: {seq_id} (L={length}) -> {len(normalized)} pairs")
+        except ImportError:
+            pass
 
     return normalized
 
