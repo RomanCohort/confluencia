@@ -128,16 +128,15 @@ def parallel_scan(dA: torch.Tensor, dB: torch.Tensor, x: torch.Tensor,
     y = torch.einsum('bldn,bln->bld', h_states, C)  # (B, L, D)
 
     if circular:
-        # Circular wrap: feed final state back
+        # Circular wrap: feed final state back and do a second pass
         h_final = h_states[:, -1]  # (B, D, N)
-        # Second pass with initial state = h_final
-        h_circ = h_final.unsqueeze(1)  # (B, 1, D, N)
+        h_circ = h_final  # (B, D, N)
         ys_circ = []
         for t in range(L):
-            h_circ = dA[:, t] * h_circ + dB[:, t] * x[:, t].unsqueeze(-1)
-            y_t = torch.einsum('bdn,bn->bd', h_circ.squeeze(1), C[:, t])
+            h_circ = dA[:, t] * h_circ + dB[:, t] * x[:, t].unsqueeze(-1)  # (B, D, N)
+            y_t = torch.einsum('bdn,bn->bd', h_circ, C[:, t])  # (B, D)
             ys_circ.append(y_t)
-        y_circular = torch.stack(ys_circ, dim=1)
+        y_circular = torch.stack(ys_circ, dim=1)  # (B, L, D)
         y = 0.7 * y + 0.3 * y_circular
 
     # Skip connection
