@@ -498,11 +498,13 @@ def train_curriculum_scheme(scheme_id, sequences, coords_labels, pair_labels,
         # Phase 3 only for Scheme 7 and 8 (long-sequence capable)
         if phase == 3 and scheme_id not in (7, 8):
             print(f"  Phase 3 skipped (Scheme {scheme_id} not designed for long sequences)")
-            break
+            continue
 
-        # Get phase-specific epochs
-        n_epochs = getattr(args, f'phase{phase}_epochs',
-                           DEFAULT_PHASE_EPOCHS[phase].get(scheme_id, 30))
+        # Get phase-specific epochs (use default if not specified)
+        default_epochs = DEFAULT_PHASE_EPOCHS[phase].get(scheme_id, 30)
+        n_epochs = getattr(args, f'phase{phase}_epochs', None)
+        if n_epochs is None:
+            n_epochs = default_epochs
         if n_epochs == 0:
             print(f"  Phase {phase} skipped (0 epochs configured)")
             continue

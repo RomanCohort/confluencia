@@ -51,6 +51,8 @@ def load_raw_dataset(data_dir):
         seq = item.get('sequence', '')
         ss = item.get('secondary_structure', None)
         pair = item.get('pair_constraints', None)
+        source = item.get('source', 'unknown')
+        item_conf = item.get('confidence', 0.5)
 
         coord_path = coords_dir / f"{seq_id}.npy"
         if not coord_path.exists():
@@ -65,20 +67,26 @@ def load_raw_dataset(data_dir):
         seq_ids.append(seq_id)
         coords.append(coord)
         pair_probs.append(pair)
-        # Confidence from metadata if available
-        meta_path = Path(data_dir) / "metadata.json"
-        if meta_path.exists():
-            with open(meta_path, 'r') as f:
-                meta = json.load(f)
-                if isinstance(meta, list) and i < len(meta):
-                    confidence.append(meta[i].get('confidence', 0.5))
-                    metadata.append(meta[i])
-                else:
-                    confidence.append(0.5)
-                    metadata.append({})
+        # Use confidence from item, fallback to metadata.json
+        if item_conf is not None and item_conf > 0:
+            confidence.append(item_conf)
         else:
-            confidence.append(0.5)
-            metadata.append({})
+            meta_path = Path(data_dir) / "metadata.json"
+            if meta_path.exists():
+                with open(meta_path, 'r') as f:
+                    meta = json.load(f)
+                    if isinstance(meta, list) and i < len(meta):
+                        confidence.append(meta[i].get('confidence', 0.5))
+                    else:
+                        confidence.append(0.5)
+            else:
+                confidence.append(0.5)
+        metadata.append({
+            'id': seq_id,
+            'length': len(seq),
+            'source': source,
+            'confidence': confidence[-1],
+        })
 
     return sequences, seq_ids, coords, pair_probs, confidence, metadata
 
@@ -178,6 +186,8 @@ def clean_dataset(input_dir, output_dir, args):
         item = {
             'id': seq_ids[i],
             'sequence': sequences[i],
+            'source': metadata[i].get('source', 'unknown'),
+            'confidence': confidence[i],
         }
         if pair_probs[i] is not None:
             item['pair_constraints'] = pair_probs[i]
