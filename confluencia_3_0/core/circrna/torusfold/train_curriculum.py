@@ -8,7 +8,7 @@ Trains models in 3 progressive phases:
   Phase 2: All quality data + short/medium (<=500nt)
            → Boost generalization with lower-quality data
   Phase 3: All quality data + long sequences (>500nt)
-           → Scheme 7 (Mamba) only, handle long-range dependencies
+           → Scheme 7 (Mamba) and Scheme 8 (Sparse Pair) only
 
 Rationale:
   - 143 real PDB structures (conf 1.0) vs 7024 synthetic (conf 0.3)
@@ -64,14 +64,14 @@ CURRICULUM_PHASES = {
     2: {"confidence_min": 0.0, "length_max": 500,
         "description": "All quality short/medium (+ IsRNAcirc + synthetic)"},
     3: {"confidence_min": 0.0, "length_max": None,
-        "description": "All quality long (>500nt, Scheme 7 only)"},
+        "description": "All quality long (>500nt, Scheme 7/8 only)"},
 }
 
 # Default epochs per phase per scheme
 DEFAULT_PHASE_EPOCHS = {
-    1: {1: 30, 4: 30, 6: 30, 7: 30},
-    2: {1: 50, 4: 50, 6: 50, 7: 50},
-    3: {1: 0,  4: 0,  6: 0,  7: 30},  # Phase 3 only for Scheme 7
+    1: {1: 30, 4: 30, 6: 30, 7: 30, 8: 30},
+    2: {1: 50, 4: 50, 6: 50, 7: 50, 8: 50},
+    3: {1: 0,  4: 0,  6: 0,  7: 30, 8: 30},  # Phase 3 only for Scheme 7/8
 }
 
 
@@ -186,7 +186,7 @@ def train_one_phase(model, train_loader, val_loader, optimizer, scheduler,
 
             # ── Forward ──
             # Scheme-specific forward pass
-            if scheme_id in (4, 6, 7):
+            if scheme_id in (4, 6, 7, 8):
                 # Diffusion models: pass mode='train'
                 out = model(seq_ids, mode='train')
             else:
@@ -307,7 +307,7 @@ def train_one_phase(model, train_loader, val_loader, optimizer, scheduler,
                 target_centered = target - target.mean(dim=1, keepdim=True)
                 target_scale = torch.norm(target_centered, dim=(1, 2), keepdim=True).clamp(min=1.0)
 
-                if scheme_id in (4, 6, 7):
+                if scheme_id in (4, 6, 7, 8):
                     out = model(seq_ids, mode='eval')
                 else:
                     out = model(seq_ids)
@@ -422,6 +422,38 @@ def create_model(scheme_id, args, device):
         )
         model = CircMambaDiffusionModel(config).to(device)
         lr = 1e-4
+    elif scheme_id == 8:
+        from confluencia_3_0.core.circrna.torusfold.scheme8_sparse_pair import (
+            Scheme8Model, Scheme8Config
+        )
+        from confluencia_3_0.core.circrna.torusfold.circrna_mamba_diffusion import HAS_MAMBA_SSM
+        if HAS_MAMBA_SSM:
+            n_mamba_layers = getattr(args, 'n_mamba_layers', 2)
+            n_sparse_layers = 2
+            n_diff = min(args.diffusion_steps, 50)
+        else:
+            n_mamba_layers = 1
+            n_sparse_layers = 1
+            n_diff = min(args.diffusion_steps, 20)
+
+        config = Scheme8Config(
+            d_model=args.d_hidden,
+            d_ssm=max(32, args.d_hidden // 2),
+            d_pair=max(32, args.d_hidden // 2),
+            d_global=getattr(args, 'scheme8_d_global', 32),
+            n_mamba_layers=n_mamba_layers,
+            n_sparse_layers=n_sparse_layers,
+            n_denoiser_blocks=getattr(args, 'scheme8_n_blocks', 4),
+            n_diffusion_steps=n_diff,
+            K=getattr(args, 'scheme8_k', 20),
+            bsj_flank=getattr(args, 'scheme8_bsj_flank', 30),
+            attn_window=getattr(args, 'scheme8_window', 25),
+            bond_length=5.9,
+            closure_weight=1.0,
+            use_gradient_checkpointing=True,
+        )
+        model = Scheme8Model(config).to(device)
+        lr = 1e-4
     else:
         raise ValueError(f"Curriculum training not supported for Scheme {scheme_id}")
 
@@ -458,8 +490,8 @@ def train_curriculum_scheme(scheme_id, sequences, coords_labels, pair_labels,
     os.makedirs(output_dir, exist_ok=True)
 
     for phase in [1, 2, 3]:
-        # Phase 3 only for Scheme 7
-        if phase == 3 and scheme_id != 7:
+        # Phase 3 only for Scheme 7 and 8 (long-sequence capable)
+        if phase == 3 and scheme_id not in (7, 8):
             print(f"  Phase 3 skipped (Scheme {scheme_id} not designed for long sequences)")
             break
 
@@ -545,8 +577,8 @@ def train_curriculum_scheme(scheme_id, sequences, coords_labels, pair_labels,
 def main():
     parser = argparse.ArgumentParser(
         description='TorusFold Curriculum Training (Quality + Length Stratification)')
-    parser.add_argument('--schemes', type=int, nargs='+', default=[1, 4, 6, 7],
-                        help='Schemes to train (1=EGNN, 4=DDPM, 6=GNN-Latent, 7=Mamba)')
+    parser.add_argument('--schemes', type=int, nargs='+', default=[1, 4, 6, 7, 8],
+                        help='Schemes to train (1=EGNN, 4=DDPM, 6=GNN-Latent, 7=Mamba, 8=SparsePair)')
     parser.add_argument('--labels', type=str, default='',
                         help='Path to merged dataset directory. Auto-searches if empty.')
     parser.add_argument('--output', type=str, default='models/torusfold_curriculum')
