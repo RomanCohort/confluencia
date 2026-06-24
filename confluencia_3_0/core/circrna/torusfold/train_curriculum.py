@@ -155,6 +155,7 @@ def train_one_phase(model, train_loader, val_loader, optimizer, scheduler,
 
     best_val = float('inf')
     patience_counter = 0
+    max_patience = 20 if phase == 1 else 30  # Phase 2+ needs more patience (noisy data)
     phase_metrics = []
 
     for epoch in range(n_epochs):
@@ -369,7 +370,6 @@ def train_one_phase(model, train_loader, val_loader, optimizer, scheduler,
             'val_closure': avg_val_closure, 'lr': current_lr,
         })
 
-        max_patience = 20 if phase == 1 else 30  # Phase 2+ needs more patience (noisy data)
         if patience_counter >= max_patience:
             print(f"  [P{phase}] Early stopping at epoch {epoch+1}")
             break
