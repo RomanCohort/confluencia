@@ -159,13 +159,15 @@ def train_one_phase(model, train_loader, val_loader, optimizer, scheduler,
     phase_metrics = []
 
     # Phase transition: freeze encoder, only train decoder head initially
-    if phase > 1:
+    # Only for models with clear encoder/decoder split (S6, S7, S8)
+    # S1 (pure EGNN) and S4 (EGNN denoiser) have no split — skip freezing
+    if phase > 1 and scheme_id in (6, 7, 8):
         # Identify encoder vs decoder parameters by name
         encoder_params = []
         decoder_params = []
         for name, p in model.named_parameters():
-            if any(kw in name for kw in ['encoder', 'embed', 'gnn', 'mamba', 'ssm',
-                                          'egnn', 'pair_repr', 'sparse_pair', 'bsj_anchor',
+            if any(kw in name for kw in ['encoder', 'embed', 'mamba', 'ssm',
+                                          'pair_repr', 'sparse_pair', 'bsj_anchor',
                                           'global_gate', 'tpe']):
                 encoder_params.append(p)
             else:
@@ -180,7 +182,7 @@ def train_one_phase(model, train_loader, val_loader, optimizer, scheduler,
 
     for epoch in range(n_epochs):
         # Unfreeze encoder after warmup_epochs
-        if phase > 1 and epoch == warmup_epochs:
+        if phase > 1 and scheme_id in (6, 7, 8) and epoch == warmup_epochs:
             for p in model.parameters():
                 p.requires_grad = True
             print(f"  [P{phase}] Unfrozen all params at epoch {epoch+1}")
