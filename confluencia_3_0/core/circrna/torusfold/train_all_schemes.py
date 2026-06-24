@@ -119,12 +119,15 @@ def load_pseudo_labels(labels_dir, n_seqs=None, max_len=None):
     n_missing = 0
 
     # Default confidence by source
+    # IMPORTANT: Augmented samples (pdb_circularized_aug, isrnacirc_aug) are noisy copies
+    # of original structures. They should have LOWER confidence to prevent overfitting
+    # to noise and ensure the model learns from real structures primarily.
     DEFAULT_CONFIDENCE = {
-        "pdb_circularized": 1.0,
-        "pdb_circularized_aug": 0.95,
+        "pdb_circularized": 1.0,       # Real PDB structure, highest quality
+        "pdb_circularized_aug": 0.5,   # NOISY COPY - reduced from 0.95 to prevent overfitting
         "shape_experimental": 0.9,
         "isrnacirc": 0.7,
-        "isrnacirc_aug": 0.65,
+        "isrnacirc_aug": 0.35,         # NOISY COPY - reduced from 0.65
         "circbase_real": 0.5,
         "medium_synth": 0.4,
         "synthetic": 0.3,

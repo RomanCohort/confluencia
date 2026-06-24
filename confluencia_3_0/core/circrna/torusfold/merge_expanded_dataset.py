@@ -61,15 +61,17 @@ SOURCE_PRIORITY = {
 }
 
 # Source confidence weights for training loss weighting
+# IMPORTANT: Augmented samples have lower confidence because they are noisy copies
+# of original structures, not independent high-quality predictions.
 SOURCE_CONFIDENCE = {
     "pdb_circularized": 1.0,       # Real PDB structure, highest quality
-    "pdb_circularized_aug": 0.95,
+    "pdb_circularized_aug": 0.5,   # NOISY COPY - reduced from 0.95 to prevent overfitting
     "af3_predicted": 1.0,          # AlphaFold3 prediction
     "shape_experimental": 0.9,     # SHAPE-constrained folding
     "shape_expanded": 0.85,        # SHAPE-constrained (expanded sources)
     "rfam_consensus": 0.8,         # Rfam consensus structure
     "isrnacirc": 0.7,              # Predicted but validated
-    "isrnacirc_aug": 0.65,
+    "isrnacirc_aug": 0.35,         # NOISY COPY - reduced from 0.65
     "circbase_real": 0.5,          # ViennaRNA predicted
     "medium_synth": 0.4,           # Synthetic with constraints
     "synthetic": 0.3,              # Pure synthetic
