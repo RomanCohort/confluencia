@@ -158,31 +158,56 @@ def train_one_phase(model, train_loader, val_loader, optimizer, scheduler,
     max_patience = 20 if phase == 1 else 30  # Phase 2+ needs more patience (noisy data)
     phase_metrics = []
 
-    # Phase transition: freeze encoder, only train decoder head initially
-    # Only for models with clear encoder/decoder split (S6, S7, S8)
-    # S1 (pure EGNN) and S4 (EGNN denoiser) have no split — skip freezing
-    if phase > 1 and scheme_id in (6, 7, 8):
-        # Identify encoder vs decoder parameters by name
-        encoder_params = []
-        decoder_params = []
+    # Phase transition: freeze early layers, train only later layers initially
+    # S1/S4 (EGNN): freeze first half of layers
+    # S6/S7/S8: freeze encoder, train decoder
+    if phase > 1:
+        frozen_params = []
+        trainable_params = []
         for name, p in model.named_parameters():
-            if any(kw in name for kw in ['encoder', 'embed', 'mamba', 'ssm',
-                                          'pair_repr', 'sparse_pair', 'bsj_anchor',
-                                          'global_gate', 'tpe']):
-                encoder_params.append(p)
+            if scheme_id in (6, 7, 8):
+                # Encoder/decoder split by name
+                is_frozen = any(kw in name for kw in ['encoder', 'embed', 'mamba', 'ssm',
+                                                       'pair_repr', 'sparse_pair', 'bsj_anchor',
+                                                       'global_gate', 'tpe'])
             else:
-                decoder_params.append(p)
+                # S1/S4: freeze early layers (layer index < half of total)
+                is_frozen = False
+                for kw in ['egnn_layers', 'message_layers', 'update_layers']:
+                    if kw in name:
+                        # Extract layer index from name like "egnn_layers.0."
+                        parts = name.split('.')
+                        for i, part in enumerate(parts):
+                            if part == kw:
+                                try:
+                                    layer_idx = int(parts[i + 1])
+                                    total = sum(1 for n, _ in model.named_parameters() if kw in n)
+                                    # Estimate total layers from param count pattern
+                                    is_frozen = layer_idx < 3  # Freeze first 3 layers
+                                except (IndexError, ValueError):
+                                    pass
+                                break
+                # Also freeze embedding layers
+                if 'embed' in name or 'seq_embed' in name:
+                    is_frozen = True
 
-        # Freeze encoder for first few epochs of new phase
-        for p in encoder_params:
-            p.requires_grad = False
-        n_frozen = len(encoder_params)
-        n_trainable = len(decoder_params)
-        print(f"  [P{phase}] Frozen {n_frozen} encoder params, training {n_trainable} decoder params")
+            if is_frozen:
+                frozen_params.append(p)
+            else:
+                trainable_params.append(p)
+
+        if not trainable_params:
+            # Fallback: freeze nothing if all params would be frozen
+            print(f"  [P{phase}] Warning: all params would be frozen, skipping freeze")
+        else:
+            for p in frozen_params:
+                p.requires_grad = False
+            print(f"  [P{phase}] Frozen {len(frozen_params)} early-layer params, "
+                  f"training {len(trainable_params)} later-layer params")
 
     for epoch in range(n_epochs):
-        # Unfreeze encoder after warmup_epochs
-        if phase > 1 and scheme_id in (6, 7, 8) and epoch == warmup_epochs:
+        # Unfreeze all params after warmup_epochs
+        if phase > 1 and epoch == warmup_epochs:
             for p in model.parameters():
                 p.requires_grad = True
             print(f"  [P{phase}] Unfrozen all params at epoch {epoch+1}")
