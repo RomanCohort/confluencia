@@ -113,7 +113,7 @@ def validate_sample(seq, coord, pair_prob, conf, meta, args):
     # Length range check
     if L < args.min_length:
         return False, f"too_short ({L} < {args.min_length})"
-    if L > args.max_length:
+    if args.max_length > 0 and L > args.max_length:
         return False, f"too_long ({L} > {args.max_length})"
 
     # Confidence check (optional)
@@ -229,8 +229,8 @@ def main():
                         help='Maximum coordinate value in Å (default 1e6)')
     parser.add_argument('--min-length', type=int, default=10,
                         help='Minimum sequence length (default 10)')
-    parser.add_argument('--max-length', type=int, default=1000,
-                        help='Maximum sequence length (default 1000)')
+    parser.add_argument('--max-length', type=int, default=0,
+                        help='Maximum sequence length (default 0 = no limit)')
     parser.add_argument('--min-confidence', type=float, default=0.0,
                         help='Minimum confidence score (default 0.0, no filter)')
     args = parser.parse_args()
