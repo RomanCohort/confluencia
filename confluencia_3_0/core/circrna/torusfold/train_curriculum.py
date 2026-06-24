@@ -151,19 +151,49 @@ def train_one_phase(model, train_loader, val_loader, optimizer, scheduler,
     """Train model for one curriculum phase, return best val RMSD."""
     bond_length = 5.9
     w_closure = getattr(args, 'w_closure', 5.0)
-    warmup_epochs = 5 if phase > 1 else 3  # Longer warmup for phase transitions
+    warmup_epochs = 10 if phase > 1 else 3  # Longer warmup for phase transitions
 
     best_val = float('inf')
     patience_counter = 0
     max_patience = 20 if phase == 1 else 30  # Phase 2+ needs more patience (noisy data)
     phase_metrics = []
 
+    # Phase transition: freeze encoder, only train decoder head initially
+    if phase > 1:
+        # Identify encoder vs decoder parameters by name
+        encoder_params = []
+        decoder_params = []
+        for name, p in model.named_parameters():
+            if any(kw in name for kw in ['encoder', 'embed', 'gnn', 'mamba', 'ssm',
+                                          'egnn', 'pair_repr', 'sparse_pair', 'bsj_anchor',
+                                          'global_gate', 'tpe']):
+                encoder_params.append(p)
+            else:
+                decoder_params.append(p)
+
+        # Freeze encoder for first few epochs of new phase
+        for p in encoder_params:
+            p.requires_grad = False
+        n_frozen = len(encoder_params)
+        n_trainable = len(decoder_params)
+        print(f"  [P{phase}] Frozen {n_frozen} encoder params, training {n_trainable} decoder params")
+
     for epoch in range(n_epochs):
-        # Warmup
+        # Unfreeze encoder after warmup_epochs
+        if phase > 1 and epoch == warmup_epochs:
+            for p in model.parameters():
+                p.requires_grad = True
+            print(f"  [P{phase}] Unfrozen all params at epoch {epoch+1}")
+
+        # Warmup LR
         if warmup_epochs > 0 and epoch < warmup_epochs:
             warmup_factor = (epoch + 1) / warmup_epochs
+            # Phase transition: use lower peak LR during warmup
+            peak_lr = optimizer.param_groups[0]['initial_lr']
+            if phase > 1:
+                peak_lr = peak_lr * 0.1  # 10x lower during phase transition warmup
             for pg in optimizer.param_groups:
-                pg['lr'] = pg['initial_lr'] * warmup_factor
+                pg['lr'] = peak_lr * warmup_factor
 
         model.train()
         train_loss = 0
