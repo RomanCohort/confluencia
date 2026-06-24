@@ -190,8 +190,9 @@ def train_one_phase(model, train_loader, val_loader, optimizer, scheduler,
     warmup_epochs = 10 if phase > 1 else 3  # Longer warmup for phase transitions
 
     best_val = float('inf')
+    best_state = None  # Save best model state
     patience_counter = 0
-    max_patience = 20 if phase == 1 else 30  # Phase 2+ needs more patience (noisy data)
+    max_patience = 10 if phase == 1 else 30  # Phase 1 stops early if saturated
     phase_metrics = []
 
     # Phase transition: no freezing — just use warmup for stability.
@@ -406,6 +407,7 @@ def train_one_phase(model, train_loader, val_loader, optimizer, scheduler,
 
         if avg_val < best_val:
             best_val = avg_val
+            best_state = {k: v.cpu().clone() for k, v in model.state_dict().items()}
             patience_counter = 0
         else:
             patience_counter += 1
@@ -425,6 +427,11 @@ def train_one_phase(model, train_loader, val_loader, optimizer, scheduler,
         if patience_counter >= max_patience:
             print(f"  [P{phase}] Early stopping at epoch {epoch+1}")
             break
+
+    # Restore best model state (not last epoch)
+    if best_state is not None:
+        model.load_state_dict({k: v.to(device) for k, v in best_state.items()})
+        print(f"  [P{phase}] Restored best model (val_rmsd={best_val:.1f}Å)")
 
     return best_val, phase_metrics
 
