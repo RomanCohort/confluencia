@@ -445,6 +445,10 @@ def evaluate(model, scheme_id, loader, device, n_samples=1):
                     # Denormalize: pred_norm * target_scale + target.mean
                     out = model(seq_ids, mode='sample')
                     pred = out['coords']
+                    # Debug: check raw model output scale
+                    if n_batches <= 2:
+                        print(f"    [DEBUG S6] raw pred: mean={pred.mean().item():.4f}, std={pred.std().item():.4f}, "
+                              f"norm={torch.norm(pred).item():.2f}, nan={torch.isnan(pred).sum().item()}, inf={torch.isinf(pred).sum().item()}")
                     pred_centered = pred - pred.mean(dim=1, keepdim=True)
                     pred_scale = torch.norm(pred_centered, dim=(1,2), keepdim=True).clamp(min=1e-6)
                     pred_norm = pred_centered / pred_scale
@@ -467,12 +471,14 @@ def evaluate(model, scheme_id, loader, device, n_samples=1):
                     out = model(seq_ids, mode='sample')
                     pred = out['coords']
             except Exception as e:
-                if n_failed < 3:
-                    print(f"    [WARN] Sample failed: {e}")
+                if n_failed < 5:
+                    print(f"    [WARN] Sample {n_failed}+ failed: {e}")
                 n_failed += B
                 break
 
             if torch.isnan(pred).any() or torch.isinf(pred).any():
+                if n_failed < 5:
+                    print(f"    [WARN] Sample {n_failed}+ NaN/Inf in prediction after denorm")
                 n_failed += B
                 break
 
