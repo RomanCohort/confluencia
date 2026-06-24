@@ -636,6 +636,7 @@ class CircMambaDiffusionModel(nn.Module):
             'noise_loss': noise_loss,
             'closure_loss': closure_loss,
             'total_loss': noise_loss + 0.1 * closure_loss,
+            'coords': coords_pred,  # Return predicted coords for external loss computation
         }
 
     def _sample(self, seq_tokens, pair_probs, ss_tokens,

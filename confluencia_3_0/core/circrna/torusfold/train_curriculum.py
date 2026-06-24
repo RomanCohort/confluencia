@@ -238,11 +238,12 @@ def train_one_phase(model, train_loader, val_loader, optimizer, scheduler,
             bond_loss = bond_loss / max(n_bond_samples, 1)
 
             # ── Diffusion loss (if applicable) ──
-            diff_loss = out.get('diffusion_loss', None)
+            # S4/S7/S8 return 'noise_loss' or 'total_loss', S6 returns 'diffusion_loss'
+            diff_loss = out.get('diffusion_loss') or out.get('noise_loss') or out.get('total_loss')
             if diff_loss is not None and not (torch.isnan(diff_loss) or torch.isinf(diff_loss)):
                 loss = diff_loss * 1.0 + coord_loss * 10.0 + closure_loss * w_closure + bond_loss * 2.0
             else:
-                loss = coord_loss + w_closure * closure_loss + 0.5 * bond_loss
+                loss = coord_loss * 10.0 + w_closure * closure_loss + bond_loss * 2.0
 
             # Confidence weighting
             loss = loss * conf_scale * 2.0
