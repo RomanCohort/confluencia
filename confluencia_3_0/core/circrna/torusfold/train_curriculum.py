@@ -158,62 +158,15 @@ def train_one_phase(model, train_loader, val_loader, optimizer, scheduler,
     max_patience = 20 if phase == 1 else 30  # Phase 2+ needs more patience (noisy data)
     phase_metrics = []
 
-    # Phase transition: partial freezing to stabilize new data introduction
-    # S6 (latent diffusion): NO freezing — encoder/decoder are tightly coupled,
-    #   freezing encoder causes latent distribution shift that decoder can't handle
-    # S1/S4 (EGNN): freeze first 3 layers + embeddings
-    # S7/S8 (Mamba/SparsePair): freeze encoder, train decoder
-    if phase > 1 and scheme_id != 6:
-        frozen_params = []
-        trainable_params = []
-        for name, p in model.named_parameters():
-            if scheme_id in (7, 8):
-                # Encoder/decoder split by name
-                is_frozen = any(kw in name for kw in ['embed', 'mamba', 'ssm',
-                                                       'pair_repr', 'sparse_pair', 'bsj_anchor',
-                                                       'global_gate', 'tpe'])
-            else:
-                # S1/S4: freeze early layers (layer index < 3)
-                is_frozen = False
-                for kw in ['egnn_layers', 'message_layers', 'update_layers']:
-                    if kw in name:
-                        parts = name.split('.')
-                        for i, part in enumerate(parts):
-                            if part == kw:
-                                try:
-                                    layer_idx = int(parts[i + 1])
-                                    is_frozen = layer_idx < 3  # Freeze first 3 layers
-                                except (IndexError, ValueError):
-                                    pass
-                                break
-                # Also freeze embedding layers
-                if 'embed' in name or 'seq_embed' in name:
-                    is_frozen = True
-
-            if is_frozen:
-                frozen_params.append(p)
-            else:
-                trainable_params.append(p)
-
-        if not trainable_params:
-            print(f"  [P{phase}] Warning: all params would be frozen, skipping freeze")
-        else:
-            for p in frozen_params:
-                p.requires_grad = False
-            print(f"  [P{phase}] Frozen {len(frozen_params)} early-layer params, "
-                  f"training {len(trainable_params)} later-layer params")
+    # Phase transition: no freezing — just use warmup for stability.
+    # Freezing caused Phase 2 crashes (RMSD 27→400Å) because frozen params
+    # can't adapt to new data distribution, and low LR on unfrozen params
+    # is too slow to compensate. Warmup alone is sufficient.
 
     for epoch in range(n_epochs):
-        # Unfreeze all params after warmup_epochs
-        if phase > 1 and epoch == warmup_epochs:
-            for p in model.parameters():
-                p.requires_grad = True
-            print(f"  [P{phase}] Unfrozen all params at epoch {epoch+1}")
-
         # Warmup LR
         if warmup_epochs > 0 and epoch < warmup_epochs:
             warmup_factor = (epoch + 1) / warmup_epochs
-            # Phase transition: use same peak LR (encoder freezing already provides stability)
             peak_lr = optimizer.param_groups[0]['initial_lr']
             for pg in optimizer.param_groups:
                 pg['lr'] = peak_lr * warmup_factor
