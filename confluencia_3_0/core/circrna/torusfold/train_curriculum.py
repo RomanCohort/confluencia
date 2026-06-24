@@ -61,16 +61,16 @@ from confluencia_3_0.core.circrna.torusfold.train_all_schemes import (
 CURRICULUM_PHASES = {
     1: {"confidence_min": 0.8, "length_max": 500,
         "description": "High-quality short/medium (PDB + SHAPE + Rfam)"},
-    2: {"confidence_min": 0.0, "length_max": 500,
-        "description": "All quality short/medium (+ IsRNAcirc + synthetic)"},
-    3: {"confidence_min": 0.0, "length_max": None,
-        "description": "All quality long (>500nt, Scheme 7/8 only)"},
+    2: {"confidence_min": 0.5, "length_max": 500,
+        "description": "Medium+ quality short/medium (exclude low-quality synthetic)"},
+    3: {"confidence_min": 0.5, "length_max": None,
+        "description": "Medium+ quality long (>500nt, Scheme 7/8 only)"},
 }
 
 # Default epochs per phase per scheme
 DEFAULT_PHASE_EPOCHS = {
-    1: {1: 30, 4: 30, 6: 30, 7: 30, 8: 30},
-    2: {1: 80, 4: 80, 6: 80, 7: 80, 8: 80},  # More epochs for noisy data
+    1: {1: 50, 4: 50, 6: 50, 7: 50, 8: 50},  # Phase 1: more epochs for better convergence
+    2: {1: 50, 4: 50, 6: 50, 7: 50, 8: 50},  # Phase 2: include medium quality
     3: {1: 0,  4: 0,  6: 0,  7: 30, 8: 30},  # Phase 3 only for Scheme 7/8
 }
 
@@ -118,20 +118,56 @@ def filter_by_phase(sequences, coords_labels, pair_labels, confidence_weights,
 
 
 def create_loaders(sequences, coords_labels, pair_labels, confidence_weights,
-                   batch_size, split_ratio=0.9):
-    """Create train/val DataLoaders from filtered data."""
+                   batch_size, split_ratio=0.9, val_conf_min=0.8):
+    """
+    Create train/val DataLoaders from filtered data.
+
+    CRITICAL: Validation set ALWAYS uses high-quality data (conf >= val_conf_min),
+    even in Phase 2 where training uses mixed quality. This ensures validation RMSD
+    reflects actual model quality, not noise from low-quality pseudo-labels.
+
+    Args:
+        sequences, coords_labels, pair_labels, confidence_weights: data lists
+        batch_size: batch size
+        split_ratio: train/val split ratio (for fallback)
+        val_conf_min: minimum confidence for validation samples
+    """
     n = len(sequences)
-    split = int(split_ratio * n)
-    if split < 1 or n - split < 1:
-        # Not enough data for split, use all for training
-        split = n
+    if n < 10:
+        # Not enough data, use simple split
+        split = int(split_ratio * n)
+        train_indices = list(range(split))
+        val_indices = list(range(split, n))
+    else:
+        # Separate high-quality samples for validation
+        # Use conf >= 0.9 for highest quality validation
+        val_indices = [i for i in range(n) if confidence_weights[i] >= 0.9]
+        train_indices = [i for i in range(n) if i not in val_indices]
+
+        # If not enough very high-quality for validation, use conf >= val_conf_min
+        if len(val_indices) < 5:
+            val_indices = [i for i in range(n) if confidence_weights[i] >= val_conf_min]
+            train_indices = [i for i in range(n) if i not in val_indices]
+
+        # If still not enough for validation, use top 15% by confidence
+        if len(val_indices) < 5:
+            sorted_idx = sorted(range(n), key=lambda i: confidence_weights[i], reverse=True)
+            val_indices = sorted_idx[:max(5, int(0.15 * n))]
+            train_indices = [i for i in range(n) if i not in val_indices]
+
+    print(f"    Train: {len(train_indices)} samples (conf>={min(confidence_weights[i] for i in train_indices):.2f})")
+    print(f"    Val: {len(val_indices)} samples (conf>={min(confidence_weights[i] for i in val_indices):.2f})")
 
     train_ds = CircRNADataset(
-        sequences[:split], coords_labels[:split],
-        pair_labels[:split], confidence_weights[:split])
+        [sequences[i] for i in train_indices],
+        [coords_labels[i] for i in train_indices],
+        [pair_labels[i] for i in train_indices],
+        [confidence_weights[i] for i in train_indices])
     val_ds = CircRNADataset(
-        sequences[split:], coords_labels[split:],
-        pair_labels[split:], confidence_weights[split:])
+        [sequences[i] for i in val_indices],
+        [coords_labels[i] for i in val_indices],
+        [pair_labels[i] for i in val_indices],
+        [confidence_weights[i] for i in val_indices])
 
     train_loader = DataLoader(train_ds, batch_size=batch_size,
                               shuffle=True, collate_fn=collate_fn,
@@ -189,21 +225,15 @@ def train_one_phase(model, train_loader, val_loader, optimizer, scheduler,
                 continue
 
             conf_raw = batch.get('confidence', torch.tensor(0.5))
-            # Tiered confidence weighting:
-            # - High quality (conf >= 0.8): strong supervision, weight = 2.0
-            # - Medium quality (conf >= 0.5): moderate, weight = 1.0
-            # - Low quality (conf < 0.5): regularization only, weight = 0.1
-            if conf_raw.min().item() >= 0.8:
-                conf_weight = 2.0  # High-quality batch: strong signal
-            elif conf_raw.max().item() >= 0.5:
-                # Mixed batch: weighted average with penalty for low-quality samples
-                high_weight = (conf_raw >= 0.8).float().sum() * 2.0
-                med_weight = ((conf_raw >= 0.5) & (conf_raw < 0.8)).float().sum() * 1.0
-                low_weight = (conf_raw < 0.5).float().sum() * 0.1
-                total = high_weight + med_weight + low_weight
-                conf_weight = total / max(len(conf_raw), 1)
-            else:
-                conf_weight = 0.1  # Low-quality batch: regularization only
+            # Per-sample confidence weighting (not batch-level):
+            # - High quality (conf >= 0.8): weight = 1.5
+            # - Medium quality (0.5 <= conf < 0.8): weight = 1.0
+            # - Low quality (conf < 0.5): weight = 0.2
+            # This allows mixed batches to have different weights per sample.
+            conf_weight = torch.where(
+                conf_raw >= 0.8, torch.tensor(1.5),
+                torch.where(conf_raw >= 0.5, torch.tensor(1.0), torch.tensor(0.2))
+            ).mean()  # Average weight for the batch
 
             B, L, _ = target.shape
 
