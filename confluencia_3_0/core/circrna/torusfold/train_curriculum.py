@@ -70,7 +70,7 @@ CURRICULUM_PHASES = {
 # Default epochs per phase per scheme
 DEFAULT_PHASE_EPOCHS = {
     1: {1: 30, 4: 30, 6: 30, 7: 30, 8: 30},
-    2: {1: 50, 4: 50, 6: 50, 7: 50, 8: 50},
+    2: {1: 80, 4: 80, 6: 80, 7: 80, 8: 80},  # More epochs for noisy data
     3: {1: 0,  4: 0,  6: 0,  7: 30, 8: 30},  # Phase 3 only for Scheme 7/8
 }
 
@@ -151,7 +151,7 @@ def train_one_phase(model, train_loader, val_loader, optimizer, scheduler,
     """Train model for one curriculum phase, return best val RMSD."""
     bond_length = 5.9
     w_closure = getattr(args, 'w_closure', 5.0)
-    warmup_epochs = 3 if phase == 1 else 0  # Warmup only for Phase 1
+    warmup_epochs = 5 if phase > 1 else 3  # Longer warmup for phase transitions
 
     best_val = float('inf')
     patience_counter = 0
@@ -186,9 +186,12 @@ def train_one_phase(model, train_loader, val_loader, optimizer, scheduler,
 
             # ── Forward ──
             # Scheme-specific forward pass
-            if scheme_id in (4, 6, 7, 8):
-                # Diffusion models: pass mode='train'
+            if scheme_id == 6:
+                # Scheme 6 uses mode parameter
                 out = model(seq_ids, mode='train')
+            elif scheme_id in (4, 7, 8):
+                # Schemes 4/7/8 use coords_target to trigger training
+                out = model(seq_ids, coords_target=target)
             else:
                 out = model(seq_ids)
 
@@ -307,8 +310,11 @@ def train_one_phase(model, train_loader, val_loader, optimizer, scheduler,
                 target_centered = target - target.mean(dim=1, keepdim=True)
                 target_scale = torch.norm(target_centered, dim=(1, 2), keepdim=True).clamp(min=1.0)
 
-                if scheme_id in (4, 6, 7, 8):
-                    out = model(seq_ids, mode='eval')
+                if scheme_id == 6:
+                    out = model(seq_ids, mode='sample')
+                elif scheme_id in (4, 7, 8):
+                    # No coords_target = sampling mode
+                    out = model(seq_ids)
                 else:
                     out = model(seq_ids)
                 pred = out['coords']
@@ -354,7 +360,7 @@ def train_one_phase(model, train_loader, val_loader, optimizer, scheduler,
         print(f"  [P{phase}] Epoch {epoch+1}/{n_epochs} "
               f"train={avg_train:.4f} val_rmsd={avg_val:.1f}Å "
               f"val_closure={avg_val_closure:.2f}Å "
-              f"lr={current_lr:.1e} nan={nan_batches} pat={patience_counter}/20")
+              f"lr={current_lr:.1e} nan={nan_batches} pat={patience_counter}/{max_patience}")
 
         phase_metrics.append({
             'phase': phase, 'epoch': epoch + 1,
@@ -362,7 +368,8 @@ def train_one_phase(model, train_loader, val_loader, optimizer, scheduler,
             'val_closure': avg_val_closure, 'lr': current_lr,
         })
 
-        if patience_counter >= 20:
+        max_patience = 20 if phase == 1 else 30  # Phase 2+ needs more patience (noisy data)
+        if patience_counter >= max_patience:
             print(f"  [P{phase}] Early stopping at epoch {epoch+1}")
             break
 
