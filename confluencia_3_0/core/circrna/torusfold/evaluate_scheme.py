@@ -439,22 +439,29 @@ def evaluate(model, scheme_id, loader, device, n_samples=1):
                     pred = out['coords']
                 elif scheme_id == 6:
                     # Scheme 6: GNN Latent Diffusion
-                    # Training uses unit-sphere normalization (2nd training loop saves checkpoint):
-                    #   target_norm = target_centered / target_scale
-                    #   pred_norm = pred_centered / target_scale
-                    # Denormalize: pred_norm * target_scale + target.mean
                     out = model(seq_ids, mode='sample')
                     pred = out['coords']
-                    # Debug: check raw model output scale
+                    # Debug: check raw model output and target stats
                     if n_batches <= 2:
-                        print(f"    [DEBUG S6] raw pred: mean={pred.mean().item():.4f}, std={pred.std().item():.4f}, "
-                              f"norm={torch.norm(pred).item():.2f}, nan={torch.isnan(pred).sum().item()}, inf={torch.isinf(pred).sum().item()}")
+                        t_mean = target.mean().item()
+                        t_std = target.std().item()
+                        t_nan = torch.isnan(target).sum().item()
+                        t_inf = torch.isinf(target).sum().item()
+                        tc = target - target.mean(dim=1, keepdim=True)
+                        ts = torch.norm(tc, dim=(1,2), keepdim=True).clamp(min=1.0)
+                        print(f"    [DEBUG S6] pred: mean={pred.mean().item():.4f} std={pred.std().item():.4f} "
+                              f"nan={torch.isnan(pred).sum().item()} inf={torch.isinf(pred).sum().item()}")
+                        print(f"    [DEBUG S6] target: mean={t_mean:.4f} std={t_std:.4f} "
+                              f"nan={t_nan} inf={t_inf} scale={ts.mean().item():.4f}")
                     pred_centered = pred - pred.mean(dim=1, keepdim=True)
                     pred_scale = torch.norm(pred_centered, dim=(1,2), keepdim=True).clamp(min=1e-6)
                     pred_norm = pred_centered / pred_scale
                     target_centered = target - target.mean(dim=1, keepdim=True)
                     target_scale = torch.norm(target_centered, dim=(1,2), keepdim=True).clamp(min=1.0)
                     pred = pred_norm * target_scale + target.mean(dim=1, keepdim=True)
+                    if n_batches <= 2:
+                        print(f"    [DEBUG S6] denorm: nan={torch.isnan(pred).sum().item()} inf={torch.isinf(pred).sum().item()} "
+                              f"mean={pred.mean().item():.4f}")
                 elif scheme_id == 1:
                     # Scheme 1: CircRNA3DModel.forward(seq_ids) — no mode param
                     # Model outputs in unit-sphere normalized space, need denormalization
