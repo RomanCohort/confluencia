@@ -22,32 +22,65 @@ from tqdm import tqdm
 
 
 def load_raw_dataset(data_dir):
-    """Load raw dataset (sequences.json + coords/*.npy)."""
+    """Load raw dataset (sequences.json + coords/*.npy).
+
+    Format follows train_all_schemes.py load_pseudo_labels:
+        sequences.json: [{"id": ..., "sequence": ..., "secondary_structure": ..., ...}, ...]
+        coords/: {id}.npy files
+        metadata.json: optional summary
+    """
     seq_path = Path(data_dir) / "sequences.json"
     if not seq_path.exists():
         raise FileNotFoundError(f"sequences.json not found in {data_dir}")
 
     with open(seq_path, 'r') as f:
-        data = json.load(f)
+        seq_data = json.load(f)
 
-    sequences = data['sequences']
+    # seq_data is a list of dicts
     coords_dir = Path(data_dir) / "coords"
 
-    # Load coordinates
+    sequences = []
+    seq_ids = []
     coords = []
-    for i, seq in enumerate(sequences):
-        coord_path = coords_dir / f"sample_{i}.npy"
-        if coord_path.exists():
-            coords.append(np.load(coord_path))
+    pair_probs = []
+    confidence = []
+    metadata = []
+
+    for i, item in enumerate(seq_data):
+        seq_id = item.get('id', f'pseudo_{i:05d}')
+        seq = item.get('sequence', '')
+        ss = item.get('secondary_structure', None)
+        pair = item.get('pair_constraints', None)
+
+        coord_path = coords_dir / f"{seq_id}.npy"
+        if not coord_path.exists():
+            # Try alternate naming
+            coord_path = coords_dir / f"pseudo_{i:05d}.npy"
+            if not coord_path.exists():
+                continue
+
+        coord = np.load(coord_path) if coord_path.exists() else None
+
+        sequences.append(seq)
+        seq_ids.append(seq_id)
+        coords.append(coord)
+        pair_probs.append(pair)
+        # Confidence from metadata if available
+        meta_path = Path(data_dir) / "metadata.json"
+        if meta_path.exists():
+            with open(meta_path, 'r') as f:
+                meta = json.load(f)
+                if isinstance(meta, list) and i < len(meta):
+                    confidence.append(meta[i].get('confidence', 0.5))
+                    metadata.append(meta[i])
+                else:
+                    confidence.append(0.5)
+                    metadata.append({})
         else:
-            coords.append(None)
+            confidence.append(0.5)
+            metadata.append({})
 
-    # Load optional fields
-    pair_probs = data.get('pair_probs', [None] * len(sequences))
-    confidence = data.get('confidence', [0.5] * len(sequences))
-    metadata = data.get('metadata', [{}] * len(sequences))
-
-    return sequences, coords, pair_probs, confidence, metadata
+    return sequences, seq_ids, coords, pair_probs, confidence, metadata
 
 
 def validate_sample(seq, coord, pair_prob, conf, meta, args):
@@ -93,7 +126,7 @@ def validate_sample(seq, coord, pair_prob, conf, meta, args):
 def clean_dataset(input_dir, output_dir, args):
     """Filter dataset and save clean version."""
     print(f"Loading dataset from: {input_dir}")
-    sequences, coords, pair_probs, confidence, metadata = load_raw_dataset(input_dir)
+    sequences, seq_ids, coords, pair_probs, confidence, metadata = load_raw_dataset(input_dir)
 
     n_total = len(sequences)
     print(f"Total samples: {n_total}")
@@ -139,45 +172,51 @@ def clean_dataset(input_dir, output_dir, args):
     # Save clean data
     print(f"\nSaving clean dataset to: {output_dir}")
 
-    clean_sequences = []
-    clean_coords = []
-    clean_pair_probs = []
-    clean_confidence = []
-    clean_metadata = []
+    clean_seq_data = []
 
-    for i in tqdm(valid_indices):
-        clean_sequences.append(sequences[i])
-        clean_coords.append(coords[i])
-        if pair_probs and i < len(pair_probs):
-            clean_pair_probs.append(pair_probs[i])
-        else:
-            clean_pair_probs.append(None)
-        clean_confidence.append(confidence[i] if i < len(confidence) else 0.5)
-        clean_metadata.append(metadata[i] if i < len(metadata) else {})
+    for idx, i in enumerate(tqdm(valid_indices)):
+        item = {
+            'id': seq_ids[i],
+            'sequence': sequences[i],
+        }
+        if pair_probs[i] is not None:
+            item['pair_constraints'] = pair_probs[i]
+        if metadata[i]:
+            item['metadata'] = metadata[i]
 
-        # Save coordinate file
-        np.save(coords_out_dir / f"sample_{len(clean_sequences)-1}.npy", coords[i])
+        clean_seq_data.append(item)
 
-    # Save sequences.json
-    output_data = {
-        'sequences': clean_sequences,
-        'pair_probs': clean_pair_probs,
-        'confidence': clean_confidence,
-        'metadata': clean_metadata,
-        'source': str(input_dir),
-        'cleaned_samples': n_valid,
-        'original_samples': n_total,
-        'rejection_reasons': rejection_reasons,
-    }
+        # Save coordinate file with same id
+        np.save(coords_out_dir / f"{seq_ids[i]}.npy", coords[i])
 
+    # Save sequences.json (list of dicts, same format as input)
     with open(output_path / "sequences.json", 'w') as f:
-        json.dump(output_data, f, indent=2)
+        json.dump(clean_seq_data, f, indent=2)
+
+    # Save cleaning report
+    report = {
+        'source': str(input_dir),
+        'original_samples': n_total,
+        'cleaned_samples': n_valid,
+        'rejection_reasons': rejection_reasons,
+        'params': {
+            'max_coord': args.max_coord,
+            'min_length': args.min_length,
+            'max_length': args.max_length,
+            'min_confidence': args.min_confidence,
+        }
+    }
+    with open(output_path / "clean_report.json", 'w') as f:
+        json.dump(report, f, indent=2)
 
     print(f"\nDone! Clean dataset saved.")
-    print(f"  Sequences: {len(clean_sequences)}")
-    print(f"  Length range: {min(len(s) for s in clean_sequences)} - {max(len(s) for s in clean_sequences)}")
-    if clean_coords[0] is not None:
-        print(f"  Coord range: {min(c.min() for c in clean_coords):.2f} - {max(c.max() for c in clean_coords):.2f} Å")
+    print(f"  Sequences: {len(clean_seq_data)}")
+    if clean_seq_data:
+        lens = [len(item['sequence']) for item in clean_seq_data]
+        print(f"  Length range: {min(lens)} - {max(lens)}")
+    if coords and coords[valid_indices[0]] is not None:
+        valid_coords = [coords[i] for i in valid_indices[:100]]  # Sample for stats
+        print(f"  Coord range: {min(c.min() for c in valid_coords):.2f} - {max(c.max() for c in valid_coords):.2f} Å")
 
 
 def main():
