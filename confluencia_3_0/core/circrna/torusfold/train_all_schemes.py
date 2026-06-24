@@ -847,7 +847,7 @@ def train_scheme5(train_loader, val_loader, args, device):
 
 def train_scheme6(train_loader, val_loader, args, device):
     print("\n" + "="*60)
-    print("  Training Scheme 6: GNN Latent Diffusion (FIXED)")
+    print("  Training Scheme 6: GNN Latent Diffusion (FIXED v3)")
     print("="*60)
 
     from confluencia_3_0.core.circrna.torusfold.gnn_latent_diffusion import (
@@ -860,18 +860,19 @@ def train_scheme6(train_loader, val_loader, args, device):
     )
     model = GNNLatentDiffusionModel(config).to(device)
 
-    # Lower LR + weight decay
-    lr = min(args.lr, 5e-5)  # Even lower
-    print(f"  Using LR={lr} (capped at 5e-5)")
+    # Lower LR for stability
+    lr = min(args.lr, 1e-4)
+    print(f"  Using LR={lr} (capped at 1e-4)")
 
     optimizer = torch.optim.AdamW(model.parameters(), lr=lr, weight_decay=1e-4)
-    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
-        optimizer, T_max=args.epochs, eta_min=1e-6
+    scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
+        optimizer, mode='min', factor=0.5, patience=5
     )
 
     best_val = float('inf')
     patience_counter = 0
     bond_length = 5.9
+    w_closure = 5.0
 
     for epoch in range(args.epochs):
         model.train()
@@ -893,55 +894,66 @@ def train_scheme6(train_loader, val_loader, args, device):
 
             B, L, _ = target.shape
 
-            # Normalize: center + scale by per-sample std
+            # Unit-sphere normalization (same as Scheme 1)
             target_centered = target - target.mean(dim=1, keepdim=True)
-            target_std = target_centered.std(dim=(1, 2), keepdim=True).clamp(min=1.0)  # (B, 1, 1)
-            target_norm = target_centered / target_std
+            target_scale = torch.norm(target_centered, dim=(1,2), keepdim=True).clamp(min=1.0)
+            target_norm = target_centered / target_scale
 
             # Forward
             out = model(seq_ids, mode='train')
             pred_coords = out['coords']
             diff_loss = out.get('diffusion_loss', None)
-            closure_dist = out.get('closure_distance', None)
 
-            # Denormalize prediction (per-sample)
-            pred_denorm = pred_coords * target_std + target.mean(dim=1, keepdim=True)
-
-            # Coordinate reconstruction loss (normalized)
+            # Normalize prediction to unit-sphere
             pred_centered = pred_coords - pred_coords.mean(dim=1, keepdim=True)
-            coord_loss = F.mse_loss(pred_centered, target_norm)
+            pred_scale = torch.norm(pred_centered, dim=(1,2), keepdim=True).clamp(min=1e-6)
+            pred_norm = pred_centered / pred_scale
 
-            # Closure loss: encourage BSJ distance ≈ bond_length (in Angstroms)
-            pred_closure = torch.norm(pred_denorm[:, 0] - pred_denorm[:, -1], dim=-1)
-            closure_loss = F.mse_loss(pred_closure, torch.full_like(pred_closure, bond_length))
+            # Coordinate reconstruction loss (normalized space)
+            coord_loss = 0
+            for b in range(B):
+                valid_L = lengths[b]
+                diff = pred_norm[b, :valid_L] - target_norm[b, :valid_L]
+                coord_loss += torch.mean(diff ** 2)
+            coord_loss /= B
+
+            # Denormalize for physical losses
+            pred_denorm = pred_norm * target_scale + target.mean(dim=1, keepdim=True)
+
+            # Closure loss: BSJ distance ≈ bond_length (in Angstroms)
+            closure_dists = torch.norm(pred_denorm[:, 0] - pred_denorm[:, -1], dim=-1)
+            closure_mask = torch.tensor([lengths[b] >= 2 for b in range(B)],
+                                        device=device, dtype=torch.float32)
+            closure_loss = (closure_mask * (closure_dists - bond_length) ** 2).sum() / closure_mask.sum().clamp(min=1.0)
 
             # Bond consistency loss
             bond_loss = torch.tensor(0.0, device=device)
+            n_bond_samples = 0
             for b in range(B):
                 valid_L = lengths[b]
                 if valid_L < 4:
                     continue
-                # Compute bond distances (including BSJ)
                 bonds = torch.norm(
                     pred_denorm[b, 1:valid_L] - pred_denorm[b, :valid_L-1], dim=-1
                 )
                 bsj_bond = torch.norm(pred_denorm[b, 0] - pred_denorm[b, valid_L-1])
                 all_bonds = torch.cat([bonds, bsj_bond.unsqueeze(0)])
-                bond_loss += F.mse_loss(all_bonds, torch.full_like(all_bonds, bond_length))
-            bond_loss = bond_loss / max(B, 1)
+                bond_loss = bond_loss + F.mse_loss(all_bonds, torch.full_like(all_bonds, bond_length))
+                n_bond_samples += 1
+            bond_loss = bond_loss / max(n_bond_samples, 1)
 
-            # Total loss with weighted components
+            # Total loss: coord (primary) + diffusion + closure + bond
             if diff_loss is not None and not (torch.isnan(diff_loss) or torch.isinf(diff_loss)):
                 loss = (
+                    coord_loss * 10.0 +      # Coordinate reconstruction (primary)
                     diff_loss * 1.0 +        # Diffusion loss
-                    coord_loss * 10.0 +      # Coordinate reconstruction (higher weight)
-                    closure_loss * 5.0 +     # BSJ closure
+                    closure_loss * w_closure +  # BSJ closure
                     bond_loss * 2.0          # Bond consistency
                 )
             else:
-                loss = coord_loss * 10.0 + closure_loss * 5.0 + bond_loss * 2.0
+                loss = coord_loss * 10.0 + closure_loss * w_closure + bond_loss * 2.0
 
-            # Apply confidence weighting: higher quality data gets higher loss weight
+            # Apply confidence weighting
             loss = loss * conf_scale * 2.0
 
             # NaN check
@@ -962,89 +974,17 @@ def train_scheme6(train_loader, val_loader, args, device):
             train_metrics['closure'] += closure_loss.item()
             train_metrics['bond'] += bond_loss.item()
 
-    optimizer = torch.optim.AdamW(model.parameters(), lr=lr, weight_decay=1e-5)
-    scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
-        optimizer, mode='min', factor=0.5, patience=5
-    )
+        n_batches = len(train_loader) - nan_batches
+        avg_train = train_loss / max(n_batches, 1)
+        avg_diff = train_metrics['diff'] / max(n_batches, 1)
+        avg_coord = train_metrics['coord'] / max(n_batches, 1)
+        avg_closure = train_metrics['closure'] / max(n_batches, 1)
 
-    best_val = float('inf')
-    patience_counter = 0
-
-    for epoch in range(args.epochs):
-        model.train()
-        train_loss = 0
-        nan_batches = 0
-        for batch in train_loader:
-            seq_ids = batch['seq_ids'].to(device)
-            target = batch['coords'].to(device)
-            lengths = batch['lengths']
-
-            # Skip batches with Inf/NaN in target coords (corrupt data)
-            if torch.isinf(target).any() or torch.isnan(target).any():
-                nan_batches += 1
-                optimizer.zero_grad()
-                continue
-
-            # Normalize target coords using target scale only
-            B, L, _ = target.shape
-            target_centered = target - target.mean(dim=1, keepdim=True)
-            target_scale = torch.norm(target_centered, dim=(1,2), keepdim=True).clamp(min=1.0)
-            target_norm = target_centered / target_scale
-
-            out = model(seq_ids, mode='train')
-            pred_coords = out['coords']
-            diff_loss = out.get('diffusion_loss', None)
-
-            # Use TARGET scale for prediction
-            pred_centered = pred_coords - pred_coords.mean(dim=1, keepdim=True)
-            pred_norm = pred_centered / target_scale
-
-            # Coordinate reconstruction loss (only valid positions)
-            coord_loss = 0
-            n_valid = 0
-            for b in range(B):
-                valid_L = lengths[b]
-                if valid_L < 4:
-                    continue
-                diff = pred_norm[b, :valid_L] - target_norm[b, :valid_L]
-                coord_loss += torch.mean(diff ** 2)
-                n_valid += 1
-            coord_loss = coord_loss / max(n_valid, 1)
-
-            # Total loss: diffusion (primary) + coordinate (auxiliary)
-            if diff_loss is not None and not (torch.isnan(diff_loss) or torch.isinf(diff_loss)):
-                loss = diff_loss + 0.1 * coord_loss
-            else:
-                loss = coord_loss
-
-            # NaN check
-            if torch.isnan(loss) or torch.isinf(loss):
-                nan_batches += 1
-                optimizer.zero_grad()
-                continue
-
-            loss.backward()
-            # Aggressive gradient clipping for stability
-            grad_norm = torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=0.5)
-            if torch.isnan(grad_norm) or torch.isinf(grad_norm):
-                optimizer.zero_grad()
-                nan_batches += 1
-                continue
-
-            optimizer.step()
-            optimizer.zero_grad()
-            train_loss += loss.item()
-
-        if nan_batches > len(train_loader) // 2:
-            print(f"  Too many NaN batches ({nan_batches}), stopping")
-            return float('inf')
-
-        avg_train = train_loss / max(len(train_loader) - nan_batches, 1)
-
-        # Validation: use model train-mode loss as proxy (fast, no sampling)
+        # Validation: RMSD in Angstroms (with Kabsch alignment)
         model.eval()
-        val_loss_sum = 0
-        n_val_batches = 0
+        val_rmsd = 0
+        val_closure_sum = 0.0
+        n_val_samples = 0
         with torch.no_grad():
             for batch in val_loader:
                 seq_ids = batch['seq_ids'].to(device)
@@ -1059,39 +999,44 @@ def train_scheme6(train_loader, val_loader, args, device):
                 # Normalize target
                 target_centered = target - target.mean(dim=1, keepdim=True)
                 target_scale = torch.norm(target_centered, dim=(1,2), keepdim=True).clamp(min=1.0)
-                target_norm = target_centered / target_scale
 
-                # Forward through model (train mode computes loss)
-                out = model(seq_ids, mode='train')
+                # Forward through model (sample mode)
+                out = model(seq_ids, mode='sample')
                 pred_coords = out['coords']
-                diff_loss = out.get('diffusion_loss', None)
 
+                if torch.isnan(pred_coords).any() or torch.isinf(pred_coords).any():
+                    continue
+
+                # Denormalize: pred_norm * target_scale + mean
                 pred_centered = pred_coords - pred_coords.mean(dim=1, keepdim=True)
-                pred_norm = pred_centered / target_scale
+                pred_scale = torch.norm(pred_centered, dim=(1,2), keepdim=True).clamp(min=1e-6)
+                pred_norm = pred_centered / pred_scale
+                pred_denorm = pred_norm * target_scale + target.mean(dim=1, keepdim=True)
 
-                # Coord loss
-                coord_loss = 0
-                n_valid = 0
                 for b in range(B):
                     valid_L = lengths[b]
                     if valid_L < 4:
                         continue
-                    diff = pred_norm[b, :valid_L] - target_norm[b, :valid_L]
-                    coord_loss += torch.mean(diff ** 2)
-                    n_valid += 1
-                coord_loss = coord_loss / max(n_valid, 1)
+                    p = pred_denorm[b, :valid_L]
+                    t = target[b, :valid_L]
 
-                # Total val loss
-                if diff_loss is not None and not (torch.isnan(diff_loss) or torch.isinf(diff_loss)):
-                    batch_loss = (diff_loss + 0.1 * coord_loss).item()
-                else:
-                    batch_loss = coord_loss.item()
+                    # Center for Kabsch
+                    p_c = p - p.mean(dim=0)
+                    t_c = t - t.mean(dim=0)
 
-                if not (np.isnan(batch_loss) or np.isinf(batch_loss)):
-                    val_loss_sum += batch_loss
-                    n_val_batches += 1
+                    if p_c.abs().sum() < 1e-6 or t_c.abs().sum() < 1e-6:
+                        continue
 
-        avg_val = val_loss_sum / max(n_val_batches, 1) if n_val_batches > 0 else avg_train
+                    rmsd = kabsch_rmsd(p_c, t_c)
+                    if not (np.isnan(rmsd) or np.isinf(rmsd)):
+                        val_rmsd += rmsd
+                        n_val_samples += 1
+
+                    closure_dist = torch.norm(pred_denorm[b, 0] - pred_denorm[b, valid_L-1]).item()
+                    val_closure_sum += closure_dist
+
+        avg_val = val_rmsd / max(n_val_samples, 1) if n_val_samples > 0 else avg_train * 100
+        avg_val_closure = val_closure_sum / max(n_val_samples, 1) if n_val_samples > 0 else float('inf')
         scheduler.step(avg_val)
 
         if avg_val < best_val:
@@ -1101,14 +1046,15 @@ def train_scheme6(train_loader, val_loader, args, device):
         else:
             patience_counter += 1
 
-        print(f"  Epoch {epoch+1}/{args.epochs} train={avg_train:.4f} "
-              f"val={avg_val:.4f} (n={n_val_batches}) nan={nan_batches} pat={patience_counter}/10")
+        print(f"  Epoch {epoch+1}/{args.epochs} train={avg_train:.4f} (diff={avg_diff:.3f} coord={avg_coord:.3f} cls={avg_closure:.2f}) "
+              f"val={avg_val:.1f}Å closure={avg_val_closure:.2f}Å "
+              f"nan={nan_batches} pat={patience_counter}/10")
 
         if patience_counter >= 10:
             print(f"  Early stopping at epoch {epoch+1}")
             break
 
-    print(f"  Best val loss: {best_val:.4f}")
+    print(f"  Best val RMSD: {best_val:.2f}Å")
     return best_val
 
 
