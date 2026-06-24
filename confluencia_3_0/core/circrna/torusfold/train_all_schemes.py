@@ -516,9 +516,9 @@ def train_scheme1(train_loader, val_loader, args, device):
 
             # NEW: Closure penalty — encourage ||d(first, last) - bond_length|| → 0
             # Compute in denormalized Å space for physical interpretability
-            # pred_denorm = pred_centered / pred_norm_scale * target_scale + target.mean
-            pred_norm_scale = torch.norm(pred_centered, dim=(1,2), keepdim=True).clamp(min=1e-6)
-            pred_denorm = pred_centered / pred_norm_scale * target_scale + target.mean(dim=1, keepdim=True)
+            # FIX: pred_norm is already in normalized space, just denormalize by target_scale
+            # pred_denorm = pred_norm * target_scale + target.mean
+            pred_denorm = pred_norm * target_scale + target.mean(dim=1, keepdim=True)
             closure_dists = torch.norm(pred_denorm[:, 0] - pred_denorm[:, -1], dim=-1)  # (B,)
             # Mask: only count samples where both first and last positions are valid
             closure_mask = torch.tensor([lengths[b] >= 2 for b in range(B)],
@@ -575,7 +575,8 @@ def train_scheme1(train_loader, val_loader, args, device):
                         valid_L = lengths[b]
                         if valid_L < 4:
                             continue
-                        p_denorm = pred_centered[b, :valid_L] / torch.norm(pred_centered[b], dim=(0,1), keepdim=True).clamp(min=1e-6) * target_scale[b] + target[b].mean(dim=0, keepdim=True)
+                        # FIX: Use pred_norm (already normalized) for denormalization
+                        p_denorm = pred_norm[b, :valid_L] * target_scale[b] + target[b].mean(dim=0, keepdim=True)
                         t_denorm = target[b, :valid_L]
                         p_c = p_denorm - p_denorm.mean(dim=0)
                         t_c = t_denorm - t_denorm.mean(dim=0)
@@ -607,19 +608,16 @@ def train_scheme1(train_loader, val_loader, args, device):
                 target_centered = target - target.mean(dim=1, keepdim=True)
                 target_scale = torch.norm(target_centered, dim=(1,2), keepdim=True).clamp(min=1.0)
 
-                # Model forward (output is in normalized space)
+                # Model forward (output is in normalized space after division by target_scale)
                 out = model(seq_ids)
                 pred = out['coords']
 
                 if torch.isnan(pred).any() or torch.isinf(pred).any():
                     continue
 
-                # Denormalize: pred is unit-scale, scale to Angstroms
-                pred_centered = pred - pred.mean(dim=1, keepdim=True)
-                pred_norm_scale = torch.norm(pred_centered, dim=(1,2), keepdim=True).clamp(min=1e-6)
-
-                # Scale pred to match target scale (critical for RMSD in Angstroms)
-                pred_denorm = pred_centered / pred_norm_scale * target_scale + target.mean(dim=1, keepdim=True)
+                # Denormalize: pred is already normalized (divided by target_scale during training),
+                # just multiply by target_scale to get Å coordinates
+                pred_denorm = pred * target_scale + target.mean(dim=1, keepdim=True)
 
                 for b in range(B):
                     valid_L = lengths[b]
@@ -1708,9 +1706,7 @@ def train_scheme3(train_loader, val_loader, args, device):
             coord_loss /= B
 
             # Closure loss
-            pred_centered = coords_refined - coords_refined.mean(dim=1, keepdim=True)
-            pred_norm_scale = torch.norm(pred_centered, dim=(1,2), keepdim=True).clamp(min=1e-6)
-            pred_denorm = pred_centered / pred_norm_scale * target_scale + target.mean(dim=1, keepdim=True)
+            pred_denorm = coords_refined * target_scale + target.mean(dim=1, keepdim=True)
 
             closure_dists = torch.norm(pred_denorm[:, 0] - pred_denorm[:, -1], dim=-1)
             closure_mask = torch.tensor([lengths[b] >= 2 for b in range(B)],
@@ -1842,9 +1838,7 @@ def train_scheme3(train_loader, val_loader, args, device):
                 if torch.isnan(coords_refined).any() or torch.isinf(coords_refined).any():
                     continue
 
-                pred_centered = coords_refined - coords_refined.mean(dim=1, keepdim=True)
-                pred_norm_scale = torch.norm(pred_centered, dim=(1,2), keepdim=True).clamp(min=1e-6)
-                pred_denorm = pred_centered / pred_norm_scale * target_scale + target.mean(dim=1, keepdim=True)
+                pred_denorm = coords_refined * target_scale + target.mean(dim=1, keepdim=True)
 
                 for b in range(B):
                     valid_L = lengths[b]
