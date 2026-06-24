@@ -438,13 +438,19 @@ def evaluate(model, scheme_id, loader, device, n_samples=1):
                     out = model(seq_ids, mode='sample', pair_probs=pair_probs, lengths=lengths)
                     pred = out['coords']
                 elif scheme_id == 6:
-                    # Full diffusion sampling (not just encoder→decoder)
+                    # Scheme 6: GNN Latent Diffusion
+                    # Training uses unit-sphere normalization (2nd training loop saves checkpoint):
+                    #   target_norm = target_centered / target_scale
+                    #   pred_norm = pred_centered / target_scale
+                    # Denormalize: pred_norm * target_scale + target.mean
                     out = model(seq_ids, mode='sample')
                     pred = out['coords']
-                    # Denormalize: model outputs in std-normalized space
+                    pred_centered = pred - pred.mean(dim=1, keepdim=True)
+                    pred_scale = torch.norm(pred_centered, dim=(1,2), keepdim=True).clamp(min=1e-6)
+                    pred_norm = pred_centered / pred_scale
                     target_centered = target - target.mean(dim=1, keepdim=True)
-                    target_std = target_centered.std(dim=(1, 2), keepdim=True).clamp(min=1.0)
-                    pred = pred * target_std + target.mean(dim=1, keepdim=True)
+                    target_scale = torch.norm(target_centered, dim=(1,2), keepdim=True).clamp(min=1.0)
+                    pred = pred_norm * target_scale + target.mean(dim=1, keepdim=True)
                 elif scheme_id == 1:
                     # Scheme 1: CircRNA3DModel.forward(seq_ids) — no mode param
                     # Model outputs in unit-sphere normalized space, need denormalization
@@ -622,9 +628,15 @@ def main():
         state_dict = torch.load(args.checkpoint, map_location=device)
         missing, unexpected = model.load_state_dict(state_dict, strict=False)
         if missing:
-            print(f"  Missing keys: {len(missing)}")
+            print(f"  Missing keys ({len(missing)}): {missing[:5]}{'...' if len(missing) > 5 else ''}")
         if unexpected:
-            print(f"  Unexpected keys: {len(unexpected)}")
+            print(f"  Unexpected keys ({len(unexpected)}): {unexpected[:5]}{'...' if len(unexpected) > 5 else ''}")
+        if not missing and not unexpected:
+            print(f"  All keys matched perfectly")
+        # Quick sanity: compare a few parameter values to confirm loading worked
+        n_params = sum(p.numel() for p in model.parameters())
+        n_nonzero = sum((p != 0).sum().item() for p in model.parameters())
+        print(f"  Model params: {n_params:,} total, {n_nonzero:,} nonzero")
         print(f"  Loaded checkpoint: {args.checkpoint}")
     else:
         print(f"  WARNING: Checkpoint not found, using random init")
