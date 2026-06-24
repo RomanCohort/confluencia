@@ -426,6 +426,12 @@ def evaluate(model, scheme_id, loader, device, n_samples=1):
             n_skipped_zero += 1
             continue
 
+        # Skip extreme values (astronomical numbers that cause scale=inf)
+        target_abs_max = target.abs().max().item()
+        if target_abs_max > 1e6:  # Coordinates should be in Å (typical <1000Å)
+            n_skipped_inf += 1
+            continue
+
         B = len(lengths)
 
         # Get predictions
