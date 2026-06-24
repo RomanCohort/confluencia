@@ -195,6 +195,16 @@ def train_one_phase(model, train_loader, val_loader, optimizer, scheduler,
     max_patience = 10 if phase == 1 else 30  # Phase 1 stops early if saturated
     phase_metrics = []
 
+    # Phase 1: Strong regularization to prevent overfitting
+    # Phase 2+: Allow adaptation to new data
+    grad_clip = 0.5 if phase == 1 else 1.0  # Phase 1: tighter gradient clipping
+    dropout_p = 0.15 if phase == 1 else 0.05  # Phase 1: higher dropout
+
+    # Apply dropout scaling to model (if it has dropout modules)
+    for module in model.modules():
+        if hasattr(module, 'p') and isinstance(module.p, float):
+            module.p = dropout_p  # Dynamically adjust dropout
+
     # Phase transition: no freezing — just use warmup for stability.
     # Freezing caused Phase 2 crashes (RMSD 27→400Å) because frozen params
     # can't adapt to new data distribution, and low LR on unfrozen params
@@ -319,7 +329,7 @@ def train_one_phase(model, train_loader, val_loader, optimizer, scheduler,
                 optimizer.zero_grad()
                 continue
 
-            torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
+            torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=grad_clip)  # Phase-aware gradient clipping
             optimizer.step()
             optimizer.zero_grad()
 
@@ -556,7 +566,7 @@ def train_curriculum_scheme(scheme_id, sequences, coords_labels, pair_labels,
     n_params = sum(p.numel() for p in model.parameters())
     print(f"  Model params: {n_params:,}, LR: {lr:.1e}")
 
-    optimizer = torch.optim.AdamW(model.parameters(), lr=lr, weight_decay=1e-5)
+    optimizer = torch.optim.AdamW(model.parameters(), lr=lr, weight_decay=1e-3)  # Stronger regularization
     # Store initial_lr for warmup
     for pg in optimizer.param_groups:
         pg['initial_lr'] = lr
