@@ -396,9 +396,14 @@ def create_model(scheme_id, args, device):
         config = GNNLatentConfig(
             n_diffusion_steps=args.diffusion_steps,
             d_node=args.d_hidden,
+            d_edge=args.d_hidden // 2,
+            d_latent=args.d_hidden * 2,
+            n_encoder_layers=args.n_layers,
+            n_decoder_layers=args.n_layers,
+            n_heads=8,
         )
         model = GNNLatentDiffusionModel(config).to(device)
-        lr = min(args.lr, 5e-5)
+        lr = min(args.lr, 1e-4)
     elif scheme_id == 7:
         from confluencia_3_0.core.circrna.torusfold.circrna_mamba_diffusion import (
             CircMambaDiffusionModel, CircMambaConfig, HAS_MAMBA_SSM
@@ -585,7 +590,7 @@ def main():
     parser.add_argument('--device', type=str, default='auto')
     parser.add_argument('--batch-size', type=int, default=4)
     parser.add_argument('--d-hidden', type=int, default=128)
-    parser.add_argument('--n-layers', type=int, default=4)
+    parser.add_argument('--n-layers', type=int, default=6)
     parser.add_argument('--lr', type=float, default=1e-3)
     parser.add_argument('--diffusion-steps', type=int, default=100)
     parser.add_argument('--w-closure', type=float, default=5.0)

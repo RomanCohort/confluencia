@@ -30,13 +30,13 @@ import torch.nn.functional as F
 
 @dataclass
 class GNNLatentConfig:
-    d_node: int = 64
-    d_edge: int = 32
-    d_latent: int = 128
-    n_encoder_layers: int = 4
-    n_decoder_layers: int = 4
-    n_diffusion_steps: int = 50
-    n_heads: int = 4
+    d_node: int = 128
+    d_edge: int = 64
+    d_latent: int = 256
+    n_encoder_layers: int = 6
+    n_decoder_layers: int = 6
+    n_diffusion_steps: int = 100
+    n_heads: int = 8
     bond_length: float = 5.9
     pair_distance: float = 10.6
 
