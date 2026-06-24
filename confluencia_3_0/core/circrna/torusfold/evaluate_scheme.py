@@ -441,10 +441,22 @@ def evaluate(model, scheme_id, loader, device, n_samples=1):
                     # Full diffusion sampling (not just encoder→decoder)
                     out = model(seq_ids, mode='sample')
                     pred = out['coords']
+                    # Denormalize: model outputs in std-normalized space
+                    target_centered = target - target.mean(dim=1, keepdim=True)
+                    target_std = target_centered.std(dim=(1, 2), keepdim=True).clamp(min=1.0)
+                    pred = pred * target_std + target.mean(dim=1, keepdim=True)
                 elif scheme_id == 1:
                     # Scheme 1: CircRNA3DModel.forward(seq_ids) — no mode param
+                    # Model outputs in unit-sphere normalized space, need denormalization
                     out = model(seq_ids)
                     pred = out['coords']
+                    # Normalize pred to unit-sphere (like training), then denormalize by target_scale
+                    pred_centered = pred - pred.mean(dim=1, keepdim=True)
+                    pred_scale = torch.norm(pred_centered, dim=(1,2), keepdim=True).clamp(min=1e-6)
+                    pred_norm = pred_centered / pred_scale
+                    target_centered = target - target.mean(dim=1, keepdim=True)
+                    target_scale = torch.norm(target_centered, dim=(1,2), keepdim=True).clamp(min=1.0)
+                    pred = pred_norm * target_scale + target.mean(dim=1, keepdim=True)
                 else:
                     out = model(seq_ids, mode='sample')
                     pred = out['coords']
