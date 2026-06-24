@@ -578,6 +578,25 @@ def main():
     data_dir = args.test_data if args.test_data else args.labels
     print(f"  Data: {data_dir}")
 
+    # Auto-search data path (AutoDL compatibility)
+    if not Path(data_dir).exists():
+        search_paths = []
+        # Try relative to script, project roots, and common AutoDL paths
+        for root in [PROJECT_ROOT, PROJECT_ROOT / 'confluencia_3_0' / 'core' / 'circrna' / 'torusfold',
+                      Path('/root/autodl-tmp/confluencia/confluencia_3_0/core/circrna/torusfold'),
+                      Path('/root/autodl-tmp')]:
+            candidate = root / data_dir
+            if candidate.exists():
+                data_dir = str(candidate)
+                print(f"  Found at: {data_dir}")
+                break
+            # Also try just the base name
+            candidate2 = root / Path(data_dir).name
+            if candidate2.exists():
+                data_dir = str(candidate2)
+                print(f"  Found at: {data_dir}")
+                break
+
     # Load data
     sequences, coords_labels, pair_labels, confidence_weights, metadata = load_pseudo_labels(data_dir)
     print(f"  Total: {len(sequences)} samples")
