@@ -374,22 +374,26 @@ def train_one_phase(model, train_loader, val_loader, optimizer, scheduler,
 # ═══════════════════════════════════════════════════════════════
 
 def create_model(scheme_id, args, device):
-    """Create model for given scheme."""
+    """Create model for given scheme (full capacity with clean data)."""
     if scheme_id == 1:
+        # Scheme 1: EGNN, full capacity
         model = Scheme1Model(d_hidden=args.d_hidden, n_layers=args.n_layers).to(device)
         lr = min(args.lr, 1e-4)
     elif scheme_id == 4:
+        # Scheme 4: CircDiffusion, full capacity
         from confluencia_3_0.core.circrna.torusfold.circrna_diffusion import (
             CircRNADiffusionModel, CircDiffusionConfig
         )
         config = CircDiffusionConfig(
-            n_diffusion_steps=min(args.diffusion_steps, 50),
+            n_diffusion_steps=args.diffusion_steps,  # Full 100 steps
             d_node=args.d_hidden,
             d_edge=args.d_hidden // 2,
+            n_egnn_layers=args.n_layers,  # Full 6 layers
         )
         model = CircRNADiffusionModel(config).to(device)
-        lr = args.lr * 0.5
+        lr = min(args.lr, 1e-4)
     elif scheme_id == 6:
+        # Scheme 6: GNN Latent Diffusion, full capacity
         from confluencia_3_0.core.circrna.torusfold.gnn_latent_diffusion import (
             GNNLatentDiffusionModel, GNNLatentConfig
         )
@@ -405,60 +409,64 @@ def create_model(scheme_id, args, device):
         model = GNNLatentDiffusionModel(config).to(device)
         lr = min(args.lr, 1e-4)
     elif scheme_id == 7:
+        # Scheme 7: Mamba Diffusion, full capacity
         from confluencia_3_0.core.circrna.torusfold.circrna_mamba_diffusion import (
             CircMambaDiffusionModel, CircMambaConfig, HAS_MAMBA_SSM
         )
         if HAS_MAMBA_SSM:
-            n_mamba = getattr(args, 'n_mamba_layers', 4)
+            n_mamba = getattr(args, 'n_mamba_layers', 6)  # Upgraded from 4
             n_attn = getattr(args, 'n_attn_layers', 2)
-            n_diff = min(args.diffusion_steps, 50)
+            n_diff = args.diffusion_steps  # Full 100 steps
         else:
-            n_mamba = min(getattr(args, 'n_mamba_layers', 4), 2)
-            n_attn = min(getattr(args, 'n_attn_layers', 2), 1)
-            n_diff = min(args.diffusion_steps, 20)
+            # Fallback without CUDA Mamba
+            n_mamba = min(getattr(args, 'n_mamba_layers', 6), 3)
+            n_attn = min(getattr(args, 'n_attn_layers', 2), 2)
+            n_diff = min(args.diffusion_steps, 50)
 
         config = CircMambaConfig(
             n_mamba_layers=n_mamba,
             n_attn_layers=n_attn,
             n_diffusion_steps=n_diff,
             d_model=args.d_hidden,
-            attn_window=getattr(args, 'attn_window', 20),
-            bsj_flank=getattr(args, 'bsj_flank', 20),
+            attn_window=getattr(args, 'attn_window', 40),  # Upgraded from 20
+            bsj_flank=getattr(args, 'bsj_flank', 40),  # Upgraded from 20
         )
         model = CircMambaDiffusionModel(config).to(device)
-        lr = 1e-4
+        lr = min(args.lr, 1e-4)
     elif scheme_id == 8:
+        # Scheme 8: Sparse Pair, full capacity
         from confluencia_3_0.core.circrna.torusfold.scheme8_sparse_pair import (
             Scheme8Model, Scheme8Config
         )
         from confluencia_3_0.core.circrna.torusfold.circrna_mamba_diffusion import HAS_MAMBA_SSM
         if HAS_MAMBA_SSM:
-            n_mamba_layers = getattr(args, 'n_mamba_layers', 2)
-            n_sparse_layers = 2
-            n_diff = min(args.diffusion_steps, 50)
+            n_mamba_layers = getattr(args, 'n_mamba_layers', 4)  # Upgraded from 2
+            n_sparse_layers = 3  # Upgraded from 2
+            n_diff = args.diffusion_steps  # Full 100 steps
         else:
-            n_mamba_layers = 1
-            n_sparse_layers = 1
-            n_diff = min(args.diffusion_steps, 20)
+            # Fallback without CUDA Mamba
+            n_mamba_layers = 2  # Upgraded from 1
+            n_sparse_layers = 2  # Upgraded from 1
+            n_diff = min(args.diffusion_steps, 50)
 
         config = Scheme8Config(
             d_model=args.d_hidden,
             d_ssm=max(32, args.d_hidden // 2),
             d_pair=max(32, args.d_hidden // 2),
-            d_global=getattr(args, 'scheme8_d_global', 32),
+            d_global=getattr(args, 'scheme8_d_global', 64),  # Upgraded from 32
             n_mamba_layers=n_mamba_layers,
             n_sparse_layers=n_sparse_layers,
-            n_denoiser_blocks=getattr(args, 'scheme8_n_blocks', 4),
+            n_denoiser_blocks=getattr(args, 'scheme8_n_blocks', 6),  # Upgraded from 4
             n_diffusion_steps=n_diff,
-            K=getattr(args, 'scheme8_k', 20),
-            bsj_flank=getattr(args, 'scheme8_bsj_flank', 30),
-            attn_window=getattr(args, 'scheme8_window', 25),
+            K=getattr(args, 'scheme8_k', 30),  # Upgraded from 20
+            bsj_flank=getattr(args, 'scheme8_bsj_flank', 40),  # Upgraded from 30
+            attn_window=getattr(args, 'scheme8_window', 35),  # Upgraded from 25
             bond_length=5.9,
             closure_weight=1.0,
             use_gradient_checkpointing=True,
         )
         model = Scheme8Model(config).to(device)
-        lr = 1e-4
+        lr = min(args.lr, 1e-4)
     else:
         raise ValueError(f"Curriculum training not supported for Scheme {scheme_id}")
 
@@ -596,10 +604,10 @@ def main():
     parser.add_argument('--lr', type=float, default=1e-3)
     parser.add_argument('--diffusion-steps', type=int, default=100)
     parser.add_argument('--w-closure', type=float, default=5.0)
-    parser.add_argument('--n-mamba-layers', type=int, default=4)
+    parser.add_argument('--n-mamba-layers', type=int, default=6)
     parser.add_argument('--n-attn-layers', type=int, default=2)
-    parser.add_argument('--attn-window', type=int, default=20)
-    parser.add_argument('--bsj-flank', type=int, default=20)
+    parser.add_argument('--attn-window', type=int, default=40)
+    parser.add_argument('--bsj-flank', type=int, default=40)
     parser.add_argument('--seed', type=int, default=42)
 
     # Phase-specific epoch counts
