@@ -354,7 +354,7 @@ def train_one_phase(model, train_loader, val_loader, optimizer, scheduler,
         print(f"  [P{phase}] Epoch {epoch+1}/{n_epochs} "
               f"train={avg_train:.4f} val_rmsd={avg_val:.1f}Å "
               f"val_closure={avg_val_closure:.2f}Å "
-              f"lr={current_lr:.1e} nan={nan_batches} pat={patience_counter}/10")
+              f"lr={current_lr:.1e} nan={nan_batches} pat={patience_counter}/20")
 
         phase_metrics.append({
             'phase': phase, 'epoch': epoch + 1,
@@ -362,7 +362,7 @@ def train_one_phase(model, train_loader, val_loader, optimizer, scheduler,
             'val_closure': avg_val_closure, 'lr': current_lr,
         })
 
-        if patience_counter >= 10:
+        if patience_counter >= 20:
             print(f"  [P{phase}] Early stopping at epoch {epoch+1}")
             break
 
@@ -494,7 +494,7 @@ def train_curriculum_scheme(scheme_id, sequences, coords_labels, pair_labels,
     for pg in optimizer.param_groups:
         pg['initial_lr'] = lr
     scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
-        optimizer, mode='min', factor=0.5, patience=5
+        optimizer, mode='min', factor=0.7, patience=8
     )
 
     all_metrics = []
@@ -548,7 +548,7 @@ def train_curriculum_scheme(scheme_id, sequences, coords_labels, pair_labels,
 
         # Reset scheduler for new phase (learning rate schedule starts fresh)
         scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
-            optimizer, mode='min', factor=0.5, patience=5
+            optimizer, mode='min', factor=0.7, patience=8
         )
         # Restore LR for new phase
         for pg in optimizer.param_groups:

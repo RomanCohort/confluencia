@@ -330,6 +330,40 @@ TBD: run IsRNA on the same test sequences with identical evaluation protocol.
 
 Our Scheme 2 can be viewed as a simplified IsRNA surrogate, achieving similar closure guarantees with reduced computational cost. For applications requiring guaranteed closure (vaccine design, drug targeting), physics-based or hybrid approaches may be preferred. For applications prioritizing speed (sequence optimization, large-scale screening), learned approaches like Scheme 6 offer practical advantages.
 
+### On the Practical Limits of Sparse Attention for RNA 3D Structure Prediction
+
+Scheme 8 (Sparse Pair-Guided Hybrid Architecture) was designed to reduce the O(L²) complexity of pair representation to O(L·K) by using ViennaRNA circ-mode to select Top-K pair candidates per position, then restricting attention to only these candidates via a sparse mask. The architectural philosophy is sound: ViennaRNA provides a physically grounded prior for which nucleotide pairs are likely to base-pair, and restricting attention to these candidates should eliminate the quadratic bottleneck.
+
+However, the implementation revealed a fundamental tension between sparse attention theory and GPU hardware reality. PyTorch's `nn.MultiheadAttention` requires a dense L×L attention mask: it computes all L² query-key dot products (`QK^T`), then applies the mask to zero out unwanted positions before softmax. The sparse mask reduces the information content of the attention weights but does not reduce computation or memory allocation—the full L² matrix must still be materialized. In effect, Scheme 8's "sparse" attention has the same O(L²) GPU memory footprint as the dense attention it was designed to replace.
+
+This is not a bug in our implementation but a consequence of the standard deep learning infrastructure. The attention operation `softmax(QK^T)V` is fundamentally a dense matrix multiplication, and GPU architectures are optimized for exactly this pattern: thousands of cores performing parallel dot products. Sparse operations—where only selected elements are computed—leave cores idle and often achieve lower throughput than dense computation on modern hardware.
+
+Recent work on FlashAttention [13] offers a different resolution to this paradox. Rather than avoiding the O(L²) computation, FlashAttention reduces the dominant cost—HBM (high-bandwidth memory) access—by performing the entire softmax computation in on-chip SRAM cache. This reduces GPU memory from O(L²) to O(L) without sacrificing computational density. The counterintuitive lesson: on modern GPUs, dense computation with smart memory management outperforms truly sparse computation.
+
+This insight suggests a revision to the sparse attention design philosophy. Rather than hard-masking attention to Top-K candidates (which prevents the model from correcting ViennaRNA errors), pair probabilities should be injected as additive bias to the attention scores. Positions with high ViennaRNA pairing probability receive a positive bias, encouraging the model to attend to them, but the model retains the ability to attend to any position when the data contradict the prior. This is precisely the approach taken by AlphaFold2 [4], where MSA statistics serve as attention bias rather than hard constraints.
+
+We propose that the correct design for physics-guided attention in RNA structure prediction combines three elements: (1) FlashAttention for O(L) memory with dense GPU utilization, (2) ViennaRNA pair probabilities as soft attention bias rather than hard mask, and (3) learnable correction gates that allow the model to override the physics prior when warranted. This design achieves both computational efficiency and the capacity for data-driven correction of systematic errors in the physics model—properties that neither pure dense attention nor hard-masked sparse attention can provide alone.
+
+### Data Ceiling and Physics Prior Compensation
+
+A fundamental constraint on circRNA 3D structure prediction is the scarcity of experimental training data. Unlike protein structure prediction, which benefits from ~200,000 PDB structures with new entries added daily, circRNA has virtually no experimentally determined 3D structures in the PDB. Our circularization pipeline extracted ~6,000 linear RNA structures from PDB, but only 1,624 (27%) passed geometric criteria for circularization—endpoints sufficiently close, complete backbone, and appropriate length. The remaining 73% were rejected due to missing residues, terminal disorder, or excessive end-to-end distance that would make BSJ connection physically implausible.
+
+This 1,624-sample ceiling is not a limitation of our pipeline but a reflection of the underlying data landscape. PDB adds ~50 new RNA structures per year, and only a fraction will be circularizable. At current rates, achieving a 10× expansion to ~16,000 high-quality training samples would require decades.
+
+The data scarcity creates a strategic imperative: when data cannot compensate, physics must. The key insight is that physical constraints are "free" in the sense that they do not require training examples—they are encoded in the molecular mechanics of RNA. We identify four categories of physics priors that can substitute for missing data:
+
+1. **Hard geometric constraints:** RNA backbone bond lengths (P-O 1.6Å, C-C' 1.5Å) and bond angles have variances <0.02Å in experimental structures. Rather than learning these from data, they can be enforced as equality constraints during coordinate optimization.
+
+2. **Secondary structure as strong prior:** Base-paired nucleotides have distance constraints (N1-N3 ~2.9Å for Watson-Crick pairs). These can be incorporated as loss terms with high weight, reducing the effective dimensionality of the prediction space.
+
+3. **BSJ closure as definition:** The defining feature of circRNA is covalent linkage of 5' and 3' ends. Closure error <2Å is not a prediction target but a structural requirement—violation means the prediction is not a circRNA.
+
+4. **Steric exclusion:** Van der Waals radii impose minimum inter-atomic distances. Violations indicate physically impossible structures.
+
+AlphaFold2's success illustrates this principle: beyond the ~200k PDB structures, it leverages MSA co-evolution signals and template structures as strong priors. circRNA lacks MSA (sequence conservation is weak for non-coding RNA), placing greater burden on physics priors.
+
+Our curriculum learning strategy (Phase 1: high-confidence short sequences; Phase 2: all-quality sequences; Phase 3: long sequences for Mamba-based architectures) attempts to maximize learning from limited data. But the fundamental insight is architectural: models for data-scarce domains should be designed with strong inductive biases that encode domain physics, rather than relying on data to discover these constraints. The EGNN architecture (Schemes 1, 4, 6) encodes equivariance to 3D rotations and translations—a form of physics prior. The diffusion model learns closure end-to-end without explicit loss. These architectural choices are not just engineering optimizations; they are responses to the data ceiling.
+
 ### Limitations
 
 We acknowledge several limitations:
@@ -518,6 +552,8 @@ This work was conducted as part of iGEM 2026 by the FBH (First Build High School
 [11] Watkins, A. M., Rangan, R., & Das, R. (2020). FARFAR2: Improved de novo Rosetta prediction of global RNA 3D structure. Nature Methods, 17(5), 483-492.
 
 [12] Wang, Y.-X. (2022). 3D structure prediction of circular RNAs: Challenges and opportunities. Biomolecules, 12(10), 1412. https://doi.org/10.3390/biom12101412
+
+[13] Dao, T., & Gu, A. (2023). FlashAttention-2: Faster attention with better parallelism and work partitioning. arXiv preprint arXiv:2307.08691.
 
 ---
 
