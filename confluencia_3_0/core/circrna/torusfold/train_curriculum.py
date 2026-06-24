@@ -188,7 +188,23 @@ def train_one_phase(model, train_loader, val_loader, optimizer, scheduler,
                 optimizer.zero_grad()
                 continue
 
-            conf_scale = batch.get('confidence', torch.tensor(0.5)).mean().item()
+            conf_raw = batch.get('confidence', torch.tensor(0.5))
+            # Tiered confidence weighting:
+            # - High quality (conf >= 0.8): strong supervision, weight = 2.0
+            # - Medium quality (conf >= 0.5): moderate, weight = 1.0
+            # - Low quality (conf < 0.5): regularization only, weight = 0.1
+            if conf_raw.min().item() >= 0.8:
+                conf_weight = 2.0  # High-quality batch: strong signal
+            elif conf_raw.max().item() >= 0.5:
+                # Mixed batch: weighted average with penalty for low-quality samples
+                high_weight = (conf_raw >= 0.8).float().sum() * 2.0
+                med_weight = ((conf_raw >= 0.5) & (conf_raw < 0.8)).float().sum() * 1.0
+                low_weight = (conf_raw < 0.5).float().sum() * 0.1
+                total = high_weight + med_weight + low_weight
+                conf_weight = total / max(len(conf_raw), 1)
+            else:
+                conf_weight = 0.1  # Low-quality batch: regularization only
+
             B, L, _ = target.shape
 
             # ── Forward ──
@@ -252,8 +268,8 @@ def train_one_phase(model, train_loader, val_loader, optimizer, scheduler,
             else:
                 loss = coord_loss * 10.0 + w_closure * closure_loss + bond_loss * 2.0
 
-            # Confidence weighting
-            loss = loss * conf_scale * 2.0
+            # Confidence weighting (tiered)
+            loss = loss * conf_weight
 
             # NaN guard
             if torch.isnan(loss) or torch.isinf(loss):
