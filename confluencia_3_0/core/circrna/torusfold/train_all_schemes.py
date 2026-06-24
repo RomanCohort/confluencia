@@ -492,21 +492,23 @@ def train_scheme1(train_loader, val_loader, args, device):
                 continue
             conf_scale = batch.get('confidence', torch.tensor(0.5)).mean().item()
 
-            # FIX 1: Normalize coords using TARGET scale only (not independent scales)
-            # Problem: independent normalization destroys spatial scale signal
+            # FIX: Proper normalization for 3D coordinates
+            # Both pred and target should be in normalized unit-sphere space
+            # Then denormalize by target_scale for physical loss (closure, bond)
             B, L, _ = target.shape
             target_centered = target - target.mean(dim=1, keepdim=True)
             target_scale = torch.norm(target_centered, dim=(1,2), keepdim=True).clamp(min=1.0)
-            target_norm = target_centered / target_scale
+            target_norm = target_centered / target_scale  # unit-sphere normalized
 
             out = model(seq_ids)
             pred = out['coords']
 
-            # FIX: Use TARGET scale for prediction (not independent scale)
+            # Normalize prediction to unit-sphere (like target_norm)
             pred_centered = pred - pred.mean(dim=1, keepdim=True)
-            pred_norm = pred_centered / target_scale  # Use target scale!
+            pred_scale = torch.norm(pred_centered, dim=(1,2), keepdim=True).clamp(min=1e-6)
+            pred_norm = pred_centered / pred_scale  # unit-sphere normalized
 
-            # MSE on normalized coords (per-residue)
+            # MSE on normalized coords (both in unit-sphere space)
             coord_loss = 0
             for b in range(B):
                 valid_L = lengths[b]
@@ -514,10 +516,8 @@ def train_scheme1(train_loader, val_loader, args, device):
                 coord_loss += torch.mean(diff ** 2)
             coord_loss /= B
 
-            # NEW: Closure penalty — encourage ||d(first, last) - bond_length|| → 0
-            # Compute in denormalized Å space for physical interpretability
-            # FIX: pred_norm is already in normalized space, just denormalize by target_scale
-            # pred_denorm = pred_norm * target_scale + target.mean
+            # Denormalize for physical losses: scale pred_norm by target_scale
+            # This puts prediction in the same Å-scale as target
             pred_denorm = pred_norm * target_scale + target.mean(dim=1, keepdim=True)
             closure_dists = torch.norm(pred_denorm[:, 0] - pred_denorm[:, -1], dim=-1)  # (B,)
             # Mask: only count samples where both first and last positions are valid
@@ -608,16 +608,18 @@ def train_scheme1(train_loader, val_loader, args, device):
                 target_centered = target - target.mean(dim=1, keepdim=True)
                 target_scale = torch.norm(target_centered, dim=(1,2), keepdim=True).clamp(min=1.0)
 
-                # Model forward (output is in normalized space after division by target_scale)
+                # Model forward (output is raw coordinates, not normalized)
                 out = model(seq_ids)
                 pred = out['coords']
 
                 if torch.isnan(pred).any() or torch.isinf(pred).any():
                     continue
 
-                # Denormalize: pred is already normalized (divided by target_scale during training),
-                # just multiply by target_scale to get Å coordinates
-                pred_denorm = pred * target_scale + target.mean(dim=1, keepdim=True)
+                # Normalize prediction to unit-sphere scale (same as training), then denormalize to Å
+                pred_centered = pred - pred.mean(dim=1, keepdim=True)
+                pred_scale = torch.norm(pred_centered, dim=(1,2), keepdim=True).clamp(min=1e-6)
+                pred_norm = pred_centered / pred_scale
+                pred_denorm = pred_norm * target_scale + target.mean(dim=1, keepdim=True)
 
                 for b in range(B):
                     valid_L = lengths[b]
