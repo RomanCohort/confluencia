@@ -1,0 +1,144 @@
+# circRNA 3D Data Generation Pipeline - QUALITY MAXIMIZED Configuration
+# 专为DGX Spark算力充足、追求最高质量的场景设计
+#
+# 核心原则：
+#   1. 严格的质量阈值 - 宁缺毋滥
+#   2. 充分的MD模拟 - 确保结构收敛
+#   3. 多重质量关卡 - 全部通过才算合格
+#
+# 预期产出：
+#   - 置信度 ≥ 0.85 的结构占比 > 50%
+#   - BSJ 距离误差 < 0.5 Å
+#   - 结构已收敛（RMSD方差 < 0.1）
+
+vienna:
+  max_bp_span: -1
+  temperature: 37.0
+  model: "rna"
+  output_bp_probs: true
+
+rosetta:
+  model_path: "models/rosettafold2na/"
+  num_samples: 10              # 增加采样数，取最优
+  batch_size: 1
+  device: "cuda:0"
+  max_seq_length: 500
+
+cyclize:
+  bsj_restraint_k: 2000.0      # 更强的BSJ约束
+  bsj_target_distance: 3.5     # 磷酸二酯键理想长度
+  ss_restraint_k: 100.0        # 更强的二级结构约束
+  max_iterations: 2000         # 更多次迭代
+  minimization_tolerance: 5.0  # 更严格的收敛阈值
+
+md:
+  forcefield:
+    protein: "amber14-all.xml"
+    water: "amber14/tip3pfb.xml"
+
+  # ====== QUALITY MODE - 质量优先 ======
+  # 每序列约 10-15 分钟，但质量最高
+  quality:
+    duration_ns: 20.0            # 20ns MD，确保充分弛豫
+    temperature_k: 300
+    timestep_fs: 1.0             # 更小时间步长，更稳定
+    snapshot_interval_ps: 20     # 更密集采样
+    bsj_restraint_k: 1000.0      # 强BSJ约束
+    padding_nm: 1.2              # 更大水盒，减少边界效应
+    equilibration_steps: 50000   # 预平衡
+    production_steps: 10000000   # 充分生产
+    minimize_only: false
+    use_gpu: true
+    precision: "mixed"           # 混合精度加速
+
+  # 备选：ultra_quality（极高质量，仅用于关键验证集）
+  ultra_quality:
+    duration_ns: 50.0            # 50ns MD
+    temperature_k: 300
+    timestep_fs: 1.0
+    snapshot_interval_ps: 10
+    bsj_restraint_k: 1500.0
+    padding_nm: 1.5
+    minimize_only: false
+
+  # 向后兼容
+  fast:
+    duration_ns: 5.0
+    temperature_k: 300
+    timestep_fs: 2.0
+    snapshot_interval_ps: 50
+    bsj_restraint_k: 500.0
+    padding_nm: 0.8
+    minimize_only: false
+
+  high_quality:
+    duration_ns: 20.0
+    temperature_k: 300
+    timestep_fs: 1.0
+    snapshot_interval_ps: 20
+    bsj_restraint_k: 1000.0
+    padding_nm: 1.2
+    minimize_only: false
+
+  prefilter:
+    minimize_only: true
+    max_iterations: 500
+    bsj_restraint_k: 1000.0
+
+quality:
+  # ====== 严格的质量阈值 ======
+  energy_threshold_kjmol: 300.0       # 更严格：只保留热力学稳定结构
+  bsj_target_angstrom: 3.5            # 理想磷酸二酯键长度
+  bsj_max_distance_a: 3.8             # 严格：BSJ距离必须接近理想值
+  bp_rmsd_max_a: 0.8                  # 更严格：二级结构保持更好
+  rmsd_variance_max: 0.15             # 更严格：结构必须收敛
+
+  # 置信度阈值
+  min_confidence_threshold: 0.80      # 只保留置信度 ≥ 0.80 的结构
+  require_all_metrics_pass: true      # 所有指标必须通过
+
+  # 置信度权重（调整）
+  confidence_weights:
+    energy: 0.20                      # 热力学稳定性
+    rmsd_plateau: 0.25                # 结构收敛
+    bsj: 0.30                         # 环化质量（最重要）
+    ss_preservation: 0.15             # 二级结构保持
+    bond_uniformity: 0.10             # 键长一致性
+
+parallel:
+  num_workers: 8
+  ray: true
+  timeout_per_sequence_s: 1800        # 30分钟超时（质量模式）
+
+output:
+  format: "json"
+  save_pdbs: true
+  save_energies: true
+  save_trajectories: true             # 保存轨迹用于分析
+  output_dir: "pipeline_output_quality/"
+
+# ====== 额外质量增强选项 ======
+advanced:
+  # 多构象采样
+  num_conformers_per_seq: 10          # 每序列生成10个构象
+
+  # 后处理验证（需安装DFIRE-RNA和rsRNASP）
+  run_dfire_rna: false                # DFIRE-RNA评分（设true需安装）
+  run_rsrnasp: false                  # rsRNASP评分（设true需安装）
+  dfire_rna_path: "/dgx/tools/DFIRE-RNA/DFIRE-RNA"
+  rsrnasp_path: "/dgx/tools/rsRNASP/rsRNASP"
+
+  # 结构检查
+  check_steric_clashes: true          # 检查空间冲突
+  max_clash_distance_a: 2.0           # 最大冲突距离（Å）
+
+  # 物理约束验证
+  validate_bond_lengths: true         # 验证键长
+  bond_length_tolerance_a: 0.2        # 键长容忍度
+
+  validate_angles: true               # 验证键角
+  angle_tolerance_deg: 5.0            # 键角容忍度
+
+  # 收敛判定
+  convergence_energy_drift_max: 0.05  # 能量漂移阈值
+  convergence_rmsd_variance_max: 0.10 # RMSD方差阈值

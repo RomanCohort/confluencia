@@ -1,0 +1,77 @@
+# trRosettaRNA2 circRNA Pipeline Docker Image
+# Optimized for DGX Spark / AutoDL GPU instances
+#
+# Build:
+#   docker build -t circrna-trrosetta:latest -f Dockerfile.trrosetta .
+#
+# Run:
+#   docker run --gpus all -v /data:/data circrna-trrosetta:latest \
+#       python parallel_worker_trrosetta.py --fasta /data/input.fasta --use-ray
+
+FROM nvidia/cuda:11.8-cudnn8-devel-ubuntu22.04
+
+LABEL maintainer="IGEM-FBH"
+LABEL description="trRosettaRNA2 + OpenMM circRNA 3D pipeline"
+
+# Prevent interactive prompts
+ENV DEBIAN_FRONTEND=noninteractive
+ENV TZ=Asia/Shanghai
+
+# System dependencies
+RUN apt-get update && apt-get install -y \
+    python3.10 \
+    python3-pip \
+    python3-dev \
+    git \
+    wget \
+    curl \
+    build-essential \
+    cmake \
+    swig \
+    libopenblas-dev \
+    liblapack-dev \
+    libfftw3-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+# Create symlinks
+RUN ln -sf /usr/bin/python3.10 /usr/bin/python && \
+    ln -sf /usr/bin/pip3 /usr/bin/pip
+
+# Install Python packages
+RUN pip install --no-cache-dir \
+    torch==2.1.0 \
+    torchvision==0.16.0 \
+    --index-url https://download.pytorch.org/whl/cu118
+
+RUN pip install --no-cache-dir \
+    numpy==1.24.3 \
+    scipy==1.10.1 \
+    biopython==1.81 \
+    pyyaml==6.0 \
+    ray[default]==2.7.0 \
+    openmm==8.0.0 \
+    viennarna==2.6.0 \
+    matplotlib==3.7.1 \
+    tqdm==4.65.0
+
+# Install trRosettaRNA2
+WORKDIR /opt
+RUN git clone https://github.com/pylelab/trRosettaRNA2.git || \
+    echo "trRosettaRNA2 clone failed - will need manual installation"
+
+# Download pre-trained model (if available)
+RUN mkdir -p /opt/trRosettaRNA2/models && \
+    cd /opt/trRosettaRNA2/models && \
+    (wget -q https://yanglab.qd.sdu.edu.cn/trRosettaRNA2/models/trRosettaRNA2.pt || \
+     echo "Model download failed - will need manual download")
+
+# Set environment
+ENV TRROSETTARNA2_HOME=/opt/trRosettaRNA2
+ENV PYTHONPATH="/opt/trRosettaRNA2:${PYTHONPATH}"
+
+# Copy pipeline code
+COPY circrna_3d_pipeline/ /opt/pipeline/
+WORKDIR /opt/pipeline
+
+# Default command
+CMD ["python", "parallel_worker_trrosetta.py", "--help"]
