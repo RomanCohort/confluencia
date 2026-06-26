@@ -83,6 +83,7 @@ nanobot.local.json
 memory/
 sessions/
 skills/
+!.claude/skills/
 
 # External tools (include as submodule or skip)
 external/
