@@ -182,7 +182,7 @@ class trRosettaRNA2Predictor:
             sys.executable, wrapper_script,
             '-i', fasta_path,           # MSA input (required)
             '-o', output_dir,           # Output directory (required)
-            '-mdir', self.model_path + '/weights/params/models/',  # Model directory
+            '-mdir', self.model_path + '/weights/params/',  # Model directory (trRosettaRNA2 adds /models/)
         ]
 
         # Add GPU parameter
