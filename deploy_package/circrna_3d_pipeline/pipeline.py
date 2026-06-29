@@ -18,7 +18,7 @@ import yaml
 from pathlib import Path
 
 from stage1_vienna import ViennaRNAPredictor
-from stage2_rosetta import RoseTTAFold2NAPredictor
+from stage2_trrosetta import trRosettaRNA2Predictor
 from stage3_cyclize import BSJCyclizer
 from stage4_md import MDRelaxation
 from stage5_quality import QualityFilter, save_dataset, convert_to_torusfold_format
@@ -43,7 +43,14 @@ class CircRNA3DPipeline:
 
         # Initialize stages
         self.stage1 = ViennaRNAPredictor(self.config['vienna'])
-        self.stage2 = RoseTTAFold2NAPredictor(self.config['rosetta'])
+
+        # Use trRosettaRNA2 (key must be 'rosetta' in config)
+        rosetta_config = self.config.get('rosetta', {})
+        rosetta_config.setdefault('model_path', './trRosettaRNA2/')
+        rosetta_config.setdefault('weights_path', './weights/params/')
+        rosetta_config.setdefault('use_gpu', True)
+        rosetta_config.setdefault('device', 'cuda:0')
+        self.stage2 = trRosettaRNA2Predictor(rosetta_config)
         self.stage3 = BSJCyclizer(self.config['cyclize'])
         self.stage4 = MDRelaxation(self.config['md'], mode=mode)
         self.stage5 = QualityFilter(self.config['quality'])
