@@ -18,11 +18,12 @@ vienna:
   output_bp_probs: true
 
 rosetta:
-  model_path: "models/rosettafold2na/"
+  model_path: "./trRosettaRNA2/"
+  weights_path: "./trRosettaRNA2/weights/params/"
   num_samples: 10              # 增加采样数，取最优
   batch_size: 1
   device: "cuda:0"
-  max_seq_length: 500
+  max_seq_length: 5000
 
 cyclize:
   bsj_restraint_k: 2000.0      # 更强的BSJ约束
