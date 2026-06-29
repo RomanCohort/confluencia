@@ -13,6 +13,7 @@ Reference: https://yanglab.qd.sdu.edu.cn/trRosettaRNA2
 """
 
 import os
+import sys
 import subprocess
 import numpy as np
 import json
