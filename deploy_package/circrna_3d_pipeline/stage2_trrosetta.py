@@ -178,11 +178,13 @@ class trRosettaRNA2Predictor:
 
         # Build command - use absolute path to wrapper script
         wrapper_script = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'trRosettaRNA2', 'predict.py'))
+        # Remove trailing slash from model_path to avoid double slash in trRosettaRNA2 code
+        model_dir = self.model_path.rstrip('/') + '/weights/params'
         cmd = [
             sys.executable, wrapper_script,
             '-i', fasta_path,           # MSA input (required)
             '-o', output_dir,           # Output directory (required)
-            '-mdir', self.model_path + '/weights/params/',  # Model directory (trRosettaRNA2 adds /models/)
+            '-mdir', model_dir,         # Model directory (no trailing slash)
         ]
 
         # Add GPU parameter
