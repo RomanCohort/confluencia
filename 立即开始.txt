@@ -1,0 +1,169 @@
+================================================================
+  circRNA环化Pipeline - 立即开始指南
+================================================================
+
+【当前位置】
+D:/IGEM集成方案/deploy_package/
+
+【已准备文件】
+✓ deploy_package.tar.gz (20KB) - 部署脚本包
+✓ pipeline_code.tar.gz (37KB) - Pipeline代码包
+✓ deploy_full_pipeline.sh - 完整版部署脚本
+✓ verify_dependencies.py - 依赖验证
+✓ README.md - 部署包说明
+✓ QUICK_START.md - 快速开始
+✓ README_DGX_DEPLOY.md - 完整指南
+
+================================================================
+
+【选择路径】
+
+----------------------------------------------------------------
+路径A: 上传到云GPU运行完整版（推荐）
+----------------------------------------------------------------
+
+需要: 云GPU服务器SSH访问权限
+
+步骤1: 上传部署包
+  打开Git Bash或PowerShell:
+  
+  cd D:/IGEM集成方案
+  
+  # 替换YOUR_SERVER为你的云GPU地址
+  scp deploy_package.tar.gz pipeline_code.tar.gz root@YOUR_SERVER:/root/
+
+步骤2: 连接云GPU
+  ssh root@YOUR_SERVER
+
+步骤3: 解压并验证
+  cd /root
+  tar -xzf deploy_package.tar.gz
+  tar -xzf pipeline_code.tar.gz -C deploy_package/circrna_3d_pipeline/
+  
+  cd deploy_package
+  python verify_dependencies.py
+
+步骤4: 安装缺失依赖（如有）
+  conda install -c bioconda viennarna -y
+  conda install -c conda-forge openmm -y
+  pip install ray pyyaml numpy pandas
+
+步骤5: 安装RoseTTAFold2NA（Stage 2必需）
+  git clone https://github.com/baker-laboratory/RoseTTAFold2NA.git
+  cd RoseTTAFold2NA
+  wget https://files.ipd.uw.edu/public/RoseTTAFold2NA/RoseTTAFold2NA_weights.tar.gz
+  tar -xzf RoseTTAFold2NA_weights.tar.gz -C weights/
+  cd ..
+
+步骤6: 准备输入数据
+  # 生成测试序列（10条）
+  python << 'PYEOF'
+import random
+bases = ['A', 'C', 'G', 'U']
+with open("test.fasta", 'w') as f:
+    for i in range(10):
+        L = random.randint(80, 150)
+        seq = ''.join(random.choices(bases, k=L))
+        f.write(f">circ_test_{i:03d} length={L} bsj_start=0 bsj_end={L}\n{seq}\n")
+PYEOF
+
+步骤7: 运行完整Pipeline
+  chmod +x deploy_full_pipeline.sh
+  ./deploy_full_pipeline.sh test.fasta
+
+步骤8: 检查结果
+  cat output_*/dataset_report.json
+  ls output_*/seq_*/cyclized/*.pdb
+
+----------------------------------------------------------------
+路径B: 先在本地Windows测试简化版
+----------------------------------------------------------------
+
+目的: 验证BSJ环化功能（无需RoseTTAFold2NA）
+
+步骤1: 查看简化测试脚本
+  cd D:/IGEM集成方案/deploy_package
+  cat simple_pipeline_test.py
+
+步骤2: 运行简化测试（会生成PDB文件）
+  python simple_pipeline_test.py
+
+预期输出:
+  test_output/
+  ├── circ_test_001_cyclized.pdb
+  ├── circ_test_002_cyclized.pdb
+  └── test_report.json
+
+注意: 简化版仅测试OpenMM环化功能
+      完整版需RoseTTAFold2NA（云GPU）
+
+----------------------------------------------------------------
+路径C: 查看详细文档规划部署
+----------------------------------------------------------------
+
+推荐阅读顺序:
+
+  1. README.md - 部署包总览（必读）
+     cat deploy_package/README.md
+
+  2. QUICK_START.md - 快速开始（推荐）
+     cat deploy_package/QUICK_START.md
+
+  3. README_DGX_DEPLOY.md - 完整指南（详细）
+     cat deploy_package/README_DGX_DEPLOY.md
+
+  4. verify_dependencies.py - 检查依赖
+     python deploy_package/verify_dependencies.py
+
+----------------------------------------------------------------
+
+【下一步建议】
+
+如果你有云GPU服务器:
+  → 选择路径A，直接上传运行
+
+如果你没有云GPU但想测试:
+  → 选择路径B，本地简化测试
+
+如果你想详细了解Pipeline:
+  → 选择路径C，阅读完整文档
+
+================================================================
+
+【关键文件位置】
+
+部署包: D:/IGEM集成方案/deploy_package.tar.gz
+Pipeline代码: D:/IGEM集成方案/pipeline_code.tar.gz
+完整Pipeline: D:/IGEM集成方案/confluencia_3_0/core/circrna/torusfold/circrna_3d_pipeline/
+
+【云GPU运行命令汇总】
+
+# 一键运行（推荐）
+./deploy_full_pipeline.sh input.fasta
+
+# 分步运行
+python verify_dependencies.py           # 验证依赖
+python prefilter.py --fasta input.fasta # 预过滤
+python parallel_worker.py \
+    --config config_quality.yaml \
+    --fasta input.fasta \
+    --num-workers 8 \
+    --mode quality \
+    --export-torusfold                  # 主Pipeline
+
+================================================================
+
+【预期时间】
+
+测试模式（10序列，fast）: ~10分钟
+完整模式（1000序列，quality）: ~8-10小时（8 GPU）
+大规模（10000序列，quality）: ~3-4天（8 GPU）
+
+================================================================
+
+【需要帮助？】
+
+查看详细文档: cat deploy_package/README_DGX_DEPLOY.md
+检查依赖状态: python deploy_package/verify_dependencies.py
+
+================================================================
