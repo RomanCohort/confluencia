@@ -1,0 +1,56 @@
+{
+    "model_name": "model_1",
+    "num_recycles": 3,
+    "nrows": 64,
+    "max_recycle": 3,
+    "dim_pair": 64,
+    "use_ss": true,
+    "divide": false,
+    "init_str": "nn",
+    "ss3D": false,
+    "RNAformer": {
+        "n_block": 12,
+        "d_model": 256,
+        "d_ff": 512,
+        "num_heads": 8,
+        "dim_head": 32,
+        "num_tokens": 4,
+        "attn_dropout": 0.0,
+        "ff_dropout": 0.0,
+        "msa_tie_row_attn": false,
+        "msa_conv": false,
+        "use_r2n": false,
+        "qknorm": true,
+        "dropout_rate_attn": 0.0,
+        "dropout_rate_ff": 0.0
+    },
+    "structure_module": {
+        "c_s": 64,
+        "c_z": 64,
+        "c_ipa": 16,
+        "c_resnet": 128,
+        "no_heads_ipa": 12,
+        "no_qk_points": 4,
+        "no_v_points": 12,
+        "no_blocks": 8,
+        "no_transition_layers": 1,
+        "no_resnet_blocks": 2,
+        "no_angles": 8,
+        "trans_scale_factor": 1.0
+    },
+    "ss_module": {
+        "hidden_size": 128,
+        "dropout": 0.0,
+        "num_layers": 1
+    },
+    "input_embedder": {
+        "dim": 64,
+        "use_ss": true
+    },
+    "pair_embedder": {
+        "dim": 64
+    },
+    "recycling": {
+        "num_recycles": 3
+    }
+}
