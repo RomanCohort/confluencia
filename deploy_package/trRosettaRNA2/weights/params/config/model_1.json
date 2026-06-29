@@ -7,7 +7,7 @@
     "use_ss": true,
     "divide": false,
     "init_str": "nn",
-    "ss3D": false,
+    "ss3D": true,
     "RNAformer": {
         "n_block": 12,
         "d_model": 256,
