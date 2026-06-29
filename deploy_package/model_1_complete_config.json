@@ -1,0 +1,44 @@
+{
+    "model_name": "model_1",
+    "num_recycles": 3,
+    "nrows": 64,
+    "dropout": 0.0,
+    "d_model": 256,
+    "d_ff": 512,
+    "num_heads": 8,
+    "num_layers": 6,
+    "max_len": 500,
+    "dim_pair": 64,
+    "dim_single": 64,
+    "use_ss": true,
+    "RNAformer": {
+        "n_block": 6,
+        "d_model": 256,
+        "d_ff": 512,
+        "num_heads": 8,
+        "dropout": 0.0,
+        "max_len": 500
+    },
+    "structure_module": {
+        "hidden_size": 256,
+        "dropout": 0.0,
+        "num_layers": 2,
+        "use_bias": true
+    },
+    "ss_module": {
+        "hidden_size": 128,
+        "dropout": 0.0,
+        "num_layers": 1,
+        "use_bias": true
+    },
+    "input_embedder": {
+        "dim": 64,
+        "use_ss": true
+    },
+    "pair_embedder": {
+        "dim": 64
+    },
+    "recycling": {
+        "num_recycles": 3
+    }
+}
