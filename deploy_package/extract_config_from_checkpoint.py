@@ -51,9 +51,18 @@ def extract_config_from_checkpoint(checkpoint_path):
             if 'linear_kv_points.weight' in key:
                 total, c_z = shape
                 if 'no_heads_ipa' in structure_params:
+                    # 432 = 12 * no_v_points * 3
+                    # 所以 no_v_points = 432 / (12 * 3) = 12
                     no_v_points = total // (structure_params['no_heads_ipa'] * 3)
                     structure_params['no_v_points'] = no_v_points
-                    print(f"  no_v_points = {no_v_points} (from {key})")
+                    print(f"  no_v_points = {no_v_points} (from {key}, total={total}, no_heads_ipa={structure_params['no_heads_ipa']})")
+
+            # linear_out.weight: [c_s, total_input]
+            # total_input = c_z + c_s + no_heads_ipa * c_ipa + no_heads_ipa * no_qk_points * 3 + no_heads_ipa * no_v_points * 3
+            if 'linear_out.weight' in key and 'ipa' in key:
+                c_s, total_input = shape
+                structure_params['c_s'] = c_s
+                print(f"  c_s = {c_s} (from {key})")
 
         # angle_resnet参数
         if 'angle_resnet.linear_in.weight' in key:
