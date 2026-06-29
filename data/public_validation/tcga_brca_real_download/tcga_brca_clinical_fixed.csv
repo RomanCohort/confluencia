@@ -1,0 +1,101 @@
+submitter_id,vital_status,days_to_death,days_to_last_follow_up,gender,race
+TCGA-E9-A5FL,Unknown,,24.0,female,white
+TCGA-A2-A1G4,Unknown,,595.0,female,white
+TCGA-BH-A0HF,Unknown,,727.0,female,white
+TCGA-AR-A1AS,Unknown,,1150.0,female,asian
+TCGA-D8-A13Y,Unknown,,1728.0,female,white
+TCGA-A2-A3XV,Unknown,,996.0,female,black or african american
+TCGA-LD-A9QF,Unknown,,323.0,female,black or african american
+TCGA-EW-A1IZ,Unknown,,554.0,female,white
+TCGA-BH-A0H9,Unknown,,1247.0,female,white
+TCGA-AO-A1KO,Unknown,,622.0,female,white
+TCGA-AN-A0XO,Unknown,,375.0,female,white
+TCGA-D8-A27K,Unknown,,1461.0,female,white
+TCGA-BH-A1FU,Unknown,,1688.0,female,white
+TCGA-AR-A0TX,Unknown,,1972.0,female,not reported
+TCGA-BH-A209,Unknown,,3959.0,female,black or african american
+TCGA-AO-A1KS,Unknown,,350.0,female,white
+TCGA-A1-A0SD,Unknown,,437.0,female,white
+TCGA-B6-A0IH,Unknown,,2965.0,female,white
+TCGA-AC-A2QI,Unknown,,588.0,female,white
+TCGA-A2-A0CZ,Unknown,,1616.0,female,white
+TCGA-A8-A09B,Unknown,,365.0,female,not reported
+TCGA-BH-A0DP,Unknown,,476.0,female,white
+TCGA-E9-A1RF,Unknown,,200.0,female,white
+TCGA-LD-A7W5,Unknown,,216.0,female,black or african american
+TCGA-AR-A250,Unknown,,2707.0,female,white
+TCGA-AR-A2LJ,Unknown,,2632.0,female,white
+TCGA-BH-A1EU,Unknown,,1286.0,female,white
+TCGA-AR-A1AW,Unknown,,2632.0,female,white
+TCGA-A1-A0SK,Unknown,,967.0,female,asian
+TCGA-D8-A1XT,Unknown,,506.0,female,white
+TCGA-A7-A6VY,Unknown,,266.0,female,black or african american
+TCGA-D8-A1XC,Unknown,,377.0,female,white
+TCGA-BH-A0B5,Unknown,,2136.0,female,white
+TCGA-E9-A1NG,Unknown,,786.0,female,white
+TCGA-EW-A1P8,Unknown,,239.0,female,white
+TCGA-3C-AALK,Unknown,,1448.0,female,black or african american
+TCGA-AN-A0FJ,Unknown,,242.0,female,white
+TCGA-A2-A3KD,Unknown,,1206.0,female,white
+TCGA-C8-A1HK,Unknown,,366.0,female,asian
+TCGA-B6-A0RL,Unknown,,2469.0,female,black or african american
+TCGA-BH-A18P,Unknown,,921.0,female,white
+TCGA-EW-A424,Unknown,,715.0,female,white
+TCGA-D8-A1JK,Unknown,,0.0,female,white
+TCGA-BH-A0GZ,Unknown,,328.0,female,white
+TCGA-C8-A130,Unknown,,370.0,female,asian
+TCGA-AO-A03M,Unknown,,1866.0,female,white
+TCGA-AO-A12H,Unknown,,1234.0,female,black or african american
+TCGA-AC-A6NO,Unknown,,51.0,female,black or african american
+TCGA-C8-A8HP,Unknown,,396.0,female,asian
+TCGA-AR-A24P,Unknown,,84.0,female,white
+TCGA-AO-A0J2,Unknown,,997.0,female,white
+TCGA-AR-A1AL,Unknown,,2971.0,female,white
+TCGA-BH-A1F6,Unknown,,2965.0,female,white
+TCGA-BH-A0E7,Unknown,,1363.0,female,white
+TCGA-BH-A0BL,Unknown,,2278.0,female,white
+TCGA-AR-A256,Unknown,,2854.0,female,white
+TCGA-A2-A0T2,Unknown,,255.0,female,white
+TCGA-E9-A243,Unknown,,612.0,female,white
+TCGA-EW-A6S9,Unknown,,463.0,female,black or african american
+TCGA-D8-A1X6,Unknown,,541.0,female,white
+TCGA-D8-A27N,Unknown,,519.0,female,white
+TCGA-EW-A1IX,Unknown,,1208.0,female,asian
+TCGA-AC-A8OS,Unknown,,70.0,female,white
+TCGA-A7-A4SF,Unknown,,545.0,female,black or african american
+TCGA-A7-A0CJ,Unknown,,931.0,female,white
+TCGA-EW-A1J5,Unknown,,477.0,female,white
+TCGA-E2-A159,Unknown,,762.0,female,white
+TCGA-E9-A5UO,Unknown,,785.0,female,white
+TCGA-A8-A096,Unknown,,0.0,female,not reported
+TCGA-E9-A1N6,Unknown,,678.0,female,white
+TCGA-E2-A1BC,Unknown,,501.0,female,not reported
+TCGA-E2-A1LB,Unknown,,2306.0,female,black or african american
+TCGA-LL-A7T0,Unknown,,376.0,female,black or african american
+TCGA-E9-A1R5,Unknown,,92.0,female,white
+TCGA-B6-A400,Unknown,,215.0,female,black or african american
+TCGA-B6-A0RO,Unknown,,4929.0,female,white
+TCGA-AC-A2QJ,Unknown,,446.0,female,white
+TCGA-E9-A54Y,Unknown,,725.0,female,white
+TCGA-EW-A1PG,Unknown,,1051.0,female,white
+TCGA-B6-A0IC,Unknown,,0.0,female,white
+TCGA-E2-A15C,Unknown,,694.0,female,white
+TCGA-A2-A0SY,Unknown,,1347.0,female,white
+TCGA-OL-A6VR,Unknown,,1220.0,female,black or african american
+TCGA-A2-A04Q,Unknown,,2385.0,female,white
+TCGA-GM-A3XG,Unknown,,1330.0,female,white
+TCGA-AR-A24S,Unknown,,2976.0,female,white
+TCGA-BH-A0DD,Unknown,,2486.0,male,white
+TCGA-A8-A07U,Unknown,,760.0,female,not reported
+TCGA-A7-A4SE,Unknown,,644.0,female,black or african american
+TCGA-C8-A26Z,Unknown,,470.0,female,asian
+TCGA-A8-A0A9,Unknown,,822.0,female,not reported
+TCGA-BH-A0HU,Unknown,,392.0,female,white
+TCGA-AC-A2BK,Unknown,,2222.0,female,black or african american
+TCGA-D8-A1JF,Unknown,,366.0,female,white
+TCGA-A2-A0EV,Unknown,,968.0,female,white
+TCGA-A8-A06X,Unknown,,943.0,female,not reported
+TCGA-E9-A226,Unknown,,1048.0,female,white
+TCGA-C8-A12T,Unknown,,0.0,female,asian
+TCGA-AO-A12C,Unknown,,2372.0,female,white
+TCGA-BH-A0DG,Unknown,,2041.0,female,black or african american

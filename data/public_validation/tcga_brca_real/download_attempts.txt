@@ -1,0 +1,34 @@
+[2026-06-27 13:01:02] 
+============================================================
+[2026-06-27 13:01:02] Method 1: GDC API - Clinical Data Download
+[2026-06-27 13:01:02] ============================================================
+[2026-06-27 13:01:02] Fetching clinical data from GDC API...
+[2026-06-27 13:01:03] ERROR: GDC API returned status 404
+[2026-06-27 13:01:03] 
+============================================================
+[2026-06-27 13:01:03] Method 2: Direct URL Download (Attempting)
+[2026-06-27 13:01:03] ============================================================
+[2026-06-27 13:01:03] 
+Trying TCGA Expression Matrix...
+[2026-06-27 13:01:05]   NOT REACHABLE: Status 404
+[2026-06-27 13:01:05] 
+Trying GDC Portal Manifest...
+[2026-06-27 13:01:06]   ACCESSIBLE: Status 200
+[2026-06-27 13:01:06] 
+============================================================
+[2026-06-27 13:01:06] Method 3: Alternative Public Datasets
+[2026-06-27 13:01:06] ============================================================
+[2026-06-27 13:01:06] 
+Exploring: GEO Series GSE109528
+[2026-06-27 13:01:06]   Accession/URL: GSE109528
+[2026-06-27 13:01:06]   Description: Wesselhoeft 2018 circRNA expression
+[2026-06-27 13:01:06] 
+Exploring: Kaggle Breast Cancer
+[2026-06-27 13:01:06]   Accession/URL: https://www.kaggle.com/datasets/raghadalsabr/breast-cancer-gene-expression-rates-metabric
+[2026-06-27 13:01:06]   Description: METABRIC dataset on Kaggle
+[2026-06-27 13:01:06] 
+============================================================
+[2026-06-27 13:01:06] Method 4: Create Comprehensive Test Dataset
+[2026-06-27 13:01:06] ============================================================
+[2026-06-27 13:01:06] 
+Generating comprehensive test dataset...

@@ -1,0 +1,107 @@
+# CircRNA Cloud Platform - 基础镜像
+# 预配置生信工具链，DGX Spark上CUDA+PyTorch已预装
+#
+# 构建命令: docker build -t circrna-cloud-base:latest .
+
+FROM python:3.10-slim
+
+LABEL maintainer="IGEM-FBH"
+LABEL version="1.0.0"
+LABEL description="CircRNA 3D Structure Prediction - Base Image with Bioinfo Tools"
+
+# ============================================================
+# 系统依赖
+# ============================================================
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    git \
+    wget \
+    curl \
+    libboost-all-dev \
+    libopenmm-dev \
+    swig \
+    && rm -rf /var/lib/apt/lists/*
+
+# ============================================================
+# Python依赖（不包含PyTorch+CUDA，DGX Spark已预装）
+# ============================================================
+
+RUN pip install --no-cache-dir \
+    ViennaRNA==2.6.4 \
+    openmm==8.1.1 \
+    mdtraj \
+    biopython \
+    numpy \
+    pandas \
+    scipy \
+    fastapi \
+    uvicorn \
+    python-multipart \
+    redis \
+    docker \
+    pyyaml \
+    streamlit \
+    streamlit-authenticator \
+    py3Dmol
+
+# ============================================================
+# 工具目录结构
+# ============================================================
+
+WORKDIR /app
+
+# 创建数据目录结构
+RUN mkdir -p \
+    /data/user/input \
+    /data/user/output \
+    /data/user/tmp \
+    /data/shared/tools \
+    /data/shared/models \
+    /data/shared/databases
+
+# ============================================================
+# 复制Pipeline代码（共享只读）
+# ============================================================
+
+# Pipeline代码（共享给所有用户容器）
+COPY confluencia_3_0/core/circrna/torusfold/circrna_3d_pipeline/ \
+    /data/shared/pipeline/
+
+COPY circrna-cloud-platform/backend/ \
+    /data/shared/platform/
+
+# ============================================================
+# RoseTTAFold2NA（如果需要，单独安装）
+# ============================================================
+
+# 注：RoseTTAFold2NA体积大（~10GB），建议：
+# 1. 在DGX Spark主机上单独安装
+# 2. 通过volume挂载到容器: /opt/RoseTTAFold2NA
+
+# RUN git clone https://github.com/baker-laboratory/RoseTTAFold2NA.git /data/shared/tools/RoseTTAFold2NA
+
+# ============================================================
+# 环境变量
+# ============================================================
+
+ENV PYTHONPATH=/app:/data/shared:/data/shared/pipeline
+ENV VIENNARNA_PATH=/usr/local/bin/RNAfold
+ENV OPENMM_PATH=/usr/local/lib/python3.10/dist-packages/openmm
+ENV PIPELINE_PATH=/data/shared/pipeline
+
+# ============================================================
+# 用户映射（容器内以非root运行）
+# ============================================================
+
+RUN useradd -m -u 1000 crcuser
+USER crcuser
+
+# ============================================================
+# 启动命令（默认API服务）
+# ============================================================
+
+EXPOSE 8000 8501
+
+# 默认启动API服务（被调度器调用时会覆盖）
+CMD ["uvicorn", "platform.api_server:app", "--host", "0.0.0.0", "--port", "8000"]

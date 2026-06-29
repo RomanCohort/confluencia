@@ -1,0 +1,28 @@
+{
+  "dataset": "TCGA-BRCA TNBC Subset (Synthetic)",
+  "generation_date": "2026-06-27 13:02:19",
+  "samples": 150,
+  "genes": [
+    "TACSTD2",
+    "PVRL4",
+    "SLC39A6",
+    "VTCN1",
+    "BRCA1",
+    "BRCA2",
+    "TP53",
+    "PTEN",
+    "ESR1",
+    "PGR"
+  ],
+  "signature_genes": [
+    "TACSTD2",
+    "PVRL4",
+    "SLC39A6",
+    "VTCN1"
+  ],
+  "note": "Synthetic data based on TCGA-BRCA TNBC statistics for method validation",
+  "distributions": "Expression values follow normal distribution with realistic means/stds",
+  "clinical_notes": "All samples are TNBC (ER-/PR-/HER2-)",
+  "usage": "For validation method testing only - replace with real data for final analysis",
+  "real_data_source": "https://portal.gdc.cancer.gov/projects/TCGA-BRCA"
+}

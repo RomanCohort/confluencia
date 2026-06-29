@@ -1,0 +1,123 @@
+[2026-06-27 12:47:36] Starting download process...
+[2026-06-27 12:47:36] 
+=== Phase 1: Downloading Clinical Data ===
+[2026-06-27 12:47:36] Fetching clinical data (500 samples)...
+[2026-06-27 12:47:37] ERROR: Clinical API returned status 404
+[2026-06-27 12:47:37] 
+=== Phase 2: Fetching Expression File List ===
+[2026-06-27 12:47:37] Fetching expression file list...
+[2026-06-27 12:47:38] SUCCESS: Found 0 expression files
+[2026-06-27 12:47:38]   - Retrieving first 100 files for download
+[2026-06-27 12:47:38]   - File list saved: D:\IGEM集成方案\data\public_validation\tcga_brca_full\tcga_expression_file_list.csv
+[2026-06-27 12:47:38] 
+=== Phase 3: Downloading Expression Files ===
+[2026-06-27 12:47:38] NOTE: This will take 1-2 hours for full download
+[2026-06-27 12:47:38] Downloading first 50 files as sample...
+[2026-06-27 12:47:38] 
+Expression download summary:
+[2026-06-27 12:47:38]   - Downloaded: 0 files
+[2026-06-27 12:47:38]   - Failed: 0 files
+[2026-06-27 12:47:38]   - Total size: 0.0 MB
+[2026-06-27 12:47:38] 
+=== Phase 4: Creating Expression Matrix ===
+[2026-06-27 12:47:38] WARNING: No expression files downloaded, using synthetic data
+[2026-06-27 12:47:38] Created synthetic expression matrix: D:\IGEM集成方案\data\public_validation\tcga_brca_full\tcga_brca_expression_synthetic.csv
+[2026-06-27 12:47:38] 
+================================================================================
+[2026-06-27 12:47:38] DOWNLOAD COMPLETE
+[2026-06-27 12:47:38] ================================================================================
+[2026-06-27 12:47:38] 
+Files created:
+[2026-06-27 12:47:38]   - tcga_brca_expression_synthetic.csv (23.6 KB)
+[2026-06-27 12:47:38]   - tcga_expression_file_list.csv (0.0 KB)
+[2026-06-27 12:47:38] 
+Total download time: Check log for details
+[2026-06-27 12:47:38] Log file: D:\IGEM集成方案\data\public_validation\tcga_brca_full\download_log.txt
+[2026-06-27 12:47:38] 
+Next steps:
+[2026-06-27 12:47:38] 1. Run validation script with downloaded data
+[2026-06-27 12:47:38] 2. python D:/IGEM集成方案/scripts/strategy_a_validation.py
+[2026-06-27 12:47:38] 
+End Time:2026-06-27 12:47:38
+[2026-06-27 12:55:29] Starting download process...
+[2026-06-27 12:55:29] 
+=== Phase 1: Downloading Clinical Data ===
+[2026-06-27 12:55:29] Fetching clinical data (500 samples)...
+[2026-06-27 12:55:30] ERROR: Clinical API returned status 404
+[2026-06-27 12:55:30] 
+=== Phase 2: Fetching Expression File List ===
+[2026-06-27 12:55:30] Fetching expression file list...
+[2026-06-27 12:55:31] SUCCESS: Found 0 expression files
+[2026-06-27 12:55:31]   - Retrieving first 100 files for download
+[2026-06-27 12:55:31]   - File list saved: D:\IGEM集成方案\data\public_validation\tcga_brca_full\tcga_expression_file_list.csv
+[2026-06-27 12:55:31] 
+=== Phase 3: Downloading Expression Files ===
+[2026-06-27 12:55:31] NOTE: This will take 1-2 hours for full download
+[2026-06-27 12:55:31] Downloading first 50 files as sample...
+[2026-06-27 12:55:31] 
+Expression download summary:
+[2026-06-27 12:55:31]   - Downloaded: 0 files
+[2026-06-27 12:55:31]   - Failed: 0 files
+[2026-06-27 12:55:31]   - Total size: 0.0 MB
+[2026-06-27 12:55:31] 
+=== Phase 4: Creating Expression Matrix ===
+[2026-06-27 12:55:31] WARNING: No expression files downloaded, using synthetic data
+[2026-06-27 12:55:31] Created synthetic expression matrix: D:\IGEM集成方案\data\public_validation\tcga_brca_full\tcga_brca_expression_synthetic.csv
+[2026-06-27 12:55:31] 
+================================================================================
+[2026-06-27 12:55:31] DOWNLOAD COMPLETE
+[2026-06-27 12:55:31] ================================================================================
+[2026-06-27 12:55:31] 
+Files created:
+[2026-06-27 12:55:31]   - tcga_brca_expression_synthetic.csv (23.6 KB)
+[2026-06-27 12:55:31]   - tcga_expression_file_list.csv (0.0 KB)
+[2026-06-27 12:55:31] 
+Total download time: Check log for details
+[2026-06-27 12:55:31] Log file: D:\IGEM集成方案\data\public_validation\tcga_brca_full\download_log.txt
+[2026-06-27 12:55:31] 
+Next steps:
+[2026-06-27 12:55:31] 1. Run validation script with downloaded data
+[2026-06-27 12:55:31] 2. python D:/IGEM集成方案/scripts/strategy_a_validation.py
+[2026-06-27 12:55:31] 
+End Time:2026-06-27 12:55:31
+[2026-06-27 13:07:09] Starting download process...
+[2026-06-27 13:07:09] 
+=== Phase 1: Downloading Clinical Data ===
+[2026-06-27 13:07:09] Fetching clinical data (500 samples)...
+[2026-06-27 13:07:10] ERROR: Clinical API returned status 404
+[2026-06-27 13:07:10] 
+=== Phase 2: Fetching Expression File List ===
+[2026-06-27 13:07:10] Fetching expression file list...
+[2026-06-27 13:07:12] SUCCESS: Found 0 expression files
+[2026-06-27 13:07:12]   - Retrieving first 100 files for download
+[2026-06-27 13:07:12]   - File list saved: D:\IGEM集成方案\data\public_validation\tcga_brca_full\tcga_expression_file_list.csv
+[2026-06-27 13:07:12] 
+=== Phase 3: Downloading Expression Files ===
+[2026-06-27 13:07:12] NOTE: This will take 1-2 hours for full download
+[2026-06-27 13:07:12] Downloading first 50 files as sample...
+[2026-06-27 13:07:12] 
+Expression download summary:
+[2026-06-27 13:07:12]   - Downloaded: 0 files
+[2026-06-27 13:07:12]   - Failed: 0 files
+[2026-06-27 13:07:12]   - Total size: 0.0 MB
+[2026-06-27 13:07:12] 
+=== Phase 4: Creating Expression Matrix ===
+[2026-06-27 13:07:12] WARNING: No expression files downloaded, using synthetic data
+[2026-06-27 13:07:12] Created synthetic expression matrix: D:\IGEM集成方案\data\public_validation\tcga_brca_full\tcga_brca_expression_synthetic.csv
+[2026-06-27 13:07:12] 
+================================================================================
+[2026-06-27 13:07:12] DOWNLOAD COMPLETE
+[2026-06-27 13:07:12] ================================================================================
+[2026-06-27 13:07:12] 
+Files created:
+[2026-06-27 13:07:12]   - tcga_brca_expression_synthetic.csv (23.6 KB)
+[2026-06-27 13:07:12]   - tcga_expression_file_list.csv (0.0 KB)
+[2026-06-27 13:07:12] 
+Total download time: Check log for details
+[2026-06-27 13:07:12] Log file: D:\IGEM集成方案\data\public_validation\tcga_brca_full\download_log.txt
+[2026-06-27 13:07:12] 
+Next steps:
+[2026-06-27 13:07:12] 1. Run validation script with downloaded data
+[2026-06-27 13:07:12] 2. python D:/IGEM集成方案/scripts/strategy_a_validation.py
+[2026-06-27 13:07:12] 
+End Time:2026-06-27 13:07:12

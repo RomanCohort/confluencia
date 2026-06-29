@@ -1,0 +1,52 @@
+[
+  {
+    "molecularAlterationType": "COPY_NUMBER_ALTERATION",
+    "datatype": "DISCRETE",
+    "name": "Putative copy-number alterations from DNAcopy.",
+    "description": "Copy-number alterations from DNA copy. Calls made after normal contamination correction and CNV removal using thresholds. Values: -2 = homozygous deletion; -1 = hemizygous deletion; 0 = neutral / no change; 1 = gain; 2 = high level amplification.",
+    "showProfileInAnalysisTab": true,
+    "patientLevel": false,
+    "molecularProfileId": "brca_metabric_cna",
+    "studyId": "brca_metabric"
+  },
+  {
+    "molecularAlterationType": "METHYLATION",
+    "datatype": "CONTINUOUS",
+    "name": "Promoter methylation (RRBS)",
+    "description": "Average methylation (beta-values) of promoters defined as 500bp upstream & 50 downstream of Transcription Start Site (TSS). With coverage >= 20 in 70% of the tumor samples and 70% of the normal samples. For genes with multiple promoters (alternate), the promoter with minimum methylation in the normal tissues is selected",
+    "showProfileInAnalysisTab": true,
+    "patientLevel": false,
+    "molecularProfileId": "brca_metabric_methylation_promoters_rrbs",
+    "studyId": "brca_metabric"
+  },
+  {
+    "molecularAlterationType": "MRNA_EXPRESSION",
+    "datatype": "CONTINUOUS",
+    "name": "mRNA expression (Illumina HT-12 v3 microarray)",
+    "description": "Expression log2 intensity levels (Illumina HT-12 v3 microarray)",
+    "showProfileInAnalysisTab": false,
+    "patientLevel": false,
+    "molecularProfileId": "brca_metabric_mrna",
+    "studyId": "brca_metabric"
+  },
+  {
+    "molecularAlterationType": "MRNA_EXPRESSION",
+    "datatype": "Z-SCORE",
+    "name": "mRNA expression z-scores relative to all samples (log microarray)",
+    "description": "Log2-transformed mRNA z-Scores compared to the expression distribution of all samples (Illumina HT-12 v3 microarray)",
+    "showProfileInAnalysisTab": true,
+    "patientLevel": false,
+    "molecularProfileId": "brca_metabric_mrna_median_all_sample_Zscores",
+    "studyId": "brca_metabric"
+  },
+  {
+    "molecularAlterationType": "MUTATION_EXTENDED",
+    "datatype": "MAF",
+    "name": "Mutations",
+    "description": "Somatic mutation data from targeted sequencing of 173 genes of 2509 primary breast tumors with 548 matched normals.",
+    "showProfileInAnalysisTab": true,
+    "patientLevel": false,
+    "molecularProfileId": "brca_metabric_mutations",
+    "studyId": "brca_metabric"
+  }
+]

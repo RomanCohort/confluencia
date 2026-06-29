@@ -1,0 +1,45 @@
+[2026-06-27 13:10:20] 
+============================================================
+[2026-06-27 13:10:20] Phase 1: Downloading Clinical Data
+[2026-06-27 13:10:20] ============================================================
+[2026-06-27 13:10:20] Using CORRECTED clinical endpoint...
+[2026-06-27 13:10:20] Fetching 100 clinical samples...
+[2026-06-27 13:10:21] SUCCESS: Downloaded clinical data
+[2026-06-27 13:10:21]   - Samples: 100
+[2026-06-27 13:10:21]   - File: D:\IGEM集成方案\data\public_validation\tcga_brca_real_download\tcga_brca_clinical_fixed.csv
+[2026-06-27 13:10:21]   - Size: 4.6 KB
+[2026-06-27 13:10:21] 
+============================================================
+[2026-06-27 13:10:21] Phase 2: Fetching Expression File List
+[2026-06-27 13:10:21] ============================================================
+[2026-06-27 13:10:21] Using CORRECT workflow_type: STAR - Counts
+[2026-06-27 13:10:21] Fetching expression file list...
+[2026-06-27 13:10:23] SUCCESS: Found 0 expression files
+[2026-06-27 13:10:23]   - Retrieving first 0 files for download
+[2026-06-27 13:10:23]   - File list saved: D:\IGEM集成方案\data\public_validation\tcga_brca_real_download\tcga_expression_file_list_FIXED.csv
+[2026-06-27 13:10:23] 
+============================================================
+[2026-06-27 13:10:23] Phase 3: Downloading Expression Files
+[2026-06-27 13:10:23] ============================================================
+[2026-06-27 13:10:23] This will download actual files from GDC...
+[2026-06-27 13:10:23] 
+Expression download summary:
+[2026-06-27 13:10:23]   - Downloaded: 0 files
+[2026-06-27 13:10:23]   - Failed: 0 files
+[2026-06-27 13:10:23]   - Total size: 0.00 MB
+[2026-06-27 13:10:23] 
+================================================================================
+[2026-06-27 13:10:23] DOWNLOAD COMPLETE
+[2026-06-27 13:10:23] ================================================================================
+[2026-06-27 13:10:23] 
+Files created:
+[2026-06-27 13:10:23]   - download_log_FIXED.txt: 2.0 KB
+[2026-06-27 13:10:23]   - tcga_brca_clinical_fixed.csv: 4.6 KB
+[2026-06-27 13:10:23]   - tcga_expression_file_list_FIXED.csv: 0.0 KB
+[2026-06-27 13:10:23] 
+Raw expression files:
+[2026-06-27 13:10:23] 
+Total download time: See log above
+[2026-06-27 13:10:23] Log file: D:\IGEM集成方案\data\public_validation\tcga_brca_real_download\download_log_FIXED.txt
+[2026-06-27 13:10:23] 
+End Time: 2026-06-27 13:10:23
