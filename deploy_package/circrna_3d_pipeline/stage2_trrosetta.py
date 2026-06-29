@@ -101,31 +101,40 @@ class trRosettaRNA2Predictor:
 
         start_time = time.time()
 
-        # Try trRosettaRNA2 if installed
-        if self.trrosetta_home:
-            try:
-                results = self._run_trrosetta(
-                    sequence=sequence,
-                    output_dir=output_dir,
-                    dot_bracket=dot_bracket,
-                    bp_probs=bp_probs
-                )
-                elapsed = time.time() - start_time
-                print(f"trRosettaRNA2 completed in {elapsed:.1f}s")
-                return results
-            except Exception as e:
-                print(f"trRosettaRNA2 failed: {e}")
-                raise RuntimeError(f"trRosettaRNA2 prediction failed. Please check installation. Error: {e}")
+        # MUST use trRosettaRNA2 - NO FALLBACK
+        if not self.trrosetta_home:
+            raise RuntimeError(
+                f"\n{'='*70}\n"
+                f"ERROR: trRosettaRNA2 NOT FOUND!\n"
+                f"{'='*70}\n"
+                f"Searched paths:\n"
+                f"  1. {self.model_path}\n"
+                f"  2. /opt/trRosettaRNA2\n"
+                f"  3. ~/trRosettaRNA2\n"
+                f"  4. ~/software/trRosettaRNA2\n\n"
+                f"Required files:\n"
+                f"  - trRosettaRNA2/predict.py\n"
+                f"  - trRosettaRNA2/trRNA2/RNAformer.py\n"
+                f"  - weights/params/models/*.pth.tar\n\n"
+                f"Installation:\n"
+                f"  git clone https://github.com/YangLab-SDU/trRosettaRNA2.git\n"
+                f"  wget http://yanglab.qd.sdu.edu.cn/trRosettaRNA/download/params_trRNA2.tar.bz2\n"
+                f"  tar -jxvf params_trRNA2.tar.bz2\n\n"
+                f"Or set environment variable:\n"
+                f"  export TRROSETTARNA2_HOME=/path/to/trRosettaRNA2\n"
+                f"{'='*70}"
+            )
 
-        # No fallback - trRosettaRNA2 must be installed
-        raise RuntimeError(
-            f"trRosettaRNA2 not found! Searched paths:\n"
-            f"  - {self.model_path}\n"
-            f"  - /opt/trRosettaRNA2\n"
-            f"  - ~/trRosettaRNA2\n"
-            f"Please install from: https://yanglab.qd.sdu.edu.cn/trRosettaRNA2\n"
-            f"Or set TRROSETTARNA2_HOME environment variable."
+        # Run trRosettaRNA2 (will raise exception if fails)
+        results = self._run_trrosetta(
+            sequence=sequence,
+            output_dir=output_dir,
+            dot_bracket=dot_bracket,
+            bp_probs=bp_probs
         )
+        elapsed = time.time() - start_time
+        print(f"trRosettaRNA2 completed in {elapsed:.1f}s")
+        return results
 
     def _run_trrosetta(
         self,
@@ -186,10 +195,32 @@ class trRosettaRNA2Predictor:
 
         # Run prediction
         print(f"Running trRosettaRNA2: {' '.join(cmd)}")
+        print(f"  Input: {fasta_path}")
+        print(f"  Output: {output_dir}")
+        print(f"  Device: {self.device}")
+        print(f"  GPU: {self.use_gpu}")
+
         result = subprocess.run(cmd, capture_output=True, text=True, timeout=300)
 
         if result.returncode != 0:
-            raise RuntimeError(f"trRosettaRNA2 failed: {result.stderr}")
+            error_msg = (
+                f"\n{'='*70}\n"
+                f"ERROR: trRosettaRNA2 execution FAILED!\n"
+                f"{'='*70}\n"
+                f"Command: {' '.join(cmd)}\n"
+                f"Return code: {result.returncode}\n"
+                f"Error output:\n{result.stderr}\n"
+                f"Standard output:\n{result.stdout}\n"
+                f"{'='*70}\n"
+                f"Possible causes:\n"
+                f"  1. predict.py not found at {predict_script}\n"
+                f"  2. GPU not available (check nvidia-smi)\n"
+                f"  3. PyTorch not installed or CUDA not enabled\n"
+                f"  4. Model weights not downloaded\n"
+                f"  5. Input sequence too long (max {self.max_seq_length}nt)\n"
+                f"{'='*70}"
+            )
+            raise RuntimeError(error_msg)
 
         # Parse outputs
         results = []
