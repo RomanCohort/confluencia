@@ -177,9 +177,9 @@ class trRosettaRNA2Predictor:
             np.save(bp_probs_path, bp_probs)
 
         # Build command with correct trRosettaRNA2 parameters
-        # trRosettaRNA2 requires: -i/--msa, -o/--out_dir
+        # Use the wrapper script at top level instead of python -m for module execution
         cmd = [
-            sys.executable, '-m', 'trRNA2.predict',
+            sys.executable, str(Path(__file__).parent / 'trRosettaRNA2' / 'predict.py'),
             '-i', fasta_path,           # MSA input (required)
             '-o', output_dir,           # Output directory (required)
             '-mdir', self.model_path + '/weights/params/models/',  # Model directory
