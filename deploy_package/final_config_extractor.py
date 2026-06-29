@@ -31,26 +31,29 @@ def analyze_and_fix():
                 print(f"✓ {name}: {shape[0]}")
 
             elif 'linear_q' in key:
-                no_heads_ipa_times_c_ipa, c_z = shape
-                if 'no_heads_ipa' in params:
-                    c_ipa = no_heads_ipa_times_c_ipa // params['no_heads_ipa']
-                    params['c_ipa'] = c_ipa
-                    params['c_z'] = c_z
-                    print(f"✓ {name}: c_ipa={c_ipa}, c_z={c_z}")
+                if 'weight' in key:  # 只处理weight，跳过bias
+                    no_heads_ipa_times_c_ipa, c_z = shape
+                    if 'no_heads_ipa' in params:
+                        c_ipa = no_heads_ipa_times_c_ipa // params['no_heads_ipa']
+                        params['c_ipa'] = c_ipa
+                        params['c_z'] = c_z
+                        print(f"✓ {name}: c_ipa={c_ipa}, c_z={c_z}")
 
             elif 'linear_q_points' in key:
-                total, c_z = shape
-                if 'no_heads_ipa' in params:
-                    no_qk_points = total // (params['no_heads_ipa'] * 3)
-                    params['no_qk_points'] = no_qk_points
-                    print(f"✓ {name}: no_qk_points={no_qk_points}")
+                if 'weight' in key:
+                    total, c_z = shape
+                    if 'no_heads_ipa' in params:
+                        no_qk_points = total // (params['no_heads_ipa'] * 3)
+                        params['no_qk_points'] = no_qk_points
+                        print(f"✓ {name}: no_qk_points={no_qk_points}")
 
             elif 'linear_kv_points' in key:
-                total, c_z = shape
-                if 'no_heads_ipa' in params:
-                    no_v_points = total // (params['no_heads_ipa'] * 3)
-                    params['no_v_points'] = no_v_points
-                    print(f"✓ {name}: no_v_points={no_v_points}")
+                if 'weight' in key:
+                    total, c_z = shape
+                    if 'no_heads_ipa' in params:
+                        no_v_points = total // (params['no_heads_ipa'] * 3)
+                        params['no_v_points'] = no_v_points
+                        print(f"✓ {name}: no_v_points={no_v_points}")
 
         elif 'structure_module.angle_resnet' in key:
             shape = checkpoint[key].shape
