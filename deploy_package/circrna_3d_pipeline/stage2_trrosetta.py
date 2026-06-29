@@ -175,29 +175,27 @@ class trRosettaRNA2Predictor:
             bp_probs_path = os.path.join(output_dir, 'bp_probs.npy')
             np.save(bp_probs_path, bp_probs)
 
-        # Build command
+        # Build command with correct trRosettaRNA2 parameters
+        # trRosettaRNA2 requires: -i/--msa, -o/--out_dir
         cmd = [
-            'python', predict_script,
-            '--input', fasta_path,
-            '--output_dir', output_dir,
-            '--num_samples', str(self.num_samples),
-            '--device', self.device,
+            sys.executable, '-m', 'trRNA2.predict',
+            '-i', fasta_path,           # MSA input (required)
+            '-o', output_dir,           # Output directory (required)
+            '-mdir', self.model_path + '/weights/params/models/',  # Model directory
         ]
 
-        if self.use_msa:
-            cmd.append('--use_msa')
+        # Add GPU parameter
+        if self.use_gpu and 'cuda' in self.device:
+            gpu_id = self.device.split(':')[1] if ':' in self.device else '0'
+            cmd.extend(['-gpu', gpu_id])
 
-        if ss_path:
-            cmd.extend(['--secondary_structure', ss_path])
-
-        if bp_probs_path:
-            cmd.extend(['--bp_probs', bp_probs_path])
+        # Add number of models to generate
+        cmd.extend(['-nm', str(self.num_samples)])
 
         # Run prediction
         print(f"Running trRosettaRNA2: {' '.join(cmd)}")
-        print(f"  Input: {fasta_path}")
+        print(f"  MSA Input: {fasta_path}")
         print(f"  Output: {output_dir}")
-        print(f"  Device: {self.device}")
         print(f"  GPU: {self.use_gpu}")
 
         result = subprocess.run(cmd, capture_output=True, text=True, timeout=300)
