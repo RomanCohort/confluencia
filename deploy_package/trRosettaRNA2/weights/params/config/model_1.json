@@ -35,7 +35,7 @@
         "no_blocks": 8,
         "no_transition_layers": 1,
         "no_resnet_blocks": 2,
-        "no_angles": 8,
+        "no_angles": 4,
         "trans_scale_factor": 1.0
     },
     "ss_module": {
