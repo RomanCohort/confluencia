@@ -66,10 +66,11 @@ class trRosettaRNA2Predictor:
 
         for path in possible_paths:
             if path and os.path.exists(path):
-                self.trrosetta_home = path
-                predict_script = os.path.join(path, 'predict.py')
+                # Convert to absolute path to avoid confusion when executing subprocess
+                self.trrosetta_home = os.path.abspath(path)
+                predict_script = os.path.join(self.trrosetta_home, 'predict.py')
                 if os.path.exists(predict_script):
-                    print(f"Found trRosettaRNA2 at: {path}")
+                    print(f"Found trRosettaRNA2 at: {self.trrosetta_home}")
                     return
 
         print("Warning: trRosettaRNA2 not found in common paths.")
