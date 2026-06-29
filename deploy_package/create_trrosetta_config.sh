@@ -20,15 +20,7 @@ else
     echo "✗ config目录缺失，创建并下载..."
     mkdir -p "$CONFIG_DIR"
 
-    # 下载model_1.json配置文件
-    echo "下载model_1.json..."
-
-    # 方法1: 从trRosettaRNA2官方下载
-    wget -O "$CONFIG_DIR/model_1.json" \
-        https://raw.githubusercontent.com/YangLab-SDU/trRosettaRNA2/main/trRNA2/config/model_1.json \
-        2>/dev/null || \
-
-    # 方法2: 创建默认配置
+    # 创建完整的model_1.json配置文件
     cat > "$CONFIG_DIR/model_1.json" << 'EOF'
 {
     "model_name": "model_1",
@@ -39,7 +31,19 @@ else
     "d_ff": 512,
     "num_heads": 8,
     "num_layers": 6,
-    "max_len": 500
+    "max_len": 500,
+    "structure_module": {
+        "hidden_size": 256,
+        "dropout": 0.0,
+        "num_layers": 2,
+        "use_bias": true
+    },
+    "ss_module": {
+        "hidden_size": 128,
+        "dropout": 0.0,
+        "num_layers": 1,
+        "use_bias": true
+    }
 }
 EOF
 
