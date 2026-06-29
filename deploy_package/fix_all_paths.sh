@@ -29,8 +29,13 @@ echo "模型文件已存在"
 # 3. 创建config目录
 mkdir -p trRosettaRNA2/weights/params/config
 
-# 4. 创建完整的config文件（从官方GitHub获取完整配置）
-cat > trRosettaRNA2/weights/params/config/model_1.json << 'EOF'
+# 4. 创建完整的config文件（包含所有trRosettaRNA2需要的字段）
+# 使用预先准备的完整配置文件
+if [ -f "model_1_complete_config.json" ]; then
+    cp model_1_complete_config.json trRosettaRNA2/weights/params/config/model_1.json
+else
+    # 如果文件不存在，直接写入完整配置
+    cat > trRosettaRNA2/weights/params/config/model_1.json << 'EOF'
 {
     "model_name": "model_1",
     "num_recycles": 3,
@@ -42,6 +47,7 @@ cat > trRosettaRNA2/weights/params/config/model_1.json << 'EOF'
     "num_layers": 6,
     "max_len": 500,
     "dim_pair": 64,
+    "dim_single": 64,
     "use_ss": true,
     "RNAformer": {
         "n_block": 6,
@@ -66,9 +72,16 @@ cat > trRosettaRNA2/weights/params/config/model_1.json << 'EOF'
     "input_embedder": {
         "dim": 64,
         "use_ss": true
+    },
+    "pair_embedder": {
+        "dim": 64
+    },
+    "recycling": {
+        "num_recycles": 3
     }
 }
 EOF
+fi
 
 # 5. 验证所有路径
 echo "验证models目录:"
