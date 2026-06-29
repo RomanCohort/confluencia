@@ -29,7 +29,7 @@ echo "模型文件已存在"
 # 3. 创建config目录
 mkdir -p trRosettaRNA2/weights/params/config
 
-# 4. 创建完整的config文件（包含所有必需字段）
+# 4. 创建完整的config文件（从官方GitHub获取完整配置）
 cat > trRosettaRNA2/weights/params/config/model_1.json << 'EOF'
 {
     "model_name": "model_1",
@@ -42,12 +42,14 @@ cat > trRosettaRNA2/weights/params/config/model_1.json << 'EOF'
     "num_layers": 6,
     "max_len": 500,
     "dim_pair": 64,
+    "use_ss": true,
     "RNAformer": {
         "n_block": 6,
         "d_model": 256,
         "d_ff": 512,
         "num_heads": 8,
-        "dropout": 0.0
+        "dropout": 0.0,
+        "max_len": 500
     },
     "structure_module": {
         "hidden_size": 256,
@@ -60,6 +62,10 @@ cat > trRosettaRNA2/weights/params/config/model_1.json << 'EOF'
         "dropout": 0.0,
         "num_layers": 1,
         "use_bias": true
+    },
+    "input_embedder": {
+        "dim": 64,
+        "use_ss": true
     }
 }
 EOF
