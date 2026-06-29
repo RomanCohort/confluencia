@@ -83,9 +83,10 @@ def main():
             "dropout_rate_ff": 0.0,   # 必需字段
         },
 
-        # StructureModule block - 包含所有必需的位置参数
+        # StructureModule block - 包含所有必需的位置参数和c_z
         "structure_module": {
             "c_s": 64,      # 必需的位置参数
+            "c_z": 64,      # 必需字段！代码读取structure_module_config['c_z']
             "c_ipa": 64,    # 必需的位置参数
             "c_resnet": 64, # 必需的位置参数
             "no_heads_ipa": 1,  # 必需的位置参数
