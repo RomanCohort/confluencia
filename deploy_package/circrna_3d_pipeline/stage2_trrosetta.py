@@ -176,10 +176,10 @@ class trRosettaRNA2Predictor:
             bp_probs_path = os.path.join(output_dir, 'bp_probs.npy')
             np.save(bp_probs_path, bp_probs)
 
-        # Build command with correct trRosettaRNA2 parameters
-        # Use the wrapper script at top level instead of python -m for module execution
+        # Build command - use absolute path to wrapper script
+        wrapper_script = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'trRosettaRNA2', 'predict.py'))
         cmd = [
-            sys.executable, str(Path(__file__).parent / 'trRosettaRNA2' / 'predict.py'),
+            sys.executable, wrapper_script,
             '-i', fasta_path,           # MSA input (required)
             '-o', output_dir,           # Output directory (required)
             '-mdir', self.model_path + '/weights/params/models/',  # Model directory
@@ -195,6 +195,7 @@ class trRosettaRNA2Predictor:
 
         # Run prediction
         print(f"Running trRosettaRNA2: {' '.join(cmd)}")
+        print(f"  Wrapper: {wrapper_script}")
         print(f"  MSA Input: {fasta_path}")
         print(f"  Output: {output_dir}")
         print(f"  GPU: {self.use_gpu}")
