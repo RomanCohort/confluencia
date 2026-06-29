@@ -1,0 +1,131 @@
+# trRosettaRNA2 Configuration
+# High-throughput mode for 6000 sequences/month
+
+vienna:
+  max_bp_span: -1
+  temperature: 37.0
+  model: "rna"
+  output_bp_probs: true
+
+# trRosettaRNA2 (faster alternative to RoseTTAFold2NA)
+trrosetta:
+  model_path: "models/trRosettaRNA2/"
+  num_samples: 5
+  device: "cuda:0"
+  max_seq_length: 500
+  use_msa: false              # Disable MSA for speed (3-5x faster)
+  use_gpu: true
+
+# Legacy RoseTTAFold2NA (fallback)
+rosetta:
+  model_path: "models/rosettafold2na/"
+  num_samples: 5
+  batch_size: 1
+  device: "cuda:0"
+  max_seq_length: 500
+
+cyclize:
+  # === OPTIMIZED CYCLIZATION PARAMETERS ===
+  # Phase 1: Strong BSJ restraint for initial connection
+  bsj_restraint_k_initial: 2000.0    # Strong initial restraint
+  bsj_restraint_k_final: 500.0       # Final restraint after annealing
+  bsj_target_distance: 3.5           # Ideal phosphodiester bond length (Angstrom)
+
+  # Secondary structure restraints (from ViennaRNA)
+  ss_restraint_k: 100.0              # Stronger SS restraint
+  bp_target_distance: 10.0           # C3'-C3' distance for base pairs (Angstrom)
+
+  # Minimization phases
+  max_iterations_phase1: 1000        # Initial minimization
+  max_iterations_phase2: 2000        # Final minimization
+  minimization_tolerance: 5.0        # Tighter convergence (kJ/mol)
+
+  # Annealing schedule (gradual restraint release)
+  annealing_steps: 100               # Number of annealing steps
+  annealing_temperature_start: 500.0 # Start hot (Kelvin)
+  annealing_temperature_end: 300.0   # End at room temperature
+
+  # Multiple attempts (for robustness)
+  num_attempts: 3                    # Try different starting conformations
+
+  # trRosettaRNA2 restraint integration
+  use_trrosetta_restraints: true     # Use distance predictions to guide cyclization
+  restraint_weight: 100.0            # Weight for trRosetta restraints (doubled)
+
+  # Legacy parameters (backward compatible)
+  bsj_restraint_k: 1000.0
+  max_iterations: 500
+
+md:
+  forcefield:
+    protein: "amber14-all.xml"
+    water: "amber14/tip3pfb.xml"
+
+  # === HIGH-THROUGHPUT MODE (target: 6000 seq/month) ===
+  fast:
+    duration_ns: 2.0                  # Short MD (2ns is sufficient with good restraints)
+    temperature_k: 300
+    timestep_fs: 2.0
+    snapshot_interval_ps: 50
+    bsj_restraint_k: 500.0
+    padding_nm: 0.8                   # Smaller box = faster
+    minimize_only: false
+
+  # === QUALITY MODE (for validation set) ===
+  high_quality:
+    duration_ns: 10.0
+    temperature_k: 300
+    timestep_fs: 2.0
+    snapshot_interval_ps: 100
+    bsj_restraint_k: 500.0
+    padding_nm: 1.0
+
+  # Prefilter mode (no MD, just minimization)
+  prefilter:
+    minimize_only: true
+    max_iterations: 500
+    bsj_restraint_k: 1000.0
+
+quality:
+  energy_threshold_kjmol: 500.0
+  bsj_target_angstrom: 3.5
+  bsj_max_distance_a: 4.0
+  bp_rmsd_max_a: 1.0
+  rmsd_variance_max: 0.5
+
+  min_confidence_threshold: 0.70     # Slightly relaxed for throughput
+  require_all_metrics_pass: false    # Allow weighted average pass
+
+  confidence_weights:
+    energy: 0.25
+    rmsd_plateau: 0.25
+    bsj: 0.25
+    ss_preservation: 0.15
+    bond_uniformity: 0.10
+
+parallel:
+  num_workers: 8
+  ray: true
+  timeout_per_sequence_s: 300        # 5 min timeout for fast mode
+
+output:
+  format: "json"
+  save_pdbs: true
+  save_energies: true
+  output_dir: "pipeline_output_trrosetta/"
+
+# === CONFORMER CLUSTERING (for data diversity) ===
+clustering:
+  n_clusters: 3                       # Number of clusters per sequence
+  max_conformers: 3                   # Max representatives per sequence
+  clustering_method: 'kmeans'         # 'kmeans', 'hierarchical', or 'energy'
+  use_pca: true                      # PCA before clustering
+  pca_components: 10                  # PCA components
+  rmsd_threshold: 2.0                 # RMSD threshold for cluster separation (Angstrom)
+
+# === THROUGHPUT ESTIMATES ===
+# Fast mode: ~3 min/seq → 6000 seq × 3 min = 300 GPU-hours
+# 8-GPU parallel: 300 / 8 = 37.5 hours total
+#
+# Quality mode: ~10 min/seq → 1000 GPU-hours
+# 8-GPU parallel: 1000 / 8 = 125 hours (~5 days)

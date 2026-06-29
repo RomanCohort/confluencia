@@ -1,0 +1,79 @@
+# circRNA 3D Data Generation Pipeline Configuration
+
+vienna:
+  max_bp_span: -1          # -1 means full sequence length
+  temperature: 37.0
+  model: "rna"
+  output_bp_probs: true
+
+rosetta:
+  model_path: "models/rosettafold2na/"
+  num_samples: 5
+  batch_size: 1
+  device: "cuda:0"
+  max_seq_length: 500
+
+cyclize:
+  bsj_restraint_k: 1000.0   # kJ/mol/nm^2
+  bsj_target_distance: 3.5   # Angstroms (phosphodiester bond)
+  ss_restraint_k: 50.0       # kJ/mol/nm^2
+  max_iterations: 500
+  minimization_tolerance: 10.0  # kJ/mol
+
+md:
+  forcefield:
+    protein: "amber14-all.xml"
+    water: "amber14/tip3pfb.xml"
+  # Fast mode for data generation (optimized for throughput)
+  fast:
+    duration_ns: 2.0           # Reduced from 10ns (5x faster)
+    temperature_k: 300
+    timestep_fs: 2.0
+    snapshot_interval_ps: 50   # More snapshots in shorter time
+    bsj_restraint_k: 500.0
+    padding_nm: 0.8            # Smaller box = faster
+    minimize_only: false       # Do short MD, not just minimization
+  # High-quality mode for validation set
+  high_quality:
+    duration_ns: 10.0          # Full 10ns for validation
+    temperature_k: 300
+    timestep_fs: 2.0
+    snapshot_interval_ps: 100
+    bsj_restraint_k: 500.0
+    padding_nm: 1.0
+  # Ultra-fast mode for pre-filtering
+  prefilter:
+    minimize_only: true        # No MD, just energy minimization
+    max_iterations: 500
+    bsj_restraint_k: 1000.0
+
+quality:
+  # Strict thresholds for high confidence data
+  energy_threshold_kjmol: 500.0       # Stricter: only thermodynamically stable
+  bsj_target_angstrom: 3.5            # Ideal phosphodiester bond length
+  bsj_max_distance_a: 4.0             # Tighter: must be near-ideal cyclization
+  bp_rmsd_max_a: 1.0                  # Stricter: secondary structure must be preserved
+  rmsd_variance_max: 0.5              # Lower variance = more stable
+
+  # Additional quality metrics
+  min_confidence_threshold: 0.75      # Only keep structures with confidence >= 0.75
+  require_all_metrics_pass: true      # All metrics must pass (not just weighted average)
+
+  # Enhanced confidence scoring
+  confidence_weights:
+    energy: 0.25                      # Thermodynamic stability
+    rmsd_plateau: 0.25                # Structural convergence
+    bsj: 0.25                         # Cyclization quality
+    ss_preservation: 0.15             # Secondary structure match
+    bond_uniformity: 0.10             # Bond length consistency (new)
+
+parallel:
+  num_workers: 8
+  ray: true
+  timeout_per_sequence_s: 600
+
+output:
+  format: "json"
+  save_pdbs: true
+  save_energies: true
+  output_dir: "pipeline_output/"
