@@ -11,20 +11,20 @@ echo ""
 cd /root/autodl-tmp/confluencia/confluencia/deploy_package
 
 # trRosettaRNA2期望路径: {model_pth}/config/{model_name}.json
-# model_pth = weights/params/
-# 所以config应该在: weights/params/models/config/
+# model_pth = weights/params/ (有结尾斜杠)
+# 所以config应该在: weights/params/config/ (不是models/config/)
 
 # 创建正确的config目录
-mkdir -p trRosettaRNA2/weights/params/models/config
+mkdir -p trRosettaRNA2/weights/params/config
 
 # 检查是否已有config
-if [ -f "trRosettaRNA2/weights/params/models/config/model_1.json" ]; then
+if [ -f "trRosettaRNA2/weights/params/config/model_1.json" ]; then
     echo "✓ config已在正确位置"
 else
     echo "创建config文件..."
 
     # 创建完整的model_1.json配置文件
-    cat > trRosettaRNA2/weights/params/models/config/model_1.json << 'EOF'
+    cat > trRosettaRNA2/weights/params/config/model_1.json << 'EOF'
 {
     "model_name": "model_1",
     "num_recycles": 3,
@@ -56,7 +56,7 @@ fi
 # 验证路径
 echo ""
 echo "验证config位置:"
-ls -lh trRosettaRNA2/weights/params/models/config/
+ls -lh trRosettaRNA2/weights/params/config/
 
 # 验证模型文件位置
 echo ""
@@ -66,7 +66,7 @@ ls -lh trRosettaRNA2/weights/params/models/
 # 验证完整路径结构
 echo ""
 echo "完整路径验证:"
-cat trRosettaRNA2/weights/params/models/config/model_1.json | head -5
+cat trRosettaRNA2/weights/params/config/model_1.json | head -5
 
 echo ""
 echo "======================================================================"
