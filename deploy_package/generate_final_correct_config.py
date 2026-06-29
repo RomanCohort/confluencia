@@ -79,6 +79,8 @@ def main():
             "msa_conv": False,
             "use_r2n": False,
             "qknorm": True,
+            "dropout_rate_attn": 0.0,  # 必需字段
+            "dropout_rate_ff": 0.0,   # 必需字段
         },
 
         # StructureModule block - 包含所有必需的位置参数
