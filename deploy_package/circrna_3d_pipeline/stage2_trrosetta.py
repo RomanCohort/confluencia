@@ -249,10 +249,10 @@ class trRosettaRNA2Predictor:
         # Use PyRosetta optimized structure (standard PDB format)
         optimized_pdb = os.path.join(output_dir, 'model_1_relaxed200.pdb')
         if os.path.exists(optimized_pdb):
-            # Read confidence from plddt.csv
+            # Read confidence from plddt.csv (skip header)
             plddt_path = os.path.join(output_dir, 'plddt.csv')
             if os.path.exists(plddt_path):
-                plddt_data = np.loadtxt(plddt_path, delimiter=',')
+                plddt_data = np.loadtxt(plddt_path, delimiter=',', skiprows=1)
                 confidence = float(np.mean(plddt_data))
             else:
                 confidence = 0.85  # PyRosetta optimized = high confidence
