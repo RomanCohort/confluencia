@@ -63,6 +63,13 @@ def generate_default_config(fields, nested_fields):
         "dim_pair": 64,
         "dim_single": 64,
         "use_ss": True,
+
+        # 新发现的顶层字段
+        "c_z": 64,
+        "divide": False,
+        "init_str": True,
+        "max_recycle": 3,
+        "ss3D": False,
     }
 
     # RNAformer block
@@ -74,7 +81,11 @@ def generate_default_config(fields, nested_fields):
             "num_heads": 8,
             "dropout": 0.0,
             "max_len": 500,
-            "msa_tie_row_attn": False,  # 新发现的字段
+            "msa_tie_row_attn": False,
+            "dropout_rate_attn": 0.0,  # 新发现
+            "dropout_rate_ff": 0.0,    # 新发现
+            "qknorm": True,             # 新发现
+            "use_r2n": False,           # 新发现
         }
 
     # structure_module
@@ -83,7 +94,8 @@ def generate_default_config(fields, nested_fields):
             "hidden_size": 256,
             "dropout": 0.0,
             "num_layers": 2,
-            "use_bias": True
+            "use_bias": True,
+            "trans_scale_factor": 1.0,  # 新发现
         }
 
     # ss_module
