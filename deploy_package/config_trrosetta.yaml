@@ -8,7 +8,7 @@ vienna:
   output_bp_probs: true
 
 # trRosettaRNA2 (faster alternative to RoseTTAFold2NA)
-trrosetta:
+rosetta:
   model_path: "models/trRosettaRNA2/"
   num_samples: 5
   device: "cuda:0"
