@@ -31,7 +31,7 @@
         "c_resnet": 128,
         "no_heads_ipa": 12,
         "no_qk_points": 4,
-        "no_v_points": 12,
+        "no_v_points": 8,
         "no_blocks": 8,
         "no_transition_layers": 1,
         "no_resnet_blocks": 2,
@@ -52,5 +52,19 @@
     },
     "recycling": {
         "num_recycles": 3
+    },
+    "init_str_config": {
+        "node_dim_in": 64,
+        "node_dim_hidden": 64,
+        "edge_dim_in": 64,
+        "edge_dim_hidden": 64,
+        "aa_types": 5,
+        "nheads": 4,
+        "nblocks": 2,
+        "dropout": 0.3,
+        "out_atoms": 3,
+        "out_fmt": "quats",
+        "split_pr": false,
+        "use_ss": true
     }
 }
