@@ -153,6 +153,9 @@ class trRosettaRNA2Predictor:
         2. Convert restraints to 3D coordinates using restrained folding
         3. Generate multiple conformations (num_samples)
         """
+        # DEBUG: Print self.trrosetta_home at the start of _run_trrosetta
+        print(f"[DEBUG] _run_trrosetta: self.trrosetta_home = {self.trrosetta_home}")
+
         predict_script = os.path.join(self.trrosetta_home, 'predict.py')
         if not os.path.exists(predict_script):
             raise FileNotFoundError(
