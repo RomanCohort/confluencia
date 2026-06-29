@@ -179,8 +179,8 @@ class trRosettaRNA2Predictor:
 
         # Build command - use absolute path from self.trrosetta_home
         wrapper_script = os.path.join(self.trrosetta_home, 'predict.py')
-        # Remove trailing slash from model_path to avoid double slash in trRosettaRNA2 code
-        model_dir = self.model_path.rstrip('/') + '/weights/params'
+        # Remove trailing slash to avoid double slash
+        model_dir = self.trrosetta_home.rstrip('/') + '/weights/params'
         cmd = [
             sys.executable, wrapper_script,
             '-i', fasta_path,           # MSA input (required)
