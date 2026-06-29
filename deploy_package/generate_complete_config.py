@@ -64,8 +64,7 @@ def generate_default_config(fields, nested_fields):
         "dim_single": 64,
         "use_ss": True,
 
-        # 新发现的顶层字段
-        "c_z": 64,
+        # 其他顶层字段（不包含c_z，它在structure_module内）
         "divide": False,
         "init_str": True,
         "max_recycle": 3,
@@ -88,14 +87,15 @@ def generate_default_config(fields, nested_fields):
             "use_r2n": False,           # 新发现
         }
 
-    # structure_module
+    # structure_module (注意：c_z在这里)
     if 'structure_module' in nested_fields or 'structure_module' in fields:
         config["structure_module"] = {
             "hidden_size": 256,
             "dropout": 0.0,
             "num_layers": 2,
             "use_bias": True,
-            "trans_scale_factor": 1.0,  # 新发现
+            "trans_scale_factor": 1.0,
+            "c_z": 64,  # c_z必须在structure_module内
         }
 
     # ss_module
