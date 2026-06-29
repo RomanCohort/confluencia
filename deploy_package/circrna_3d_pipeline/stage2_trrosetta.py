@@ -235,9 +235,10 @@ class trRosettaRNA2Predictor:
         results = []
 
         # trRosettaRNA2 outputs:
-        # - restraints.npy: distance/orientation predictions
-        # - pdbs/*.pdb: predicted structures
-        # - confidence.json: per-sample confidence scores
+        # - restraints.npy: distance/orientation predictions (optional)
+        # - model_1_relaxed200.pdb: PyRosetta optimized structure (STANDARD PDB FORMAT)
+        # - linear_*.pdb: raw C3' traces (NON-STANDARD, avoid)
+        # - plddt.csv: per-residue confidence scores
 
         restraints_path = os.path.join(output_dir, 'restraints.npy')
         if os.path.exists(restraints_path):
@@ -245,8 +246,29 @@ class trRosettaRNA2Predictor:
         else:
             restraints = self._generate_default_restraints(len(sequence))
 
+        # Use PyRosetta optimized structure (standard PDB format)
+        optimized_pdb = os.path.join(output_dir, 'model_1_relaxed200.pdb')
+        if os.path.exists(optimized_pdb):
+            # Read confidence from plddt.csv
+            plddt_path = os.path.join(output_dir, 'plddt.csv')
+            if os.path.exists(plddt_path):
+                plddt_data = np.loadtxt(plddt_path, delimiter=',')
+                confidence = float(np.mean(plddt_data))
+            else:
+                confidence = 0.85  # PyRosetta optimized = high confidence
+
+            results.append({
+                'pdb_path': optimized_pdb,
+                'confidence': confidence,
+                'sample_id': 0,
+                'restraints': restraints,
+                'distance_matrix': restraints.get('distance', None),
+                'orientation_matrix': restraints.get('orientation', None),
+            })
+
+        # Alternative: check for pdbs/ directory (if trRosettaRNA2 creates it)
         pdb_dir = os.path.join(output_dir, 'pdbs')
-        if os.path.exists(pdb_dir):
+        if os.path.exists(pdb_dir) and not results:
             pdb_files = sorted([f for f in os.listdir(pdb_dir) if f.endswith('.pdb')])
             for i, pdb_file in enumerate(pdb_files):
                 pdb_path = os.path.join(pdb_dir, pdb_file)
