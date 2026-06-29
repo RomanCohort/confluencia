@@ -84,6 +84,11 @@ md:
     minimize_only: true
     max_iterations: 500
     bsj_restraint_k: 1000.0
+    min_length: 50
+    max_length: 2000           # 放宽长度限制，接受circBase的长序列
+    min_gc_content: 0.25       # 放宽GC限制
+    max_gc_content: 0.75
+    max_mfe_kjmol: 100.0       # 放宽稳定性限制，接受更多序列
 
 quality:
   # ====== 严格的质量阈值 ======
