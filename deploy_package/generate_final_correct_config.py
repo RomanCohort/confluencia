@@ -83,7 +83,7 @@ def main():
             "dropout_rate_ff": 0.0,   # 必需字段
         },
 
-        # StructureModule block - 包含所有必需的位置参数和c_z
+        # StructureModule block - 包含所有必需的位置参数和config字段
         "structure_module": {
             "c_s": 64,      # 必需的位置参数
             "c_z": 64,      # 必需字段！代码读取structure_module_config['c_z']
@@ -96,6 +96,7 @@ def main():
             "no_transition_layers": 2,  # 必需的位置参数
             "no_resnet_blocks": 2,   # 必需的位置参数
             "no_angles": 36,     # 必需的位置参数
+            "trans_scale_factor": 1.0,  # 必需的位置参数！
         },
 
         # ss_module
