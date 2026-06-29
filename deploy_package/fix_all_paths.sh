@@ -29,13 +29,19 @@ echo "模型文件已存在"
 # 3. 创建config目录
 mkdir -p trRosettaRNA2/weights/params/config
 
-# 4. 创建完整的config文件（包含所有trRosettaRNA2需要的字段）
-# 使用预先准备的完整配置文件
-if [ -f "model_1_complete_config.json" ]; then
-    cp model_1_complete_config.json trRosettaRNA2/weights/params/config/model_1.json
-else
-    # 如果文件不存在，直接写入完整配置
-    cat > trRosettaRNA2/weights/params/config/model_1.json << 'EOF'
+# 4. 自动分析源代码并生成完整config
+echo "分析trRosettaRNA2源代码，生成完整config..."
+python3 generate_complete_config.py
+
+# 验证config是否生成
+if [ ! -f "trRosettaRNA2/weights/params/config/model_1.json" ]; then
+    echo "✗ config生成失败，使用预定义配置"
+    # 使用预先准备的完整配置文件
+    if [ -f "model_1_complete_config.json" ]; then
+        cp model_1_complete_config.json trRosettaRNA2/weights/params/config/model_1.json
+    else
+        # 如果文件不存在，直接写入完整配置
+        cat > trRosettaRNA2/weights/params/config/model_1.json << 'EOF'
 {
     "model_name": "model_1",
     "num_recycles": 3,
@@ -55,7 +61,8 @@ else
         "d_ff": 512,
         "num_heads": 8,
         "dropout": 0.0,
-        "max_len": 500
+        "max_len": 500,
+        "msa_tie_row_attn": false
     },
     "structure_module": {
         "hidden_size": 256,
@@ -81,6 +88,7 @@ else
     }
 }
 EOF
+    fi
 fi
 
 # 5. 验证所有路径
