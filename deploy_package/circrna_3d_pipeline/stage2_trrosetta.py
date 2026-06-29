@@ -115,10 +115,17 @@ class trRosettaRNA2Predictor:
                 return results
             except Exception as e:
                 print(f"trRosettaRNA2 failed: {e}")
-                print("Falling back to dummy structure generation")
+                raise RuntimeError(f"trRosettaRNA2 prediction failed. Please check installation. Error: {e}")
 
-        # Fallback: generate dummy structure for testing
-        return self._generate_dummy_structure(sequence, output_dir)
+        # No fallback - trRosettaRNA2 must be installed
+        raise RuntimeError(
+            f"trRosettaRNA2 not found! Searched paths:\n"
+            f"  - {self.model_path}\n"
+            f"  - /opt/trRosettaRNA2\n"
+            f"  - ~/trRosettaRNA2\n"
+            f"Please install from: https://yanglab.qd.sdu.edu.cn/trRosettaRNA2\n"
+            f"Or set TRROSETTARNA2_HOME environment variable."
+        )
 
     def _run_trrosetta(
         self,
