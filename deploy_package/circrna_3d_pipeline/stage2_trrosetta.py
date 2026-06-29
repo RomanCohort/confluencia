@@ -176,8 +176,8 @@ class trRosettaRNA2Predictor:
             bp_probs_path = os.path.join(output_dir, 'bp_probs.npy')
             np.save(bp_probs_path, bp_probs)
 
-        # Build command - use absolute path to wrapper script
-        wrapper_script = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'trRosettaRNA2', 'predict.py'))
+        # Build command - use absolute path from self.trrosetta_home
+        wrapper_script = os.path.join(self.trrosetta_home, 'predict.py')
         # Remove trailing slash from model_path to avoid double slash in trRosettaRNA2 code
         model_dir = self.model_path.rstrip('/') + '/weights/params'
         cmd = [
