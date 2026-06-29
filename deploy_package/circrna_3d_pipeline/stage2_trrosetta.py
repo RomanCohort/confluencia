@@ -163,31 +163,34 @@ class trRosettaRNA2Predictor:
             )
 
         # Prepare input FASTA
-        fasta_path = os.path.join(output_dir, 'input.fasta')
+        fasta_path = os.path.abspath(os.path.join(output_dir, 'input.fasta'))
+        os.makedirs(output_dir, exist_ok=True)
         with open(fasta_path, 'w') as f:
             f.write(f">rna\n{sequence}\n")
 
         # Save secondary structure if provided
         ss_path = None
         if dot_bracket:
-            ss_path = os.path.join(output_dir, 'secondary_structure.txt')
+            ss_path = os.path.abspath(os.path.join(output_dir, 'secondary_structure.txt'))
             with open(ss_path, 'w') as f:
                 f.write(dot_bracket)
 
         # Save bp_probs if provided
         bp_probs_path = None
         if bp_probs is not None:
-            bp_probs_path = os.path.join(output_dir, 'bp_probs.npy')
+            bp_probs_path = os.path.abspath(os.path.join(output_dir, 'bp_probs.npy'))
             np.save(bp_probs_path, bp_probs)
 
         # Build command - use absolute path from self.trrosetta_home
         wrapper_script = os.path.join(self.trrosetta_home, 'predict.py')
         # Remove trailing slash to avoid double slash
         model_dir = self.trrosetta_home.rstrip('/') + '/weights/params'
+        # Use absolute paths for subprocess to avoid working directory issues
+        output_dir_abs = os.path.abspath(output_dir)
         cmd = [
             sys.executable, wrapper_script,
             '-i', fasta_path,           # MSA input (required)
-            '-o', output_dir,           # Output directory (required)
+            '-o', output_dir_abs,       # Output directory (required, absolute path)
             '-mdir', model_dir,         # Model directory (no trailing slash)
         ]
 
