@@ -26,7 +26,7 @@ def check_residue_names(pdb_path):
         pdb = ps.PdbStructure(f)
 
     chain = pdb.models[0].chains[0]
-    residues = list(chain.residues())
+    residues = list(chain.iter_residues())
 
     print(f"\nTotal residues: {len(residues)}")
     print(f"\n前10个残基名称:")
