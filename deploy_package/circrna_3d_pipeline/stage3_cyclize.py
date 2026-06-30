@@ -133,8 +133,8 @@ class BSJCyclizer:
             0.001 * unit.picosecond  # 1 fs for stability
         )
 
-        simulation = app.Simulation(pdb.topology, system, integrator)
-        simulation.context.setPositions(pdb.positions)
+        simulation = app.Simulation(modeller.topology, system, integrator)
+        simulation.context.setPositions(modeller.positions)  # Use modeller positions (with added H atoms)
 
         # Get initial energy
         state = simulation.context.getState(getEnergy=True)
