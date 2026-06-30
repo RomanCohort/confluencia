@@ -202,7 +202,17 @@ class BSJCyclizer:
         return terminal_path
 
     def _remove_middle_phosphates(self, input_pdb, output_pdb):
-        """Remove P, OP1, OP2 from ALL residues (OpenMM templates don't include phosphate)."""
+        """Remove P, OP1, OP2 only from FIRST residue (5' terminal).
+
+        amber14 RNA templates:
+        - A5, U5, G5, C5 (5' terminal): NO phosphate
+        - A, U, G, C (middle): HAVE phosphate
+        - A3, U3, G3, C3 (3' terminal): HAVE phosphate
+
+        For circRNA, BSJ will connect 3' end to 5' end, so:
+        - Remove phosphate from first residue (A5)
+        - Keep phosphate for all other residues (middle + 3' terminal)
+        """
 
         # Read PDB
         with open(input_pdb, 'r') as f:
@@ -210,25 +220,35 @@ class BSJCyclizer:
 
         print(f"    Total ATOM lines: {len([l for l in lines if l.startswith('ATOM')])}")
 
-        # Filter out ALL phosphate atoms
-        # OpenMM RNA templates (A5, A3, etc.) do NOT include P, OP1, OP2
+        # Get max residue number
+        residue_nums = set()
+        for line in lines:
+            if line.startswith('ATOM'):
+                res_num = int(line[22:26].strip())
+                residue_nums.add(res_num)
+
+        max_res = max(residue_nums) if residue_nums else 0
+
+        # Filter out phosphate atoms ONLY from first residue
         filtered_lines = []
         removed_count = 0
 
         for line in lines:
             if line.startswith('ATOM'):
                 atom_name = line[12:16].strip()
+                res_num = int(line[22:26].strip())
 
-                # Remove phosphate atoms from ALL residues
-                if atom_name in ['P', 'OP1', 'OP2']:
+                # Remove phosphate atoms ONLY from first residue
+                if atom_name in ['P', 'OP1', 'OP2'] and res_num == 1:
                     removed_count += 1
-                    continue  # Skip all phosphate atoms
+                    continue
                 else:
                     filtered_lines.append(line)
             else:
                 filtered_lines.append(line)
 
-        print(f"    Removed {removed_count} phosphate atoms (P, OP1, OP2)")
+        print(f"    Removed {removed_count} phosphate atoms from residue 1 (5' terminal)")
+        print(f"    Kept phosphate atoms for residues 2-{max_res} (middle + 3' terminal)")
 
         # Write fixed PDB
         with open(output_pdb, 'w') as f:
