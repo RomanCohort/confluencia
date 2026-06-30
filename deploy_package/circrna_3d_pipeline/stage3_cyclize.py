@@ -80,14 +80,9 @@ class BSJCyclizer:
         else:
             print(f"  ✓ First residue already has HO5'")
 
-        # Create force field - use CHARMM36 which has better RNA support
-        try:
-            forcefield = app.ForceField('charmm36.xml')
-            print(f"  Using CHARMM36 forcefield")
-        except:
-            # Fallback to amber14 if charmm36 not available
-            forcefield = app.ForceField('amber14-all.xml')
-            print(f"  Using amber14-all forcefield")
+        # Create force field - MUST use amber14 (CHARMM36 lacks RNA terminal templates)
+        forcefield = app.ForceField('amber14-all.xml')
+        print(f"  Using amber14-all forcefield (has A5, G3 templates)")
 
         # CRITICAL FIX: Use ignoreExternalBonds=True
         # Terminal residues don't have upstream/downstream bonds, causing template mismatch
