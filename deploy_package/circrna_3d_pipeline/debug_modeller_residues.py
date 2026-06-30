@@ -26,7 +26,8 @@ def debug_modeller_residues(pdb_path):
     print("\nOriginal residue names (from PDBFile):")
     for i, res in enumerate(pdb.topology.residues()):
         if i < 5:
-            print(f"  Residue {i}: name='{res.name}', atoms={len(list(res.iter_atoms()))}")
+            atom_count = len(list(res.atoms()))
+            print(f"  Residue {i}: name='{res.name}', atoms={atom_count}")
 
     print("\nAfter Modeller.addHydrogens():")
     modeller = app.Modeller(pdb.topology, pdb.positions)
@@ -34,7 +35,8 @@ def debug_modeller_residues(pdb_path):
 
     for i, res in enumerate(modeller.topology.residues()):
         if i < 5:
-            print(f"  Residue {i}: name='{res.name}', atoms={len(list(res.iter_atoms()))}")
+            atom_count = len(list(res.atoms()))
+            print(f"  Residue {i}: name='{res.name}', atoms={atom_count}")
 
     # Check if residue names changed
     print("\nResidue name changes:")
