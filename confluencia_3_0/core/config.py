@@ -130,22 +130,37 @@ class CircRNAConfig:
       - "diffusion"  : TorusFold CircDiffusionStructure (AF3 风格扩散)
       - "physics_b"  : 几何约束求解器 (零训练，纯几何)
       - "physics_ba" : 几何约束 + OpenMM MD 精修
+      - "pipeline"   : ViennaRNA + RoseTTAFold2NA + OpenMM (推荐，无需训练)
+      - "torusfold"  : 深度学习模型 (需训练)
+      - "v2"         : TorusFold + 动态权重
+      - "moe_v3"     : MOE + SeqTopK 路由
+
+    Backend 模式优先级：
+      1. pipeline (推荐，无需训练)
+      2. torusfold (需训练)
+      3. heuristic (秒级兜底)
     """
     enabled: bool = True                          # 是否启用circRNA子系统
-    immunogenicity_backend: str = "heuristic"     # heuristic/vienna/esm2
+    immunogenicity_backend: str = "heuristic"     # heuristic/vienna/esm2/v2/moe_v3
     mhc_backend: str = "local"                    # local/netmhcpan
     drug_backend: str = "local"                   # local/chembl_api
     pk_backend: str = "rnactm"                    # rnactm（内化）/2.0-bridge/fallback
     enable_structure_prediction: bool = True      # 启用ViennaRNA结构预测
     enable_folding_kinetics: bool = False         # 启用折叠动力学
 
-    # ====== 结构预测模式 (TorusFold) ======
-    structure_mode: str = "heuristic"             # heuristic/simple/diffusion/physics_b/physics_ba
+    # ====== 结构预测模式 ======
+    structure_mode: str = "pipeline"              # pipeline/torusfold/heuristic/simple/diffusion/physics_b
     enable_torusfold: bool = False                # 是否启用 TorusFold (由 structure_mode 派生)
+    use_backend_system: bool = True               # 是否使用统一 Backend 系统
+
+    # Backend 配置
+    backend_default_mode: str = "pipeline"        # 默认 Backend 模式
+    backend_fallback_order: List[str] = field(default_factory=lambda: ["torusfold", "pipeline", "heuristic"])
 
     # TorusFold 3D Structure Prediction (global settings)
     use_torusfold_scoring: bool = False           # Enable after model training completes
     torusfold_model_path: str = ""                # Path to trained model checkpoint
+    torusfold_checkpoint: Optional[str] = None    # TorusFold 权重路径
     torusfold_device: str = "auto"                # "auto" selects cuda if available, else cpu
     torusfold_structure_mode: str = "simple"      # simple/diffusion/physics_b/physics_ba
 
@@ -155,10 +170,17 @@ class CircRNAConfig:
     openmm_minimize_steps: int = 500              # physics_ba 模式能量最小化步数
     openmm_md_steps: int = 5000                   # physics_ba 模式 MD 松弛步数
 
+    # V2/V3 配置
+    use_v2_immune_sensing: bool = False           # 启用 V2 动态权重
+    use_moe_v3: bool = False                      # 启用 MOE V3
+    moe_v3_top_k: int = 2                         # SeqTopK 选择专家数
+
     # 进化配置
-    evolution_backend: str = "internal"           # internal/2.0-bridge
+    evolution_backend: str = "internal"           # internal/2.0-bridge/v2/moe_v3
     evolution_default_rounds: int = 5             # 默认进化轮数
     evolution_default_objective: str = "ips"      # ips/stability/translation/immune_safety
+    evolution_use_dynamic_weights: bool = False   # 启用动态四维权重
+
     # PK 配置
     pk_default_horizon: int = 168                 # 默认 PK 模拟时长 (h)
     pk_default_dt: float = 1.0                    # 默认 PK 时间步长 (h)

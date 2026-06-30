@@ -1,0 +1,135 @@
+# confluencia_3_0/core/circrna/confidence_config.yaml
+#
+# 置信度计算配置文件
+#
+# 用途：用户可自定义权重和阈值，无需修改源代码
+# 加载方式：
+#   from confidence_metrics import load_config
+#   config = load_config("confidence_config.yaml")
+
+# ============================================================
+# 四维度权重配置
+# ============================================================
+# 说明：
+#   - model: 模型状态权重（训练程度、可用性）
+#   - structure: 结构完整性权重（坐标、配对信息）
+#   - physics: 物理约束权重（BSJ closure、键长）
+#   - time: 时间效率权重
+#
+# 校验规则：
+#   - 每个权重 ∈ [0.1, 0.5]（防止极端配置）
+#   - 总和会自动归一化到 1.0
+#
+# 默认配置（平衡模式）：
+weights:
+  model: 0.30      # 模型状态最重要
+  structure: 0.35  # 结构完整性次之
+  physics: 0.25    # 物理约束
+  time: 0.10       # 时间成本最轻
+
+# 预设配置（用户可选择）：
+presets:
+  # 快速筛选模式（关心速度）
+  fast_screening:
+    model: 0.20
+    structure: 0.30
+    physics: 0.20
+    time: 0.30
+
+  # 高精度模式（关心质量）
+  high_accuracy:
+    model: 0.35
+    structure: 0.40
+    physics: 0.20
+    time: 0.05
+
+  # 平衡模式（默认）
+  balanced:
+    model: 0.30
+    structure: 0.35
+    physics: 0.25
+    time: 0.10
+
+# ============================================================
+# 阈值配置
+# ============================================================
+# 说明：
+#   - 控制各维度的评分阈值
+#   - 超过阈值会触发警告或扣分
+
+thresholds:
+  # 物理约束阈值
+  bsj_closure_good: 10.0      # Å，好的 BSJ closure
+  bond_rmsd_good: 0.5         # Å，好的键长 RMSD
+  clash_count_max: 5          # 最大冲突数
+
+  # 时间阈值
+  timeout_threshold: 30.0     # 秒，超时阈值
+  elapsed_time_good: 5.0      # 秒，快速响应阈值
+
+  # 置信度等级阈值
+  confidence_levels:
+    very_low: [0.0, 0.3]
+    low: [0.3, 0.5]
+    medium: [0.5, 0.7]
+    high: [0.7, 0.85]
+    very_high: [0.85, 1.0]
+
+# ============================================================
+# 后端特定配置
+# ============================================================
+backends:
+  torusfold:
+    base_confidence: 0.90     # 已训练模型的基础置信度
+    untrained_penalty: 0.60   # 未训练模型的扣分
+
+  pipeline:
+    base_confidence: 0.75     # 物理方法的基础置信度
+    partial_penalty: 0.70     # 部分结果的扣分
+
+  heuristic:
+    base_confidence: 0.50     # 启发式的基础置信度
+
+# ============================================================
+# 警告和建议模板
+# ============================================================
+warning_templates:
+  no_result: "⚠️ 无有效预测结果"
+  timeout: "⚠️ 预测超时 ({elapsed:.1f}s)"
+  no_3d: "⚠️ 缺少 3D 坐标，仅有二级结构"
+  bsj_large: "⚠️ BSJ closure 过大: {value:.1f}Å"
+  bond_rmsd_large: "⚠️ Bond RMSD 过大: {value:.2f}Å"
+  clash_many: "⚠️ 冲突数过多: {count}"
+  fallback: "⚠️ 发生 {count} 次降级"
+
+recommendation_templates:
+  very_low: "💡 置信度过低，建议切换后端或验证实验"
+  low: "💡 低置信度，建议使用更高精度方法"
+  medium: "💡 中等置信度，建议结合多个预测结果"
+  high: "✅ 高置信度预测，结果可信"
+  very_high: "✅ 极高置信度预测，结果非常可信"
+  training: "💡 TorusFold 模型正在训练中，精度会逐步提升"
+
+# ============================================================
+# 降级记录配置
+# ============================================================
+fallback:
+  enable_logging: true        # 是否记录降级事件
+  max_events: 10              # 最大记录事件数
+
+  # 降级事件类型
+  event_types:
+    - "torusfold_timeout"     # TorusFold 超时
+    - "torusfold_unavailable" # TorusFold 不可用
+    - "pipeline_timeout"      # Pipeline 超时
+    - "pipeline_partial"      # Pipeline 部分结果
+    - "heuristic_fallback"    # 降级到启发式
+
+# ============================================================
+# 元数据
+# ============================================================
+metadata:
+  version: "3.0.0"
+  last_updated: "2026-06-30"
+  author: "Confluencia Team"
+  description: "置信度计算配置文件，支持用户自定义权重和阈值"

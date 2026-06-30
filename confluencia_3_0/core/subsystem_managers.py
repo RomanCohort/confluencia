@@ -399,68 +399,69 @@ class CircRNAManager(SubsystemManager):
 
         return result
 
-    def assess_immunogenicity(self, sequence: str, backend: str = "heuristic") -> Dict[str, Any]:
-        """通过 Backend 架构调度免疫原性评估，支持三层降级。
+    def assess_immunogenicity(
+        self,
+        sequence: str,
+        backend: str = "heuristic",
+        use_v2: bool = False,
+        use_backend_structure: bool = True,
+    ) -> Dict[str, Any]:
+        """通过 Backend 架构调度免疫原性评估。
 
-        降级链: ESM2 (Tier 0) → ViennaRNA (Tier 1) → Heuristic (Tier 2)
+        支持多层降级和 V2 深度集成。
 
         Args:
             sequence: circRNA 序列
-            backend: 请求的后端层级 ("esm2", "vienna", "heuristic")
+            backend: 请求的后端层级 ("esm2", "vienna", "heuristic", "v2", "moe_v3")
+            use_v2: 是否使用 V2 深度集成版本
+            use_backend_structure: 是否用 Backend 获取结构信号
 
         Returns:
             Dict 包含 crna_immunogenicity_score, crna_rig_i_score 等
         """
+        # === V3: MOE 深度集成 ===
+        if backend == "moe_v3":
+            return self._assess_immunogenicity_moe_v3(sequence)
+
+        # === V2: TorusFold 结构信号 ===
+        if backend == "v2" or use_v2:
+            return self._assess_immunogenicity_v2(sequence, use_backend_structure)
+
+        # === Legacy: 三层降级 ===
         actual_backend = backend
         backend_warning = None
 
-        # === Tier 0: ESM2 深度学习 ===
+        # Tier 0: ESM2 深度学习
         if backend == "esm2":
             esm2_available = self._check_esm2_available()
             if esm2_available:
                 try:
                     return self._assess_immunogenicity_esm2(sequence)
                 except Exception as e:
-                    backend_warning = (
-                        f"ESM2 backend failed: {e}. "
-                        f"Falling back to ViennaRNA. "
-                        f"Ensure GPU memory is sufficient and ESM2 weights are downloaded."
-                    )
+                    backend_warning = f"ESM2 backend failed: {e}. Falling back to ViennaRNA."
                     actual_backend = "vienna"
                     warnings.warn(backend_warning, UserWarning, stacklevel=2)
             else:
-                backend_warning = (
-                    "ESM2 backend unavailable: requires GPU and ESM2 model weights. "
-                    "Falling back to ViennaRNA (Tier 1). "
-                    "To enable ESM2: pip install fair-esm and ensure CUDA GPU is available."
-                )
+                backend_warning = "ESM2 backend unavailable: requires GPU and ESM2 model weights. Falling back to ViennaRNA (Tier 1)."
                 actual_backend = "vienna"
                 warnings.warn(backend_warning, UserWarning, stacklevel=2)
 
-        # === Tier 1: ViennaRNA 结构辅助 ===
+        # Tier 1: ViennaRNA 结构辅助
         if actual_backend == "vienna":
             vienna_available = self._check_viennarna_available()
             if vienna_available:
                 try:
                     return self._assess_immunogenicity_vienna(sequence)
                 except Exception as e:
-                    backend_warning = (
-                        f"ViennaRNA backend failed: {e}. "
-                        f"Falling back to heuristic (Tier 2). "
-                        f"Check ViennaRNA installation."
-                    )
+                    backend_warning = f"ViennaRNA backend failed: {e}. Falling back to heuristic (Tier 2)."
                     actual_backend = "heuristic"
                     warnings.warn(backend_warning, UserWarning, stacklevel=2)
             else:
-                backend_warning = (
-                    "ViennaRNA backend unavailable: RNAfold not installed. "
-                    "Falling back to heuristic (Tier 2). "
-                    "To enable ViennaRNA: conda install -c bioconda viennarna"
-                )
+                backend_warning = "ViennaRNA backend unavailable: RNAfold not installed. Falling back to heuristic (Tier 2)."
                 actual_backend = "heuristic"
                 warnings.warn(backend_warning, UserWarning, stacklevel=2)
 
-        # === Tier 2: Heuristic 纯启发式 ===
+        # Tier 2: Heuristic 纯启发式
         return self._assess_immunogenicity_heuristic(sequence, actual_backend=actual_backend)
 
     def _check_esm2_available(self) -> bool:
@@ -531,7 +532,7 @@ class CircRNAManager(SubsystemManager):
         result = predict_circrna_immunogenicity(sequence, config=config)
 
         return {
-            "crna_backend_tier": actual_backend,  # 可能是 "heuristic" 或降级后的值
+            "crna_backend_tier": actual_backend,
             "crna_backend_method": "heuristic_motif_based",
             "crna_immunogenicity_score": result.get("overall_score", 0.0),
             "crna_rig_i_score": result.get("rig_i_score", 0.0),
@@ -540,8 +541,151 @@ class CircRNAManager(SubsystemManager):
             "crna_ips_score": result.get("ips", 0.0),
         }
 
-    def predict_structure(self, sequence: str) -> Dict[str, Any]:
-        """调度结构预测（ViennaRNA 或 fallback）。"""
+    def _assess_immunogenicity_v2(
+        self,
+        sequence: str,
+        use_backend_structure: bool = True,
+    ) -> Dict[str, Any]:
+        """V2 深度集成版本：TorusFold 结构信号 + 动态权重。"""
+        try:
+            from .circrna.immune_sensing_v2 import predict_circrna_immunogenicity_v2
+            from .circrna.structure_backend import get_torusfold_like_signals
+
+            # 获取结构信号（如果启用）
+            torusfold_signals = None
+            if use_backend_structure:
+                try:
+                    torusfold_signals = get_torusfold_like_signals(sequence, prefer_mode="pipeline")
+                except Exception:
+                    pass
+
+            # V2 预测
+            result = predict_circrna_immunogenicity_v2(
+                sequence,
+                use_torusfold=(torusfold_signals and torusfold_signals.available),
+            )
+
+            # 写入状态
+            self.set_state("crna_dsRNA_fraction", result.dsRNA_fraction)
+            self.set_state("crna_bsj_stability", result.bsj_stability)
+            self.set_state("crna_sasa_mean", result.sasa_mean)
+            self.set_state("crna_sasa_bsj", result.sasa_bsj)
+
+            return {
+                "crna_backend_tier": "v2",
+                "crna_backend_method": "torusfold_adaptive",
+                "crna_immunogenicity_score": result.overall_score,
+                "crna_rig_i_score": result.rig_i_score,
+                "crna_tlr7_score": result.tlr7_score,
+                "crna_tlr8_score": result.tlr8_score,
+                "crna_pkr_score": result.pkr_score,
+                "crna_ips_score": result.ips_score,
+                "crna_dsRNA_fraction": result.dsRNA_fraction,
+                "crna_bsj_stability": result.bsj_stability,
+                "crna_sasa_mean": result.sasa_mean,
+                "crna_sasa_bsj": result.sasa_bsj,
+                "crna_torusfold_available": result.torusfold_available,
+            }
+
+        except Exception as e:
+            warnings.warn(f"V2 assessment failed: {e}. Falling back to heuristic.", UserWarning)
+            return self._assess_immunogenicity_heuristic(sequence, "heuristic")
+
+    def _assess_immunogenicity_moe_v3(self, sequence: str) -> Dict[str, Any]:
+        """MOE V3 深度集成版本：SeqTopK 路由 + TorusFold 信号。"""
+        try:
+            from .circrna.torusfold_moe_v3 import predict_with_moe_v3
+
+            # MOE 预测
+            result = predict_with_moe_v3(sequence, use_torusfold=True)
+
+            # 提取免疫评分
+            imm_scores = result['immunogenicity']['pathways']
+
+            # 写入状态
+            self.set_state("crna_dsRNA_fraction", imm_scores.get('rig_i', 0.5))
+            self.set_state("crna_bsj_stability", 0.5)
+
+            return {
+                "crna_backend_tier": "moe_v3",
+                "crna_backend_method": "seqtopk_routing",
+                "crna_immunogenicity_score": sum(imm_scores.values()) / len(imm_scores),
+                "crna_rig_i_score": imm_scores.get('rig_i', 0.0),
+                "crna_tlr7_score": imm_scores.get('tlr7', 0.0),
+                "crna_tlr8_score": imm_scores.get('tlr8', 0.0),
+                "crna_pkr_score": imm_scores.get('pkr', 0.0),
+                "crna_ips_score": sum(imm_scores.values()) / len(imm_scores),
+                "crna_selected_experts": result['selected_experts'],
+                "crna_rationales": result['rationales'],
+            }
+
+        except Exception as e:
+            warnings.warn(f"MOE V3 assessment failed: {e}. Falling back to V2.", UserWarning)
+            return self._assess_immunogenicity_v2(sequence, use_backend_structure=False)
+
+    def predict_structure(
+        self,
+        sequence: str,
+        mode: str = "pipeline",
+        use_backend: bool = True,
+    ) -> Dict[str, Any]:
+        """调度结构预测（支持 Backend 系统）。
+
+        Args:
+            sequence: circRNA 序列
+            mode: "torusfold", "pipeline", "heuristic"
+            use_backend: 是否使用统一 Backend 系统
+
+        Returns:
+            Dict 包含 crna_structure_method, crna_coords, crna_pair_probs 等
+        """
+        if use_backend:
+            # === 使用统一 Backend 系统 ===
+            try:
+                from .circrna.structure_backend import StructureBackend, BackendConfig
+
+                circrna_cfg = getattr(self.agent.config, 'circrna', None)
+                config = BackendConfig(
+                    default_mode=mode,
+                    torusfold_checkpoint=getattr(circrna_cfg, 'torusfold_checkpoint', None) if circrna_cfg else None,
+                )
+
+                backend = StructureBackend(config)
+                result = backend.predict(sequence, mode=mode, fallback=True)
+
+                # 写入状态
+                self.set_state("crna_structure_method", result.method)
+                self.set_state("crna_backend_tier", result.method)
+
+                if result.coords is not None:
+                    self.set_state("crna_coords_available", True)
+                    # 存储坐标到 agent 临时存储
+                    self.agent._circrna_coords_cache = result.coords
+
+                if result.bsj_closure is not None:
+                    self.set_state("crna_bsj_closure_angstrom", result.bsj_closure)
+
+                if result.mfe_kcal is not None:
+                    self.set_state("crna_mfe_kcal", result.mfe_kcal)
+
+                return {
+                    "crna_structure_method": result.method,
+                    "crna_backend_tier": result.method,
+                    "crna_coords_available": result.coords is not None,
+                    "crna_bsj_closure_angstrom": result.bsj_closure,
+                    "crna_mfe_kcal": result.mfe_kcal or 0.0,
+                    "crna_confidence": result.confidence,
+                    "crna_dsRNA_fraction": result.dsRNA_fraction,
+                    "crna_bsj_stability": result.bsj_stability,
+                    "crna_sasa_mean": result.sasa_mean,
+                    "crna_elapsed_time": result.elapsed_time,
+                    "crna_timed_out": result.timed_out,
+                }
+            except Exception as e:
+                warnings.warn(f"Backend system failed: {e}. Using legacy method.", UserWarning)
+                # Fallback to legacy
+
+        # === Legacy: ViennaRNA ===
         try:
             from .circrna.structure_prediction import StructurePredictor
             predictor = StructurePredictor()
