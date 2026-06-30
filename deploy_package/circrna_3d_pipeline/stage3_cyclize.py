@@ -93,6 +93,15 @@ class BSJCyclizer:
             constraints=app.HBonds
         )
 
+        # OPTIMIZATION: Force GPU usage with CUDA platform
+        # OpenMM may not auto-select CUDA even when available
+        try:
+            platform = mm.Platform.getPlatformByName('CUDA')
+            print(f"  ✓ Using CUDA platform (GPU acceleration)")
+        except:
+            platform = None
+            print(f"  ⚠ CUDA not available, using default platform")
+
         # Find BSJ atoms
         # BSJ connects: last nucleotide O3' to first nucleotide P
         bsj_end_atom = self._find_atom(pdb, bsj_end - 1, 'O3\'')
@@ -133,7 +142,11 @@ class BSJCyclizer:
             0.001 * unit.picosecond  # 1 fs for stability
         )
 
-        simulation = app.Simulation(modeller.topology, system, integrator)
+        # Create simulation with GPU platform if available
+        if platform:
+            simulation = app.Simulation(modeller.topology, system, integrator, platform)
+        else:
+            simulation = app.Simulation(modeller.topology, system, integrator)
         simulation.context.setPositions(modeller.positions)  # Use modeller positions (with added H atoms)
 
         # Get initial energy
