@@ -142,18 +142,8 @@ class MDRelaxation:
             self.timestep_fs * 0.001 * unit.picosecond
         )
 
-        # ---- 6. Create simulation with GPU acceleration ----
-        try:
-            platform = mm.Platform.getPlatformByName('CUDA')
-            print(f"  ✓ Using CUDA platform (GPU acceleration for MD)")
-        except:
-            platform = None
-            print(f"  ⚠ CUDA not available, using default platform")
-
-        if platform:
-            simulation = app.Simulation(modeller.topology, system, integrator, platform)
-        else:
-            simulation = app.Simulation(modeller.topology, system, integrator)
+        # ---- 6. Create simulation (auto-select platform) ----
+        simulation = app.Simulation(modeller.topology, system, integrator)
         simulation.context.setPositions(modeller.positions)
 
         # ---- 7. Energy minimization (steepest descent) ----
