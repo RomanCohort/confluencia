@@ -22,6 +22,7 @@ from stage2_trrosetta import trRosettaRNA2Predictor
 from stage3_cyclize import BSJCyclizer
 from stage4_md import MDRelaxation
 from stage5_quality import QualityFilter, save_dataset, convert_to_torusfold_format
+from progress_bar import create_progress_bar, update_progress_bar, close_progress_bar, HAS_TQDM
 
 
 class CircRNA3DPipeline:
@@ -78,12 +79,29 @@ class CircRNA3DPipeline:
         os.makedirs(seq_dir, exist_ok=True)
 
         # Stage 1: Secondary structure
-        print(f"[Stage 1] Predicting secondary structure for seq_{seq_id}...")
+        print(f"\n{'='*70}")
+        print(f"[Stage 1/5] SECONDARY STRUCTURE PREDICTION")
+        print(f"{'='*70}")
+        print(f"  Sequence: seq_{seq_id}")
+        print(f"  Length: {len(sequence)} nt")
+        print(f"  Time: {time.strftime('%H:%M:%S')}")
+        stage1_start = time.time()
+
         ss_result = self.stage1.predict(sequence, bsj_start, bsj_end)
         ss_result['seq_id'] = seq_id
 
+        print(f"  ✓ Completed in {time.time() - stage1_start:.1f}s")
+        print(f"    - Secondary structure: {ss_result['dot_bracket'][:40]}...")
+        print(f"    - Base pairs: {len([i for i, c in enumerate(ss_result['dot_bracket']) if c == '('])}")
+
         # Stage 2: 3D prediction (linear)
-        print(f"[Stage 2] Predicting 3D structure for seq_{seq_id}...")
+        print(f"\n{'='*70}")
+        print(f"[Stage 2/5] 3D STRUCTURE PREDICTION (trRosettaRNA2)")
+        print(f"{'='*70}")
+        print(f"  Starting 3D prediction...")
+        print(f"  Time: {time.strftime('%H:%M:%S')}")
+        stage2_start = time.time()
+
         linear_dir = os.path.join(seq_dir, 'linear')
         linear_results = self.stage2.predict(
             sequence=sequence,
@@ -92,8 +110,19 @@ class CircRNA3DPipeline:
             output_dir=linear_dir
         )
 
+        print(f"  ✓ Completed in {time.time() - stage2_start:.1f}s")
+        print(f"    - Generated {len(linear_results)} structure(s)")
+        print(f"    - Best confidence: {max(r['confidence'] for r in linear_results):.2f}")
+        print(f"    - Output: {linear_dir}")
+
         # Stage 3: Cyclization
-        print(f"[Stage 3] Cyclizing BSJ for seq_{seq_id}...")
+        print(f"\n{'='*70}")
+        print(f"[Stage 3/5] BSJ CYCLIZATION (OpenMM)")
+        print(f"{'='*70}")
+        print(f"  BSJ position: {bsj_start}-{bsj_end}")
+        print(f"  Time: {time.strftime('%H:%M:%S')}")
+        stage3_start = time.time()
+
         cyclize_dir = os.path.join(seq_dir, 'cyclized')
         os.makedirs(cyclize_dir, exist_ok=True)
 
