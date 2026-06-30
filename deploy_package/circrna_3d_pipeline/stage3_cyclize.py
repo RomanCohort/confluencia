@@ -52,18 +52,22 @@ class BSJCyclizer:
         pdb_path = self._add_rna_capping_groups(pdb_path, bsj_start, bsj_end)
         pdb = app.PDBFile(pdb_path)
 
+        # CRITICAL FIX: Add missing hydrogen atoms WITHOUT forcefield
+        # Using forcefield parameter causes circular dependency (addHydrogens tries to createSystem)
+        # Instead, add H atoms with pH=7.0 (standard RNA conditions)
+        modeller = app.Modeller(pdb.topology, pdb.positions)
+        modeller.addHydrogens(pH=7.0)  # Add standard H atoms for RNA at neutral pH
+
+        print(f"  ✓ Added missing hydrogen atoms")
+
         # Create force field - use CHARMM36 which has better RNA support
         try:
             forcefield = app.ForceField('charmm36.xml')
+            print(f"  Using CHARMM36 forcefield")
         except:
             # Fallback to amber14 if charmm36 not available
             forcefield = app.ForceField('amber14-all.xml')
-
-        # CRITICAL FIX: Add missing hydrogen atoms WITH forcefield
-        # This ensures correct H atoms are added based on template requirements
-        # Without forcefield parameter, addHydrogens() may miss template-specific H atoms
-        modeller = app.Modeller(pdb.topology, pdb.positions)
-        modeller.addHydrogens(forcefield)  # Pass forcefield to know what H atoms to add
+            print(f"  Using amber14-all forcefield")
 
         # CRITICAL FIX: Use ignoreExternalBonds=True
         # Terminal residues don't have upstream/downstream bonds, causing template mismatch
