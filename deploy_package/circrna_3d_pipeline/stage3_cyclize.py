@@ -70,7 +70,6 @@ class BSJCyclizer:
             print(f"  ⚠ Manually adding HO5' to first residue...")
             for atom in list(first_res.atoms()):
                 if atom.name == "O5'":
-                    from openmm import unit
                     h_pos = atom.getPosition().value_in_unit(unit.angstroms)
                     new_h = app.Atom('H')
                     new_h.setPosition([h_pos[0], h_pos[1], h_pos[2]])
