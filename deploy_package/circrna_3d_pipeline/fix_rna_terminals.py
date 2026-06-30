@@ -37,6 +37,7 @@ def fix_rna_terminals(input_pdb, output_pdb):
     print(f"Total residues: {max_res}")
 
     # Modify residue names
+    # Standard PDB format: residue name in columns 18-20 (right-aligned, 3 chars)
     modified_lines = []
     first_res_name = None
     last_res_name = None
@@ -44,21 +45,25 @@ def fix_rna_terminals(input_pdb, output_pdb):
     for line in lines:
         if line.startswith('ATOM'):
             res_num = int(line[22:26].strip())
-            res_name = line[17:20].strip()
+            res_name = line[17:20].strip()  # Get original residue name (columns 18-20)
 
-            # First residue: change to 5' terminal
+            # First residue: change to 5' terminal (e.g., A -> " A5")
             if res_num == 1:
                 if first_res_name is None:
                     first_res_name = res_name
-                    print(f"First residue: {res_name} → {res_name}5")
-                line = line[:17] + f"{res_name}5".ljust(3) + line[20:]
+                    print(f"First residue: {res_name} -> {res_name}5 (5' terminal)")
+                # Right-aligned 3-character residue name: space + name + digit
+                new_res_name = f" {res_name}5"
+                line = line[:17] + new_res_name + line[20:]
 
-            # Last residue: change to 3' terminal
+            # Last residue: change to 3' terminal (e.g., U -> " U3")
             elif res_num == max_res:
                 if last_res_name is None:
                     last_res_name = res_name
-                    print(f"Last residue: {res_name} → {res_name}3")
-                line = line[:17] + f"{res_name}3".ljust(3) + line[20:]
+                    print(f"Last residue: {res_name} -> {res_name}3 (3' terminal)")
+                # Right-aligned 3-character residue name: space + name + digit
+                new_res_name = f" {res_name}3"
+                line = line[:17] + new_res_name + line[20:]
 
             modified_lines.append(line)
         else:
@@ -69,6 +74,7 @@ def fix_rna_terminals(input_pdb, output_pdb):
         f.writelines(modified_lines)
 
     print(f"\nModified PDB written to: {output_pdb}")
+    print(f"Note: Residue names are right-aligned in columns 18-20 (standard PDB format)")
 
 
 if __name__ == '__main__':
