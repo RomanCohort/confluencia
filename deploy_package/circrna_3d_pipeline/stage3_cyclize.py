@@ -143,7 +143,7 @@ class BSJCyclizer:
         # Minimize energy
         simulation.minimizeEnergy(
             maxIterations=self.max_iterations,
-            tolerance=self.minimization_tolerance * unit.kilojoules_per_mole
+            tolerance=self.minimization_tolerance * unit.kilojoules_per_mole / unit.nanometer
         )
 
         # Get final state
