@@ -182,38 +182,33 @@ class BSJCyclizer:
         return terminal_path
 
     def _remove_middle_phosphates(self, input_pdb, output_pdb):
-        """Remove P, OP1, OP2 from middle residues (keep at first and last)."""
+        """Remove P, OP1, OP2 from ALL residues (OpenMM templates don't include phosphate)."""
 
         # Read PDB
         with open(input_pdb, 'r') as f:
             lines = f.readlines()
 
-        # Get total residues
-        residue_nums = set()
-        for line in lines:
-            if line.startswith('ATOM'):
-                res_num = int(line[22:26].strip())
-                residue_nums.add(res_num)
+        print(f"    Total ATOM lines: {len([l for l in lines if l.startswith('ATOM')])}")
 
-        max_res = max(residue_nums) if residue_nums else 0
-
-        # Filter out phosphate atoms from middle residues
+        # Filter out ALL phosphate atoms
+        # OpenMM RNA templates (A5, A3, etc.) do NOT include P, OP1, OP2
         filtered_lines = []
+        removed_count = 0
+
         for line in lines:
             if line.startswith('ATOM'):
                 atom_name = line[12:16].strip()
-                res_num = int(line[22:26].strip())
 
-                # Keep phosphate atoms only for first and last residue
+                # Remove phosphate atoms from ALL residues
                 if atom_name in ['P', 'OP1', 'OP2']:
-                    if res_num == 1 or res_num == max_res:
-                        filtered_lines.append(line)
-                    else:
-                        continue  # Skip phosphate for middle residues
+                    removed_count += 1
+                    continue  # Skip all phosphate atoms
                 else:
                     filtered_lines.append(line)
             else:
                 filtered_lines.append(line)
+
+        print(f"    Removed {removed_count} phosphate atoms (P, OP1, OP2)")
 
         # Write fixed PDB
         with open(output_pdb, 'w') as f:
