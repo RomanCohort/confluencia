@@ -192,10 +192,39 @@ class CircRNA3DPipeline:
         Returns:
             list of result dicts
         """
+        total = len(sequences)
         results = []
+
+        print(f"\n{'='*70}")
+        print(f"Starting batch processing of {total} sequences")
+        print(f"{'='*70}")
+
+        # Create progress bar
+        pbar = create_progress_bar(total, desc="Total Progress")
+
         for i, (seq, (bsj_start, bsj_end)) in enumerate(zip(sequences, bsj_positions)):
-            result = self.run_single(seq, bsj_start, bsj_end, seq_id=i)
-            results.append(result)
+            try:
+                result = self.run_single(seq, bsj_start, bsj_end, seq_id=i)
+                results.append(result)
+
+                # Update progress bar
+                update_progress_bar(pbar, 1)
+
+                # Print summary every 10 sequences
+                if (i + 1) % 10 == 0:
+                    print(f"\n✓ Completed {i+1}/{total} sequences ({(i+1)/total*100:.1f}%)")
+
+            except Exception as e:
+                print(f"\n✗ Error processing sequence {i}: {str(e)[:100]}")
+                results.append({'error': str(e), 'seq_id': i})
+                update_progress_bar(pbar, 1)
+
+        close_progress_bar(pbar)
+
+        print(f"\n{'='*70}")
+        print(f"Batch processing completed: {len(results)}/{total} sequences")
+        print(f"{'='*70}")
+
         return results
 
     def export_dataset(self, results, output_path=None):
