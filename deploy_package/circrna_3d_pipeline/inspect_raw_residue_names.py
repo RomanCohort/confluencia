@@ -32,7 +32,8 @@ def inspect_raw_residue_names(pdb_path):
 
     print("\nFirst 5 residues (raw parsing):")
     for i, res in enumerate(residues[:5]):
-        print(f"  Residue {i}: name='{res.name}', atoms={len(list(res.atoms()))}")
+        atom_count = len(list(res.iter_atoms()))
+        print(f"  Residue {i}: name='{res.name}', atoms={atom_count}")
 
     # Check last residue
     if len(residues) > 0:
