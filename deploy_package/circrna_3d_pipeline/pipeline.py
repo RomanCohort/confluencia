@@ -210,9 +210,8 @@ class CircRNA3DPipeline:
                 # Update progress bar
                 update_progress_bar(pbar, 1)
 
-                # Print summary every 10 sequences
-                if (i + 1) % 10 == 0:
-                    print(f"\n✓ Completed {i+1}/{total} sequences ({(i+1)/total*100:.1f}%)")
+                # Print progress for EVERY sequence
+                print(f"\n✓ Completed {i+1}/{total} sequences ({(i+1)/total*100:.1f}%) - Last: seq_{i}")
 
             except Exception as e:
                 print(f"\n✗ Error processing sequence {i}: {str(e)[:100]}")
