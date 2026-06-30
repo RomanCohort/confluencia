@@ -155,7 +155,7 @@ class BSJCyclizer:
         bsj_dist = self._calculate_distance(positions, bsj_end_atom, bsj_start_atom)
 
         # Save cyclized structure
-        app.PDBFile.writeFile(pdb.topology, positions, open(output_path, 'w'))
+        app.PDBFile.writeFile(modeller.topology, positions, open(output_path, 'w'))
 
         return {
             'pdb_path': output_path,
