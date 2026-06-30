@@ -62,7 +62,8 @@ class BSJCyclizer:
 
         # CRITICAL FIX: Manually add HO5' if missing (for A5 and similar terminal residues)
         # The O5' atom becomes a free end after removing phosphate, requiring HO5'
-        first_res = modeller.topology.residues()[0]
+        residues = list(modeller.topology.residues())
+        first_res = residues[0]
         has_ho5prime = any(atom.name == "HO5'" for atom in list(first_res.atoms()))
 
         if not has_ho5prime:
