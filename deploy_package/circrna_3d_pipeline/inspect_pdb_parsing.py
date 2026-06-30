@@ -34,7 +34,8 @@ def inspect_pdb(pdb_path):
     print(f"\nFirst 5 residues:")
     for i, res in enumerate(pdb.topology.residues()):
         if i < 5:
-            print(f"  Residue {i}: name='{res.name}', chain='{res.chain.id}', atoms={res.numAtoms}")
+            atom_count = len(list(res.atoms()))
+            print(f"  Residue {i}: name='{res.name}', chain='{res.chain.id}', atoms={atom_count}")
 
         if i == 0:
             print(f"\n  First residue atoms:")
@@ -44,8 +45,9 @@ def inspect_pdb(pdb_path):
     # Show last few residues
     residues = list(pdb.topology.residues())
     last_res = residues[-1]
+    last_atom_count = len(list(last_res.atoms()))
     print(f"\nLast residue:")
-    print(f"  Residue {len(residues)-1}: name='{last_res.name}', chain='{last_res.chain.id}', atoms={last_res.numAtoms}")
+    print(f"  Residue {len(residues)-1}: name='{last_res.name}', chain='{last_res.chain.id}', atoms={last_atom_count}")
     print(f"  Last residue atoms:")
     for atom in last_res.atoms():
         print(f"    {atom.name}")
