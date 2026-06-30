@@ -63,17 +63,17 @@ class BSJCyclizer:
         # CRITICAL FIX: Manually add HO5' if missing (for A5 and similar terminal residues)
         # The O5' atom becomes a free end after removing phosphate, requiring HO5'
         first_res = modeller.topology.residues()[0]
-        has_ho5prime = any(atom.name == 'HO5\'' for atom in list(first_res.atoms()))
+        has_ho5prime = any(atom.name == "HO5'" for atom in list(first_res.atoms()))
 
         if not has_ho5prime:
             print(f"  ⚠ Manually adding HO5' to first residue...")
             for atom in list(first_res.atoms()):
-                if atom.name == 'O5\\'':
+                if atom.name == "O5'":
                     from openmm import unit
                     h_pos = atom.getPosition().value_in_unit(unit.angstroms)
                     new_h = app.Atom('H')
                     new_h.setPosition([h_pos[0], h_pos[1], h_pos[2]])
-                    modeller.addAtom(new_h, first_res, 'HO5\\'', None)
+                    modeller.addAtom(new_h, first_res, "HO5'", None)
                     break
             print(f"  ✓ First residue now has complete atom set (including HO5')")
         else:
