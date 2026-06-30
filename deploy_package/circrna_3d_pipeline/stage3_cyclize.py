@@ -150,20 +150,115 @@ class BSJCyclizer:
         """
         Fix PDB file to work with OpenMM forcefield.
 
-        Problem: OpenMM expects standard RNA residue templates.
-        Solution: Modify PDB to use proper terminal residues.
+        Problem: trRosettaRNA2 generates PDBs that don't match OpenMM templates:
+        1. All residues have phosphate groups (should only be at 5' end)
+        2. Residue names are not terminal variants (A5, U3, etc.)
 
-        For circRNA, the BSJ connects 5' and 3' ends, so we don't need
-        traditional terminal capping. Instead, we ensure the PDB has
-        all required atoms.
+        Solution:
+        1. Remove phosphate atoms from middle residues
+        2. Change terminal residue names (A->A5, G->G3)
+
+        For circRNA, the BSJ connects 5' and 3' ends, so we keep phosphate at both ends.
         """
+        import tempfile
+        import shutil
+
+        # Create fixed PDB file path
+        fixed_path = pdb_path.replace('.pdb', '_fixed.pdb')
+        terminal_path = pdb_path.replace('.pdb', '_terminal.pdb')
+
+        print(f"  Fixing PDB for OpenMM compatibility...")
+
+        # Step 1: Remove phosphate from middle residues
+        print(f"    [1] Removing phosphate atoms from middle residues...")
+        self._remove_middle_phosphates(pdb_path, fixed_path)
+
+        # Step 2: Change terminal residue names
+        print(f"    [2] Setting terminal residue names...")
+        self._set_terminal_residue_names(fixed_path, terminal_path)
+
+        print(f"  ✓ PDB fixed: {terminal_path}")
+
+        return terminal_path
+
+    def _remove_middle_phosphates(self, input_pdb, output_pdb):
+        """Remove P, OP1, OP2 from middle residues (keep at first and last)."""
+
         # Read PDB
-        with open(pdb_path, 'r') as f:
+        with open(input_pdb, 'r') as f:
             lines = f.readlines()
 
-        # For circRNA, ensure both ends have proper atoms
-        # This is a simplified fix - production code would be more robust
-        return pdb_path
+        # Get total residues
+        residue_nums = set()
+        for line in lines:
+            if line.startswith('ATOM'):
+                res_num = int(line[22:26].strip())
+                residue_nums.add(res_num)
+
+        max_res = max(residue_nums) if residue_nums else 0
+
+        # Filter out phosphate atoms from middle residues
+        filtered_lines = []
+        for line in lines:
+            if line.startswith('ATOM'):
+                atom_name = line[12:16].strip()
+                res_num = int(line[22:26].strip())
+
+                # Keep phosphate atoms only for first and last residue
+                if atom_name in ['P', 'OP1', 'OP2']:
+                    if res_num == 1 or res_num == max_res:
+                        filtered_lines.append(line)
+                    else:
+                        continue  # Skip phosphate for middle residues
+                else:
+                    filtered_lines.append(line)
+            else:
+                filtered_lines.append(line)
+
+        # Write fixed PDB
+        with open(output_pdb, 'w') as f:
+            f.writelines(filtered_lines)
+
+    def _set_terminal_residue_names(self, input_pdb, output_pdb):
+        """Change first residue name to X5, last to X3."""
+
+        # Read PDB
+        with open(input_pdb, 'r') as f:
+            lines = f.readlines()
+
+        # Get total residues
+        residue_nums = set()
+        for line in lines:
+            if line.startswith('ATOM'):
+                res_num = int(line[22:26].strip())
+                residue_nums.add(res_num)
+
+        max_res = max(residue_nums) if residue_nums else 0
+
+        # Modify residue names
+        modified_lines = []
+        for line in lines:
+            if line.startswith('ATOM'):
+                res_num = int(line[22:26].strip())
+                res_name = line[17:20].strip()
+
+                # First residue: change to 5' terminal
+                if res_num == 1:
+                    new_res_name = f"{res_name}5 ".ljust(3)
+                    line = line[:17] + new_res_name + line[20:]
+
+                # Last residue: change to 3' terminal
+                elif res_num == max_res:
+                    new_res_name = f"{res_name}3 ".ljust(3)
+                    line = line[:17] + new_res_name + line[20:]
+
+                modified_lines.append(line)
+            else:
+                modified_lines.append(line)
+
+        # Write modified PDB
+        with open(output_pdb, 'w') as f:
+            f.writelines(modified_lines)
 
     def _find_atom(self, pdb, residue_index, atom_name):
         """Find atom index for a specific residue and atom name."""
