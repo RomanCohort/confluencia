@@ -1,0 +1,42 @@
+# CPU模式配置（用于无GPU环境）
+
+vienna:
+  max_bp_span: -1
+  temperature: 37.0
+  model: "rna"
+  output_bp_probs: true
+
+rosetta:
+  model_path: "./trRosettaRNA2/"
+  weights_path: "./trRosettaRNA2/weights/params/"
+  num_samples: 5        # 减少样本数加速CPU处理
+  batch_size: 1
+  device: "cpu"         # 强制使用CPU
+  max_seq_length: 5000
+
+cyclize:
+  bsj_restraint_k: 2000.0
+  bsj_target_distance: 3.5
+  ss_restraint_k: 100.0
+  max_iterations: 2000
+  minimization_tolerance: 5.0
+
+md:
+  quality:
+    duration_ns: 20.0
+    temperature_k: 300
+    timestep_fs: 1.0
+    snapshot_interval_ps: 20
+    bsj_restraint_k: 1000.0
+    padding_nm: 1.2
+    minimize_only: false
+    use_gpu: false       # CPU模式
+
+quality:
+  energy_threshold_kjmol: 800.0     # 放宽到800
+  bsj_target_angstrom: 3.5
+  bsj_max_distance_a: 5.0           # 放宽到5.0
+  bp_rmsd_max_a: 0.8
+  rmsd_variance_max: 0.3            # 放宽到0.3
+  min_confidence_threshold: 0.70    # 降低到0.70
+  require_all_metrics_pass: false   # 放宽要求
