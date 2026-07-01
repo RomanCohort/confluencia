@@ -2,27 +2,34 @@
 """
 train_all_schemes.py — Train all 8 TorusFold schemes (0-7) on 3D pseudo-labels.
 
-Scheme 0: Data Generation Pipeline (ViennaRNA → trRosettaRNA2 → OpenMM → MD → Filter)
-  - Generates training data for all other schemes
-  - Not trainable (fixed pipeline)
+Scheme 0: CircFold Baseline (线性RNA环化法)
+  - Data generation pipeline: ViennaRNA → trRosettaRNA2 → OpenMM → MD → Filter
+  - Role: Teacher model for Scheme 3
   - Output: ~80,000 high-quality circRNA 3D structures
 
 Scheme 1-7: Trainable models with different architectures:
   - Scheme 1: DL+Physics Cascade (EGNN → Physics refinement)
   - Scheme 2: Batch+Physics Filter (Batch sampling → Energy filter)
-  - Scheme 3: Dual-Engine [DEFERRED — uses best model as teacher after S1/S6/S7 training]
+  - Scheme 3: Dual-Engine Distillation (Teacher: Scheme 0, Student: Scheme 1/6/7)
   - Scheme 4: DDPM+EGNN Guided (Diffusion with closure reward)
   - Scheme 5: Physics-Biased Attention [DEPRECATED — NaN explosion, CPU bottleneck]
   - Scheme 6: GNN Latent Diffusion (Encoder → Latent diffusion → Decoder)
   - Scheme 7: Mamba+Transformer Hybrid Diffusion (O(L) global + O(L×w) local)
 
+Training Flow:
+    Step 1: Scheme 0 (Pipeline) generates data → 80k structures
+    Step 2: Scheme 1/2/4/6/7 train on data
+    Step 3: Scheme 3 uses Scheme 0 as Teacher → distill to Student
+
 Usage:
     # Generate data first (Scheme 0)
-    python scheme0_data_generator.py --fasta circbase.fa --output scheme0_output
+    python circfold_baseline.py --fasta circbase.fa --output scheme0_output
 
-    # Then train models (Schemes 1-7)
-    python train_all_schemes.py --schemes 1 2 3 4 5 6 7 --labels-dir scheme0_output --n-train 500 --epochs 50
-    python train_all_schemes.py --schemes 7 --max-len 1000  # Train only scheme 7 (long seqs)
+    # Train regular schemes (1/2/4/6/7)
+    python train_all_schemes.py --schemes 1 2 4 6 7 --labels-dir scheme0_output
+
+    # Train Scheme 3 (distillation from Scheme 0)
+    python scheme3_dual_engine.py --fasta circbase.fa --student-scheme 7
 """
 
 import os
