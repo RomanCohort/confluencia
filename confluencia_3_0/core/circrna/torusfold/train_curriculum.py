@@ -75,6 +75,140 @@ DEFAULT_PHASE_EPOCHS = {
 }
 
 
+# ═══════════════════════════════════════════════════════════════
+# BSJ Geometry Loss (新增)
+# ═══════════════════════════════════════════════════════════════
+
+class BSJGeometryLoss(nn.Module):
+    """
+    BSJ区域几何约束损失（training_strategy_v2.md Phase 3）
+
+    在BSJ连接位置施加物理约束：
+    1. 键角约束（磷酸二酯键键角 ~108°）
+    2. 二面角约束（磷酸二酯键二面角）
+    3. 键长约束（磷酸二酯键长度 ~3.5 Å）
+
+    Args:
+        target_angle: 目标键角（度），默认108°
+        target_dihedral: 目标二面角（度），默认180°
+        target_distance: 目标BSJ距离（Å），默认3.5
+        angle_weight: 键角损失权重
+        dihedral_weight: 二面角损失权重
+        distance_weight: 距离损失权重
+    """
+
+    def __init__(self,
+                 target_angle=108.0,
+                 target_dihedral=180.0,
+                 target_distance=3.5,
+                 angle_weight=1.0,
+                 dihedral_weight=1.0,
+                 distance_weight=2.0):
+        super().__init__()
+        self.target_angle = target_angle
+        self.target_dihedral = target_dihedral
+        self.target_distance = target_distance
+        self.angle_weight = angle_weight
+        self.dihedral_weight = dihedral_weight
+        self.distance_weight = distance_weight
+
+    def forward(self, coords, bsj_indices):
+        """
+        计算BSJ几何约束损失
+
+        Args:
+            coords: (L, 3) 原子坐标
+            bsj_indices: (bsj_start, bsj_end) BSJ位置索引
+
+        Returns:
+            total_loss: 总几何损失
+        """
+        bsj_start, bsj_end = bsj_indices
+
+        # 1. BSJ距离约束（磷酸二酯键长度）
+        pred_distance = torch.norm(coords[bsj_end] - coords[bsj_start])
+        loss_distance = torch.abs(pred_distance - self.target_distance)
+
+        # 2. 键角约束（如果BSJ附近有足够原子）
+        if bsj_start > 0 and bsj_end < len(coords) - 1:
+            # 计算键角：三个连续原子形成的角度
+            # BSJ前的原子 → BSJ起点 → BSJ终点 → BSJ后的原子
+            vec1 = coords[bsj_start - 1] - coords[bsj_start]
+            vec2 = coords[bsj_end] - coords[bsj_start]
+            vec3 = coords[bsj_end + 1] - coords[bsj_end]
+
+            # 计算两个键角
+            angle1 = self._compute_angle(vec1, vec2)
+            angle2 = self._compute_angle(vec2, vec3)
+
+            # 键角损失
+            loss_angle = (
+                torch.abs(angle1 - self.target_angle) +
+                torch.abs(angle2 - self.target_angle)
+            ) / 2.0
+        else:
+            loss_angle = torch.tensor(0.0, device=coords.device)
+
+        # 3. 二面角约束（如果BSJ附近有足够原子）
+        if bsj_start > 1 and bsj_end < len(coords) - 2:
+            # 计算二面角：四个连续原子形成的扭转角
+            dihedral = self._compute_dihedral(
+                coords[bsj_start - 2],
+                coords[bsj_start - 1],
+                coords[bsj_start],
+                coords[bsj_end]
+            )
+            loss_dihedral = torch.abs(dihedral - self.target_dihedral)
+        else:
+            loss_dihedral = torch.tensor(0.0, device=coords.device)
+
+        # 加权组合
+        total_loss = (
+            self.distance_weight * loss_distance +
+            self.angle_weight * loss_angle +
+            self.dihedral_weight * loss_dihedral
+        )
+
+        return total_loss
+
+    def _compute_angle(self, vec1, vec2):
+        """计算两个向量之间的夹角（度）"""
+        # 归一化
+        vec1_norm = vec1 / (torch.norm(vec1) + 1e-6)
+        vec2_norm = vec2 / (torch.norm(vec2) + 1e-6)
+
+        # 计算cos(角度)
+        cos_angle = torch.clamp(torch.dot(vec1_norm, vec2_norm), -1.0, 1.0)
+
+        # 转换为角度（度）
+        angle = torch.rad2deg(torch.arccos(cos_angle))
+
+        return angle
+
+    def _compute_dihedral(self, p1, p2, p3, p4):
+        """计算四个点形成的二面角（度）"""
+        # 计算两个平面
+        b1 = p2 - p1
+        b2 = p3 - p2
+        b3 = p4 - p3
+
+        # 计算平面法向量
+        n1 = torch.cross(b1, b2)
+        n2 = torch.cross(b2, b3)
+
+        # 归一化
+        n1_norm = n1 / (torch.norm(n1) + 1e-6)
+        n2_norm = n2 / (torch.norm(n2) + 1e-6)
+
+        # 计算cos(二面角)
+        cos_dihedral = torch.clamp(torch.dot(n1_norm, n2_norm), -1.0, 1.0)
+
+        # 转换为角度（度）
+        dihedral = torch.rad2deg(torch.arccos(cos_dihedral))
+
+        return dihedral
+
+
 def filter_by_phase(sequences, coords_labels, pair_labels, confidence_weights,
                     metadata, phase):
     """Filter data samples by curriculum phase criteria."""
