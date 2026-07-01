@@ -100,6 +100,59 @@ def find_subo_file(seq_dir: str) -> Optional[str]:
     return None
 
 
+def filter_structures_quality(records: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """
+    应用 training_strategy_v2.md 中定义的质量过滤标准
+
+    过滤阈值：
+    - Confidence >= 0.70 (降低标准以保留更多数据)
+    - BSJ distance: 2.8-5.0 Å (保留多模态结果)
+    - Energy < 800 kJ/mol (放宽以适应circBase数据)
+    - RMSD variance < 0.3 (结构收敛性)
+    - BSJ clashes < 5 (几何合理性)
+
+    Args:
+        records: 待过滤的数据记录列表
+
+    Returns:
+        filtered: 符合质量标准的记录列表
+    """
+    filtered = []
+
+    for rec in records:
+        # 1. 置信度阈值 (降低到0.70)
+        confidence = rec.get('confidence', 0)
+        if confidence < 0.70:
+            continue
+
+        # 2. BSJ距离范围 (2.8-5.0 Å)
+        bsj_dist = rec.get('bsj_distance')
+        if bsj_dist is not None:
+            if bsj_dist < 2.8 or bsj_dist > 5.0:
+                continue
+
+        # 3. 能量阈值 (放宽到800)
+        energy = rec.get('energy', 0)
+        if energy > 800:
+            continue
+
+        # 4. RMSD方差 (放宽到0.3)
+        rmsd_variance = rec.get('rmsd_variance', 0)
+        if rmsd_variance > 0.3:
+            continue
+
+        # 5. BSJ几何冲突检查
+        bsj_clashes = rec.get('bsj_clashes', 0)
+        if bsj_clashes > 5:
+            continue
+
+        # 通过所有过滤器
+        filtered.append(rec)
+
+    print(f"Quality filtering: {len(records)} → {len(filtered)} ({len(filtered)/len(records)*100:.1f}% retained)")
+    return filtered
+
+
 def predict_ss_vienna(sequence: str) -> str:
     """Predict secondary structure using ViennaRNA circ mode.
 
