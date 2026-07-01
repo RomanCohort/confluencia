@@ -1,8 +1,13 @@
 #!/usr/bin/env python3
 """
-train_all_schemes.py — Train all 7 TorusFold schemes on 3D pseudo-labels.
+train_all_schemes.py — Train all 8 TorusFold schemes (0-7) on 3D pseudo-labels.
 
-Each scheme has its own architecture and training pipeline:
+Scheme 0: Data Generation Pipeline (ViennaRNA → trRosettaRNA2 → OpenMM → MD → Filter)
+  - Generates training data for all other schemes
+  - Not trainable (fixed pipeline)
+  - Output: ~80,000 high-quality circRNA 3D structures
+
+Scheme 1-7: Trainable models with different architectures:
   - Scheme 1: DL+Physics Cascade (EGNN → Physics refinement)
   - Scheme 2: Batch+Physics Filter (Batch sampling → Energy filter)
   - Scheme 3: Dual-Engine [DEFERRED — uses best model as teacher after S1/S6/S7 training]
@@ -12,7 +17,11 @@ Each scheme has its own architecture and training pipeline:
   - Scheme 7: Mamba+Transformer Hybrid Diffusion (O(L) global + O(L×w) local)
 
 Usage:
-    python train_all_schemes.py --schemes 1 2 3 4 5 6 7 --n-train 500 --epochs 50
+    # Generate data first (Scheme 0)
+    python scheme0_data_generator.py --fasta circbase.fa --output scheme0_output
+
+    # Then train models (Schemes 1-7)
+    python train_all_schemes.py --schemes 1 2 3 4 5 6 7 --labels-dir scheme0_output --n-train 500 --epochs 50
     python train_all_schemes.py --schemes 7 --max-len 1000  # Train only scheme 7 (long seqs)
 """
 
