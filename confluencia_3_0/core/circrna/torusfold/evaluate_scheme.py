@@ -46,6 +46,108 @@ def kabsch_rmsd(pred, target):
     return rmsd
 
 
+def compute_bsj_accuracy(predictions, targets, tolerance=0.5):
+    """
+    计算BSJ距离准确率（training_strategy_v2.md P0指标）
+
+    Args:
+        predictions: dict with 'bsj_distance' (predicted BSJ distance)
+        targets: dict with 'bsj_distance' (target BSJ distance)
+        tolerance: 允许误差范围（Å），默认±0.5 Å
+
+    Returns:
+        accuracy: BSJ准确率百分比（目标 > 90%）
+    """
+    pred_dist = predictions.get('bsj_distance')
+    target_dist = targets.get('bsj_distance')
+
+    if pred_dist is None or target_dist is None:
+        return 0.0
+
+    # 计算预测距离与目标距离的误差
+    error = np.abs(pred_dist - target_dist)
+
+    # 判断是否在容忍范围内
+    within_range = error <= tolerance
+
+    # 返回准确率百分比
+    accuracy = np.mean(within_range) * 100
+
+    return accuracy
+
+
+def compute_tm_score(pred_coords, target_coords):
+    """
+    计算TM-score（training_strategy_v2.md P2指标）
+
+    TM-score衡量全局结构相似性，范围0-1，>0.7表示高质量
+
+    Args:
+        pred_coords: (L, 3) 预测坐标
+        target_coords: (L, 3) 目标坐标
+
+    Returns:
+        tm_score: TM-score值（目标 > 0.7）
+    """
+    # 首先计算Kabsch RMSD
+    rmsd = kabsch_rmsd(pred_coords, target_coords)
+
+    # 计算序列长度
+    L = max(len(pred_coords), len(target_coords))
+
+    # TM-score公式
+    # TM = max(1/(1+(d_i/d0)^2)) for all residue pairs
+    # 简化版本：使用归一化的RMSD
+    d0 = 1.24 * (L - 15) ** (1/3) - 1.8  # 标准化距离参数
+
+    if d0 <= 0:
+        d0 = 0.5  # 对于短序列的最小值
+
+    # 计算TM-score
+    tm = 1.0 / (1.0 + (rmsd / d0) ** 2)
+
+    return float(tm)
+
+
+def compute_confidence_auc(predictions, targets):
+    """
+    计算置信度AUC（training_strategy_v2.md P2指标）
+
+    需要模型有confidence预测头
+
+    Args:
+        predictions: dict with 'confidence' scores
+        targets: dict with 'confidence' ground truth
+
+    Returns:
+        auc: ROC-AUC值（目标 > 0.80）
+    """
+    try:
+        from sklearn.metrics import roc_auc_score
+
+        pred_conf = predictions.get('confidence')
+        target_conf = targets.get('confidence')
+
+        if pred_conf is None or target_conf is None:
+            return 0.0
+
+        # 确保是numpy数组
+        pred_conf = np.array(pred_conf)
+        target_conf = np.array(target_conf)
+
+        # 计算ROC-AUC
+        auc = roc_auc_score(target_conf, pred_conf)
+
+        return auc
+
+    except ImportError:
+        print("Warning: sklearn not available, cannot compute AUC")
+        return 0.0
+    except Exception as e:
+        print(f"Warning: Failed to compute AUC: {e}")
+        return 0.0
+
+
 def build_model(scheme_id, args, device):
     """Build model for given scheme."""
     if scheme_id == 1:
