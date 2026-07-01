@@ -52,6 +52,10 @@ TAB_MAP = {
     "Clinical": ("clinical", "render_clinical"),
     "Experiments": ("experiments", "render_experiments"),
     "Confluencia": ("confluencia", "render_confluencia"),
+    "Scheme Manager": ("scheme_manager", "render_scheme_manager"),  # 新增
+    "CASP Dashboard": ("casp_dashboard", "render_casp_dashboard"),  # 新增
+    "CircFold Baseline": ("circfold_baseline", "render_circfold_baseline"),  # 新增
+    "Scheme3 Distillation": ("scheme3_distillation", "render_scheme3_distillation"),  # 新增
 }
 
 tab_modules = import_tab_modules(TAB_MAP)
