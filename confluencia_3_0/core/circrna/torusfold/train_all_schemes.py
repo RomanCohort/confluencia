@@ -122,17 +122,23 @@ def load_pseudo_labels(labels_dir, n_seqs=None, max_len=None):
     # IMPORTANT: Augmented samples (pdb_circularized_aug, isrnacirc_aug) are noisy copies
     # of original structures. They should have LOWER confidence to prevent overfitting
     # to noise and ensure the model learns from real structures primarily.
+    # Updated weights according to training_strategy_v2.md
+    # Key changes: pdb_circularized/pdb3d should be validation only (weight 0.0)
     DEFAULT_CONFIDENCE = {
-        "pdb_circularized": 1.0,       # Real PDB structure, highest quality
+        "pdb_circularized": 0.0,       # Validation set ONLY (not for training)
+        "pdb3d": 0.0,                  # Validation set ONLY (not for training)
         "pdb_circularized_aug": 0.5,   # NOISY COPY - reduced from 0.95 to prevent overfitting
-        "shape_experimental": 0.9,
+        "shape_experimental": 1.5,     # Experimental validation, highest quality
+        "shape_expanded": 1.2,         # Expanded data, high quality
         "isrnacirc": 0.7,
         "isrnacirc_aug": 0.35,         # NOISY COPY - reduced from 0.65
+        "trrosetta_predicted": 1.0,    # Computed prediction, standard quality
+        "rfam_consensus": 1.0,         # Rfam consensus, medium quality
         "circbase_real": 0.5,
         "medium_synth": 0.4,
-        "synthetic": 0.3,
+        "synthetic": 0.5,              # Synthetic data, low weight
+        "vienna_fallback": 0.3,        # ViennaRNA fallback, lowest weight
         "af3_predicted": 1.0,
-        "rfam_consensus": 0.8,
     }
 
     for i, item in enumerate(seq_data):
