@@ -43,7 +43,11 @@ def kabsch_rmsd(p, t):
         return torch.sqrt(torch.mean(torch.sum((p_c - t_c) ** 2, dim=1)))
 
 
-def train_scheme6_fixed(labels_dir, output_dir, epochs=100, batch_size=4, lr=5e-5, device='cuda'):
+def train_scheme6_fixed(labels_dir, output_dir, epochs=100, batch_size=4, lr=5e-5, device='cuda',
+                        d_node=128, d_edge=64, d_latent=256,
+                        n_encoder_layers=6, n_decoder_layers=6,
+                        n_diffusion_steps=100, n_heads=8,
+                        use_ema=False, self_distill=False):
     print("=" * 60)
     print("  Scheme 6 Fixed: GNN Latent Diffusion")
     print("=" * 60)
@@ -66,8 +70,13 @@ def train_scheme6_fixed(labels_dir, output_dir, epochs=100, batch_size=4, lr=5e-
     val_loader = DataLoader(val_ds, batch_size=batch_size, shuffle=False, collate_fn=collate_fn)
     print(f"  Train: {len(train_ds)}, Val: {len(val_ds)}")
 
-    # Model
-    config = GNNLatentConfig(n_diffusion_steps=100, d_node=128)
+    # Model (configurable capacity)
+    config = GNNLatentConfig(
+        d_node=d_node, d_edge=d_edge, d_latent=d_latent,
+        n_encoder_layers=n_encoder_layers, n_decoder_layers=n_decoder_layers,
+        n_diffusion_steps=n_diffusion_steps, n_heads=n_heads
+    )
+    print(f"  Model: d_node={d_node}, d_latent={d_latent}, layers={n_encoder_layers}/{n_decoder_layers}")
     model = GNNLatentDiffusionModel(config).to(device)
     optimizer = torch.optim.AdamW(model.parameters(), lr=lr, weight_decay=1e-4)
     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=epochs, eta_min=1e-6)
@@ -215,8 +224,22 @@ if __name__ == '__main__':
     parser.add_argument('--batch-size', type=int, default=4)
     parser.add_argument('--lr', type=float, default=5e-5)
     parser.add_argument('--device', default='cuda')
+    # Model capacity (P1)
+    parser.add_argument('--d-node', type=int, default=128)
+    parser.add_argument('--d-edge', type=int, default=64)
+    parser.add_argument('--d-latent', type=int, default=256)
+    parser.add_argument('--n-encoder-layers', type=int, default=6)
+    parser.add_argument('--n-decoder-layers', type=int, default=6)
+    parser.add_argument('--n-diffusion-steps', type=int, default=100)
+    parser.add_argument('--n-heads', type=int, default=8)
+    parser.add_argument('--use-ema', action='store_true')
+    parser.add_argument('--self-distill', action='store_true')
     args = parser.parse_args()
 
     train_scheme6_fixed(
-        args.labels, args.output, args.epochs, args.batch_size, args.lr, args.device
+        args.labels, args.output, args.epochs, args.batch_size, args.lr, args.device,
+        d_node=args.d_node, d_edge=args.d_edge, d_latent=args.d_latent,
+        n_encoder_layers=args.n_encoder_layers, n_decoder_layers=args.n_decoder_layers,
+        n_diffusion_steps=args.n_diffusion_steps, n_heads=args.n_heads,
+        use_ema=args.use_ema, self_distill=args.self_distill,
     )
