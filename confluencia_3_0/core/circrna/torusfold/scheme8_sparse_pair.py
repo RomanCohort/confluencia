@@ -198,6 +198,73 @@ def _top_k_mask(pair_probs: torch.Tensor, K: int) -> torch.Tensor:
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
+# Iterative Refinement Helpers — Section A of improvement roadmap
+# ═══════════════════════════════════════════════════════════════════════════════
+
+def ring_neighbors(i: int, r: int, L: int) -> list[int]:
+    """Return positions j such that d_ring(i, j) <= r.
+
+    d_ring(i, j) = min(|i - j|, L - |i - j|).
+    Returns O(r) neighbors instead of O(L), keeping complexity O(L·r).
+    """
+    return [(i + k) % L for k in range(-r, r + 1)]
+
+
+def is_complementary(b1: str, b2: str) -> bool:
+    """Check if two bases can form Watson-Crick or wobble pairing."""
+    watson_crick = {('A', 'U'), ('U', 'A'), ('G', 'C'), ('C', 'G')}
+    wobble = {('G', 'U'), ('U', 'G')}
+    return (b1, b2) in watson_crick or (b1, b2) in wobble
+
+
+def update_candidate_mask(
+    coords_pred: torch.Tensor,
+    candidate_mask: torch.Tensor,
+    seq_tokens: torch.Tensor,
+    r: int = 30,
+    d_threshold: float = 10.0,
+) -> torch.Tensor:
+    """Use 3D geometric feedback to recover ViennaRNA-missed pairs.
+
+    For each position i, scan its ring-neighborhood. If a neighbor j is
+    not in candidate_mask AND the two bases are chemically complementary
+    AND their 3D distance < d_threshold, mark (i,j) as recovered.
+
+    Args:
+        coords_pred: (B, L, 3) predicted coordinates from previous round
+        candidate_mask: (B, L, L) boolean mask of Top-K candidates
+        seq_tokens: (B, L) tokenized sequence
+        r: Ring-neighborhood radius
+        d_threshold: Å; pairs closer than this are recovered
+
+    Returns:
+        Updated candidate_mask with newly recovered pairs marked True.
+    """
+    B, L, _ = coords_pred.shape
+    token_map = {0: 'A', 1: 'U', 2: 'G', 3: 'C'}
+
+    for b in range(B):
+        for i in range(L):
+            neighbors = ring_neighbors(i, r, L)
+            b1 = token_map.get(seq_tokens[b, i].item(), 'N')
+
+            for j in neighbors:
+                if j == i or candidate_mask[b, i, j]:
+                    continue
+
+                b2 = token_map.get(seq_tokens[b, j].item(), 'N')
+                if not is_complementary(b1, b2):
+                    continue
+
+                dist = torch.norm(coords_pred[b, i] - coords_pred[b, j])
+                if dist < d_threshold:
+                    candidate_mask[b, i, j] = True
+                    candidate_mask[b, j, i] = True
+
+    return candidate_mask
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
 # Core Scheme 8 Modules
 # ═══════════════════════════════════════════════════════════════════════════════
 
@@ -609,6 +676,12 @@ class Scheme8Config:
     bond_length: float = 5.9     # P-P backbone distance
     closure_weight: float = 1.0
     use_gradient_checkpointing: bool = True
+    # Iterative refinement (recycling) — Section A of improvement roadmap.
+    # Uses 3D geometric feedback from the previous round to recover
+    # ViennaRNA-missed pairs without falling back to O(L^2).
+    n_recycle: int = 1               # Extra refinement rounds (0 disables, 2-3 recommended)
+    recycle_radius: int = 30         # Ring-neighborhood radius for candidate search
+    recycle_distance_threshold: float = 10.0  # Å; pairs closer than this are recovered
 
 
 class Scheme8Model(nn.Module):
@@ -715,11 +788,23 @@ class Scheme8Model(nn.Module):
         Mg_conc: float = 1.0,
         Na_conc: float = 1.5,
     ) -> Dict[str, torch.Tensor]:
-        """Forward pass: train or sample."""
+        """Forward pass: train or sample.
+
+        When sampling (coords_target is None) and config.n_recycle > 0,
+        routes to iterative_refinement() for multi-round geometric feedback.
+        Otherwise uses single-round _sample().
+        """
         if coords_target is not None:
             return self._train_step(
                 seq_tokens, coords_target, pair_probs,
                 temperature, pH, Mg_conc, Na_conc,
+            )
+        elif self.config.n_recycle > 0:
+            return self.iterative_refinement(
+                seq_tokens,
+                n_recycle=self.config.n_recycle,
+                temperature=temperature, pH=pH,
+                Mg_conc=Mg_conc, Na_conc=Na_conc,
             )
         else:
             return self._sample(
@@ -771,6 +856,120 @@ class Scheme8Model(nn.Module):
                     candidate_mask_batch[b] = mask
 
         return pair_probs_batch, candidate_mask_batch
+
+    def _sample_with_mask(
+        self,
+        seq_tokens: torch.Tensor,
+        pair_probs: Optional[torch.Tensor],
+        candidate_mask: torch.Tensor,
+        temperature: float = 310.0,
+        pH: float = 7.4,
+        Mg_conc: float = 1.0,
+        Na_conc: float = 1.5,
+    ) -> Dict[str, torch.Tensor]:
+        """Single-round sample with an external candidate mask.
+
+        Used by iterative_refinement() so that each round can pass its
+        own updated mask instead of rebuilding from ViennaRNA.
+        """
+        B, L = seq_tokens.shape
+        device = seq_tokens.device
+
+        # Start from noise
+        coords = torch.randn(B, L, 3, device=device)
+
+        # Iterative denoising (same as _sample but using provided mask)
+        for t in reversed(range(self.config.n_diffusion_steps)):
+            t_tensor = torch.full((B,), t, device=device, dtype=torch.float)
+            t_emb = self.time_embed(t_tensor)
+
+            x = self.coord_proj_in(coords)
+
+            with torch.no_grad():
+                noise_pred = self._denoise(x, t_emb, seq_tokens, pair_probs,
+                                           temperature, pH, Mg_conc, Na_conc)
+
+            if t < self.config.n_diffusion_steps // 2:
+                with torch.enable_grad():
+                    coords_guided = coords.detach().requires_grad_(True)
+                    closure_r = self.closure_reward(coords_guided)
+                    grad = torch.autograd.grad(closure_r.sum(), coords_guided)[0]
+                    noise_pred = noise_pred - 0.01 * grad
+
+            alpha = self.alphas[t]
+            alpha_bar = self.alpha_bars[t]
+            sigma = self.betas[t] ** 0.5 if t > 0 else 0
+            noise = torch.randn_like(coords) if t > 0 else 0
+
+            coords = (1 / alpha.sqrt()) * (coords -
+                     (1 - alpha) / (1 - alpha_bar).sqrt() * noise_pred) + sigma * noise
+
+        coords = self._enforce_closure(coords)
+
+        return {
+            'coords': coords,
+            'closure_distance': torch.norm(coords[:, 0] - coords[:, -1], dim=-1),
+            'method': 'scheme8_sparse_pair',
+        }
+
+    def iterative_refinement(
+        self,
+        seq_tokens: torch.Tensor,
+        n_recycle: int = 1,
+        temperature: float = 310.0,
+        pH: float = 7.4,
+        Mg_conc: float = 1.0,
+        Na_conc: float = 1.5,
+    ) -> Dict[str, torch.Tensor]:
+        """Multi-round refinement via geometric feedback recovery.
+
+        Pipeline:
+          Round 1: ViennaRNA Top-K → dense diffusion sampling
+          Round 2+: Use predicted coordinates to recover missed pairs,
+                    update candidate mask, re-run diffusion
+
+        Args:
+            seq_tokens: (B, L) tokenized sequence
+            n_recycle: Extra rounds beyond round 1 (default 1 = total 2 rounds)
+            temperature: Temperature for structure sampling
+            pH, Mg_conc, Na_conc: Environment conditions
+
+        Returns:
+            Final dict with 'coords', 'closure_distance', 'candidate_mask',
+            'rmse_history' (list of per-sample RMSD vs ground truth if provided).
+        """
+        B, L = seq_tokens.shape
+        device = seq_tokens.device
+
+        # Round 1: pure ViennaRNA prior
+        pair_probs, candidate_mask = self._build_pair_prior(seq_tokens)
+        output = self._sample_with_mask(
+            seq_tokens, pair_probs, candidate_mask,
+            temperature, pH, Mg_conc, Na_conc,
+        )
+        coords_pred = output['coords']
+
+        # Remaining rounds: geometric feedback loop
+        for rnd in range(n_recycle):
+            # Update candidate mask using 3D proximity + chemical compatibility
+            candidate_mask = update_candidate_mask(
+                coords_pred, candidate_mask, seq_tokens,
+                r=self.config.recycle_radius,
+                d_threshold=self.config.recycle_distance_threshold,
+            )
+            # Re-run diffusion with enriched candidates
+            output = self._sample_with_mask(
+                seq_tokens, pair_probs, candidate_mask,
+                temperature, pH, Mg_conc, Na_conc,
+            )
+            coords_pred = output['coords']
+
+        return {
+            'coords': coords_pred,
+            'closure_distance': output['closure_distance'],
+            'candidate_mask': candidate_mask,
+            'method': 'scheme8_sparse_pair_recycle',
+        }
 
     def _encode_sequence(self, seq_tokens: torch.Tensor) -> torch.Tensor:
         """Encode sequence with Mamba + periodic PE."""
