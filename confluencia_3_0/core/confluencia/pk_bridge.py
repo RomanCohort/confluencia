@@ -31,10 +31,18 @@ class PKModelBridge:
             dose: 给药剂量
             circrna_sequence: circRNA序列
             **kwargs: 传递给 infer_rna_ctm_params 的参数
+                innate_immune_score: 显式传入则用之；否则若提供 circrna_sequence
+                    则自动调用 V3 immune sensing 算 overall_score 注入
 
         Returns:
             {"concentration_time": [...], "auc": float, "half_life": float, "source": str, "available": bool}
         """
+        # 自动从 V3 immune sensing 注入 innate_immune_score（若未显式提供且有序列）
+        if "innate_immune_score" not in kwargs and circrna_sequence:
+            v3_score = self._compute_immune_score(circrna_sequence, kwargs)
+            if v3_score is not None:
+                kwargs["innate_immune_score"] = v3_score
+
         # 优先使用内化 RNACTM
         try:
             from ..pk.rnactm import infer_rna_ctm_params, simulate_rna_ctm, summarize_rna_ctm_curve
@@ -108,6 +116,23 @@ class PKModelBridge:
                 "available": False,
             }
 
+    def _compute_immune_score(self, sequence: str, kwargs: Dict) -> Optional[float]:
+        """从 V3 immune sensing 计算 overall_score，注入 PK 的 innate_immune_score。
+
+        优先用 predict_circrna_immunogenicity_v3（含 TorusFold + motif backend），
+        失败则返回 None（PK 用默认 0.0）。
+        """
+        try:
+            from ..circrna.immune_sensing_v3 import predict_circrna_immunogenicity_v3
+            result = predict_circrna_immunogenicity_v3(
+                sequence,
+                use_torusfold=kwargs.get("use_torusfold", True),
+                modification=kwargs.get("modification", "none"),
+            )
+            return float(result.overall_score)
+        except Exception:
+            return None
+
     def _lazy_load(self):
         """懒加载 2.0-drug ctm.py"""
         if self._loaded:
@@ -142,6 +167,9 @@ class PKModelBridge:
         data = event.data
         result = self.simulate_pk(
             dose=data.get("dose", 0.0),
-            circrna_sequence=data.get("sequence", ""),
+            circrna_sequence=data.get("sequence", data.get("circrna_sequence", "")),
+            modification=data.get("modification", "none"),
+            delivery_vector=data.get("delivery_vector", "LNP_standard"),
+            route=data.get("route", "IV"),
         )
         return result
