@@ -1,0 +1,39 @@
+# Data outputs (large)
+stage1_output*/
+stage2_output*/
+stage1_all_complete/
+stage1_final/
+stage1_merged/
+circbase_3d_*_output/
+circbase_full_output/
+fasta_parts/
+data/
+output_*/
+test_100*/
+circrna_3d_pipeline/circrna_3d_pipeline/
+
+# Raw data
+circbase_all.fa
+circbase_filtered_5000.fa
+circbase_filtered_all.fa
+circbase_filtered_quality.fa
+circbase_seqs.fa
+input.fasta
+filtered.fasta
+test_100.fa
+
+# trRosettaRNA2 source and weights
+trRosettaRNA2-2.0.4/
+trRosettaRNA2/
+weights/
+params_trRNA2.tar.bz2
+
+# Temp and backup
+pipeline_log.txt
+prefilter_report.json
+config.yaml.bak
+config_quality.yaml.bak
+config_quality_strict.yaml
+config_large_scale.yaml
+__pycache__/
+*.pyc

@@ -60,7 +60,7 @@ class CircRNA3DPipeline:
         self.save_pdbs = self.config['output'].get('save_pdbs', True)
         self.save_energies = self.config['output'].get('save_energies', True)
 
-    def run_single(self, sequence, bsj_start, bsj_end, seq_id=0):
+    def run_single(self, sequence, bsj_start, bsj_end, seq_id=0, source='real'):
         """
         Run full pipeline for a single circRNA.
 
@@ -69,9 +69,10 @@ class CircRNA3DPipeline:
             bsj_start: BSJ start index (0-based)
             bsj_end: BSJ end index (0-based)
             seq_id: Sequence identifier
+            source: Data source label ('real', 'synthetic', 'benchmark')
 
         Returns:
-            dict with 'quality_structures', 'confidence', 'stats'
+            dict with 'quality_structures', 'rejected_structures', 'confidence', 'stats', 'source'
         """
         start_time = time.time()
 
@@ -156,28 +157,39 @@ class CircRNA3DPipeline:
             md['sample_id'] = cycl['sample_id']
             md_results.append(md)
 
-        # Stage 5: Quality filtering
+        # Stage 5: Quality filtering (now returns structured rejections)
         print(f"[Stage 5] Filtering and scoring for seq_{seq_id}...")
-        quality_structures = self.stage5.filter_and_score_batch(
-            md_results, cyclized_results, ss_result
+        quality_structures, rejected_by_gate = self.stage5.filter_and_score_batch(
+            md_results, cyclized_results, [ss_result]
         )
 
         elapsed = time.time() - start_time
+        n_rejected_b = len(rejected_by_gate.get('B', []))
+        n_rejected_c = len(rejected_by_gate.get('C', []))
         print(f"Pipeline completed for seq_{seq_id} in {elapsed:.1f}s")
-        print(f"  Generated {len(quality_structures)} quality structures")
+        print(f"  Generated {len(quality_structures)} quality structures (A-layer)")
+        print(f"  Rejected: {n_rejected_b} soft-noise (B-layer), {n_rejected_c} hard-neg (C-layer)")
 
         # Compute overall confidence
         avg_confidence = np.mean([s['confidence'] for s in quality_structures]) if quality_structures else 0.0
+
+        # Flatten rejected for downstream export
+        rejected_structures = rejected_by_gate.get('B', []) + rejected_by_gate.get('C', [])
 
         return {
             'seq_id': seq_id,
             'sequence': sequence,
             'bsj_start': bsj_start,
             'bsj_end': bsj_end,
+            'source': source,
             'ss_result': ss_result,
             'quality_structures': quality_structures,
+            'rejected_structures': rejected_structures,
+            'rejected_by_gate': rejected_by_gate,
             'avg_confidence': float(avg_confidence),
             'num_structures': len(quality_structures),
+            'num_rejected_b': n_rejected_b,
+            'num_rejected_c': n_rejected_c,
             'elapsed_seconds': elapsed
         }
 
@@ -230,8 +242,11 @@ class CircRNA3DPipeline:
         """
         Export all quality structures to a unified dataset.
 
+        Also saves rejected (B-layer soft-noise and C-layer hard-negative) as separate JSON
+        for later use in TorusFold training with sample weights.
+
         Args:
-            results: list of results from run_batch
+            results: list of result dicts from run_batch / run_single
             output_path: path to save dataset JSON
 
         Returns:
@@ -241,18 +256,37 @@ class CircRNA3DPipeline:
             output_path = os.path.join(self.output_dir, 'dataset.json')
 
         all_structures = []
+        all_rejected = []
         for result in results:
             for struct in result['quality_structures']:
                 struct['sequence'] = result['sequence']
                 struct['bsj_start'] = result['bsj_start']
                 struct['bsj_end'] = result['bsj_end']
                 all_structures.append(struct)
+            all_rejected.extend(result.get('rejected_structures', []))
 
-        # Save dataset
+        # Save main dataset
         save_dataset(all_structures, output_path)
+
+        # Save rejection report separately
+        reject_path = output_path.replace('.json', '_rejections.json')
+        with open(reject_path, 'w') as f:
+            json.dump({
+                'total_rejected': len(all_rejected),
+                'by_gate': {
+                    'B (soft noise)': sum(1 for r in all_rejected if r.get('reject_layer') == 'B'),
+                    'C (hard negative)': sum(1 for r in all_rejected if r.get('reject_layer') == 'C'),
+                },
+                'samples': all_rejected
+            }, f, indent=2)
 
         # Generate report
         report = self.stage5.generate_dataset_report(all_structures)
+        report['total_rejected'] = len(all_rejected)
+        report['rejection_summary'] = {
+            'B_layer_soft_noise': sum(1 for r in all_rejected if r.get('reject_layer') == 'B'),
+            'C_layer_hard_negative': sum(1 for r in all_rejected if r.get('reject_layer') == 'C'),
+        }
 
         # Save report
         report_path = output_path.replace('.json', '_report.json')
@@ -261,19 +295,30 @@ class CircRNA3DPipeline:
 
         print(f"\nDataset Summary:")
         print(f"  Total structures: {report['total_structures']}")
+        print(f"  Rejected samples: {len(all_rejected)} (B={report['rejection_summary']['B_layer_soft_noise']}, C={report['rejection_summary']['C_layer_hard_negative']})")
         print(f"  Confidence: {report['confidence_stats']['mean']:.3f} ± {report['confidence_stats']['std']:.3f}")
         print(f"  Energy: {report['energy_stats']['mean']:.1f} ± {report['energy_stats']['std']:.1f} kJ/mol")
         print(f"  BSJ distance: {report['bsj_distance_stats']['mean']:.2f} ± {report['bsj_distance_stats']['std']:.2f} Å")
 
         return report
 
-    def export_torusfold(self, results, output_dir=None):
+    def export_torusfold(self, results, output_dir=None, include_soft_noise=False):
         """
-        Export results in TorusFold training format.
+        Export results in TorusFold training format with three-layer sampling.
+
+        Layers:
+            A: quality_structures (passed all gates) — weight 1.0
+            B: soft-noise rejections (Gate1 / Gate3) — weight 0.3
+            C: hard-negative rejections (Gate2 / Gate4 / Gate5) — not included in training
+                (separately saved as hard_negatives.npy for evaluation only)
+
+        If include_soft_noise is True, B-layer samples are included with sample_weights.
+        Otherwise only A-layer structures are exported.
 
         Args:
-            results: list of results from run_batch
+            results: list of result dicts from run_batch / run_single
             output_dir: directory for TorusFold format files
+            include_soft_noise: whether to include B-layer soft noise samples
         """
         if output_dir is None:
             output_dir = os.path.join(self.output_dir, 'torusfold_format')
@@ -281,31 +326,97 @@ class CircRNA3DPipeline:
         os.makedirs(output_dir, exist_ok=True)
 
         dataset = []
+        sources = []
+        weights = []
+        hard_negatives = []
+
         for result in results:
+            source = result.get('source', 'real')
+
             for struct in result['quality_structures']:
                 tf_data = convert_to_torusfold_format(struct)
                 tf_data['sequence'] = result['sequence']
                 tf_data['bsj_start'] = result['bsj_start']
                 tf_data['bsj_end'] = result['bsj_end']
                 dataset.append(tf_data)
+                weights.append(1.0)
+                sources.append(source)
+
+            rejected = result.get('rejected_structures', [])
+            for r in rejected:
+                if r.get('reject_layer') == 'C':
+                    hard_negatives.append({
+                        'pdb_path': r.get('pdb_path'),
+                        'frame': r.get('frame'),
+                        'reject_gate': r.get('reject_gate'),
+                        'reject_reason': r.get('reject_reason'),
+                        'confidence': r.get('confidence', 0.0),
+                        'seq_id': r.get('seq_id'),
+                        'sample_id': r.get('sample_id'),
+                    })
+                elif include_soft_noise and r.get('reject_layer') == 'B':
+                    tf_data = convert_to_torusfold_format({
+                        'pdb_path': r.get('pdb_path'),
+                        'frame': r.get('frame'),
+                        'time_ps': r.get('time_ps'),
+                        'energy_kjmol': r.get('energy_kjmol'),
+                        'bsj_distance_angstrom': r.get('bsj_distance_angstrom'),
+                        'confidence': r.get('confidence', 0.0),
+                    })
+                    tf_data['sequence'] = ''
+                    tf_data['bsj_start'] = -1
+                    tf_data['bsj_end'] = -1
+                    dataset.append(tf_data)
+                    weights.append(0.3)
+                    sources.append(source)
 
         # Save as numpy arrays
         coords = np.stack([d['coords'] for d in dataset])
         confidences = np.array([d['confidence'] for d in dataset])
         sequences = [d['sequence'] for d in dataset]
+        weights = np.array(weights, dtype=np.float32)
+        sources_arr = np.array(sources)
 
         np.save(os.path.join(output_dir, 'coords.npy'), coords)
         np.save(os.path.join(output_dir, 'confidences.npy'), confidences)
+        np.save(os.path.join(output_dir, 'sample_weights.npy'), weights)
+        np.save(os.path.join(output_dir, 'sources.npy'), sources_arr)
+
+        n_a = int(np.sum(weights == 1.0))
+        n_b = int(np.sum(weights == 0.3))
+        n_synthetic = int(np.sum(sources_arr == 'synthetic'))
 
         with open(os.path.join(output_dir, 'metadata.json'), 'w') as f:
             json.dump({
-                'num_structures': len(dataset),
-                'sequences': sequences,
+                'num_training': len(dataset),
+                'num_hard_negatives': len(hard_negatives),
                 'avg_confidence': float(np.mean(confidences)),
-                'avg_coords_shape': list(coords.shape)
+                'avg_coords_shape': list(coords.shape),
+                'layers': {
+                    'A (quality, weight=1.0)': n_a,
+                    'B (soft noise, weight=0.3)': n_b,
+                    'C (hard negative, excluded from training)': int(len(hard_negatives)),
+                },
+                'sources': {
+                    'real': int(np.sum(sources_arr == 'real')),
+                    'synthetic': n_synthetic,
+                    'benchmark': int(np.sum(sources_arr == 'benchmark')),
+                },
+                'include_soft_noise': include_soft_noise,
             }, f, indent=2)
 
-        print(f"Exported {len(dataset)} structures to TorusFold format at {output_dir}")
+        if hard_negatives:
+            np.save(os.path.join(output_dir, 'hard_negatives.npy'),
+                    np.array(hard_negatives, dtype=object))
+
+        print(f"Exported {len(dataset)} training structures + {len(hard_negatives)} hard negatives "
+              f"to TorusFold format at {output_dir}")
+        print(f"  A-layer (quality): {n_a} | B-layer (soft noise): {n_b} | "
+              f"C-layer (hard neg): {len(hard_negatives)}")
+        if n_synthetic > 0:
+            print(f"  Synthetic-source samples in training set: {n_synthetic} "
+                  f"({n_synthetic/len(dataset)*100:.1f}%) — "
+                  f"consent confirmed by user for TorusFold training")
 
     def _parse_ss_pairs(self, dot_bracket):
         """Parse dot-bracket notation into base pair list."""
@@ -333,6 +444,8 @@ def main():
     parser.add_argument('--bsj-end', type=int, default=-1, help='BSJ end index')
     parser.add_argument('--output', help='Output directory')
     parser.add_argument('--export-torusfold', action='store_true', help='Export in TorusFold format')
+    parser.add_argument('--include-soft-noise', action='store_true',
+                        help='Include B-layer soft-noise rejections (Gate1/Gate3) in TorusFold export with weight=0.3')
 
     args = parser.parse_args()
 
@@ -348,7 +461,7 @@ def main():
         result = pipeline.run_single(args.sequence, args.bsj_start, bsj_end)
 
         if args.export_torusfold:
-            pipeline.export_torusfold([result])
+            pipeline.export_torusfold([result], include_soft_noise=args.include_soft_noise)
 
     elif args.fasta:
         # Batch mode from FASTA
@@ -357,7 +470,7 @@ def main():
         pipeline.export_dataset(results)
 
         if args.export_torusfold:
-            pipeline.export_torusfold(results)
+            pipeline.export_torusfold(results, include_soft_noise=args.include_soft_noise)
 
     else:
         print("Usage: python pipeline.py --sequence <RNA_SEQ> [--bsj-start 0 --bsj-end 100]")

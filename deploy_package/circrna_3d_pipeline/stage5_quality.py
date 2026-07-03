@@ -55,8 +55,16 @@ class QualityFilter:
         """
         Quality-maximized filtering with 5-pass gate.
 
-        Returns only structures passing ALL quality gates with confidence >= 0.80.
+        Returns:
+            (quality_structures, rejected_structures)
+            - quality_structures: list of dicts passing ALL gates with conf >= 0.80
+            - rejected_structures: list of dicts with pdb_path/frame/gate/metrics,
+              classified into B-layer (soft noise: Gate1/Gate3) and C-layer
+              (hard negative: Gate2/Gate4/Gate5) by 'reject_layer' field.
         """
+        SOFT_NOISE_GATES = {'Gate1', 'Gate3'}   # convergence/energy — geometry likely OK
+        HARD_NEG_GATES = {'Gate2', 'Gate4', 'Gate5'}  # geometry violations
+
         # Load trajectories
         energy_traj = np.load(md_result['energy_trajectory'])
         rmsd_traj = np.load(md_result['rmsd_trajectory'])
@@ -64,7 +72,17 @@ class QualityFilter:
         # Get convergence info
         convergence = md_result.get('convergence', {})
         if not convergence.get('converged', False):
-            return [], ['MD not converged']
+            # Whole trajectory rejected; cannot attach per-snapshot pdb_path.
+            return [], [{
+                'pdb_path': None,
+                'frame': None,
+                'reject_gate': 'PreGate',
+                'reject_reason': 'MD not converged',
+                'reject_layer': 'B',  # convergence issue → soft noise candidate
+                'confidence': 0.0,
+                'seq_id': md_result.get('seq_id'),
+                'sample_id': md_result.get('sample_id'),
+            }]
 
         # Energy statistics
         energy_min = energy_traj.min()
@@ -78,7 +96,24 @@ class QualityFilter:
         rmsd_variance = np.var(rmsd_traj[plateau_start:]) if plateau_start < n_rmsd else np.var(rmsd_traj)
 
         quality_structures = []
-        rejected_reasons = []
+        rejected_structures = []
+
+        def _reject(snapshot, gate, reason, energy=None, bsj_dist=None):
+            """Append a structured rejection record."""
+            gate_key = gate.split('[')[0]  # 'Gate2[BSJ]' -> 'Gate2'
+            rejected_structures.append({
+                'pdb_path': snapshot.get('pdb_path'),
+                'frame': snapshot.get('frame'),
+                'time_ps': snapshot.get('time_ps'),
+                'reject_gate': gate,
+                'reject_reason': reason,
+                'reject_layer': 'B' if gate_key in SOFT_NOISE_GATES else 'C',
+                'energy_kjmol': float(energy) if energy is not None else None,
+                'bsj_distance_angstrom': bsj_dist,
+                'rmsd_variance': float(rmsd_variance),
+                'seq_id': md_result.get('seq_id'),
+                'sample_id': md_result.get('sample_id'),
+            })
 
         for i, snapshot in enumerate(md_result['snapshots']):
             energy = energy_traj[i]
@@ -86,37 +121,47 @@ class QualityFilter:
 
             # ========== GATE 1: Energy threshold ==========
             if energy > self.energy_threshold:
-                rejected_reasons.append(f"Gate1[Energy]: {energy:.0f} > {self.energy_threshold}")
+                _reject(snapshot, 'Gate1[Energy]',
+                        f"{energy:.0f} > {self.energy_threshold}", energy=energy)
                 continue
 
             # ========== GATE 2: BSJ geometry ==========
             bsj_dist = cyclized_result.get('bsj_distance_angstrom', 10.0)
             if bsj_dist > self.bsj_max_distance:
-                rejected_reasons.append(f"Gate2[BSJ]: {bsj_dist:.2f}Å > {self.bsj_max_distance}Å")
+                _reject(snapshot, 'Gate2[BSJ]',
+                        f"{bsj_dist:.2f}Å > {self.bsj_max_distance}Å",
+                        energy=energy, bsj_dist=bsj_dist)
                 continue
 
             # Validate BSJ geometry (check if it's physically reasonable)
             if not self._validate_bsj_geometry(snapshot['pdb_path'], bsj_dist):
-                rejected_reasons.append(f"Gate2[BSJ geometry]: invalid geometry")
+                _reject(snapshot, 'Gate2[BSJ geometry]',
+                        'invalid geometry', energy=energy, bsj_dist=bsj_dist)
                 continue
 
             # ========== GATE 3: RMSD convergence ==========
             if rmsd_variance > self.rmsd_variance_max:
-                rejected_reasons.append(f"Gate3[RMSD var]: {rmsd_variance:.3f} > {self.rmsd_variance_max}")
+                _reject(snapshot, 'Gate3[RMSD var]',
+                        f"{rmsd_variance:.3f} > {self.rmsd_variance_max}",
+                        energy=energy, bsj_dist=bsj_dist)
                 continue
 
             # ========== GATE 4: Steric clashes ==========
             if self.check_steric:
                 clash_count = self._count_steric_clashes(snapshot['pdb_path'])
                 if clash_count > 0:
-                    rejected_reasons.append(f"Gate4[Steric]: {clash_count} clashes detected")
+                    _reject(snapshot, 'Gate4[Steric]',
+                            f"{clash_count} clashes detected",
+                            energy=energy, bsj_dist=bsj_dist)
                     continue
 
             # ========== GATE 5: Bond uniformity ==========
             if self.validate_bonds:
                 bond_score = self._compute_bond_score(snapshot, cyclized_result)
                 if bond_score < 0.5:
-                    rejected_reasons.append(f"Gate5[Bond]: score {bond_score:.2f} < 0.5")
+                    _reject(snapshot, 'Gate5[Bond]',
+                            f"score {bond_score:.2f} < 0.5",
+                            energy=energy, bsj_dist=bsj_dist)
                     continue
             else:
                 bond_score = 0.5
@@ -147,7 +192,25 @@ class QualityFilter:
 
             # ========== Final gate: Minimum confidence ==========
             if confidence < self.min_confidence:
-                rejected_reasons.append(f"Confidence: {confidence:.2f} < {self.min_confidence}")
+                # Low confidence but geometry passed — candidate for soft noise (B-layer)
+                rejected_structures.append({
+                    'pdb_path': snapshot['pdb_path'],
+                    'frame': snapshot['frame'],
+                    'time_ps': snapshot['time_ps'],
+                    'reject_gate': 'Confidence',
+                    'reject_reason': f"{confidence:.2f} < {self.min_confidence}",
+                    'reject_layer': 'B',  # low conf → soft noise
+                    'energy_kjmol': float(energy),
+                    'energy_score': float(energy_score),
+                    'bsj_distance_angstrom': bsj_dist,
+                    'bsj_score': float(bsj_score),
+                    'rmsd_score': float(rmsd_score),
+                    'ss_score': float(ss_score),
+                    'bond_score': float(bond_score),
+                    'confidence': float(confidence),
+                    'seq_id': md_result.get('seq_id'),
+                    'sample_id': md_result.get('sample_id'),
+                })
                 continue
 
             # All gates passed, add to quality structures
@@ -173,7 +236,8 @@ class QualityFilter:
 
         # Sort by confidence descending
         quality_structures.sort(key=lambda x: x['confidence'], reverse=True)
-        return quality_structures, rejected_reasons
+        rejected_structures.sort(key=lambda x: x.get('confidence', 0) or 0, reverse=True)
+        return quality_structures, rejected_structures
 
     def _validate_bsj_geometry(self, pdb_path, bsj_dist):
         """Validate BSJ geometry is physically reasonable."""
@@ -310,9 +374,15 @@ class QualityFilter:
         return 0.5
 
     def filter_batch(self, md_results, cyclized_results, ss_results):
-        """Filter and score multiple MD results."""
+        """Filter and score multiple MD results.
+
+        Returns:
+            (all_quality, all_rejected_by_gate)
+            - all_quality: list of structures passing all gates
+            - all_rejected_by_gate: dict keyed by reject_layer {'B': [...], 'C': [...]}
+        """
         all_quality = []
-        all_rejections = {}
+        all_rejected_by_gate = {'B': [], 'C': []}
 
         for md in md_results:
             seq_id = md.get('seq_id')
@@ -327,19 +397,37 @@ class QualityFilter:
             if cycl is None:
                 continue
 
-            # Find matching ss result
-            ss = ss_results[seq_id] if seq_id < len(ss_results) else None
+            # Find matching ss result (by seq_id field, not list index)
+            ss = None
+            for s in ss_results:
+                if s.get('seq_id') == seq_id:
+                    ss = s
+                    break
             if ss is None:
                 continue
 
             quality, rejected = self.filter_and_score(md, cycl, ss)
             all_quality.extend(quality)
 
-            for reason in rejected:
-                all_rejections[reason] = all_rejections.get(reason, 0) + 1
+            for r in rejected:
+                layer = r.get('reject_layer', 'B')
+                all_rejected_by_gate[layer].append(r)
 
         all_quality.sort(key=lambda x: x['confidence'], reverse=True)
-        return all_quality, all_rejections
+        return all_quality, all_rejected_by_gate
+
+    # Public alias — pipeline.py / parallel_worker_trrosetta.py call this name.
+    filter_and_score_batch = filter_batch
+
+    @staticmethod
+    def _summarize_rejections(rejected_by_gate):
+        """Count rejections per gate for the dataset report."""
+        summary = {}
+        for layer in ('B', 'C'):
+            for r in rejected_by_gate.get(layer, []):
+                gate = r.get('reject_gate', 'Unknown')
+                summary[gate] = summary.get(gate, 0) + 1
+        return summary
 
     def generate_dataset_report(self, quality_structures, rejection_report=None):
         """Generate comprehensive quality statistics report."""
