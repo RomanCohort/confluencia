@@ -39,6 +39,18 @@ def run_stage2_only(stage1_output_dir, output_dir):
         with open(stage1_result_path) as f:
             stage1_result = json.load(f)
 
+        # 跳过长序列（避免 OOM）— 默认 >2000nt 跳过，等大内存机器跑
+        seq_len = len(stage1_result['sequence'])
+        max_len = int(os.environ.get('STAGE2_MAX_SEQ_LEN', '2000'))
+        if seq_len > max_len:
+            print(f"  ⚠ 跳过长序列 ({seq_len}nt > {max_len}nt)，等大内存机器处理")
+            # 写入跳过标记
+            skip_path = os.path.join(output_dir, seq_id, 'SKIPPED_TOO_LONG.txt')
+            os.makedirs(os.path.dirname(skip_path), exist_ok=True)
+            with open(skip_path, 'w') as f:
+                f.write(f"seq_len={seq_len}, max={max_len}\n")
+            continue
+
         # 创建输出目录
         seq_dir = os.path.join(output_dir, seq_id)
         linear_dir = os.path.join(seq_dir, 'linear')
