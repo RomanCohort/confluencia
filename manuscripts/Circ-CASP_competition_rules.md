@@ -13,15 +13,27 @@ circRNA（环状 RNA）是一种通过反向剪接形成的共价闭合环状 RN
 
 ### 1. 数据集
 
-| 数据类型 | 数量 | 来源 | 用途 |
-|----------|------|------|------|
-| 训练集 | 10,000 | 合成 + IsRNAcirc 扩增 | 公开提供 |
-| 测试集 | 30 | 物理高仿真结构 | 预测时公开序列，结果保密 |
+| 数据类型 | 数量 | 来源构成 | 用途 |
+|----------|------|----------|------|
+| 训练集 | **130,000** | 见下方"训练集来源构成"明细 | 公开提供（CC-BY 4.0） |
+| 测试集 | 30 | 物理高仿真结构（IsRNAcirc + Rosetta FARFAR2 交叉验证） | 预测时公开序列，结果保密 |
+
+**训练集来源构成（130,000 条明细）：**
+
+| 来源 | 数量 | 占比 | 置信度 | 说明 |
+|------|------|------|--------|------|
+| **合成数据** | 60,000 | 46.2% | 中（伪标签） | 基于理想 A-form 螺旋 + 随机基序插入生成，覆盖 50-500 nt 与 1000-5000 nt 两档 |
+| **IsRNAcirc 物理求解扩增** | 50,000 | 38.5% | 高（物理仿真） | IsRNAcirc 求解器生成，经能量最小化与构象采样，覆盖全长度区间 |
+| **公共数据库融合** | 20,000 | 15.3% | 高（实验/文献） | circBase + CIRCpedia 过滤后的高质量条目，附实验来源标注 |
+
+> **来源透明度声明：** 三类数据在 metadata 中通过 `source_type` 字段（`synthetic` / `isrnacirc` / `public_database`）显式标注，参赛者可按置信度筛选训练子集。合成 circRNA 样本（混合在 13 万条中）采用三层加权融合（合成 0.3 / IsRNAcirc 0.5 / 公共库 0.8），权重写入每条数据的 `confidence_weight` 字段。
 
 **训练集特征：**
-- 序列长度范围：50-500 nt（合成）+ 1000-2000 nt
-- 包含：序列、二级结构（部分）、伪标签 3D 坐标
+- 序列长度范围：50-5000 nt（分档：50-500 nt 合成主档 / 500-1000 nt 补充档 / 1000-5000 nt 长序列档）
+- 包含：序列、二级结构（部分）、伪标签 3D 坐标、来源标注、置信度权重
 - 格式：JSON + NPY（兼容 PyTorch/TensorFlow）
+
+> **设计说明：** 训练集覆盖 50-5000 nt 全区间，重点补充 500-1000 nt 中等长度档（真实 circRNA 最常见区间，初版在该档信号不足导致 M7/Scheme 7 在 L>500 性能断崖式下降）。三类来源交叉覆盖三档长度，确保每个长度区间都有高置信度样本。
 
 **测试集特征：**
 - 30 个真实 circRNA（来自纯物理预测的高质量结构）
@@ -45,38 +57,70 @@ circRNA（环状 RNA）是一种通过反向剪接形成的共价闭合环状 RN
 #### T1: 整体结构 RMSD
 $$\text{RMSD} = \sqrt{\frac{1}{N}\sum_{i=1}^{N}||p_i - t_i||^2}$$
 
-评分规则：
-- RMSD < 5 Å: 100 分
-- RMSD < 10 Å: 80 分
-- RMSD < 15 Å: 60 分
-- RMSD < 20 Å: 40 分
-- RMSD < 30 Å: 20 分
-- RMSD ≥ 30 Å: 0 分
+**对齐要求：** 计算 RMSD 前，先对 C3' 原子做 **Kabsch 最优刚体对齐**（最小化旋转+平移使预测与真实结构重合），再计算 RMSD。未做对齐的 RMSD 不予采纳。
+
+评分规则（阶梯式，越短越好）：
+| RMSD | 得分 |
+|------|------|
+| < 5 Å | 100 |
+| < 10 Å | 80 |
+| < 15 Å | 60 |
+| < 20 Å | 40 |
+| < 30 Å | 20 |
+| ≥ 30 Å | 0 |
+
+> **注意：** 此为阶梯评分，非附录脚本中的线性衰减公式 `max(0, 100 - 3.33 × RMSD)`。后者仅作参考，正式评分以本表为准。
 
 #### T2: BSJ 闭合距离
 $$d_{\text{BSJ}} = ||p_0 - p_{N-1}||$$
 
-真实距离约 5.9 Å（磷酸二酯键长度）。
+真实磷酸二酯键长度约 5.9 Å（首尾核苷酸 C3' 原子间距）。
 
-评分规则：
-- |d - 5.9| < 1 Å: 100 分
-- |d - 5.9| < 2 Å: 80 分
-- |d - 5.9| < 5 Å: 60 分
-- |d - 5.9| < 10 Å: 40 分
-- |d - 5.9| ≥ 10 Å: 0 分
+**碱基对定义：** circRNA 二级结构配对采用 Watson-Crick 几何判定——两碱基的 **C3'-C3' 距离 < 15 Å** 且碱基朝向满足标准 A-form 堆叠角度；BSJ 跨越区的配对单独处理：若 i 与 j 跨越剪接位点（i < BSJ_idx ≤ j），则该配对不计入 T4 评分（避免拓扑干扰）。
+
+评分规则（绝对合理性，以理想值 5.9 Å 为基准）：
+| |d - 5.9| | 得分 |
+|------|---------|------|
+| < 1 Å | 100 |
+| < 2 Å | 80 |
+| < 5 Å | 60 |
+| < 10 Å | 40 |
+| ≥ 10 Å | 0 |
 
 #### T3: 骨架距离一致性
-相邻核苷酸 C3' 原子距离应接近 5.9 Å（A-form RNA）。
+相邻核苷酸 C3' 原子距离应接近 5.9 Å（A-form RNA）。此任务评估**预测结构是否符合 A-form 几何约束**，而非与真实结构的匹配程度。
 
-$$\text{Bond\_Score} = \frac{1}{N}\sum_{i=1}^{N-1} \max(0, 100 - 20 \times |d_i - 5.9|)$$
+$$\text{Bond\_Score} = \frac{1}{N-1}\sum_{i=1}^{N-1} \max(0, 100 - 20 \times |d_i - 5.9|)$$
+
+> **注意：** 此为"绝对合理性"评分——只要预测键长偏离理想值 5.9 Å 就扣分，无论真实结构如何。不同于附录脚本中的 `|bond_pred - bond_true|`（相对准确性），本规则采用绝对合理性以避免"两边都错但错得一致"的钻空子行为。
 
 #### T4: 二级结构配对
 碱基配对预测准确性（AU/GC/GU 配对）。
 
+**配对定义：** 两个核苷酸 i < j 构成配对，当且仅当满足以下全部条件：
+1. **距离阈值：** C3'-C3' 原子间距 < 15 Å
+2. **几何约束：** 碱基朝向满足 Watson-Crick A-form 堆叠角度（与相邻碱基的螺旋参数一致）
+3. **BSJ 跨越排除：** 若 i < BSJ_idx ≤ j（即配对跨越剪接位点），该配对不计入评分
+
 $$\text{Pair\_F1} = \frac{2 \times \text{TP}}{2 \times \text{TP} + \text{FP} + \text{FN}}$$
+
+其中 TP/FP/FN 基于上述配对集合计算。
 
 #### T5: 构象多样性（可选）
 提交多个候选构象（最多 5 个），取最佳评分。
+
+**评分细则：**
+1. **基础分：** 从 5 个构象中选择 T1-T4 综合评分最高的一个，作为该目标的 T5 基础分（满分 60 分）
+2. **多样性奖励：** 若提交的构象之间 RMSD 标准差 > 5 Å（即有实质性结构差异），额外奖励 40 分
+3. **无多样性惩罚：** 若 RMSD 标准差 < 1 Å（即 5 个构象几乎相同），T5 总分仅得基础分 60 分 × 0.5 = 30 分
+
+$$\text{T5\_Score} = \min(\text{best\_among\_5}, 60) + \begin{cases}
+40, & \sigma_{\text{RMSD}} > 5Å \\
+20, & \sigma_{\text{RMSD}} > 2Å \\
+0, & \text{otherwise}
+\end{cases}$$
+
+> **注意：** 此设计防止"提交 5 个完全一样的构象"钻空子，鼓励真实的构象搜索。
 
 ### 4. 总分计算
 
@@ -86,19 +130,95 @@ $$\text{Total\_Score} = \sum_{i=1}^{5} w_i \times \text{Score}_i$$
 
 ---
 
+## 学术产出与署名
+
+Circ-CASP 旨在成为 circRNA 结构预测领域的长期学术基准。竞赛本身即是学术产出——参赛者不仅是"打比赛"，更是参与一项可被领域永久引用的学术基准建设。本章节明确参赛者从竞赛中可获得的学术资本。
+
+### 数据集公开与引用
+
+| 机制 | 说明 |
+|------|------|
+| **协议** | 训练集采用 CC-BY 4.0 协议发布，允许商用，仅需引用 |
+| **永久标识** | 训练集与揭盲后测试集发布至 Zenodo，分配 DOI，版本化（v1.0, v1.1…） |
+| **数据集论文** | 主办方撰写 circRNA 结构数据集论文，投稿至 *NAR Database Issue* / *Bioinformatics* |
+| **测试集揭盲** | 评估结束后，30 个真实结构 + 所有参赛预测 + 评分永久公开，成为领域 benchmark |
+| **数据卡** | 每条数据附 metadata：序列来源、长度、GC 含量、二级结构来源、3D 生成方法、置信度 |
+
+> 任何使用 Circ-CASP 数据集的论文须引用数据集 DOI。数据集被引次数随时间复利增长，是竞赛给领域的长期公共资产。
+
+### 盲测公信力
+
+| 机制 | 说明 |
+|------|------|
+| **提交即锁定** | 每队最多 3 次提交，每次提交生成 SHA-256 哈希并公开存档，截止后不可修改 |
+| **时间戳公证** | 截止时刻所有提交打包计算 Merkle root，公开发布至 arXiv/GitHub，任何人都可验证"预测早于揭盲" |
+| **测试集来源声明** | 30 个测试集真实结构的生成方法（物理求解器版本、参数、收敛判据）公开，并经 2+ 种独立方法交叉验证 |
+| **第三方评估委员会** | 邀请非参赛的 RNA 结构专家（海外/非吉大）组成评估委员会，独立审核评分过程，消除"既当裁判又当参赛者"嫌疑 |
+
+> 这些机制确保 Circ-CASP 的盲测结果可被任何论文引用而不被质疑——"我们方法在 Circ-CASP 2026 上达到 RMSD X Å"这句话才有学术分量。
+
+### 竞赛论文产出（三类）
+
+竞赛结束后将产出三类论文，参赛者按贡献获得署名：
+
+| 论文类型 | 内容 | 目标期刊 | 署名机制 |
+|---------|------|----------|---------|
+| **数据集论文** | Circ-CASP 数据集描述 + 基线评估 | *Bioinformatics* / *NAR Database* | 主办方 + 数据贡献者 |
+| **方法学评估论文** | 所有参赛方法系统对比 + 方法学洞察 | *Nucleic Acids Res.* / *Nature Methods* (letter) | 主办方 + **所有有效方法参赛者**（集体署名 / 贡献者列表） |
+| **领域综述论文** | 基于竞赛结果综述"circRNA 结构预测领域现状与挑战" | *Trends Biochem. Sci.* / *WIREs RNA* | 主办方 + 优胜者代表 |
+
+> **关键：** 只要提交一个有效方法（达到参赛门槛），即可在方法学评估论文上署名。这是竞赛给参赛者最实在的学术资本——一篇领域顶刊评估论文的共署作者，对申博/求职/基金申请是硬通货。
+
+### 方法学贡献署名
+
+- 参赛方法若开源，将被收录进 Circ-CASP **官方评估框架**（GitHub 开源项目）
+- 方法贡献者在评估框架中署名，可被后续工作正式引用
+- 评估框架包含：评估脚本、数据加载器、baseline 方法、参赛方法包装器——成为领域基础设施
+
+### 届次化
+
+- Circ-CASP 2026 为第一届，计划**每两年举办一届**
+- 历届数据集与结果永久可查，形成领域长期基准
+- 优胜者方法自动入选下届 baseline，持续积累学术声誉
+
+### Hub 集成：模型永久托管与流转
+
+Circ-CASP 与 Confluencia Hub（`hub.confluencia.org`，HuggingFace 后端）深度集成——参赛模型提交后**自动入 Hub**，获得永久 DOI、下载追踪与 baseline 流转。这是参赛者学术资本的核心载体。
+
+| 流程 | 机制 | 参赛者的"利" |
+|------|------|-------------|
+| **提交即托管** | 参赛者调用 `hub.push_circ_casp_submission()` 上传 `.joblib` 模型，task 强制为 `circRNA`，竞赛成绩（RMSD/T1-T5/总分/排名）自动绑定到 metadata | 模型永久可下载、可复现 |
+| **ORCID 绑定** | 上传须提供 `uploader_orcid`（ISO 7064 校验），模型 ID 格式 `hub:circRNA:{orcid_short}:{hash}` | 贡献可追溯到具体学者 |
+| **Zenodo DOI 申领** | 配置 `CONFLUENCIA_ZENODO_TOKEN` 后，每次上传自动申领 DOI 并写入 model card 的 BibTeX 引用块 | 论文可正式引用 `doi:10.5281/zenodo.XXX` |
+| **质量分层** | 提供推理代码 repo → `reproducible` 层；盲测发布后经委员会审核 → `verified`/`benchmark_top` 层 | 优质模型浮顶，劣质下沉 |
+| **下载追踪** | Hub 自动统计每个模型的下载次数，按梯度发影响力徽章：🥉≥100 / 🥈≥500 / 🥇≥1000 | "我的模型被下载 N 次"可写进简历 |
+| **贡献者年报** | `hub.get_contributor_stats(orcid)` 聚合该学者所有模型的下载/引用/徽章 | CV/基金申请硬通货 |
+| **Baseline 流转** | `benchmark_top` 层的 circRNA 模型自动打 `circ-casp-baseline` tag，入选下届 Circ-CASP baseline | 跨届持续被对比引用 |
+
+**部署与使用：**
+- Hub 后端部署指南见 `docs/hub_deployment.md`
+- Python 接口：`from confluencia_cli.hub import ConfluenciaHub`
+- R 接口：`cf_hub_push_model()` / `cf_hub_contributor_stats()` 等（见 `confluencia-rpkg`）
+
+**降级策略：** 无 `CONFLUENCIA_HF_TOKEN` 时 Hub 自动降级为本地缓存模式，不报错但不跨机器共享；无 `CONFLUENCIA_ZENODO_TOKEN` 时跳过 DOI 申领，模型仍可上传（model card 显示"Cite as: Confluencia Hub model `hub:...`"）。
+
+---
+
 ## 提交格式
 
 ### 文件结构
 ```
 submission/
-├── team_info.json         # 队伍信息
+├── team_info.json         # 队伍信息 + 署名同意
 ├── predictions/
 │   ├── circ_001_coords.npy  # 预测坐标 (N, 3)
 │   ├── circ_001_pairs.json  # 预测配对
 │   ├── circ_002_coords.npy
 │   ├── ...
 │   └── circ_030_coords.npy
-└── method_description.md   # 方法描述
+├── method_description.md   # 方法描述
+├── inference.py            # 最小可复现推理脚本（算力合规验证）
+└── LICENSE                 # 方法开源协议（可选，MIT/Apache-2.0/CC-BY-4.0）
 ```
 
 ### team_info.json
@@ -107,10 +227,23 @@ submission/
 {
   "team_name": "Your Team Name",
   "contact_email": "email@example.com",
-  "members": ["Member 1", "Member 2"],
-  "method_description": "Brief description"
+  "members": [
+    {"name": "Member 1", "affiliation": "Institution", "orcid": "0000-0000-0000-0000"}
+  ],
+  "method_description": "Brief description",
+  "method_repo_url": "https://github.com/team/circ-casp-method",
+  "method_license": "MIT",
+  "attribution_consent": true,
+  "publish_consent": true
 }
 ```
+
+**字段说明：**
+- `orcid`：推荐填写，用于论文署名时的身份绑定
+- `method_repo_url`：方法开源仓库地址（若开源，将被收录进官方评估框架）
+- `method_license`：开源协议（MIT / Apache-2.0 / CC-BY-4.0 推荐）
+- `attribution_consent`：是否同意在 Circ-CASP 评估论文/数据集论文中署名（须为 true 方可参赛）
+- `publish_consent`：是否同意预测结果在揭盲后公开（须为 true 方可参赛）
 
 ### predictions/circ_XXX_coords.npy
 
@@ -119,23 +252,50 @@ submission/
 - 坐标单位：Ångstrom
 - 原子类型：C3' 原子（可选用 P 原子）
 
+### 多构象提交（T5 可选）
+
+若参与 T5 构象多样性任务，每个目标可提交最多 5 个构象：
+```
+predictions/
+├── circ_001_coords.npy          # 构象 1（主构象，必交）
+├── circ_001_conf_2.npy          # 构象 2（可选）
+├── circ_001_conf_3.npy          # 构象 3（可选）
+├── ...
+└── circ_001_conf_5.npy          # 构象 5（可选）
+```
+
 ---
 
 ## 时间安排
 
 | 时间节点 | 事项 |
 |----------|------|
-| 7月10日 | 公布训练集 |
+| 7月10日 | 公布训练集（CC-BY 4.0，Zenodo DOI） |
 | 第 1-3 周 | 模型训练阶段 |
-| 第 4 周 | 公布测试集序列 |
-| 第 5 周 | 提交预测结果 |
-| 第 6 周 | 公布评分结果 |
+| 第 4 周 | 公布测试集序列（揭盲前） |
+| 第 5 周 | 提交预测结果（SHA-256 锁定，截止时 Merkle root 公开） |
+| 第 6 周 | 第三方评估委员会审核评分，公布评分结果 |
+| 第 7 周 | 揭盲：30 个真实结构 + 所有预测 + 评分永久公开 |
+| 第 8-12 周 | 数据集论文与方法学评估论文撰写，参赛者确认署名信息 |
+| 第 6 个月 | 数据集论文投稿（*NAR Database* / *Bioinformatics*） |
+| 第 9 个月 | 方法学评估论文投稿（*Nucleic Acids Res.* / *Nature Methods*） |
 
 ---
 
 ## 参赛门槛
 
 为确保竞赛质量，所有提交必须满足以下**最低有效性要求**：
+
+### 署名与公开同意（必填）
+
+参赛者须在 `team_info.json` 中确认以下两项均为 `true`，否则不予评估：
+
+| 同意项 | 含义 | 缺失后果 |
+|--------|------|----------|
+| `attribution_consent` | 同意在 Circ-CASP 数据集论文/方法学评估论文中署名 | 不予评估 |
+| `publish_consent` | 同意预测结果在揭盲后永久公开 | 不予评估 |
+
+> 这两项是竞赛学术产出的法律基础。署名同意确保参赛者获得应得学术资本，公开同意确保 benchmark 可被领域永久引用。
 
 ### 结构合理性门槛
 
@@ -210,13 +370,15 @@ submission/
 1. **硬件信息**：GPU 型号、数量、推理时间
 2. **方法描述**：是否使用物理模拟、模拟步数
 3. **代码提交**：核心推理代码（用于验证算力合规性）
+4. **最小可复现单元**：`README.md` + `inference.py`（或等价脚本），无需依赖完整训练流程即可在单卡上重跑预测
+5. **Batching 规则**：若一次推理处理多个目标（batch > 1），该次推理计为所有 batch 内目标各消耗 10 min GPU 时间；禁止多卡并行推理
 
 无法提供以上信息或信息不实的，成绩不予认可。
 
 ### 举报与申诉
 
 - 任何参赛者可举报疑似违规的算力使用
-- 组委会将要求被举报方提供推理日志
+- 组委会将要求被举报方提供推理日志（含 GPU 时间戳、显存峰值记录）
 - 确认违规的，取消该队全部成绩
 
 ---
@@ -386,43 +548,121 @@ def oracle_predict(sequence, seed):
 ```python
 import numpy as np
 
-def evaluate_prediction(pred_coords, true_coords, pairs_pred, pairs_true):
-    """计算预测评分。"""
+def kabsch_align(pred_coords, true_coords):
+    """对 C3' 原子做 Kabsch 最优刚体对齐，返回对齐后的预测坐标。"""
+    pred_centered = pred_coords - pred_coords.mean(axis=0)
+    true_centered = true_coords - true_coords.mean(axis=0)
+    H = pred_centered.T @ true_centered
+    U, S, Vt = np.linalg.svd(H)
+    d = np.sign(np.linalg.det(Vt.T @ U.T))
+    D = np.diag([1, 1, d])
+    R = Vt.T @ D @ U.T
+    return pred_centered @ R.T + true_coords.mean(axis=0)
 
+def evaluate_prediction(pred_coords, true_coords, pairs_pred, pairs_true, multi_conf=None):
+    """计算预测评分。
+
+    Args:
+        pred_coords: (N, 3) C3' 坐标
+        true_coords: (N, 3) C3' 坐标
+        pairs_pred: set of (i, j) 碱基对
+        pairs_true: set of (i, j) 真实碱基对
+        multi_conf: list of (N, 3) arrays，多构象提交（T5），最多 5 个
+    """
     N = len(pred_coords)
+    IDEAL_BOND = 5.9   # A-form C3'-C3' 距离
+    IDEAL_BSJ = 5.9    # 磷酸二酯键长度
 
-    # T1: RMSD
-    rmsd = np.sqrt(np.mean(np.sum((pred_coords - true_coords) ** 2, axis=1)))
-    t1_score = max(0, 100 - 3.33 * rmsd)  # RMSD=30Å 时为0分
+    # ===== T1: RMSD（Kabsch 对齐 + 阶梯评分）=====
+    pred_aligned = kabsch_align(pred_coords, true_coords)
+    rmsd = float(np.sqrt(np.mean(np.sum((pred_aligned - true_coords) ** 2, axis=1))))
+    if rmsd < 5:    t1_score = 100
+    elif rmsd < 10: t1_score = 80
+    elif rmsd < 15: t1_score = 60
+    elif rmsd < 20: t1_score = 40
+    elif rmsd < 30: t1_score = 20
+    else:           t1_score = 0
 
-    # T2: BSJ closure
-    bsj_pred = np.linalg.norm(pred_coords[0] - pred_coords[-1])
-    bsj_true = np.linalg.norm(true_coords[0] - true_coords[-1])
-    bsj_error = abs(bsj_pred - bsj_true)
-    t2_score = max(0, 100 - 20 * bsj_error)
+    # ===== T2: BSJ 闭合（绝对合理性，以 5.9Å 为基准）=====
+    bsj_pred = float(np.linalg.norm(pred_coords[0] - pred_coords[-1]))
+    bsj_err = abs(bsj_pred - IDEAL_BSJ)
+    if bsj_err < 1:  t2_score = 100
+    elif bsj_err < 2: t2_score = 80
+    elif bsj_err < 5: t2_score = 60
+    elif bsj_err < 10: t2_score = 40
+    else:             t2_score = 0
 
-    # T3: Bond consistency
+    # ===== T3: 骨架键长（绝对合理性，以 5.9Å 为基准）=====
     bond_pred = np.linalg.norm(pred_coords[1:] - pred_coords[:-1], axis=1)
-    bond_true = np.linalg.norm(true_coords[1:] - true_coords[:-1], axis=1)
-    bond_errors = np.abs(bond_pred - bond_true)
-    t3_score = np.mean(np.maximum(0, 100 - 20 * bond_errors))
+    bond_dev = np.abs(bond_pred - IDEAL_BOND)
+    t3_score = float(np.mean(np.maximum(0, 100 - 20 * bond_dev)))
 
-    # T4: Pair F1
-    # ... pair prediction evaluation
+    # ===== T4: 碱基对 F1 =====
+    pairs_pred_set = set(map(tuple, pairs_pred))
+    pairs_true_set = set(map(tuple, pairs_true))
+    tp = len(pairs_pred_set & pairs_true_set)
+    fp = len(pairs_pred_set - pairs_true_set)
+    fn = len(pairs_true_set - pairs_pred_set)
+    denom = 2 * tp + fp + fn
+    t4_score = (2 * tp / denom * 100) if denom > 0 else 0.0
 
-    # Total
+    # ===== T5: 构象多样性（可选）=====
+    if multi_conf is not None and len(multi_conf) > 1:
+        # 基础分：5 个构象中 T1-T4 综合最佳者
+        best_base = min(60.0, max(
+            _t1_to_t4_subscore(c, true_coords, pairs_pred, pairs_true)
+            for c in multi_conf
+        ))
+        # 多样性奖励：构象间 RMSD 标准差
+        rmsds = _pairwise_rmsd(multi_conf)
+        sigma = float(np.std(rmsds)) if len(rmsds) > 0 else 0.0
+        if sigma > 5:   diversity_bonus = 40
+        elif sigma > 2: diversity_bonus = 20
+        else:           diversity_bonus = 0
+        # 无多样性惩罚
+        if sigma < 1:
+            t5_score = best_base * 0.5
+        else:
+            t5_score = best_base + diversity_bonus
+    else:
+        t5_score = 0.0  # 未提交多构象则 T5 为 0
+
+    # ===== 总分 =====
     weights = [0.4, 0.2, 0.15, 0.15, 0.1]
-    total = weights[0]*t1_score + weights[1]*t2_score + weights[2]*t3_score
+    total = (weights[0]*t1_score + weights[1]*t2_score +
+             weights[2]*t3_score + weights[3]*t4_score +
+             weights[4]*t5_score)
 
     return {
         'rmsd': rmsd,
-        'bsj_error': bsj_error,
-        'bond_error': np.mean(bond_errors),
+        'bsj_pred': bsj_pred,
+        'bsj_error': bsj_err,
+        'bond_deviation_mean': float(np.mean(bond_dev)),
         't1': t1_score,
         't2': t2_score,
         't3': t3_score,
+        't4': t4_score,
+        't5': t5_score,
         'total': total,
     }
+
+
+def _t1_to_t4_subscore(pred_coords, true_coords, pairs_pred, pairs_true):
+    """辅助：单构象的 T1-T4 加权子分（用于 T5 基础分比较）。"""
+    res = evaluate_prediction(pred_coords, true_coords, pairs_pred, pairs_true, multi_conf=None)
+    w = [0.4, 0.2, 0.15, 0.15]
+    return w[0]*res['t1'] + w[1]*res['t2'] + w[2]*res['t3'] + w[3]*res['t4']
+
+
+def _pairwise_rmsd(confs):
+    """辅助：构象集合两两 RMSD（Kabsch 对齐后）。"""
+    n = len(confs)
+    rmsds = []
+    for i in range(n):
+        for j in range(i+1, n):
+            a = kabsch_align(confs[i], confs[j])
+            rmsds.append(np.sqrt(np.mean(np.sum((a - confs[j]) ** 2, axis=1))))
+    return rmsds
 ```
 
 ---

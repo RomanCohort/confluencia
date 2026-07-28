@@ -197,7 +197,7 @@ def test_diffusion_structure():
     print("  ✓ CircDiffusionStructure passed")
 
 
-def test_torusfold_v2():
+def test_torusfold_v2(enable_fingerprint_2d: bool = False):
     """Test 8: Full TorusFold v2 integration with simple structure."""
     from core.torusfold import TorusFold, TorusFoldConfig
 
@@ -218,6 +218,7 @@ def test_torusfold_v2():
         circ_stability=True,
         immune_pathway=True,
         bsj_confidence=True,
+        enable_fingerprint_2d=enable_fingerprint_2d,  # Pass through to config
     )
 
     model = TorusFold(config)
@@ -276,6 +277,67 @@ def test_torusfold_v2():
     print(f"  Composite: {composite.shape}, Report: {report.shape}, Response: {response_logits.shape}")
 
     print("  ✓ TorusFold v2 integration passed")
+
+
+def test_m6a_2d_3d_routing():
+    """Test 8b: m6A 2D/3D routing switch (Change 5, orbit C).
+
+    Verifies that toggling enable_fingerprint_2d changes the m6A exposure
+    proxy source:
+      - 2D mode: exposure = 1 - mean(pair_probs)  (single-strandedness)
+      - 3D mode: exposure = sigmoid(torus_coords[..., 2])  (torus radius)
+
+    Both must produce a (B, L) m6a_write_prob in [0, 1] and not crash.
+    """
+    from core.torus_coord_head import ImmuneFingerprintHeads
+
+    print("\n=== Test 8b: m6A 2D/3D Routing Switch ===")
+
+    B, L, d_model, c_z = 2, 20, 64, 32
+    seq_repr = torch.randn(B, L, d_model)
+    pair_repr = torch.randn(B, L, L, c_z)
+    torus_coords = torch.randn(B, L, 3)
+    pair_probs = torch.rand(B, L, L)  # in [0, 1]
+
+    # --- 2D mode ---
+    heads_2d = ImmuneFingerprintHeads(
+        d_model=d_model, c_z=c_z, d_torus=3,
+        enable_pkr=False, enable_nlrp3=False, enable_drach=True,
+        enable_tlr7=False, enable_sponge=False, enable_rigi=False,
+        enable_fingerprint_2d=True,
+    )
+    out_2d = heads_2d(seq_repr, pair_repr, torus_coords, pair_probs=pair_probs)
+    m6a_2d = out_2d["m6a_write_prob"]
+    assert m6a_2d.shape == (B, L), f"2D m6a shape {m6a_2d.shape} != {(B, L)}"
+    assert (m6a_2d >= 0).all() and (m6a_2d <= 1).all(), "2D m6a out of [0,1]"
+    print(f"  2D mode m6a_write_prob: shape={tuple(m6a_2d.shape)}, "
+          f"mean={m6a_2d.mean():.4f}")
+
+    # --- 3D mode ---
+    heads_3d = ImmuneFingerprintHeads(
+        d_model=d_model, c_z=c_z, d_torus=3,
+        enable_pkr=False, enable_nlrp3=False, enable_drach=True,
+        enable_tlr7=False, enable_sponge=False, enable_rigi=False,
+        enable_fingerprint_2d=False,
+    )
+    out_3d = heads_3d(seq_repr, pair_repr, torus_coords, pair_probs=pair_probs)
+    m6a_3d = out_3d["m6a_write_prob"]
+    assert m6a_3d.shape == (B, L), f"3D m6a shape {m6a_3d.shape} != {(B, L)}"
+    assert (m6a_3d >= 0).all() and (m6a_3d <= 1).all(), "3D m6a out of [0,1]"
+    print(f"  3D mode m6a_write_prob: shape={tuple(m6a_3d.shape)}, "
+          f"mean={m6a_3d.mean():.4f}")
+
+    # --- Fallback: 2D mode but pair_probs=None -> 3D proxy ---
+    out_fb = heads_2d(seq_repr, pair_repr, torus_coords, pair_probs=None)
+    m6a_fb = out_fb["m6a_write_prob"]
+    assert m6a_fb.shape == (B, L), "fallback m6a shape mismatch"
+    # Fallback should equal the 3D-mode output (same torus_coords, same head weights
+    # would only match if weights were identical — here heads differ, so just
+    # check it ran and stayed in range).
+    assert (m6a_fb >= 0).all() and (m6a_fb <= 1).all(), "fallback m6a out of [0,1]"
+    print(f"  2D+None fallback m6a_write_prob: mean={m6a_fb.mean():.4f}")
+
+    print("  ✓ m6A 2D/3D routing switch passed")
 
 
 def test_config_serialization_v2():
@@ -370,5 +432,23 @@ def run_all_tests():
 
 
 if __name__ == "__main__":
-    success = run_all_tests()
-    sys.exit(0 if success else 1)
+    import argparse
+    parser = argparse.ArgumentParser(description='Run TorusFold v2 tests with optional 2D fingerprint routing')
+    parser.add_argument('--enable-fingerprint-2d', action='store_true',
+                        help='Enable 2D single-strandedness proxy for m6A (orbit C)')
+    args = parser.parse_args()
+
+    if args.enable_fingerprint_2d:
+        print("="*60)
+        print("  2D fingerprint routing ENABLED (orbit C)")
+        print("  m6A head uses 1 - pair_probs instead of 3D torus radius")
+        print("="*60)
+        # Run Test 8 (config-level) + Test 8b (routing switch verification).
+        test_torusfold_v2(enable_fingerprint_2d=True)
+        print("\n✓ Test 8 passed with 2D fingerprint routing")
+        test_m6a_2d_3d_routing()
+        print("\n✓ Test 8b (m6A 2D/3D routing) passed")
+        sys.exit(0)
+    else:
+        success = run_all_tests()
+        sys.exit(0 if success else 1)

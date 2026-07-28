@@ -66,13 +66,14 @@ class HighThroughputPipeline:
         sequence: str,
         bsj_start: int,
         bsj_end: int,
-        seq_id: int = 0
+        seq_id: int = 0,
+        source: str = 'real'
     ) -> Dict:
         """
         Run full pipeline for a single circRNA sequence.
 
         Returns:
-            dict with 'quality_structures', 'confidence', 'stats', 'status'
+            dict with 'quality_structures', 'rejected_structures', 'confidence', 'stats', 'status', 'source'
         """
         start_time = time.time()
 
@@ -126,24 +127,32 @@ class HighThroughputPipeline:
                 md['sample_id'] = cycl['sample_id']
                 md_results.append(md)
 
-            # Stage 5: Quality filtering
-            quality_structures = self.stage5.filter_and_score_batch(
-                md_results, cyclized_results, ss_result
+            # Stage 5: Quality filtering (now returns structured rejections)
+            quality_structures, rejected_by_gate = self.stage5.filter_and_score_batch(
+                md_results, cyclized_results, [ss_result]
             )
 
             elapsed = time.time() - start_time
 
             avg_confidence = np.mean([s['confidence'] for s in quality_structures]) if quality_structures else 0.0
 
+            # Flatten rejected for export
+            rejected_structures = rejected_by_gate.get('B', []) + rejected_by_gate.get('C', [])
+
             return {
                 'seq_id': seq_id,
                 'sequence': sequence,
                 'bsj_start': bsj_start,
                 'bsj_end': bsj_end,
+                'source': source,
                 'ss_result': ss_result,
                 'quality_structures': quality_structures,
+                'rejected_structures': rejected_structures,
+                'rejected_by_gate': rejected_by_gate,
                 'avg_confidence': float(avg_confidence),
                 'num_structures': len(quality_structures),
+                'num_rejected_b': len(rejected_by_gate.get('B', [])),
+                'num_rejected_c': len(rejected_by_gate.get('C', [])),
                 'elapsed_seconds': elapsed,
                 'status': 'success',
             }
@@ -154,6 +163,7 @@ class HighThroughputPipeline:
             return {
                 'seq_id': seq_id,
                 'sequence': sequence,
+                'source': source,
                 'status': 'failed',
                 'error': str(e),
                 'elapsed_seconds': elapsed,
@@ -163,6 +173,7 @@ class HighThroughputPipeline:
         self,
         sequences: List[str],
         bsj_positions: List[Tuple[int, int]],
+        sources: List[str] = None,
         checkpoint_path: str = None
     ) -> List[Dict]:
         """
@@ -171,6 +182,7 @@ class HighThroughputPipeline:
         Args:
             sequences: list of RNA sequences
             bsj_positions: list of (bsj_start, bsj_end) tuples
+            sources: optional list of source labels ('real'/'synthetic'/'benchmark')
             checkpoint_path: path to save progress
 
         Returns:
@@ -196,7 +208,8 @@ class HighThroughputPipeline:
             if i in completed_ids:
                 continue
 
-            result = self.run_single(seq, bsj_start, bsj_end, seq_id=i)
+            src = sources[i] if sources and i < len(sources) else 'real'
+            result = self.run_single(seq, bsj_start, bsj_end, seq_id=i, source=src)
             results.append(result)
 
             # Save checkpoint after each sequence
@@ -237,6 +250,7 @@ def run_parallel_ray(
     config_path: str,
     sequences: List[str],
     bsj_positions: List[Tuple[int, int]],
+    sources: List[str] = None,
     num_workers: int = 8,
     mode: str = 'fast',
     output_dir: str = 'pipeline_output/'
@@ -256,8 +270,8 @@ def run_parallel_ray(
         def __init__(self, config_path, mode, gpu_id):
             self.pipeline = HighThroughputPipeline(config_path, mode, gpu_id)
 
-        def process_batch(self, sequences, bsj_positions, checkpoint_path):
-            return self.pipeline.run_batch(sequences, bsj_positions, checkpoint_path)
+        def process_batch(self, sequences, bsj_positions, sources, checkpoint_path):
+            return self.pipeline.run_batch(sequences, bsj_positions, sources, checkpoint_path)
 
     # Distribute sequences across workers
     chunks = []
@@ -265,7 +279,8 @@ def run_parallel_ray(
     for i in range(num_workers):
         start = i * chunk_size
         end = start + chunk_size if i < num_workers - 1 else len(sequences)
-        chunks.append((sequences[start:end], bsj_positions[start:end]))
+        chunk_sources = sources[start:end] if sources else ['real'] * (end - start)
+        chunks.append((sequences[start:end], bsj_positions[start:end], chunk_sources))
 
     print(f"Distributing {len(sequences)} sequences across {num_workers} workers")
     print(f"Chunk sizes: {[len(c[0]) for c in chunks]}")
@@ -278,9 +293,9 @@ def run_parallel_ray(
 
     # Submit jobs
     futures = []
-    for i, (worker, (seqs, bsjs)) in enumerate(zip(workers, chunks)):
+    for i, (worker, (seqs, bsjs, srcs)) in enumerate(zip(workers, chunks)):
         checkpoint = os.path.join(output_dir, f'checkpoint_worker_{i}.jsonl')
-        future = worker.process_batch.remote(seqs, bsjs, checkpoint)
+        future = worker.process_batch.remote(seqs, bsjs, srcs, checkpoint)
         futures.append(future)
 
     # Collect results
@@ -299,6 +314,7 @@ def run_parallel_multiprocessing(
     config_path: str,
     sequences: List[str],
     bsj_positions: List[Tuple[int, int]],
+    sources: List[str] = None,
     num_workers: int = 8,
     mode: str = 'fast',
     output_dir: str = 'pipeline_output/'
@@ -309,9 +325,9 @@ def run_parallel_multiprocessing(
     from multiprocessing import Pool, Manager
 
     def process_chunk(args):
-        chunk_seqs, chunk_bsjs, gpu_id, checkpoint_path = args
+        chunk_seqs, chunk_bsjs, chunk_srcs, gpu_id, checkpoint_path = args
         pipeline = HighThroughputPipeline(config_path, mode, gpu_id)
-        return pipeline.run_batch(chunk_seqs, chunk_bsjs, checkpoint_path)
+        return pipeline.run_batch(chunk_seqs, chunk_bsjs, chunk_srcs, checkpoint_path)
 
     # Distribute
     chunks = []
@@ -320,7 +336,8 @@ def run_parallel_multiprocessing(
         start = i * chunk_size
         end = start + chunk_size if i < num_workers - 1 else len(sequences)
         checkpoint = os.path.join(output_dir, f'checkpoint_worker_{i}.jsonl')
-        chunks.append((sequences[start:end], bsj_positions[start:end], i, checkpoint))
+        chunk_sources = sources[start:end] if sources else ['real'] * (end - start)
+        chunks.append((sequences[start:end], bsj_positions[start:end], chunk_sources, i, checkpoint))
 
     print(f"Distributing {len(sequences)} sequences across {num_workers} workers")
 
@@ -357,17 +374,20 @@ def main():
                         help='Use Ray for parallelization')
     parser.add_argument('--export-torusfold', action='store_true',
                         help='Export results in TorusFold format')
+    parser.add_argument('--include-soft-noise', action='store_true',
+                        help='Include B-layer soft-noise rejections (Gate1/Gate3) in TorusFold export with weight=0.3')
     parser.add_argument('--test', action='store_true',
                         help='Run test mode (10 sequences)')
 
     args = parser.parse_args()
 
     # Load sequences
-    sequences, bsj_positions = load_fasta_with_bsj(args.fasta)
+    sequences, bsj_positions, sources = load_fasta_with_bsj(args.fasta)
 
     if args.test:
         sequences = sequences[:10]
         bsj_positions = bsj_positions[:10]
+        sources = sources[:10]
         print(f"Test mode: processing {len(sequences)} sequences")
 
     os.makedirs(args.output, exist_ok=True)
@@ -393,12 +413,12 @@ def main():
     # Run pipeline
     if args.use_ray:
         results = run_parallel_ray(
-            args.config, sequences, bsj_positions,
+            args.config, sequences, bsj_positions, sources,
             args.num_workers, args.mode, args.output
         )
     else:
         results = run_parallel_multiprocessing(
-            args.config, sequences, bsj_positions,
+            args.config, sequences, bsj_positions, sources,
             args.num_workers, args.mode, args.output
         )
 
@@ -438,52 +458,125 @@ def main():
     with open(os.path.join(args.output, 'pipeline_summary.json'), 'w') as f:
         json.dump(summary, f, indent=2)
 
-    # Export TorusFold format
+    # Export TorusFold format (three-layer sampling)
     if args.export_torusfold:
         tf_dir = os.path.join(args.output, 'torusfold_format')
         os.makedirs(tf_dir, exist_ok=True)
 
-        dataset = []
+        dataset, sources, weights, hard_negatives = [], [], [], []
         for result in success:
+            source = result.get('source', 'real')
+            # A-layer: quality structures
             for struct in result.get('quality_structures', []):
                 tf_data = convert_to_torusfold_format(struct)
                 tf_data['sequence'] = result['sequence']
                 tf_data['bsj_start'] = result['bsj_start']
                 tf_data['bsj_end'] = result['bsj_end']
                 dataset.append(tf_data)
+                weights.append(1.0)
+                sources.append(source)
+            # C-layer: hard negative rejections (exclude from training)
+            for r in result.get('rejected_structures', []):
+                if r.get('reject_layer') == 'C':
+                    hard_negatives.append({
+                        'pdb_path': r.get('pdb_path'),
+                        'frame': r.get('frame'),
+                        'reject_gate': r.get('reject_gate'),
+                        'reject_reason': r.get('reject_reason'),
+                        'confidence': r.get('confidence', 0.0),
+                        'seq_id': r.get('seq_id'),
+                        'sample_id': r.get('sample_id'),
+                    })
+            # B-layer: soft noise (include only if --include-soft-noise is set)
+            if getattr(args, 'include_soft_noise', False):
+                for r in result.get('rejected_structures', []):
+                    if r.get('reject_layer') == 'B':
+                        tf_data = convert_to_torusfold_format({
+                            'pdb_path': r.get('pdb_path'),
+                            'frame': r.get('frame'),
+                            'time_ps': r.get('time_ps'),
+                            'energy_kjmol': r.get('energy_kjmol'),
+                            'bsj_distance_angstrom': r.get('bsj_distance_angstrom'),
+                            'confidence': r.get('confidence', 0.0),
+                        })
+                        tf_data['sequence'] = ''
+                        tf_data['bsj_start'] = -1
+                        tf_data['bsj_end'] = -1
+                        dataset.append(tf_data)
+                        weights.append(0.3)
+                        sources.append(source)
 
         if dataset:
             coords = np.stack([d['coords'] for d in dataset])
             confidences = np.array([d['confidence'] for d in dataset])
+            sequences = [d['sequence'] for d in dataset]
+            weights = np.array(weights, dtype=np.float32)
+            sources_arr = np.array(sources)
 
             np.save(os.path.join(tf_dir, 'coords.npy'), coords)
             np.save(os.path.join(tf_dir, 'confidences.npy'), confidences)
+            np.save(os.path.join(tf_dir, 'sample_weights.npy'), weights)
+            np.save(os.path.join(tf_dir, 'sources.npy'), sources_arr)
+            with open(os.path.join(tf_dir, 'sequences.json'), 'w') as _f:
+                json.dump(sequences, _f)
+
+            n_a = int(np.sum(weights == 1.0))
+            n_b = int(np.sum(weights == 0.3))
+            n_synthetic = int(np.sum(sources_arr == 'synthetic'))
 
             with open(os.path.join(tf_dir, 'metadata.json'), 'w') as f:
                 json.dump({
-                    'num_structures': len(dataset),
+                    'num_training': len(dataset),
+                    'num_hard_negatives': len(hard_negatives),
                     'avg_confidence': float(np.mean(confidences)),
-                    'pipeline': 'trRosettaRNA2',
-                    'mode': args.mode,
+                    'avg_coords_shape': list(coords.shape),
+                    'layers': {
+                        'A (quality, weight=1.0)': n_a,
+                        'B (soft noise, weight=0.3)': n_b,
+                        'C (hard negative, excluded from training)': int(len(hard_negatives)),
+                    },
+                    'sources': {
+                        'real': int(np.sum(sources_arr == 'real')),
+                        'synthetic': n_synthetic,
+                        'benchmark': int(np.sum(sources_arr == 'benchmark')),
+                    },
+                    'include_soft_noise': getattr(args, 'include_soft_noise', False),
                 }, f, indent=2)
 
-            print(f"Exported {len(dataset)} structures to TorusFold format")
+            if hard_negatives:
+                np.save(os.path.join(tf_dir, 'hard_negatives.npy'),
+                        np.array(hard_negatives, dtype=object))
+
+            print(f"Exported {len(dataset)} training structures + {len(hard_negatives)} hard negatives "
+                  f"to TorusFold format at {tf_dir}")
+            print(f"  A-layer (quality): {n_a} | B-layer (soft noise): {n_b} | "
+                  f"C-layer (hard neg): {len(hard_negatives)}")
+            if n_synthetic > 0:
+                print(f"  Synthetic-source samples: {n_synthetic} "
+                      f"({n_synthetic/len(dataset)*100:.1f}%) — consent confirmed by user")
 
 
-def load_fasta_with_bsj(fasta_path: str) -> Tuple[List[str], List[Tuple[int, int]]]:
+def load_fasta_with_bsj(fasta_path: str) -> Tuple[List[str], List[Tuple[int, int]], List[str]]:
     """
-    Load FASTA file with optional BSJ annotations.
+    Load FASTA file with optional BSJ and source annotations.
 
     Header formats:
+      >seq_id bsj_start=0 bsj_end=100 source=synthetic
       >seq_id bsj_start=0 bsj_end=100
-      >seq_id  (assumes BSJ at sequence ends)
+      >seq_id  (assumes BSJ at sequence ends, source='real')
+
+    Returns:
+        (sequences, bsj_positions, sources)
     """
+    import re
     sequences = []
     bsj_positions = []
+    sources = []
 
     with open(fasta_path, 'r') as f:
         current_seq = ''
         current_bsj = (0, -1)
+        current_source = 'real'
 
         for line in f:
             line = line.strip()
@@ -491,16 +584,20 @@ def load_fasta_with_bsj(fasta_path: str) -> Tuple[List[str], List[Tuple[int, int
                 if current_seq:
                     sequences.append(current_seq)
                     bsj_positions.append(current_bsj)
+                    sources.append(current_source)
 
                 header = line[1:]
                 current_seq = ''
                 current_bsj = (0, -1)
+                current_source = 'real'
 
                 if 'bsj_start=' in header:
-                    import re
                     start = int(re.search(r'bsj_start=(\d+)', header).group(1))
                     end = int(re.search(r'bsj_end=(\d+)', header).group(1))
                     current_bsj = (start, end)
+                m = re.search(r'source=(\w+)', header)
+                if m:
+                    current_source = m.group(1)
             else:
                 current_seq += line
 
@@ -509,8 +606,9 @@ def load_fasta_with_bsj(fasta_path: str) -> Tuple[List[str], List[Tuple[int, int
             if current_bsj[1] == -1:
                 current_bsj = (0, len(current_seq))
             bsj_positions.append(current_bsj)
+            sources.append(current_source)
 
-    return sequences, bsj_positions
+    return sequences, bsj_positions, sources
 
 
 if __name__ == '__main__':

@@ -13,41 +13,107 @@ Targets:
 from __future__ import annotations
 
 import json
+import logging
 import os
 import sys
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple, Union
 
 import numpy as np
+import pandas as pd
+
+logger = logging.getLogger(__name__)
 
 
 def _load_fitted_risk_weights() -> dict:
     """Load LASSO+StepCox fitted risk weights from training report.
 
     Prefers v2 report (22-gene + clinical). Falls back to v1, then defaults.
+    Each fallback emits a warning so callers know whether they are running
+    fitted weights or uncalibrated defaults.
     """
     v2_path = Path(__file__).parent.parent / "output" / "lasso_stepcox_v2_report.json"
     if v2_path.exists():
         with open(v2_path) as f:
             report = json.load(f)
+        logger.warning(
+            "gene_signature weights loaded from v2 report (22-gene + clinical): %s",
+            v2_path,
+        )
         return report["final_model"]["normalized_weights"]
 
     v1_path = Path(__file__).parent.parent / "output" / "lasso_stepcox_report.json"
     if v1_path.exists():
         with open(v1_path) as f:
             report = json.load(f)
+        logger.warning(
+            "gene_signature weights: v2 report not found, falling back to v1 "
+            "(5-gene) report: %s", v1_path,
+        )
         return report["final_model"]["normalized_weights"]
 
     # Fallback: load from scoring_weights.json gene_signature_4gene group
     from confluencia_shared.weight_loader import get_sub_weights
     gs_w = get_sub_weights("gene_signature_4gene")
+    logger.warning(
+        "gene_signature weights: NO fitted LASSO+StepCox report found (v2/v1 "
+        "both absent). Using UNCALIBRATED defaults from scoring_weights.json "
+        "gene_signature_4gene group, with hardcoded fallback 0.35/0.25/0.20/0.20. "
+        "Predictions from these weights are NOT Cox-fitted."
+    )
     return {
         "TROP2": gs_w.get("trop2", 0.35),
         "NECTIN4": gs_w.get("nectin4", 0.25),
         "LIV-1": gs_w.get("liv1", 0.20),
         "B7-H4": gs_w.get("b7h4", 0.20),
     }
-import pandas as pd
+
+
+def _load_data_driven_baselines() -> Dict[str, float]:
+    """Load data-driven expression baselines from combined_with_survival.csv.
+
+    For missing expression values, uses the median expression per gene from the
+    3078-sample TCGA+METABRIC cohort (LASSO training data). This is preferable to
+    arbitrary constants because it:
+    - Reflects true patient population distribution
+    - Is traceable to training data (transparent to reviewers)
+    - Avoids injecting bias from unparsable constants
+
+    Returns:
+        Dictionary mapping gene name (TROP2, NECTIN4, LIV-1, B7-H4) to median
+        expression value in the training cohort.
+    """
+    import functools
+
+    # Cache the result; loading CSV is cheap but we don't want to recompute
+    @functools.lru_cache(maxsize=1)
+    def _compute():
+        # Try candidate locations: this module's sibling data dir, then the
+        # project root data dir (so repo-mirrored copies still resolve to the
+        # single source of truth at <root>/data/gene_signature/).
+        module_root = Path(__file__).parent.parent
+        candidates = [
+            module_root / "data" / "gene_signature" / "combined_with_survival.csv",
+            module_root.parent / "data" / "gene_signature" / "combined_with_survival.csv",
+        ]
+        csv_path = next((p for p in candidates if p.exists()), None)
+        if csv_path is None:
+            logger.warning(
+                "gene_signature baselines: combined_with_survival.csv not found "
+                "in any candidate path; falling back to neutral 0.5 for all genes. "
+                "Missing-value imputation will be uninformative."
+            )
+            return {"TROP2": 0.5, "NECTIN4": 0.5, "LIV-1": 0.5, "B7-H4": 0.5}
+        df = pd.read_csv(csv_path)
+        logger.info("gene_signature baselines loaded from: %s", csv_path)
+        return {
+            "TROP2": df["TROP2"].median(),
+            "NECTIN4": df["NECTIN4"].median(),
+            "LIV-1": df["LIV-1"].median(),
+            "B7-H4": df["B7-H4"].median(),
+        }
+
+    return _compute()
 
 
 # =============================================================================
@@ -98,72 +164,6 @@ TARGET_PROTEINS = {
         "expression_pattern": "membrane",
         "function": "T-cell inhibition, immune evasion",
         "clinical_relevance": "Predicts immune activation efficacy of circRNA therapeutics",
-    },
-}
-
-
-# =============================================================================
-# Expression Level Encoding (Simulated for Missing Data)
-# =============================================================================
-
-# Literature-derived expression correlations for simulated inputs
-# In production, these would be derived from patient RNA-seq or proteomics data
-EXPRESSION_CORRELATIONS = {
-    # TROP2 correlates with proliferation markers
-    "TROP2_prolif_corr": 0.72,
-    "TROP2 EMT_corr": -0.15,
-    # NECTIN4 correlates with metastasis markers
-    "NECTIN4_metastasis_corr": 0.65,
-    "NECTIN4_immune_corr": -0.28,
-    # LIV-1 correlates with EMT and zinc signaling
-    "LIV1_EMT_corr": 0.68,
-    "LIV1_zinc_corr": 0.55,
-    # B7-H4 correlates with immune suppression
-    "B7H4_TMB_corr": 0.45,
-    "B7H4_immune_corr": 0.62,
-}
-
-# Therapeutic sensitivity scores (derived from clinical data)
-THERAPEUTIC_SENSITIVITY = {
-    "TROP2_high": {
-        "ADC_response": 0.85,
-        "circRNA_efficacy": 0.78,
-        "immuno_response": 0.65,
-    },
-    "TROP2_low": {
-        "ADC_response": 0.42,
-        "circRNA_efficacy": 0.51,
-        "immuno_response": 0.58,
-    },
-    "NECTIN4_high": {
-        "ADC_response": 0.79,
-        "circRNA_efficacy": 0.72,
-        "immuno_response": 0.68,
-    },
-    "NECTIN4_low": {
-        "ADC_response": 0.38,
-        "circRNA_efficacy": 0.48,
-        "immuno_response": 0.55,
-    },
-    "LIV1_high": {
-        "ADC_response": 0.58,
-        "circRNA_efficacy": 0.81,
-        "immuno_response": 0.62,
-    },
-    "LIV1_low": {
-        "ADC_response": 0.65,
-        "circRNA_efficacy": 0.45,
-        "immuno_response": 0.60,
-    },
-    "B7H4_high": {
-        "ADC_response": 0.45,
-        "circRNA_efficacy": 0.68,
-        "immuno_response": 0.82,
-    },
-    "B7H4_low": {
-        "ADC_response": 0.62,
-        "circRNA_efficacy": 0.72,
-        "immuno_response": 0.48,
     },
 }
 
@@ -387,16 +387,22 @@ class GeneSignatureEncoder:
         expr: Union[float, pd.Series, Dict[str, float], None],
         target_name: str,
     ) -> float:
-        """Resolve expression value from various input types."""
+        """Resolve expression value from various input types.
+
+        When expression is missing (expr is None) and simulate_missing is True,
+        substitutes the cohort median expression from combined_with_survival.csv
+        (data-driven, traceable to LASSO training cohort, n=3078). This avoids
+        injecting unparsable arbitrary constants.
+        """
         if expr is None:
             if self.simulate_missing:
-                # Use literature-derived baseline
-                baselines = {
-                    "TROP2": 0.55,
-                    "NECTIN4": 0.45,
-                    "LIV-1": 0.50,
-                    "B7-H4": 0.60,
-                }
+                # Data-driven: cohort median from combined_with_survival.csv
+                baselines = _load_data_driven_baselines()
+                logger.info(
+                    "gene_signature: expression for %s missing, substituting "
+                    "cohort median %.4f (data-driven, n=3078)",
+                    target_name, baselines.get(target_name, 0.5),
+                )
                 return baselines.get(target_name, 0.5)
             return 0.5
 
@@ -436,7 +442,7 @@ class GeneSignatureEncoder:
             data: DataFrame with columns [TROP2, NECTIN4, LIV-1, B7-H4] or dict/list of dicts
 
         Returns:
-            Feature matrix (N, 20) as numpy array
+            Feature matrix (N, 19) as numpy array
         """
         if isinstance(data, pd.DataFrame):
             records = data.to_dict("records")
@@ -477,7 +483,7 @@ class GeneSignatureEncoder:
             gene_signatures: Gene expression data (N, 4) as DataFrame/dict/list
 
         Returns:
-            Combined feature matrix (N, n_drug_features + 20)
+            Combined feature matrix (N, n_drug_features + 19)
         """
         gene_vecs = self.transform(gene_signatures)
         return np.hstack([drug_features, gene_vecs])

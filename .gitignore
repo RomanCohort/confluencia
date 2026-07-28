@@ -36,6 +36,12 @@ models/
 *.onnx
 *.bin
 *.npz
+*.npy
+
+# circRNA 3D 结构生成输出 (海量 .npy, 不入库)
+data/circrna_3d_v3/
+data/circrna_3d_dualpool/
+data/circrna_3d/
 
 # Logs
 logs/
@@ -167,13 +173,37 @@ __pycache__/
 .pytest_cache/
 .understand-anything/
 
-# 调试脚本输出
+# 调试脚本输出 / 误生成垃圾文件
 0
--1e8
-50
+0,*
+100
+170%
+2.28
+500
 Dict[str*
+Tuple[*
+3D
+3}
+*.json
+*.npy
 error[*]
 *[*]
+*bikd*
+*blo*
+*hsa_circ_*
+*.ps1
+inspect_*
+kill_*
+stat_*
+tune_*
+single_energy_*
+test_*.json
+validation_results.json
+ablation_results.*
+best_equivariant_*.pt
+training_output.log
+train_*.log
+log_generation.txt
 
 # 图片
 微信图片_*

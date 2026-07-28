@@ -37,6 +37,13 @@ from core.predictor import CircRNAPredictor
 from core.scoring import CompositeScorer, ReportScorer, calculate_ips_score
 from core.features import build_sequence_features, get_default_gene_expression
 
+# 3D 结构可视化（Mol* 自包含 HTML）
+import streamlit.components.v1 as components
+from pathlib import Path as _Path
+from visualization.structure_sources import get_structure_for_sequence, DEFAULT_WEIGHTS as _DEFAULT_3D_WEIGHTS
+from visualization.html_renderer import render_from_export
+from visualization.structure_export import export_circrna_structure
+
 # Page config (mirrors drug module)
 st.set_page_config(
     page_title="Confluencia circRNA",
@@ -65,6 +72,13 @@ def init_session_state():
         st.session_state.model_loaded = False
     if "last_results" not in st.session_state:
         st.session_state.last_results = None
+    # 3D 结构数据源 + 缓存
+    if "structure_model" not in st.session_state:
+        st.session_state.structure_model = "synthetic"  # 默认合成预览
+    if "structure_weights_path" not in st.session_state:
+        st.session_state.structure_weights_path = ""    # 真实模型权重路径
+    if "structure_cache" not in st.session_state:
+        st.session_state.structure_cache = None         # {coords, seq, conf, immune, source, fallback_reason}
 
 
 def mock_predict(sequence: str, gene_expr: Dict) -> Dict:
@@ -142,6 +156,52 @@ def render_sidebar():
         - [表位模块](../confluencia-2.0-epitope/app.py)
         """)
 
+        st.markdown("---")
+        st.markdown("### 🧬 3D 结构模型")
+
+        # 3D 结构数据源选择器：合成预览（默认）/ 真实 TorusFold v2
+        structure_model = st.radio(
+            "预测 circRNA 3D 结构时用哪个数据源：",
+            options=["合成预览 (stem+loop)", "TorusFold v2 (需权重)"],
+            help="合成预览：无需权重，秒出；TorusFold v2：真实模型推理（需要 v2 格式权重）",
+            index=0,  # 默认合成
+        )
+        if "合成" in structure_model:
+            st.session_state.structure_model = "synthetic"
+        else:
+            st.session_state.structure_model = "torusfold"
+
+        if st.session_state.structure_model == "torusfold":
+            weights_path = st.text_input(
+                "v2 权重路径",
+                value=st.session_state.structure_weights_path,
+                help="留空=用本地默认路径（若存在）；填错会自动 fallback 到合成预览",
+            )
+            st.session_state.structure_weights_path = weights_path.strip()
+
+            # 立即验证：路径填了就检查格式，不等到点 tab 才崩
+            if st.session_state.structure_weights_path:
+                w = _Path(st.session_state.structure_weights_path)
+                if not w.exists():
+                    st.error(f"❌ 路径不存在: {w}")
+                else:
+                    # 轻量 v2 格式检测：只 peek state_dict keys
+                    try:
+                        import torch
+                        _state = torch.load(str(w), map_location="cpu", weights_only=False)
+                        _ws = _state.get("model_state_dict", _state)
+                        _need = {"backbone", "pairformer", "structure_head", "composite_head"}
+                        _miss = _need - set(_ws.keys())
+                        if _miss:
+                            st.warning(f"⚠️ 权重不是 v2 格式（缺 {sorted(_miss)}）。"
+                                       "真实路径会失败并自动 fallback 到合成预览。")
+                        else:
+                            st.success(f"✅ v2 格式正确，可正常加载。")
+                    except Exception as _e:
+                        st.error(f"❌ 读取权重失败: {_e}")
+            else:
+                st.info(f"留空 → 默认: {_DEFAULT_3D_WEIGHTS}")
+
         if st.button("🔄 重置参数"):
             st.session_state.clear()
             st.rerun()
@@ -217,7 +277,85 @@ def render_sequence_info(sequence: str):
         st.pyplot(fig)
 
 
-def render_prediction_results(results: Dict, gene_expr: Dict):
+def render_3d_structure(sequence: str, gene_expr: Dict):
+    """
+    第 4 个 tab「3D 结构」：根据 sidebar 选的数据源（合成/TorusFold v2）
+    生成 circRNA 3D 结构 HTML，用 Mol* 嵌入。
+
+    真实路径失败自动 fallback 合成，并在 UI 透明标注 source。
+    """
+    st.markdown("**circRNA 3D 折叠结构**（Mol* 可交互 viewer）")
+
+    model = st.session_state.structure_model
+    weights = None
+    if model == "torusfold":
+        wp = st.session_state.structure_weights_path
+        weights = _Path(wp) if wp else _DEFAULT_3D_WEIGHTS
+
+    # 用 (sequence, model, weights) 作 cache key，切 tab 不重算
+    cache_key = (sequence, model, str(weights) if weights else "")
+    cached = st.session_state.structure_cache
+    if cached is None or cached.get("cache_key") != cache_key:
+        with st.spinner("正在生成 3D 结构..."):
+            result = get_structure_for_sequence(
+                sequence, model=model, weights=weights, device="cpu",
+            )
+            result["cache_key"] = cache_key
+            st.session_state.structure_cache = result
+
+    result = st.session_state.structure_cache
+    source = result["source"]
+
+    # 透明标注数据源
+    if source == "torusfold":
+        st.success("✅ 数据源：TorusFold v2 真实推理")
+    elif source == "synthetic-fallback":
+        st.warning(
+            "⚠️ 真实推理失败，已回退合成预览。"
+            f"原因：{result.get('fallback_reason', '未知')}"
+        )
+    else:
+        st.info("ℹ️ 数据源：合成预览（stem+loop 折叠，非真实预测）。"
+                "侧边栏切「TorusFold v2」+ 填权重路径可看真实结构。")
+
+    # 生成自包含 HTML 并嵌入
+    try:
+        export = export_circrna_structure(
+            coords=result["coords"],
+            sequence=result["sequence"],
+            immune_fingerprints=result["immune_fingerprints"],
+            confidence=result["confidence"],
+            circular=True,
+        )
+        title_suffix = {
+            "torusfold": "",
+            "synthetic-fallback": " (SYNTHETIC-FALLBACK)",
+            "synthetic": " (SYNTHETIC)",
+        }[source]
+        html = render_from_export(
+            export, title=f"TorusFold circRNA 3D Viewer{title_suffix}"
+        )
+        components.html(html, height=640, scrolling=False)
+        # 合成预览会把 L 对齐到 8 的倍数（stem/loop 对称硬约束），
+        # 实际结构长度可能略短于输入序列。如实显示，不糊弄。
+        actual_len = result['coords'].shape[1]
+        input_len = len(sequence)
+        if actual_len != input_len:
+            len_note = (
+                f"结构长度 {actual_len} nt | 输入 {input_len} nt"
+                f"（合成预览按 8 倍数对齐，已截 {input_len - actual_len} nt）"
+            )
+        else:
+            len_note = f"结构长度 {actual_len} nt"
+        st.caption(
+            f"{len_note} | HTML {len(html)} bytes | "
+            "浏览器里切 Coloring Scheme 可换 confidence / PKR / m6A / TLR7 等上色"
+        )
+    except Exception as e:
+        st.error(f"3D HTML 生成失败: {e}")
+
+
+def render_prediction_results(results: Dict, gene_expr: Dict, sequence: str = ""):
     """Render prediction results (mirrors drug module layout)."""
     st.markdown('<p class="sub-header">🔮 预测结果</p>', unsafe_allow_html=True)
 
@@ -247,7 +385,7 @@ def render_prediction_results(results: Dict, gene_expr: Dict):
         st.metric("预测应答", response_map.get(response, response))
 
     # Detailed scores tabs
-    tab1, tab2, tab3 = st.tabs(["综合评分", "免疫激活", "风险评估"])
+    tab1, tab2, tab3, tab4 = st.tabs(["综合评分", "免疫激活", "风险评估", "3D 结构"])
 
     with tab1:
         composite_keys = [
@@ -279,6 +417,12 @@ def render_prediction_results(results: Dict, gene_expr: Dict):
         col1, col2 = st.columns(2)
         col1.metric("模型风险", f"{risk:.2f}")
         col2.metric("TIDE逃逸", f"{tide:.2f}")
+
+    with tab4:
+        if not sequence:
+            st.info("👆 先在上方输入 circRNA 序列并点击「开始预测」，3D 结构会在这里显示。")
+        else:
+            render_3d_structure(sequence, gene_expr)
 
     # Summary
     st.markdown("---")
@@ -377,7 +521,7 @@ def main():
 
     # Display results
     if st.session_state.last_results:
-        render_prediction_results(st.session_state.last_results, gene_expr)
+        render_prediction_results(st.session_state.last_results, gene_expr, sequence)
 
     # Batch prediction
     if input_method == "批量CSV" and hasattr(st.session_state, "batch_df"):

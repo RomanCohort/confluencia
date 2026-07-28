@@ -5,6 +5,7 @@ Uses confluencia skill API for all backend computation.
 """
 
 import streamlit as st
+import streamlit.components.v1 as components
 import plotly.graph_objects as go
 import numpy as np
 from datetime import datetime
@@ -13,6 +14,7 @@ from utils import (
     circrna_full_analysis, circrna_pk,
     generate_html_report, save_html_report,
     get_backend, get_gc_content, format_sequence,
+    get_skill_api,
 )
 
 st.set_page_config(page_title="circRNA Analysis - Confluencia", page_icon="🔬", layout="wide")
@@ -101,13 +103,21 @@ with st.sidebar:
 
     with st.sidebar.expander("TorusFold 3D Structure"):
         use_tf = st.checkbox("Enable 3D Structure Prediction", value=False,
-                              help="Requires trained model. Improves scoring accuracy.")
+                              help="勾选=用 TorusFold v2 真实推理；不勾选=合成预览（stem+loop 折叠，无需权重）")
         if use_tf:
-            tf_model = st.text_input("Model Path", value="models/torusfold_v2.pt")
-            tf_device = st.selectbox("Device", ["auto", "cuda", "cpu"], index=0)
+            tf_model = st.text_input("v2 权重路径", value="models/torusfold_v2.pt",
+                                      help="留空会用本地默认路径；填错会自动回退合成预览")
+            tf_device = st.selectbox("Device", ["auto", "cuda", "cpu"], index=2)
+            st.caption("⚠️ 真实推理需要 v2 格式权重；v1 残留/格式不对会自动 fallback 合成并在结果区提示")
         else:
-            st.info("3D structure prediction disabled. Using heuristic scoring.")
-            st.caption("Enable after TorusFold model training completes.")
+            tf_model = ""
+            tf_device = "cpu"
+            st.info("3D 预览模式：合成 stem+loop 折叠结构（无需权重，秒出）。")
+
+        # 存进 session_state，结果区生成 3D 时用
+        st.session_state["use_tf_3d"] = use_tf
+        st.session_state["tf_model_path"] = tf_model
+        st.session_state["tf_device"] = tf_device
 
     with st.expander("什么是RNACTM？"):
         st.markdown("""
@@ -344,6 +354,54 @@ if st.session_state.get("analysis_done") and st.session_state.get("analysis_data
             height=300
         )
         st.plotly_chart(pk_fig, use_container_width=True)
+
+    # 3D Structure Viewer (Mol* 双轨：合成预览 / TorusFold v2 真实推理)
+    st.markdown("---")
+    st.markdown("#### 🧬 circRNA 3D 结构预览")
+    seq_clean = data.get("sequence", "")
+    use_tf = st.session_state.get("use_tf_3d", False)
+    tf_model = st.session_state.get("tf_model_path", "")
+    tf_device = st.session_state.get("tf_device", "cpu")
+
+    if seq_clean:
+        # 数据源缓存：(sequence, use_tf, tf_model, tf_device) 作 key，避免重复推理
+        cache_key = (seq_clean, use_tf, tf_model, tf_device)
+        if st.session_state.get("_molstar_cache_key") != cache_key:
+            with st.spinner("生成 3D 结构中..." if use_tf else "生成合成预览..."):
+                try:
+                    skill_api = get_skill_api()
+                    if use_tf and tf_model:
+                        html_3d = skill_api.generate_molstar_3d_html(
+                            seq_clean, model="torusfold",
+                            weights_path=tf_model, device=tf_device,
+                        )
+                        # 检查是否 fallback（真实路径 title 含 FALLBACK = 真推理失败）
+                        if "SYNTHETIC-FALLBACK" in html_3d[:500]:
+                            st.warning("⚠️ 真实推理失败，已回退合成预览（见 viewer 标题）")
+                        else:
+                            st.success("✅ 数据源：TorusFold v2 真实推理")
+                    else:
+                        html_3d = skill_api.generate_molstar_3d_html(
+                            seq_clean, model="synthetic", device=tf_device,
+                        )
+                        st.info("ℹ️ 数据源：合成预览（stem+loop 折叠）。侧边栏勾选「Enable 3D」+ 填 v2 权重可看真实结构。")
+
+                    st.session_state["_molstar_cache_html"] = html_3d
+                    st.session_state["_molstar_cache_key"] = cache_key
+                except Exception as e:
+                    st.error(f"3D 结构生成失败: {e}")
+                    st.session_state["_molstar_cache_html"] = None
+                    st.session_state["_molstar_cache_key"] = None
+
+        cached_html = st.session_state.get("_molstar_cache_html")
+        if cached_html:
+            components.html(cached_html, height=640, scrolling=False)
+            st.caption(
+                "结构长度 {} nt | HTML {:,} bytes | ".format(len(seq_clean), len(cached_html))
+                + "浏览器内旋转/缩放/切 Coloring Scheme（confidence / PKR / m6A / TLR7 等）"
+            )
+    else:
+        st.info("👆 输入序列并点击「开始分析」后，3D 结构会在这里显示")
 
     # Export
     st.markdown("---")

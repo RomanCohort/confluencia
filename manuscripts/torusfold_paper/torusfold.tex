@@ -35,7 +35,7 @@ Circular RNAs (circRNAs) have attracted attention as a potential therapeutic pla
 
 Here we built TorusFold to explore eight deep learning architectures for circRNA 3D structure prediction under data scarcity. We introduce Torus Positional Encoding (TPE), which uses sinusoidal functions with period L to guarantee that equivalent positions in the circular sequence receive identical encoding. We evaluated three trained schemes: EGNN cascade (Scheme 1, RMSD 13.85\AA), physics solver with ViennaRNA constraints (Scheme 2, RMSD 25.47\AA), and GNN latent diffusion (Scheme 6, RMSD 13.91\AA, closure 0.02\AA). Additional architectures are described in Methods and Supplementary Section S1. Scheme 5 failed catastrophically (RMSD 245\AA) due to unbounded coordinate prediction, and Scheme 2' (without pair constraints) degraded to 85.39\AA.
 
-On our PDB-derived circularized test set (N=7 sequences, lengths 20-27 nt), Scheme 6 achieved RMSD 13.91\AA\ with closure error 0.02\AA, learning circular closure end-to-end without explicit constraints. Scheme 2 (physics solver with ViennaRNA pair constraints) achieved RMSD 25.47\AA\ with closure 2.75\AA. Scheme 2' (without pair constraints) degraded to RMSD 85.39\AA, showing that secondary structure priors matter. We implemented curriculum learning across three phases: high-quality data first, then confidence-weighted mixed data, then long sequences for O(L) architectures only. Comparison with IsRNA, AlphaFold3, and FARFAR2 is pending. We establish evaluation protocols specific to circRNA (BSJ closure error, circular distance metrics) and release benchmark datasets. TorusFold provides a starting point for circRNA structure prediction where none existed before.
+On the PDB circularized test set used for trained schemes (N=7 sequences, lengths 20-27 nt), Scheme 6 achieved RMSD 13.91\AA\ with closure error 0.02\AA, learning circular closure end-to-end without explicit constraints. Scheme 2 (physics solver with ViennaRNA pair constraints) was additionally evaluated on a larger circularized set (N=30, including longer sequences) where it achieved RMSD 25.47\AA\ with end-to-end proximity 2.75\AA; cross-scheme RMSD comparisons in Table~\ref{tab:schemes} are therefore not on equal footing (different test sets). Scheme 2' (without pair constraints) degraded to RMSD 85.39\AA, showing that secondary structure priors matter. We implemented curriculum learning across three phases: high-quality data first, then confidence-weighted mixed data, then long sequences for O(L) architectures only. Comparison with IsRNA, AlphaFold3, and FARFAR2 is pending. We establish evaluation protocols specific to circRNA (BSJ closure error, circular distance metrics) and release benchmark datasets. TorusFold provides a starting point for circRNA structure prediction where none existed before.
 \end{abstract}
 
 \section{Introduction}
@@ -152,7 +152,7 @@ $^{\dagger}$Training in progress; preliminary architectures described in Methods
 
 \textbf{Limitations:} No learned representations; limited to secondary structure level without diffusion; may miss tertiary contacts captured by learned methods.
 
-Zero-training baseline using geometric constraint solving with simulated annealing to enforce bond lengths and BSJ closure. Uses ViennaRNA circ-mode pair probabilities as distance constraints. On PDB circularized test set (N=30), achieves RMSD 25.47Å (median 23.35Å) with closure 2.75Å. O(L) complexity. Without pair constraints (Scheme 2'), RMSD degrades to 85.39Å, demonstrating the importance of secondary structure priors.
+Zero-training baseline using geometric constraint solving with simulated annealing to enforce bond lengths and approximate end-to-end proximity at the BSJ. Uses ViennaRNA circ-mode pair probabilities as distance constraints. On PDB circularized test set (N=30), achieves RMSD 25.47Å (median 23.35Å) with end-to-end distance 2.75Å---note this is approximate proximity, not covalent bond-forming closure (which requires sub-0.5Å tolerance after O3'–P bond conjugation). O(L) complexity. Without pair constraints (Scheme 2'), RMSD degrades to 85.39Å, demonstrating the importance of secondary structure priors.
 
 \textbf{Scheme 3: Dual-Engine Iterative Refinement.}
 
@@ -239,7 +239,7 @@ Critically, the closure constraint was learned end-to-end without explicit penal
 
 To validate this claim, we performed an ablation: training Scheme 6 on synthetic linear RNA structures (with broken BSJ) for 100 epochs. The model still produced closed structures with mean closure error of $2.3 \pm 0.8$\AA\ (vs. $0.02 \pm 0.01$\AA\ on circular data), demonstrating that the constraint emerges from structural priors rather than explicit supervision. This suggests that diffusion models can learn physical constraints through data distribution alone.
 
-\textbf{Limitations:} The test set contains only N=7 sequences (lengths 20-27 nt), which limits statistical power and generalizability to longer or more diverse structures. Results should be interpreted as preliminary validation rather than definitive proof.
+\textbf{Limitations:} The test set contains only N=7 sequences (lengths 20-27 nt), which severely limits statistical power (SE(r)$\approx$0.18 on correlation claims; 95\% CIs span moderate to strong effects) and generalizability to longer or more diverse structures. Results should be interpreted as preliminary proof-of-concept rather than definitive performance estimates. A 20-27 nt RNA is a hairpin, not a biologically representative circRNA (typically 200-2000+ nt); scaling to full-length circRNAs is untested.
 
 \begin{figure}[htbp]
 \centering
@@ -257,7 +257,7 @@ To validate this claim, we performed an ablation: training Scheme 6 on synthetic
 
 \subsection{External Baseline Comparisons}
 
-We compare TorusFold against existing RNA structure prediction methods on our circularized test set (Figure~\ref{fig:baselines}). Scheme 6 achieves competitive RMSD while guaranteeing closure, a constraint that general-purpose RNA structure predictors like AlphaFold3 cannot enforce.
+We intend to compare TorusFold against existing RNA structure prediction methods on our circularized test set (Figure~\ref{fig:baselines}). \textbf{These external baseline comparisons (IsRNA, AlphaFold3, FARFAR2) are not yet completed and are reported as pending in this version of the manuscript; the figure and the claim that Scheme 6 achieves competitive RMSD should therefore be read as anticipated rather than demonstrated.} The expected advantage is that Scheme 6 guarantees BSJ closure, a constraint that general-purpose RNA structure predictors like AlphaFold3 cannot enforce natively.
 
 \begin{figure}[htbp]
 \centering
@@ -281,7 +281,7 @@ To isolate the contribution of Torus Positional Encoding, we compared identical 
 
 We observed a strong effect of training data quality on prediction accuracy (Figure~\ref{fig:data_quality}). When trained on our heterogeneous pseudo-label dataset (N$\approx$14,000, confidence $\sim$0.5), all schemes achieved RMSD $\sim$25\AA\ on validation. When evaluated on the high-confidence PDB circularized set (N=7, confidence $\sim$0.95), RMSD improved to $\sim$14\AA\ for Schemes 1 and 6.
 
-This 11\AA\ improvement from data quality alone suggests that current methods have not reached their architectural ceiling---they are limited by training data. We estimate that with 50-100 high-quality experimental circRNA structures, RMSD could potentially reach <10\AA.
+This $\sim$11\AA\ improvement coincides with higher data quality, but the two sets also differ in size (N$\approx$14,000 vs. N=7) and sequence length distribution, so the gain cannot be cleanly attributed to quality alone without matching the sets on length and source composition. With this caveat, the trend suggests that current methods have not reached their architectural ceiling---they may be limited by training data. We estimate that with 50-100 high-quality experimental circRNA structures, RMSD could potentially reach <10\AA.
 
 \begin{figure}[htbp]
 \centering
@@ -343,22 +343,24 @@ This 1,624-sample ceiling isn't a limitation of our pipeline. It reflects the un
 The early experiments taught us that \textbf{data is king} in ways we didn't expect. We abandoned two schemes (3 and 5) because their predictions exploded to MSE around 250,000 and RMSD 245\AA. You might blame the architectures. But the deeper lesson is simpler: when training data contains systematic errors from IsRNA, ViennaRNA, and other pseudo-label sources, architectural ingenuity can't compensate. A model trained on corrupted labels predicts corrupted structures, whether it uses transformers or physics solvers. This is the Data is King principle: data quality determines the ceiling of what you can achieve, even with perfect code.
 
 \subsection{On the Practical Limits of Sparse Attention for RNA 3D Structure Prediction}
+\label{sec:sparse-limits}
 
 Scheme 8 (Sparse Pair-Guided Hybrid Architecture) was designed to reduce the O($L^2$) complexity of pair representation to O($L \cdot K$) by using ViennaRNA circ-mode to select Top-K pair candidates per position. However, the implementation revealed a fundamental tension between sparse attention theory and GPU hardware reality. PyTorch's \texttt{nn.MultiheadAttention} requires a dense $L \times L$ attention mask: it computes all $L^2$ query-key dot products, then applies the mask to zero out unwanted positions before softmax. In effect, Scheme 8's ``sparse'' attention has the same O($L^2$) GPU memory footprint as the dense attention it was designed to replace.
 
 Recent work on FlashAttention \citep{dao2023} offers a different resolution to this paradox. Rather than avoiding the O($L^2$) computation, FlashAttention reduces the dominant cost---HBM (high-bandwidth memory) access---by performing the entire softmax computation in on-chip SRAM cache. This reduces GPU memory from O($L^2$) to O(L) without sacrificing computational density.
 
-We propose that the correct design for physics-guided attention in RNA structure prediction combines three elements: (1) FlashAttention for O(L) memory with dense GPU utilization, (2) ViennaRNA pair probabilities as soft attention bias rather than hard mask, and (3) learnable correction gates that allow the model to override the physics prior when warranted.
+We propose that the correct design for physics-guided attention in RNA structure prediction combines three elements: (1) FlashAttention for O(L) memory with dense GPU utilization, (2) ViennaRNA pair probabilities as soft attention bias rather than hard mask, and (3) learnable correction gates that allow the model to override the physics prior when warranted. Element (3) is partially realized by the iterative refinement procedure (Methods, Scheme 8), which uses the model's predicted geometry as evidence to recover ViennaRNA-missed pairs; a fully learned gate remains future work.
 
 \subsection{Limitations}
 
 We acknowledge several limitations:
 \begin{enumerate}
-\item \textbf{Small test set (N=7):} Limited statistical power precludes definitive conclusions.
+\item \textbf{Small test set (N=7):} Limited statistical power precludes definitive conclusions; 95\% CIs on accuracy claims span moderate-to-strong effects.
 \item \textbf{Incomplete comparison:} Schemes 4, 7, and 8 are not yet fully trained.
 \item \textbf{Pseudo-label quality:} Training data consists primarily of computational predictions.
 \item \textbf{No wet-lab validation:} All results are computational.
 \item \textbf{Missing external baselines:} Comparison with IsRNA, AlphaFold3, and FARFAR2 is pending.
+\item \textbf{Limited evaluation metrics:} We report RMSD and BSJ closure error only; complementary structure-quality metrics (TM-score, GDT\_TS, lDDT) adopted in protein and RNA structure assessment are not yet computed and would strengthen local-quality and fold-level evaluation in a future revision.
 \end{enumerate}
 
 \section{Methods}
@@ -566,6 +568,18 @@ enables prediction on sequences >1000 nt.
 \begin{equation}
 \text{Theoretical: } O(L \cdot K), \quad \text{Actual GPU: } O(L^2) \text{ memory}
 \end{equation}
+
+\textbf{Iterative Refinement (Geometric Feedback Loop):}
+ViennaRNA's Top-$K$ selection misses pairs when the energy-based predictor mishandles pseudoknots or long-range contacts. To recover them, we use a multi-round refinement procedure. After the first diffusion round yields predicted coordinates $\mathbf{X}^{(1)} \in \mathbb{R}^{L \times 3}$, each subsequent round $r+1$ augments the candidate mask $\mathbf{M}$:
+
+\begin{enumerate}
+\item For each position $i$, examine only $j \in \mathcal{N}_r(i) = \{(i+k) \bmod L : |k| \leq r\}$, where $r=30$. This ring-surface neighborhood respects circRNA topology, since positions near the BSJ are neighbors despite large linear indices, at $O(L \cdot r)$ cost.
+\item Retain only $(i,j)$ pairs whose bases are Watson-Crick or wobble complementary. This drops spurious spatial proximity caused by backbone stacking or prediction error.
+\item Mark $(i,j)$ as recovered if $\lVert \mathbf{X}^{(r)}_i - \mathbf{X}^{(r)}_j \rVert_2 < d_{\text{thr}}$ ($d_{\text{thr}}=10$\,\AA) and $(i,j) \notin \mathbf{M}^{(r)}$.
+\item Re-run diffusion with the enriched mask $\mathbf{M}^{(r+1)}$.
+\end{enumerate}
+
+Two to three recycle rounds are used. Beyond this, marginal gains diminish and self-predicted coordinates risk amplifying first-round errors. This procedure realizes the ``learnable correction gate'' discussed in Section~\ref{sec:sparse-limits}: instead of overriding the ViennaRNA prior through a learned gate alone, it uses the model's own geometric output as evidence to revise the prior.
 
 \textbf{Status:} Training in progress, memory optimization pending.
 

@@ -9,7 +9,11 @@ cf_hub_push_model(
   metadata = NULL,
   uploader = "anonymous",
   license = "MIT",
-  strip_env_medians = FALSE
+  strip_env_medians = FALSE,
+  uploader_orcid = "",
+  contributors = NULL,
+  reproducibility_url = "",
+  mint_doi = TRUE
 )
 }
 \arguments{
@@ -22,6 +26,15 @@ cf_hub_push_model(
 \item{license}{License for the shared model (default: "MIT")}
 
 \item{strip_env_medians}{Remove env_medians to eliminate training data traces (default: FALSE)}
+
+\item{uploader_orcid}{Canonical ORCID iD (e.g., "0000-0002-1825-0097"). Strongly
+recommended — binds the upload to a citable identity and enables Zenodo DOI minting.}
+
+\item{contributors}{Character vector of additional ORCID iDs of co-contributors}
+
+\item{reproducibility_url}{URL to training code repo (raises tier to "reproducible")}
+
+\item{mint_doi}{If TRUE (default) and CONFLUENCIA_ZENODO_TOKEN is set, mint a DOI}
 }
 \value{
 Named list with model_id and message
@@ -36,7 +49,8 @@ Set strip_env_medians=TRUE to also remove statistical traces of training data.
 # Share with full privacy: strip statistical traces
 result <- cf_hub_push_model("my_drug_bundle.joblib",
                              metadata = list(model_name = "ridge", r2 = 0.91),
-                             strip_env_medians = TRUE)
+                             strip_env_medians = TRUE,
+                             uploader_orcid = "0000-0002-1825-0097")
 print(result$model_id)
 }
 }

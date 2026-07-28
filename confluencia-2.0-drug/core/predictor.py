@@ -381,3 +381,61 @@ def suggest_env_by_de_drug(
 
     best_env, best_val = de_optimize(objective, env_bounds, maximize=maximize, **de_kwargs)
     return np.asarray(best_env, dtype=float), float(best_val)
+
+
+def predict_full(
+    bundle: "DrugModelBundle",
+    smiles: str,
+    immune: float = 0.5,
+    inflammation: float = 0.3,
+    dose_mg: float = 1.0,
+    freq_per_day: float = 1.0,
+    env_params: Optional[Dict[str, float]] = None,
+) -> Dict[str, Any]:
+    """End-to-end prediction exposing binding score AND PK/PD parameters.
+
+    Wraps ``predict_one`` (binding/efficacy score) and ``infer_pkpd_params``
+    (EC50/Emax/Hill) so callers like Confluencia 3.0's DrugPredictionBridge can
+    obtain full PD parameters in a single call instead of only a scalar score.
+
+    Args:
+        bundle: Trained DrugModelBundle from ``build_model``/``train_bundle``.
+        smiles: Molecule SMILES string.
+        immune: Immune activation level in [0, 1]. For Confluencia 3.0 this is
+            sourced from the TNBC Simulacrum TME state (e.g. TIL density).
+        inflammation: Inflammation level in [0, 1]. Sourced from TNBC TME.
+        dose_mg: Dose in mg (default 1.0).
+        freq_per_day: Dosing frequency per day (default 1.0).
+        env_params: Optional environment parameters forwarded to ``predict_one``.
+
+    Returns:
+        Dict with keys: ``score`` (binding/efficacy), ``ec50``, ``emax``,
+        ``hill``, ``pkpd`` (PKPDParams), ``confidence``, ``source``.
+    """
+    from .pkpd import infer_pkpd_params
+
+    binding = predict_one(bundle, smiles, env_params=env_params)
+    b = float(np.clip(binding, 0.0, 1.0))
+    i = float(np.clip(immune, 0.0, 1.0))
+    inf = float(np.clip(inflammation, 0.0, 1.0))
+
+    pkpd = infer_pkpd_params(
+        binding=b,
+        immune=i,
+        inflammation=inf,
+        dose_mg=float(max(dose_mg, 0.0)),
+        freq_per_day=float(max(freq_per_day, 0.01)),
+    )
+
+    # Confidence heuristic: bundle cross-validation R^2 if available, else 0.5.
+    confidence = float(getattr(bundle, "cv_r2", 0.5) or 0.5)
+
+    return {
+        "score": binding,
+        "ec50": float(pkpd.ec50_mg_per_l),
+        "emax": float(pkpd.emax),
+        "hill": float(pkpd.hill),
+        "pkpd": pkpd,
+        "confidence": confidence,
+        "source": "confluencia-2.0",
+    }

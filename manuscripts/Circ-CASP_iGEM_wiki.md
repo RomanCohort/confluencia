@@ -40,18 +40,21 @@ While developing Confluencia 3.0, we recognized that circRNA structure predictio
 | T5 | Conformational diversity | 10% |
 
 ### Baseline Methods
-We provide 6 baseline methods representing different approaches:
+We provide 7 baseline methods representing different approaches:
 
-| Method | Type | Expected RMSD |
-|--------|------|---------------|
-| M1: Helical Baseline | Physics | ~25 A |
-| M2: EGNN + Physics | DL + Physics | ~15 A |
-| M3: Dual-Engine | Hybrid | ~12 A |
-| M4: DDPM Diffusion | Deep Learning | ~10 A |
-| M5: Physics Transformer | DL + Physics | ~8 A |
-| M6: GNN Latent Diffusion | Deep Learning | ~10 A |
+| Method | Type | Expected RMSD | TorusFold Scheme |
+|--------|------|---------------|------------------|
+| M1: Helical Baseline | Physics | ~25 A | (geometry-only) |
+| M2: EGNN + Physics | DL + Physics | ~15 A | Scheme 1 |
+| M3: Dual-Engine | Hybrid | ~12 A | Scheme 3 (deferred) |
+| M4: DDPM Diffusion | Deep Learning | ~10 A | Scheme 4 |
+| M5: Physics Transformer | DL + Physics | ~8 A | (deprecated → Scheme 5) |
+| M6: GNN Latent Diffusion | Deep Learning | ~10 A | Scheme 6 |
+| M7: Mamba+Transformer Hybrid | Deep Learning | ~8 A (L≤500), ~12 A (L>500) | Scheme 7 |
 
-Note: Expected RMSD values are estimates. With the expanded multi-source training data (including real IsRNAcirc structures and icSHAPE-constrained profiles), deep learning methods (M4-M6) may achieve significantly better performance than these initial estimates.
+Note: Expected RMSD values are estimates. With the expanded multi-source training data (including real IsRNAcirc structures and icSHAPE-constrained profiles), deep learning methods (M4-M7) may achieve significantly better performance than these initial estimates.
+
+Beyond the baselines, TorusFold also implements Scheme 8: Sparse Pair-Guided Hybrid, an O(L·K) architecture not included as a competition baseline but available as an open-source reference implementation. Scheme 8 uses ViennaRNA Top-K candidate selection plus a geometric feedback loop to recover pairs the energy-based predictor misses. It targets the long-therapeutic-circRNA regime (L>1000) where O(L²) methods become memory-bound. See the Software Page for full architecture details.
 
 ## Competition Tracks
 
