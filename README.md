@@ -3,7 +3,7 @@
 
 > **Adaptive Mixture-of-Experts with Pharmacokinetic Dynamics for Small-Sample circRNA Drug Discovery**
 
-[![CI](https://github.com/IGEM-FBH/confluencia/actions/workflows/ci.yml/badge.svg)](https://github.com/IGEM-FBH/confluencia/actions/workflows/ci.yml)
+[![CI](https://github.com/RomanCohort/confluencia/actions/workflows/ci.yml/badge.svg)](https://github.com/RomanCohort/confluencia/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Python](https://img.shields.io/badge/python-3.10%20%7C%203.11-blue.svg)](https://www.python.org/)
 
@@ -149,7 +149,7 @@ MOE 对比基线：比 MLP MAE 降低 52.7%，比 HGB 降低 17.7%。
 
 ## 版本架构说明
 
-Confluencia v1.0（`src/`目录）和 v2.0 共享同一套计算后端。v1.0 提供统一的 Streamlit 前端（`src/frontend.py`），通过 `sys.path` 导入 v2.0 核心模块（PINN、GNN、multiscale、docking 等），作为单页面多标签应用运行。v2.0 将各模块拆分为独立前端（Drug `app.py`、Epitope `epitope_frontend.py`、circRNA `app.py`），保留所有 v1.0 计算能力并新增 circRNA 评估维度（RNACTM、5D评分、跨模态决策）。推荐使用 v2.0 前端；v1.0 统一前端仍可运行但不再主动维护。
+Confluencia v3.0（`confluencia_3_0/`）是当前核心版本，包含 TorusFold 等变 GNN（circRNA 3D 结构预测）、Conflualk 药物-表位联合预测和完整的 plugin 架构。v1.0（`src/`）和 v2.0（`confluencia-2.0-*/`）为遗留版本，不再主动维护。TorusFold 作为 circRNA 3D 结构预测核心，支持 Scheme1-Scheme10 多种架构，使用 SO(2)×SO(2)×R⁺ 等变 GNN + 扩散采样，训练数据来自 circBase 真实 circRNA 序列 + Scheme2/OpenMM 生成。
 
 ## 架构概览
 
@@ -259,7 +259,7 @@ R 包通过 [reticulate](https://github.com/rstudio/reticulate) 桥接 Python �
 
 ```r
 # 安装
-devtools::install_github("IGEM-FBH/confluencia", subdir = "confluencia-rpkg")
+devtools::install_github("RomanCohort/confluencia", subdir = "confluencia-rpkg")
 
 # 指定 Python 环境（首次使用必须设置）
 library(confluencia)
@@ -589,4 +589,4 @@ MIT License. 本仓库为研究/原型用途，代码与模型仅用于研究演
 
 ---
 
-**Contact:** igem@fbh-china.org | **Repository:** https://github.com/IGEM-FBH/confluencia
+**Contact:** igem@fbh-china.org | **Repository:** https://github.com/RomanCohort/confluencia
