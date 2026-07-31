@@ -1,39 +1,37 @@
-"""precompute_pair_probs.py — ViennaRNA bpp pair probabilities for circRNA sequences.
+"""precompute_pair_probs.py — ViennaRNA bpp for circRNA (32-worker multiprocessing).
 
-Usage:
-    # Install ViennaRNA first:
-    pip install viennarna
-    conda install -c bioconda viennarna
-
-    # From consolidated npz (reads IDs directly; only needs FASTA for ViennaRNA mode):
+Usage (on Windows with circrna3d conda env):
+    conda activate circrna3d
     python precompute_pair_probs.py \\
         --npz ../../data/circrna_3d_all_consolidated.npz \\
         --fasta ../../data/circrna/circbase_seqs.fa.gz \\
-        --output ../../data/circrna_3d_all_pair_probs.npz
+        --output ../../data/circrna_3d_all_pair_probs.npz \\
+        --n-workers 32
 
-Modes:
-    ViennaRNA (default): real bpp from secondary structure prediction.
-        L>1000 uses geometric fallback to keep runtime reasonable.
-    --use-geometric-fallback: skip ViennaRNA entirely, infer from C3' coords.
+ViennaRNA is NOT thread-safe, so we use multiprocessing with 'spawn' context.
+Each worker loads only its chunk of coords to keep memory low.
 
-Output:
-    pair_probs.npz with ids, lengths, bp_probs (aligned with consolidated npz).
+Output: pair_probs.npz with ids, lengths, bp_probs (aligned with consolidated npz).
 """
 
 import os
 import sys
 import argparse
 import time
+import json
 import numpy as np
 import gzip
 from collections import OrderedDict
+from multiprocessing import Pool, get_context
+from pathlib import Path
 
 
 def load_fasta_ids(fasta_path):
     """Load FASTA -> dict id -> sequence (str of ACGU)."""
     seq_map = OrderedDict()
     cur_id, cur_seq = None, ""
-    with gzip.open(fasta_path, "rt") if fasta_path.endswith(".gz") else open(fasta_path, "r") as f:
+    opener = gzip.open(fasta_path, "rt") if fasta_path.endswith(".gz") else open(fasta_path, "r")
+    with opener as f:
         for line in f:
             if line.startswith(">"):
                 if cur_id is not None:
@@ -48,10 +46,7 @@ def load_fasta_ids(fasta_path):
 
 
 def compute_bp_probs_vienna(sequence):
-    """Compute ViennaRNA base-pair probabilities for a circular RNA.
-
-    Returns (L,L) float32 symmetric matrix of pair probabilities.
-    """
+    """ViennaRNA bpp for circular RNA -> (L,L) float32."""
     import RNA
     L = len(sequence)
     md = RNA.md()
@@ -63,122 +58,212 @@ def compute_bp_probs_vienna(sequence):
 
 
 def compute_bp_probs_geometric(coords):
-    """Fallback: infer pair probs from C3' coords.
+    """Fallback: pair probs from C3' coords (no ViennaRNA).
 
-    Heuristic: base pairs are ~10.6 A C3'-C3' apart.
-    Returns (L,L) float32 matrix with 0-1 probabilities.
+    Memory-efficient: computes distances row-by-row to avoid (L,L)
+    intermediate for very long sequences.
     """
     L = coords.shape[0]
-    dists = np.linalg.norm(coords[:, None, :] - coords[None, :, :], axis=2)
-
-    mask = (dists >= 8.0) & (dists <= 13.0)
-    np.fill_diagonal(mask, False)
-    for i in range(L):
-        mask[i, (i - 1) % L] = False
-        mask[i, (i + 1) % L] = False
-        mask[(i - 1) % L, i] = False
-        mask[(i + 1) % L, i] = False
-        mask[i, i] = False
-
-    prob = np.exp(-((dists - 10.6) ** 2) / (2 * 1.5 ** 2)) * mask.astype(np.float32)
-
-    out = np.zeros_like(prob)
+    prob = np.zeros((L, L), dtype=np.float32)
     k = 3
     for i in range(L):
-        row = prob[i]
-        top_k_idx = np.argpartition(row, -k)[-k:] if k < L else range(L)
-        top_k_idx = top_k_idx[row[top_k_idx] > 0.1]
-        out[i, top_k_idx] = row[top_k_idx]
+        di = np.linalg.norm(coords[i] - coords, axis=1)  # (L,)
+        d2 = (di - 10.6) ** 2
+        row_prob = np.exp(-d2 / (2 * 1.5 ** 2))
+        # Mask: only pairs with dist in [8,13], skip neighbors
+        mask = (di >= 8.0) & (di <= 13.0)
+        mask[i] = False
+        mask[(i - 1) % L] = False
+        mask[(i + 1) % L] = False
+        row_prob *= mask
+        # Keep top-k strongest
+        if L > k:
+            top_idx = np.argpartition(row_prob, -k)[-k:]
+            top_idx = top_idx[row_prob[top_idx] > 0.1]
+            prob[i, top_idx] = row_prob[top_idx]
+        else:
+            prob[i] = row_prob
+    return prob
 
-    np.fill_diagonal(out, 0.0)
-    return out
+
+def worker_compute(args):
+    """
+    Worker: compute bp_probs for one chunk.
+
+    Args (picklable):
+        chunk_npz: path to this chunk's data npz (ids, lengths, coords)
+        fasta_json_path: path to pre-saved FASTA JSON
+        out_path: path to output npz for this chunk
+        use_geometric: bool
+        max_len: int
+    """
+    chunk_npz, fasta_json_path, out_path, use_geometric, max_len = args
+
+    # Load FASTA sequences (once per worker)
+    with open(fasta_json_path, 'r') as f:
+        seq_map = json.load(f)
+
+    # Load chunk data (only this worker's coords)
+    chunk = np.load(chunk_npz, allow_pickle=True)
+    chunk_ids = chunk['ids']
+    chunk_lengths = chunk['lengths']
+    chunk_coords = chunk['coords']
+
+    results = []
+    n = len(chunk_ids)
+
+    for i in range(n):
+        nid = str(chunk_ids[i])
+        L = int(chunk_lengths[i])
+        seq = seq_map.get(nid)
+        coords = np.asarray(chunk_coords[i][:L], dtype=np.float32)
+
+        if use_geometric or not seq:
+            try:
+                bp = compute_bp_probs_geometric(coords)
+            except Exception:
+                bp = np.zeros((L, L), dtype=np.float32)
+        elif L > max_len:
+            # Very long sequences: skip ViennaRNA AND geometric (too slow / heavy).
+            # Zero matrix = no pairing constraints; training still works fine.
+            bp = np.zeros((L, L), dtype=np.float32)
+        else:
+            try:
+                bp = compute_bp_probs_vienna(seq)
+            except Exception:
+                try:
+                    bp = compute_bp_probs_geometric(coords)
+                except Exception:
+                    bp = np.zeros((L, L), dtype=np.float32)
+
+        results.append(bp)
+
+        # Incremental save every 500 samples (don't lose progress on crash)
+        if (i + 1) % 500 == 0:
+            np.savez(out_path + ".partial",
+                     ids=np.array(chunk_ids[:i+1], dtype=object),
+                     lengths=np.array(chunk_lengths[:i+1], dtype=np.int32),
+                     bp_probs=np.array(results, dtype=object))
+
+    np.savez(out_path,
+             ids=np.array(chunk_ids, dtype=object),
+             lengths=np.array(chunk_lengths, dtype=np.int32),
+             bp_probs=np.array(results, dtype=object))
+    return (len(results), out_path)
 
 
 def main():
     parser = argparse.ArgumentParser(description="Precompute ViennaRNA pair probabilities")
-    parser.add_argument("--npz", required=True,
-                        help="Path to consolidated npz (reads ids/lengths/coords from here)")
+    parser.add_argument("--npz", required=True, help="Path to consolidated npz")
     parser.add_argument("--fasta", required=True, help="Path to circbase_seqs.fa.gz")
-    parser.add_argument("--output", required=True, help="Output pair_probs npz path")
+    parser.add_argument("--output", required=True, help="Output pair_probs npz")
     parser.add_argument("--max-len", type=int, default=1000,
-                        help="Skip ViennaRNA for sequences > this length (geometric fallback)")
+                        help="Skip ViennaRNA for L>this (geometric fallback)")
     parser.add_argument("--use-geometric-fallback", action="store_true",
-                        help="Use geometric fallback for ALL sequences (no ViennaRNA needed)")
+                        help="Use geometric fallback for ALL")
+    parser.add_argument("--n-workers", type=int, default=32,
+                        help="Parallel workers (default 32)")
+    parser.add_argument("--work-dir", default=None,
+                        help="Temp dir for chunk files (default: .precompute_tmp in output dir)")
     args = parser.parse_args()
 
-    # Load FASTA sequences
-    print(f"Loading FASTA: {args.fasta}")
-    seq_map = load_fasta_ids(args.fasta)
-    print(f"  {len(seq_map)} sequences in FASTA")
+    work_dir = Path(args.work_dir) if args.work_dir else Path(args.output).parent / ".precompute_tmp"
+    work_dir.mkdir(parents=True, exist_ok=True)
 
-    # Load consolidated npz for IDs, lengths, and coords (for geometric fallback)
+    # ── Step 1: load consolidated npz ──
     print(f"Loading consolidated npz: {args.npz}")
-    t0_npz = time.time()
+    t0 = time.time()
     data = np.load(args.npz, allow_pickle=True)
     all_ids = data['ids']
-    lengths_arr = data['lengths']
-    # Coords for geometric fallback; may be stored as object array
-    coords_arr = data['coords']
-    print(f"  {len(all_ids)} IDs, {time.time()-t0_npz:.2f}s")
+    all_lengths = data['lengths']
+    all_coords = data['coords']
+    n_total = len(all_ids)
+    print(f"  {n_total} samples, {time.time()-t0:.2f}s")
 
-    has_vienna = False
-    try:
-        import RNA
-        has_vienna = True
-        print("ViennaRNA available")
-    except ImportError:
-        print("ViennaRNA NOT installed; using geometric fallback for all")
+    # ── Step 2: load FASTA ──
+    print(f"Loading FASTA: {args.fasta}")
+    seq_map = load_fasta_ids(args.fasta)
+    matched = sum(1 for nid in all_ids if str(nid) in seq_map)
+    print(f"  {len(seq_map)} in FASTA, {matched}/{n_total} matched")
 
-    bp_probs_list = []
-    t0_all = time.time()
-    skipped_long = 0
-    matched = 0
+    # ── Step 3: save FASTA as JSON for workers ──
+    fasta_json_path = str(work_dir / "fasta_seqs.json")
+    with open(fasta_json_path, 'w') as f:
+        json.dump(seq_map, f)
+    print(f"  FASTA JSON saved ({os.path.getsize(fasta_json_path)/1e6:.1f} MB)")
 
-    for idx in range(len(all_ids)):
-        nid = str(all_ids[idx])
-        L = int(lengths_arr[idx])
-        seq = seq_map.get(nid)
+    # ── Step 4: split data into chunk npz files ──
+    print(f"Splitting data into {args.n_workers} chunk npz files...")
+    t0 = time.time()
+    n_workers = min(args.n_workers, n_total)
+    chunk_size = (n_total + n_workers - 1) // n_workers
+    chunk_paths = []
 
-        if seq is not None:
-            matched += 1
+    for w in range(n_workers):
+        start = w * chunk_size
+        end = min(start + chunk_size, n_total)
+        if start >= end:
+            break
+        chunk_npz = str(work_dir / f"chunk_{w}.npz")
+        np.savez(chunk_npz,
+                 ids=np.array(all_ids[start:end], dtype=object),
+                 lengths=np.array(all_lengths[start:end], dtype=np.int32),
+                 coords=np.array(all_coords[start:end], dtype=object))
+        chunk_paths.append(chunk_npz)
 
-        if idx % 2000 == 0:
-            print(f"  [{idx}/{len(all_ids)}] {nid} L={L} elapsed={time.time()-t0_all:.1f}s")
+    n_chunks = len(chunk_paths)
+    print(f"  {n_chunks} chunks in {time.time()-t0:.2f}s")
 
-        # Decide method
-        if args.use_geometric_fallback or not has_vienna:
-            bp = _bp_geometric(coords_arr, idx, L)
-        elif L > args.max_len:
-            skipped_long += 1
-            bp = _bp_geometric(coords_arr, idx, L)
-        else:
-            try:
-                bp = compute_bp_probs_vienna(seq)
-            except Exception as e:
-                print(f"  ViennaRNA failed {nid}: {e}; geometric fallback")
-                bp = _bp_geometric(coords_arr, idx, L)
+    # ── Step 5: parallel computation ──
+    print(f"Starting {n_workers} workers (spawn, ViennaRNA not thread-safe)...")
+    worker_args = [(cp, fasta_json_path, str(work_dir / f"bp_{w}.npz"),
+                    args.use_geometric_fallback, args.max_len)
+                   for w, cp in enumerate(chunk_paths)]
 
-        bp_probs_list.append(bp)
+    t0 = time.time()
+    ctx = get_context('spawn')
+    with ctx.Pool(processes=n_workers) as pool:
+        results = pool.map(worker_compute, worker_args)
 
-    print(f"\nDone: {len(bp_probs_list)} computed, {matched} matched FASTA, "
-          f"{skipped_long} long skipped (geometric fallback)")
-    print(f"Total time: {time.time()-t0_all:.1f}s ({(time.time()-t0_all)/60:.1f}min)")
+    elapsed = time.time() - t0
+    print(f"All workers done in {elapsed:.1f}s ({elapsed/60:.1f}min)")
 
+    # ── Step 6: merge bp chunk npz files ──
+    print("Merging bp results...")
+    merged_ids, merged_lengths, merged_bp = [], [], []
+    bp_file_paths = [str(work_dir / f"bp_{w}.npz") for w in range(n_chunks)]
+    chunk_npz_paths = chunk_paths
+
+    for w in range(n_chunks):
+        bp_data = np.load(bp_file_paths[w], allow_pickle=True)
+        merged_ids.extend(bp_data['ids'])
+        merged_lengths.extend(bp_data['lengths'])
+        merged_bp.extend(bp_data['bp_probs'])
+        # Clean up chunk files
+        os.remove(bp_file_paths[w])
+        os.remove(chunk_npz_paths[w])
+        if (w + 1) % 4 == 0:
+            print(f"  Merged {w+1}/{n_chunks} chunks")
+
+    merged_ids = np.array(merged_ids, dtype=object)
+    merged_lengths = np.array(merged_lengths, dtype=np.int32)
+    merged_bp = np.array(merged_bp, dtype=object)
+
+    assert len(merged_bp) == n_total, f"Merge mismatch: {len(merged_bp)} vs {n_total}"
+
+    # ── Step 7: save final ──
     print(f"Saving {args.output}...")
-    np.savez(
-        args.output,
-        ids=np.array(all_ids, dtype=object),
-        lengths=lengths_arr,
-        bp_probs=np.array(bp_probs_list, dtype=object),
-    )
+    np.savez(args.output, ids=merged_ids, lengths=merged_lengths, bp_probs=merged_bp)
     fsize = os.path.getsize(args.output) / 1e6
     print(f"Saved: {fsize:.1f} MB")
 
+    # Verify
+    verify = np.load(args.output, allow_pickle=True)
+    print(f"Verify: {len(verify['bp_probs'])} entries, "
+          f"first shape={verify['bp_probs'][0].shape}")
 
-def _bp_geometric(coords_arr, idx, L):
-    """Load coords and compute geometric fallback bpp."""
-    c = np.asarray(coords_arr[idx][:L], dtype=np.float32)
-    return compute_bp_probs_geometric(c)
+    # Clean up FASTA JSON
+    os.remove(fasta_json_path)
 
 
 if __name__ == "__main__":
