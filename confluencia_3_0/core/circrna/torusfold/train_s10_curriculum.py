@@ -24,6 +24,11 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from collections import defaultdict
+import logging
+
+logging.basicConfig(
+    level=logging.WARNING, format='%(levelname)s %(filename)s:%(lineno)d %(message)s'
+)
 
 sys.stdout.reconfigure(line_buffering=True)
 sys.stderr.reconfigure(line_buffering=True)
@@ -70,7 +75,7 @@ PHASES = {
         "ratios": {"short": 0.10, "medium": 0.25, "long": 0.40, "xlong": 0.25},
         "desc": "Long+xlong heavy with BSJ stress"},
 }
-DEFAULT_PHASE_EPOCHS = {1: 50, 2: 50, 3: 50, 4: 50}  # Reduced: 50 -> 10 per phase for speed
+DEFAULT_PHASE_EPOCHS = {1: 10, 2: 10, 3: 10, 4: 10}  # 10 per phase
 
 LOSS_WEIGHTS = {
     'coord': 10.0, 'closure': 5.0, 'bond': 2.0, 'diffusion': 1.0,
@@ -134,7 +139,10 @@ def estimate_bucket_uncertainty(bucket_groups, model, collate, device,
         # Skip xlong bucket during MC estimation: L>1000 triggers multiscale
         # decoder which has a relative-import bug (multiscale_equivariant.py).
         # Assign fallback weight = 1 + temperature (max uncertainty assumption).
+        # FIX-ME: fix multiscale_equivariant.py import bug, then remove this fallback.
         if bname == "xlong":
+            logging.warning("xlong MC-Dropout skipped; using max-uncertainty fallback weight "
+                            f"(multiscale_decoder import bug in multiscale_equivariant.py)")
             bucket_var[bname] = 1.0  # assume max uncertainty
             bucket_count[bname] = 0
             continue
@@ -185,7 +193,6 @@ os.makedirs(output_dir, exist_ok=True)
 
 batch_size = 16      # A800 80GB: ample memory, large batch
 grad_accum_steps = 1  # Effective batch = 16 (no accumulation needed on A800)
-n_epochs_per_phase = 10   # (unused; loop uses DEFAULT_PHASE_EPOCHS)
 
 print('=' * 60)
 print('  S10 Curriculum Training (stratified length mixing)')
@@ -203,12 +210,43 @@ if os.path.isfile(npz_path):
     lengths_arr = data['lengths']
     coords_arr = data['coords']
     n = len(lengths_arr)
-    seqs = [('ACGU' * (int(L) // 4 + 1))[:int(L)] for L in lengths_arr]
+    # P1 fix: load real sequences from circBase FASTA (id -> sequence).
+    # FASTA is the upstream source of circrna_3d_all/.npy; IDs match 1:1.
+    # Fallback to synthetic ACGU repeat only if FASTA missing or id not found.
+    fasta_path = os.path.join(DEPLOY_ROOT, 'data', 'circrna', 'circbase_seqs.fa.gz')
+    seq_map = {}
+    if os.path.isfile(fasta_path):
+        import gzip
+        cur_id, cur_seq = None, ''
+        with gzip.open(fasta_path, 'rt') as f:
+            for line in f:
+                if line.startswith('>'):
+                    if cur_id is not None:
+                        seq_map[cur_id] = cur_seq
+                    cur_id = line.strip()[1:].split('|')[0]
+                    cur_seq = ''
+                else:
+                    cur_seq += line.strip().upper().replace('T', 'U')
+        if cur_id is not None:
+            seq_map[cur_id] = cur_seq
+        print(f'  FASTA loaded: {len(seq_map)} sequences')
+    else:
+        logging.warning(f"FASTA not found: {fasta_path}; falling back to synthetic ACGU repeats")
+    seqs = []
+    n_fallback = 0
+    for cid, L in zip(ids_arr, lengths_arr):
+        s = seq_map.get(str(cid))
+        if s is None:
+            n_fallback += 1
+            s = ('ACGU' * (int(L) // 4 + 1))
+        seqs.append(s[:int(L)])
+    if n_fallback > 0:
+        logging.warning(f"{n_fallback}/{n} samples missing in FASTA; used synthetic ACGU fallback")
     coords = [np.asarray(c[:int(L)], dtype=np.float32) for c, L in zip(coords_arr, lengths_arr)]
-    meta = [{'id': str(i), 'length': int(L)} for i, L in zip(ids_arr, lengths_arr)]
+    meta = [{'id': str(cid), 'length': int(L)} for cid, L in zip(ids_arr, lengths_arr)]
     print(f'  Loaded {n} samples in {time.time()-t0:.2f}s')
 else:
-    raise FileNotFoundError(f'Consolidated npz not found: {npz_path}. Run consolidate_npy_to_npz.py first.')
+    raise FileNotFoundError(f'Consolidated npz not found: {npz_path}. Run consolidate_npy_to_npz.py first.")
 
 n = len(seqs)
 val_idx = list(range(max(0, n - 50), n))
@@ -342,11 +380,14 @@ def compute_all_losses(p_denorm, seq_ids, target, lengths):
     loss = torch.tensor(0.0, device=device)
     loss_dict = {}
 
-    # Pre-compute normalized coords
-    t_c = target - target.mean(dim=1, keepdim=True)
-    t_scale = torch.norm(t_c, dim=(1, 2), keepdim=True).clamp(min=1.0)
+    # Pre-compute normalized coords (mask padding per sample)
+    valid_mask = torch.arange(Lc, device=device).unsqueeze(0) < lengths.unsqueeze(-1)  # [B, Lc]
+    t_sum = (target * valid_mask.unsqueeze(-1)).sum(dim=1, keepdim=True) / valid_mask.sum(dim=-1, keepdim=True).clamp(min=1)
+    p_sum = (p_denorm * valid_mask.unsqueeze(-1)).sum(dim=1, keepdim=True) / valid_mask.sum(dim=-1, keepdim=True).clamp(min=1)
+    t_c = target - t_sum
+    t_scale = torch.norm(t_c * valid_mask.unsqueeze(-1), dim=(1, 2), keepdim=True).clamp(min=1.0)
     t_norm = t_c / t_scale
-    p_c = p_denorm - p_denorm.mean(dim=1, keepdim=True)
+    p_c = p_denorm - p_sum
     p_norm = p_c / t_scale
 
     # 1. Coordinate loss
@@ -358,8 +399,10 @@ def compute_all_losses(p_denorm, seq_ids, target, lengths):
     loss = loss + coord_loss * LOSS_WEIGHTS['coord']
     loss_dict['coord'] = coord_loss.item()
 
-    # 2. Closure loss
-    closure_dists = torch.norm(p_denorm[:, 0] - p_denorm[:, -1], dim=-1)
+    # 2. Closure loss (P9 fix: use true last residue per sample, not padded tail)
+    last_idx = (lengths - 1).clamp(min=0).long()  # [B]
+    last_coords = p_denorm[torch.arange(B, device=device), last_idx]  # [B, 3]
+    closure_dists = torch.norm(p_denorm[:, 0] - last_coords, dim=-1)
     cm = torch.where(lengths >= 2, 1.0, 0.0).to(device)
     closure_loss = (cm * (closure_dists - 5.9) ** 2).sum() / cm.sum().clamp(min=1.0)
     loss = loss + closure_loss * LOSS_WEIGHTS['closure']
@@ -386,7 +429,8 @@ def compute_all_losses(p_denorm, seq_ids, target, lengths):
         stereo_total = stereo_result['total']
         loss = loss + stereo_total * LOSS_WEIGHTS['stereo']
         loss_dict['stereo'] = stereo_total.item()
-    except Exception:
+    except Exception as e:
+        logging.warning(f"stereochemistry loss failed (sampled): {e}")
         loss_dict['stereo'] = 0.0
 
     # 5. Physics decoupled loss
@@ -395,15 +439,19 @@ def compute_all_losses(p_denorm, seq_ids, target, lengths):
         pd_loss = pd_result['loss'] if isinstance(pd_result, dict) else pd_result
         loss = loss + pd_loss * LOSS_WEIGHTS['physics_decoupled']
         loss_dict['physics_decoupled'] = pd_loss.item()
-    except Exception:
+    except Exception as e:
+        logging.warning(f"physics_decoupled loss failed: {e}")
         loss_dict['physics_decoupled'] = 0.0
 
     # 6. Physics pairing loss
+    # P2: pairing_consistency_loss inside requires pred_pairing_probs, currently None.
+    # Only helix + loop_entropy are computed (no pairing consistency).
     try:
         phys_loss = physics_loss_fn(p_denorm, seq_ids)
         loss = loss + phys_loss * LOSS_WEIGHTS['physics_pairing']
         loss_dict['physics_pairing'] = phys_loss.item()
-    except Exception:
+    except Exception as e:
+        logging.warning(f"physics_pairing loss failed: {e}")
         loss_dict['physics_pairing'] = 0.0
 
     # 7. Contact map auxiliary loss
@@ -418,7 +466,8 @@ def compute_all_losses(p_denorm, seq_ids, target, lengths):
                          (1 - contact_target) * (1 - contact_pred + eps).log()).mean()
         loss = loss + contact_loss * LOSS_WEIGHTS['contact_aux']
         loss_dict['contact_aux'] = contact_loss.item()
-    except Exception:
+    except Exception as e:
+        logging.warning(f"contact_aux loss failed: {e}")
         loss_dict['contact_aux'] = 0.0
 
     # 8. Torus coordinate loss
@@ -432,7 +481,8 @@ def compute_all_losses(p_denorm, seq_ids, target, lengths):
         torus_loss = (dtheta ** 2).mean() + (dphi ** 2).mean() + (dr ** 2).mean()
         loss = loss + torus_loss * LOSS_WEIGHTS['torus']
         loss_dict['torus'] = torus_loss.item()
-    except Exception:
+    except Exception as e:
+        logging.warning(f"torus loss failed: {e}")
         loss_dict['torus'] = 0.0
 
     # 9. Chirality loss
@@ -442,7 +492,8 @@ def compute_all_losses(p_denorm, seq_ids, target, lengths):
         chirality_loss = (chirality_out - contact_proj(p_norm)).pow(2).mean()
         loss = loss + chirality_loss * LOSS_WEIGHTS['chirality']
         loss_dict['chirality'] = chirality_loss.item()
-    except Exception:
+    except Exception as e:
+        logging.warning(f"chirality loss failed: {e}")
         loss_dict['chirality'] = 0.0
 
     # 10. Contrastive loss (B >= 4)
@@ -503,7 +554,7 @@ def build_epoch_batches(phase, epoch, n_phase_epochs):
 
     # Build per-bucket pools (skip empty buckets)
     bucket_indices = {}
-    for bname in ["short", "medium", "long"]:
+    for bname in ["short", "medium", "long", "xlong"]:
         pool = bucket_groups[bname].copy()
         if len(pool) == 0:
             continue  # skip if no samples in this bucket
@@ -572,9 +623,7 @@ def train_one_phase(phase, n_phase_epochs):
             if anneal_sigma > 0.01:
                 target = target + torch.randn_like(target) * anneal_sigma
 
-            # autocast ON for fp16 activations: backward through conv needs fp16 memory
-            # (fp32 conv backward OOMs on ROCm; scaler OFF avoids ROCm pairing bug)
-            # Loss=550k is large enough that fp16 forward doesn't underflow gradients
+            # autocast ON: fp16 activations cut memory, scaler handles grad scaling
             with torch.amp.autocast('cuda'):
                 pred, diff_loss, _ = model(seq_ids, return_loss=True)
                 if torch.isnan(pred).any():
@@ -644,8 +693,7 @@ def train_one_phase(phase, n_phase_epochs):
                 weight = LOSS_WEIGHTS.get(k, 1.0)
                 loss_acc[k] += v * weight
 
-            # Cache clear every 100 steps (ROCm fragmentation OOM mitigation)
-            # Removed per-step synchronize() which killed throughput (57s/step -> ~1s/step)
+            # Periodic cache clear to keep VRAM footprint stable
             if step > 0 and step % 100 == 0:
                 gc.collect()
                 torch.cuda.empty_cache()
