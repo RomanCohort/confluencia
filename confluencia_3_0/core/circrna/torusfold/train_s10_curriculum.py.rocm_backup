@@ -14,8 +14,14 @@ Phases:
 No phase isolation - all length scales present every epoch -> no representation collapse.
 """
 # ── MUST come before any torch import ──
+# ROCm's CUDAPluggableAllocator routes all allocations through a fused internal kernel
+# (fused_adagrad_) that crashes with c10_cuda_check_implementation under batched load.
+# Disable it: use the standard HIP device allocator instead.
 import os
-# A800-80G NVLink: expandable_segments reduces fragmentation on large contiguous allocs
+# max_split_size_mb:64 reduces fragmentation on Strix Halo UMA (APU)
+# Prevents ROCm from failing on large contiguous allocations
+os.environ['PYTORCH_HIP_ALLOC_CONF'] = 'garbage_collection_threshold:0.5,max_split_size_mb:64'
+# expandable_segments is supported on ROCm 6.x+; try anyway for fragmentation relief
 os.environ['PYTORCH_CUDA_ALLOC_CONF'] = 'expandable_segments:True'
 
 import sys, time, json, gc, math
@@ -144,6 +150,7 @@ def estimate_bucket_uncertainty(bucket_groups, model, collate, device,
         bucket_vars = []
 
         # Batched MC estimation: process batch_size samples at once
+        # Much faster than single-sample forward on ROCm
         for start in range(0, len(draw_idx), batch_size):
             batch_d_idx = draw_idx[start:start + batch_size]
             batch_indices = [pool[i] for i in batch_d_idx]
@@ -183,8 +190,8 @@ device = 'cuda'
 output_dir = os.path.join(BASE, 'models', 's10_curriculum')
 os.makedirs(output_dir, exist_ok=True)
 
-batch_size = 16      # A800 80GB: ample memory, large batch
-grad_accum_steps = 1  # Effective batch = 16 (no accumulation needed on A800)
+batch_size = 4       # ROCm stable on AMD 8060S (diffusion=20 keeps peak ~15GB)
+grad_accum_steps = 4  # Effective batch = 16
 n_epochs_per_phase = 10   # (unused; loop uses DEFAULT_PHASE_EPOCHS)
 
 print('=' * 60)
@@ -290,8 +297,9 @@ prior_params = (list(contact_head.parameters()) + list(contact_proj.parameters()
 if distillation_loss_fn is not None:
     prior_params += list(distillation_loss_fn.parameters())
 all_params = list(model.parameters()) + prior_params
+# ROCm fused optimizer crashes (AdamW with fused=False still dispatches to fused kernel).
 # AdamW with higher lr for faster convergence (loss was stuck at ~555k with SGD lr=1e-4)
-optimizer = torch.optim.AdamW(all_params, lr=1e-3, weight_decay=1e-3)
+optimizer = torch.optim.AdamW(all_params, lr=1e-3, weight_decay=1e-3, fused=False)
 scaler = torch.amp.GradScaler('cuda', enabled=True)
 scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
     optimizer, mode='min', factor=0.7, patience=8
@@ -318,7 +326,7 @@ def collate(indices):
             torch.tensor(lengths, dtype=torch.long).to(device))
 
 # Warmup
-print(f'  Warmup forward (compile kernels)...')
+print(f'  Warmup forward (compile ROCm kernels)...')
 warmup_seq, warmup_tgt, _ = collate(bucket_groups["short"][:2])
 model.train()
 t0 = time.time()
@@ -373,7 +381,7 @@ def compute_all_losses(p_denorm, seq_ids, target, lengths):
         bonds = torch.norm(p_denorm[b, 1:vL] - p_denorm[b, :vL - 1], dim=-1)
         bsj = torch.norm(p_denorm[b, 0] - p_denorm[b, vL - 1])
         all_b = torch.cat([bonds, bsj.unsqueeze(0)])
-        # Manual MSE
+        # Manual MSE to avoid ROCm fused kernel bug that causes OOM
         bond_loss += ((all_b - 5.9) ** 2).mean()
         nb += 1
     bond_loss /= max(nb, 1)
@@ -412,6 +420,7 @@ def compute_all_losses(p_denorm, seq_ids, target, lengths):
         contact_pred = contact_head(latent_contact)
         with torch.no_grad():
             contact_target = generate_contact_map(target, threshold=8.0)
+        # Manual BCE to avoid ROCm fused kernel bug that causes OOM
         # binary_cross_entropy = -[y*log(x) + (1-y)*log(1-x)]
         eps = 1e-7
         contact_loss = -(contact_target * (contact_pred + eps).log() +
