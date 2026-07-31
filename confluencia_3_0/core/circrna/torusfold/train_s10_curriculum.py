@@ -101,8 +101,12 @@ MC_START_EPOCH = 0         # start MC-Dropout from epoch 0
 BUCKET_NAMES = ["short", "medium", "long", "xlong"]
 
 
-def length_bucket_full(L):
-    """Four-bucket classification aligned with circrna_3d_all distribution."""
+def length_bucket(L):
+    """Four-bucket classification aligned with circrna_3d_all distribution.
+
+    Same logic as length_bucket_full / used in PHASES ratios.
+    L<150 samples are classified as short (open-end, not excluded).
+    """
     if L <= 200:
         return "short"
     elif L <= 500:
@@ -111,6 +115,10 @@ def length_bucket_full(L):
         return "long"
     else:
         return "xlong"
+
+
+# length_bucket_full kept as alias for backward compat in estimate_bucket_uncertainty
+length_bucket_full = length_bucket
 
 
 def estimate_bucket_uncertainty(bucket_groups, model, collate, device,
@@ -136,17 +144,7 @@ def estimate_bucket_uncertainty(bucket_groups, model, collate, device,
             bucket_count[bname] = 0
             continue
 
-        # Skip xlong bucket during MC estimation: L>1000 triggers multiscale
-        # decoder which has a relative-import bug (multiscale_equivariant.py).
-        # Assign fallback weight = 1 + temperature (max uncertainty assumption).
-        # FIX-ME: fix multiscale_equivariant.py import bug, then remove this fallback.
-        if bname == "xlong":
-            logging.warning("xlong MC-Dropout skipped; using max-uncertainty fallback weight "
-                            f"(multiscale_decoder import bug in multiscale_equivariant.py)")
-            bucket_var[bname] = 1.0  # assume max uncertainty
-            bucket_count[bname] = 0
-            continue
-
+        # xlong now runs normal MC-Dropout (import bug fixed in multiscale_equivariant)
         n_draw = min(mc_max, len(pool))
         draw_idx = np.random.choice(len(pool), size=n_draw, replace=False)
         bucket_vars = []
@@ -274,14 +272,7 @@ t_coords = [coords[i] for i in train_idx]
 t_meta = [meta[i] for i in train_idx]
 t_pair_probs = [pair_probs[i] for i in train_idx]
 
-# Length bucket assignment
-def length_bucket(L):
-    for bname in ["short", "medium", "long", "xlong"]:
-        lo, hi = LENGTH_BUCKET[bname]
-        if lo <= L <= hi:
-            return bname
-    return "xlong"
-
+# Length bucket assignment (uses length_bucket / length_bucket_full defined above)
 bucket_groups = defaultdict(list)
 for i in range(len(t_seq)):
     bucket_groups[length_bucket(t_meta[i]['length'])].append(i)
@@ -664,11 +655,16 @@ def build_epoch_batches(phase, epoch, n_phase_epochs):
         pool = bucket_indices.get(bname)
         if pool is None or len(pool) == 0:
             continue  # skip empty bucket
-        n_from = int(N_TARGET * ratio)
-        if n_from == 0: continue
-        indices = np.random.choice(len(pool), size=n_from, replace=True)
-        for idx in indices:
-            batch = pool[idx:idx+batch_size]
+        n_from = int(round(N_TARGET * ratio))
+        if n_from <= 1:
+            continue
+        # Shuffle pool once, then slice into clean batches — no boundary loss,
+        # no replace=True duplication.  n_from is # of samples, rounded up to
+        # fill an integer number of full-size batches.
+        np.random.shuffle(pool)
+        n_batches = (n_from + batch_size - 1) // batch_size
+        for i in range(n_batches):
+            batch = pool[i * batch_size:(i + 1) * batch_size]
             if len(batch) >= 2:
                 epoch_batches.append(batch)
     np.random.shuffle(epoch_batches)

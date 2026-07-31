@@ -1,0 +1,179 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 940 1620" font-family="system-ui,-apple-system,Segoe UI,sans-serif">
+<defs>
+  <linearGradient id="invFill" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="#2a78d6" stop-opacity="0.12"/><stop offset="1" stop-color="#2a78d6" stop-opacity="0.03"/></linearGradient>
+  <linearGradient id="eqFill" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="#008300" stop-opacity="0.12"/><stop offset="1" stop-color="#008300" stop-opacity="0.03"/></linearGradient>
+  <linearGradient id="mixFill" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="#4a3aa7" stop-opacity="0.10"/><stop offset="1" stop-color="#4a3aa7" stop-opacity="0.02"/></linearGradient>
+  <linearGradient id="lossFill" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="#e34948" stop-opacity="0.10"/><stop offset="1" stop-color="#e34948" stop-opacity="0.02"/></linearGradient>
+  <linearGradient id="fixFill" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="#0ca30c" stop-opacity="0.10"/><stop offset="1" stop-color="#0ca30c" stop-opacity="0.02"/></linearGradient>
+  <linearGradient id="sideFill" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="#eda100" stop-opacity="0.10"/><stop offset="1" stop-color="#eda100" stop-opacity="0.02"/></linearGradient>
+  <linearGradient id="v3Fill" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="#dc2626" stop-opacity="0.12"/><stop offset="1" stop-color="#dc2626" stop-opacity="0.03"/></linearGradient>
+  <marker id="a-black" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="strokeWidth"><path d="M0,0 L0,6 L8,3 z" fill="#0b0b0b" fill-opacity="0.7"/></marker>
+  <marker id="a-inv" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="strokeWidth"><path d="M0,0 L0,6 L8,3 z" fill="#2a78d6"/></marker>
+  <marker id="a-eq" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="strokeWidth"><path d="M0,0 L0,6 L8,3 z" fill="#008300"/></marker>
+  <marker id="a-side" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="strokeWidth"><path d="M0,0 L0,6 L8,3 z" fill="#eda100"/></marker>
+  <style>
+    .new-tag { font-size: 9px; fill: #dc2626; font-weight: 700; }
+    .v2-tag { font-size: 9px; fill: #0ca30c; font-weight: 700; }
+  </style>
+</defs>
+<rect width="940" height="1620" fill="#fcfcfb" rx="4"/>
+<text x="470" y="36" text-anchor="middle" font-size="20" font-weight="600" fill="#0b0b0b">TorusFold 架构 v3 — S10 长序列等变重构 (L≤2000)</text>
+<text x="470" y="54" text-anchor="middle" font-size="11" fill="#52514e">SO(2) 等变 · O(L·K) GNN · 多尺度 2x · 混合注意力 O(L) · 循环相对位置 · 轴角坐标头</text>
+<rect x="720" y="20" width="200" height="42" rx="4" fill="url(#v3Fill)" stroke="#dc2626" stroke-opacity="0.4" stroke-width="1"/>
+<text x="820" y="36" text-anchor="middle" font-size="9" fill="#dc2626" font-weight="600">■ 红色 = v3 新/修改动</text>
+<text x="820" y="49" text-anchor="middle" font-size="8" fill="#52514e">混合注意力·2x降采样·等变投影·import修复</text>
+<rect x="370" y="76" width="200" height="44" rx="6" fill="#fcfcfb" stroke="#0b0b0b" stroke-opacity="0.3" stroke-width="1"/>
+<text x="470" y="98" text-anchor="middle" font-size="13" font-weight="600" fill="#0b0b0b">circRNA 序列</text>
+<text x="470" y="113" text-anchor="middle" font-size="10" fill="#52514e">one-hot tokens · L×5 · pair_probs (ViennaRNA bpp)</text>
+<line x1="470" y1="120" x2="470" y2="138" stroke="#0b0b0b" stroke-opacity="0.5" stroke-width="1.5" marker-end="url(#a-black)"/>
+<rect x="250" y="144" width="440" height="72" rx="6" fill="url(#fixFill)" stroke="#0ca30c" stroke-opacity="0.4" stroke-width="1.3"/>
+<text class="v2-tag" x="262" y="160">[v2] ROCm SafeParameter + 手性感知</text>
+<text x="470" y="182" text-anchor="middle" font-size="12" font-weight="600" fill="#0b0b0b">ChiralityAwareEmbedding</text>
+<text x="470" y="197" text-anchor="middle" font-size="10" fill="#52514e">Linear 矩阵代替 nn.Embedding（绕过 gfx1151 int64 bug）</text>
+<text x="470" y="210" text-anchor="middle" font-size="9" fill="#52514e">token_emb + α·chirality_emb, α = SafeParameter(0.5) 可学习 · backward 走 matmul</text>
+<line x1="470" y1="216" x2="470" y2="236" stroke="#0b0b0b" stroke-opacity="0.5" stroke-width="1.5" marker-end="url(#a-black)"/>
+<rect x="210" y="242" width="520" height="190" rx="6" fill="url(#mixFill)" stroke="#4a3aa7" stroke-opacity="0.45" stroke-width="1.2"/>
+<text x="470" y="264" text-anchor="middle" font-size="12" font-weight="600" fill="#4a3aa7">StrictlyEquivariantEncoder — 无绝对位置 · O(L·K)</text>
+<text x="470" y="279" text-anchor="middle" font-size="10" fill="#52514e">EquivariantGNNLayer × n_layers=4 · 循环相对位置偏置（替代 TPE）</text>
+<rect x="228" y="294" width="240" height="76" rx="4" fill="#fcfcfb" stroke="#4a3aa7" stroke-opacity="0.25" stroke-width="1"/>
+<text x="348" y="312" text-anchor="middle" font-size="10" font-weight="600" fill="#4a3aa7">SparseSO2SteerableKernel</text>
+<text x="348" y="326" text-anchor="middle" font-size="9" fill="#52514e">irrep: sin/cos(k·θ)×sin/cos(l·φ)</text>
+<text x="348" y="339" text-anchor="middle" font-size="9" fill="#52514e">gather · modulate · contract (K_CHUNK=20)</text>
+<text x="348" y="352" text-anchor="middle" font-size="8" fill="#52514e">delta_θ 归一化到 [-π, π] 循环连续</text>
+<text x="348" y="364" text-anchor="middle" font-size="8" fill="#eda100" font-weight="600">→ 输出 topk_idx (预计算, 复用至 S8)</text>
+<rect x="488" y="294" width="220" height="76" rx="4" fill="url(#fixFill)" stroke="#0ca30c" stroke-opacity="0.4" stroke-width="1"/>
+<text class="v2-tag" x="598" y="312" text-anchor="middle">[v2] 循环相对位置偏置</text>
+<text x="598" y="326" text-anchor="middle" font-size="9" fill="#52514e">CircularRelativePositionBias</text>
+<text x="598" y="339" text-anchor="middle" font-size="9" fill="#52514e">d(i,j)=min(|i-j|, L-|i-j|) · 头尾贯通</text>
+<text x="598" y="352" text-anchor="middle" font-size="9" fill="#52514e">无绝对位置 · 移位不变</text>
+<rect x="228" y="382" width="480" height="40" rx="4" fill="url(#fixFill)" stroke="#0ca30c" stroke-opacity="0.4" stroke-width="1"/>
+<text class="v2-tag" x="240" y="398">[v2] AdaptiveSparseK</text>
+<text x="470" y="413" text-anchor="middle" font-size="9" fill="#52514e">K = 局部熵复杂度 + 配对强度 → clamp[K_min=30, K_max=120]</text>
+<line x1="470" y1="432" x2="470" y2="452" stroke="#0b0b0b" stroke-opacity="0.5" stroke-width="1.5" marker-end="url(#a-black)"/>
+<rect x="330" y="458" width="280" height="44" rx="6" fill="url(#mixFill)" stroke="#4a3aa7" stroke-opacity="0.45" stroke-width="1.2"/>
+<text x="470" y="480" text-anchor="middle" font-size="12" font-weight="600" fill="#4a3aa7">irrep 分离</text>
+<text x="470" y="495" text-anchor="middle" font-size="10" fill="#52514e">to_inv (GELU) → node_repr_inv (64维) · to_eq (Linear) → node_repr_eq (64维)</text>
+<line x1="410" y1="502" x2="290" y2="532" stroke="#2a78d6" stroke-width="2" marker-end="url(#a-inv)"/>
+<line x1="530" y1="502" x2="650" y2="532" stroke="#008300" stroke-width="2" marker-end="url(#a-eq)"/>
+<text x="290" y="545" text-anchor="middle" font-size="9" font-weight="600" fill="#2a78d6">degree-0 (inv, 64)</text>
+<text x="650" y="545" text-anchor="middle" font-size="9" font-weight="600" fill="#008300">degree-1+ (eq, 64×2)</text>
+<rect x="130" y="558" width="680" height="130" rx="6" fill="url(#fixFill)" stroke="#0ca30c" stroke-opacity="0.45" stroke-width="1.3" stroke-dasharray="5,3"/>
+<text class="v2-tag" x="142" y="576">[v2] 稀疏等变 S8 Refine — O(L·K) · 在 Latent 之前</text>
+<text x="470" y="596" text-anchor="middle" font-size="12" font-weight="600" fill="#0b0b0b">SparseEquivariantS8Refine (n_layers=2 · K=40 · O(L·K))</text>
+<text x="470" y="611" text-anchor="middle" font-size="10" fill="#52514e">复用 encoder 预计算的 topk_idx · 只在 Top-K 邻居上做注意力 · 无 O(L²)</text>
+<rect x="148" y="622" width="210" height="56" rx="4" fill="url(#invFill)" stroke="#2a78d6" stroke-opacity="0.4" stroke-width="1"/>
+<text x="253" y="640" text-anchor="middle" font-size="9" font-weight="600" fill="#2a78d6">Q/K ← node_repr_inv (Linear)</text>
+<text x="253" y="654" text-anchor="middle" font-size="9" fill="#52514e">Softmax 注意力 (Top-K 稀疏)</text>
+<text x="253" y="668" text-anchor="middle" font-size="9" fill="#52514e">gather 邻居 → einsum</text>
+<rect x="368" y="622" width="210" height="56" rx="4" fill="url(#eqFill)" stroke="#008300" stroke-opacity="0.4" stroke-width="1"/>
+<text x="473" y="640" text-anchor="middle" font-size="9" font-weight="600" fill="#008300">V ← node_repr_eq (SO2EquivariantLinear)</text>
+<text x="473" y="654" text-anchor="middle" font-size="9" fill="#52514e">gather 邻居 eq 特征</text>
+<text x="473" y="668" text-anchor="middle" font-size="9" fill="#52514e">einsum 加权平均 (线性·保等变)</text>
+<rect x="588" y="622" width="210" height="56" rx="4" fill="url(#fixFill)" stroke="#0ca30c" stroke-opacity="0.35" stroke-width="1"/>
+<text class="v2-tag" x="693" y="638" text-anchor="middle">[v2] 残差 + SO2 输出投影</text>
+<text x="693" y="656" text-anchor="middle" font-size="9" fill="#52514e">out_proj: SO2EquivariantLinear</text>
+<text x="693" y="672" text-anchor="middle" font-size="9" fill="#0ca30c">返回 refined_eq (B,L,64,2)</text>
+<line x1="250" y1="688" x2="250" y2="712" stroke="#2a78d6" stroke-width="2" marker-end="url(#a-inv)"/>
+<line x1="470" y1="688" x2="470" y2="712" stroke="#008300" stroke-width="2" marker-end="url(#a-eq)"/>
+<text x="250" y="724" text-anchor="middle" font-size="8" fill="#2a78d6">refined_inv</text>
+<text x="470" y="724" text-anchor="middle" font-size="8" fill="#008300">refined_eq</text>
+<rect x="190" y="734" width="560" height="180" rx="6" fill="url(#v3Fill)" stroke="#dc2626" stroke-opacity="0.45" stroke-width="1.3"/>
+<text class="new-tag" x="202" y="752">[v3] StrictlyEquivariantLatent — 浅降采样保单碱基细节</text>
+<text x="470" y="772" text-anchor="middle" font-size="12" font-weight="600" fill="#0b0b0b">等变 Latent 投影 · L&gt;1000nt 自动启用多尺度</text>
+<rect x="208" y="784" width="252" height="118" rx="4" fill="url(#mixFill)" stroke="#4a3aa7" stroke-opacity="0.35" stroke-width="1"/>
+<text x="334" y="802" text-anchor="middle" font-size="10" font-weight="600" fill="#4a3aa7">短序列 (L≤1000) — 直接投影</text>
+<rect x="220" y="816" width="228" height="38" rx="3" fill="url(#invFill)" stroke="#2a78d6" stroke-opacity="0.35" stroke-width="1"/>
+<text x="334" y="833" text-anchor="middle" font-size="9" font-weight="600" fill="#2a78d6">inv_proj (MLP+GELU) → latent_inv (64维)</text>
+<text x="334" y="845" text-anchor="middle" font-size="8" fill="#52514e">[d_inv=64, 翻倍防信号不足]</text>
+<rect x="220" y="862" width="228" height="32" rx="3" fill="url(#eqFill)" stroke="#008300" stroke-opacity="0.35" stroke-width="1"/>
+<text x="334" y="877" text-anchor="middle" font-size="9" font-weight="600" fill="#008300">eq_proj (SO2EquivariantLinear)</text>
+<text x="334" y="889" text-anchor="middle" font-size="8" fill="#52514e">→ latent_eq (32维×2)</text>
+<rect x="480" y="784" width="250" height="118" rx="4" fill="url(#v3Fill)" stroke="#dc2626" stroke-opacity="0.4" stroke-width="1"/>
+<text x="605" y="802" text-anchor="middle" font-size="10" font-weight="600" fill="#dc2626">长序列 (L&gt;1000) — 多尺度</text>
+<text x="605" y="818" text-anchor="middle" font-size="8" fill="#dc2626" font-weight="600">[v3] L≤2500: factor=2 (2000→1000)</text>
+<text x="605" y="832" text-anchor="middle" font-size="8" fill="#52514e">L≤5000: factor=4 · L&gt;5000: factor=10</text>
+<text x="605" y="846" text-anchor="middle" font-size="8" fill="#dc2626">↓ DownsampleEncoder (mean pool)</text>
+<text x="605" y="858" text-anchor="middle" font-size="8" fill="#dc2626">  + [v3] eq_proj SO2EquivariantLinear</text>
+<text x="605" y="872" text-anchor="middle" font-size="8" fill="#dc2626">→ inv_proj / eq_proj 在粗粒度</text>
+<text x="605" y="886" text-anchor="middle" font-size="8" fill="#dc2626">↑ UpsampleDecoder + U-Net skip</text>
+<text x="605" y="898" text-anchor="middle" font-size="8" fill="#dc2626">→ FineGrainedGNN (局部 r=8 精修)</text>
+<line x1="334" y1="914" x2="334" y2="944" stroke="#2a78d6" stroke-width="2" marker-end="url(#a-inv)"/>
+<line x1="605" y1="914" x2="605" y2="944" stroke="#008300" stroke-width="2" marker-end="url(#a-eq)"/>
+<text x="334" y="956" text-anchor="middle" font-size="8" fill="#2a78d6">latent_inv</text>
+<text x="605" y="956" text-anchor="middle" font-size="8" fill="#008300">latent_eq</text>
+<rect x="100" y="968" width="560" height="200" rx="6" fill="url(#lossFill)" stroke="#e34948" stroke-opacity="0.45" stroke-width="1.2"/>
+<text x="380" y="988" text-anchor="middle" font-size="12" font-weight="600" fill="#e34948">InvDiffusion — 只对 inv · 向量化</text>
+<text x="380" y="1003" text-anchor="middle" font-size="10" fill="#52514e">DDPM · n_steps=20 · α_bar broadcast 向量化 (无 Python for-loop)</text>
+<rect x="115" y="1014" width="160" height="36" rx="3" fill="#fcfcfb" stroke="#e34948" stroke-opacity="0.25" stroke-width="1"/>
+<text x="195" y="1031" text-anchor="middle" font-size="9" font-weight="600" fill="#e34948">Training</text>
+<text x="195" y="1044" text-anchor="middle" font-size="9" fill="#52514e">noise_pred → MSE loss</text>
+<rect x="285" y="1014" width="160" height="36" rx="3" fill="#fcfcfb" stroke="#e34948" stroke-opacity="0.25" stroke-width="1"/>
+<text x="365" y="1031" text-anchor="middle" font-size="9" font-weight="600" fill="#e34948">Inference</text>
+<text x="365" y="1044" text-anchor="middle" font-size="9" fill="#52514e">DDIM + CFG → 构象系综</text>
+<rect x="115" y="1060" width="530" height="98" rx="4" fill="url(#v3Fill)" stroke="#dc2626" stroke-opacity="0.5" stroke-width="1.3"/>
+<text class="new-tag" x="127" y="1076">[v3] MixedHybridAttention — 替代 O(L²) MultiheadAttention</text>
+<text x="380" y="1092" text-anchor="middle" font-size="9" fill="#52514e">cond_attn(query=noisy, key=value=cond_emb) · 4层交替 · 复杂度 O(L) 而非 O(L²)</text>
+<rect x="125" y="1100" width="245" height="50" rx="3" fill="#fcfcfb" stroke="#dc2626" stroke-opacity="0.3" stroke-width="1"/>
+<text x="247" y="1116" text-anchor="middle" font-size="9" font-weight="600" fill="#dc2626">SlidingWindowAttention (W=256)</text>
+<text x="247" y="1130" text-anchor="middle" font-size="8" fill="#52514e">局部: 每token看256个循环邻居</text>
+<text x="247" y="1142" text-anchor="middle" font-size="8" fill="#52514e">d_ring(i,j)≤128 · O(L·W)</text>
+<rect x="390" y="1100" width="245" height="50" rx="3" fill="#fcfcfb" stroke="#dc2626" stroke-opacity="0.3" stroke-width="1"/>
+<text x="512" y="1116" text-anchor="middle" font-size="9" font-weight="600" fill="#dc2626">GlobalAnchorAttention (A=128)</text>
+<text x="512" y="1130" text-anchor="middle" font-size="8" fill="#52514e">远端: BSJ首尾各32 + 均匀64锚点</text>
+<text x="512" y="1142" text-anchor="middle" font-size="8" fill="#52514e">覆盖假结/远距茎环 · O(L·A)</text>
+<text x="334" y="1170" text-anchor="middle" font-size="8" fill="#dc2626">L0 SW · L1 GA · L2 SW · L3 GA (每层残差+LayerNorm)</text>
+<line x1="334" y1="1168" x2="334" y2="1188" stroke="#2a78d6" stroke-width="2" marker-end="url(#a-inv)"/>
+<text x="740" y="982" text-anchor="middle" font-size="9" font-weight="600" fill="#008300">eq 直接传递</text>
+<text x="740" y="997" text-anchor="middle" font-size="9" fill="#52514e">(不经扩散 · 等变不变)</text>
+<line x1="605" y1="944" x2="605" y2="1010" stroke="#008300" stroke-width="1.5" stroke-dasharray="4,2"/>
+<line x1="605" y1="1010" x2="334" y2="1010" stroke="#008300" stroke-width="1.5" stroke-dasharray="4,2"/>
+<line x1="605" y1="1168" x2="605" y2="1198" stroke="#008300" stroke-width="2" marker-end="url(#a-eq)"/>
+<rect x="190" y="1204" width="560" height="160" rx="6" fill="url(#fixFill)" stroke="#0ca30c" stroke-opacity="0.45" stroke-width="1.3"/>
+<text class="v2-tag" x="202" y="1222">[v2] SO(2) 轴角等变坐标头（声明: SO(2) 等变, 非 SO(3)）</text>
+<text x="470" y="1242" text-anchor="middle" font-size="12" font-weight="600" fill="#0b0b0b">SO2AxisAngleCoordHead (r_scale=300.0)</text>
+<rect x="208" y="1254" width="250" height="94" rx="4" fill="url(#invFill)" stroke="#2a78d6" stroke-opacity="0.35" stroke-width="1"/>
+<text x="333" y="1272" text-anchor="middle" font-size="9" font-weight="600" fill="#2a78d6">r ← latent_inv (MLP+GELU)</text>
+<text x="333" y="1286" text-anchor="middle" font-size="8" fill="#52514e">tanh→[0,r_scale] · 不变量</text>
+<text x="333" y="1300" text-anchor="middle" font-size="9" font-weight="600" fill="#2a78d6">axis_z ← latent_inv (Linear)</text>
+<text x="333" y="1314" text-anchor="middle" font-size="8" fill="#52514e">+ 可学习 z_scale · 不变量</text>
+<text x="333" y="1328" text-anchor="middle" font-size="9" font-weight="600" fill="#2a78d6">angle ← latent_inv (Linear)</text>
+<text x="333" y="1342" text-anchor="middle" font-size="8" fill="#52514e">旋转角度 · 不变量</text>
+<rect x="480" y="1254" width="250" height="94" rx="4" fill="url(#eqFill)" stroke="#008300" stroke-opacity="0.35" stroke-width="1"/>
+<text x="605" y="1272" text-anchor="middle" font-size="9" font-weight="600" fill="#008300">axis_xy ← latent_eq (SO2EquivariantLinear)</text>
+<text x="605" y="1286" text-anchor="middle" font-size="8" fill="#52514e">(cos θ, sin θ) · 等变量</text>
+<text x="605" y="1302" text-anchor="middle" font-size="9" font-weight="600" fill="#008300">axis = normalize([axis_xy, axis_z])</text>
+<text x="605" y="1316" text-anchor="middle" font-size="8" fill="#52514e">归一化 3D 旋转轴</text>
+<text x="605" y="1330" text-anchor="middle" font-size="9" font-weight="600" fill="#0ca30c">Rodrigues 公式</text>
+<text x="605" y="1344" text-anchor="middle" font-size="8" fill="#52514e">e₀=[0,0,1] · v_rot = v·cos+(axis×v)·sin+...</text>
+<line x1="333" y1="1364" x2="333" y2="1386" stroke="#2a78d6" stroke-width="2" marker-end="url(#a-inv)"/>
+<line x1="605" y1="1364" x2="605" y2="1386" stroke="#008300" stroke-width="2" marker-end="url(#a-eq)"/>
+<line x1="333" y1="1386" x2="470" y2="1386" stroke="#4a3aa7" stroke-width="1.5" stroke-opacity="0.6"/>
+<line x1="605" y1="1386" x2="470" y2="1386" stroke="#4a3aa7" stroke-width="1.5" stroke-opacity="0.6"/>
+<line x1="470" y1="1386" x2="470" y2="1410" stroke="#0b0b0b" stroke-opacity="0.6" stroke-width="2" marker-end="url(#a-black)"/>
+<rect x="290" y="1416" width="360" height="58" rx="6" fill="url(#lossFill)" stroke="#e34948" stroke-opacity="0.55" stroke-width="1.5"/>
+<text x="470" y="1436" text-anchor="middle" font-size="11" font-weight="600" fill="#e34948">3D 环面 circRNA 坐标</text>
+<text x="470" y="1451" text-anchor="middle" font-size="10" fill="#52514e">coords = r · R(axis, angle) · e₀ · (B, L, 3)</text>
+<text x="470" y="1464" text-anchor="middle" font-size="9" fill="#0b0b0b">+ 构象系综: generate_ensemble(n=100, CFG)</text>
+<rect x="760" y="970" width="160" height="110" rx="5" fill="url(#sideFill)" stroke="#eda100" stroke-opacity="0.4" stroke-width="1.2" stroke-dasharray="4,3"/>
+<text class="v2-tag" x="840" y="988" text-anchor="middle">[v2] 接触图辅助</text>
+<text x="840" y="1006" text-anchor="middle" font-size="10" font-weight="600" fill="#0b0b0b">ContactMapAuxHead</text>
+<text x="840" y="1022" text-anchor="middle" font-size="8" fill="#52514e">latent_inv → 对称接触图</text>
+<text x="840" y="1036" text-anchor="middle" font-size="8" fill="#52514e">MLP(e_i, e_j, e_i*e_j) → BCE</text>
+<text x="840" y="1050" text-anchor="middle" font-size="8" fill="#52514e">C4 距离&lt;8Å 为接触</text>
+<text x="840" y="1066" text-anchor="middle" font-size="8" fill="#eda100" font-weight="600">默认关闭 (use_contact_aux)</text>
+<line x1="740" y1="1020" x2="700" y2="1020" stroke="#eda100" stroke-width="1.2" stroke-dasharray="3,2" marker-end="url(#a-side)"/>
+<text x="720" y="1013" text-anchor="middle" font-size="7" fill="#eda100">aux</text>
+<rect x="760" y="1090" width="160" height="118" rx="5" fill="url(#sideFill)" stroke="#eda100" stroke-opacity="0.4" stroke-width="1.2" stroke-dasharray="4,3"/>
+<text class="new-tag" x="840" y="1108" text-anchor="middle">[v3] Stratified Curriculum</text>
+<text x="840" y="1126" text-anchor="middle" font-size="10" font-weight="600" fill="#0b0b0b">4-Phase Mixing</text>
+<text x="840" y="1142" text-anchor="middle" font-size="8" fill="#52514e">P1: short 60% → P4: xlong 25%</text>
+<text x="840" y="1156" text-anchor="middle" font-size="8" fill="#52514e">+ MC-Dropout UQ weighting</text>
+<text x="840" y="1170" text-anchor="middle" font-size="8" fill="#dc2626">[v3] xlong 正常走 MC (无fallback)</text>
+<text x="840" y="1184" text-anchor="middle" font-size="8" fill="#dc2626">[v3] 分桶统一 (L&lt;200 不再误入 xlong)</text>
+<text x="840" y="1198" text-anchor="middle" font-size="8" fill="#52514e">82106样本 · 4749条xlong</text>
+<line x1="740" y1="1140" x2="660" y2="1140" stroke="#eda100" stroke-width="1.2" stroke-dasharray="3,2" marker-end="url(#a-side)"/>
+<text x="700" y="1133" text-anchor="middle" font-size="7" fill="#eda100">train</text>
+<text x="470" y="1516" text-anchor="middle" font-size="9" fill="#dc2626" font-weight="600">v3 关键变更: O(L²) cond_attn → 混合注意力 O(L) · 降采样 factor 5→2 保单碱基细节 · DownsampleEncoder 加 SO2 等变投影 · multiscale import 修复 · curriculum 分桶/UQ 一致性修复</text>
+<text x="470" y="1532" text-anchor="middle" font-size="9" fill="#898781">Config: d_model=256 · d_model_inv=64/d_model_eq=64 · K_sparse=60 · K_refine=40 · n_diffusion=20 · r_scale=300.0 · window=256 · n_anchors=128</text>
+<text x="470" y="1548" text-anchor="middle" font-size="8" fill="#898781">冒烟测试: 9/9 PASS (short L=179 + xlong L=1229 multiscale 触发 + 梯度流向 97% 参数)</text>
+</svg>

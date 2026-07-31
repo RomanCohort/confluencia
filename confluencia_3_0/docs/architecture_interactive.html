@@ -1,0 +1,391 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Confluencia 3.0 — 插件数据流</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+            background: linear-gradient(135deg, #0f0c29 0%, #1a1a2e 50%, #16213e 100%);
+            color: #e0e0e0;
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+        h1 { text-align: center; padding: 20px 0 5px; font-weight: 300; letter-spacing: 1px; }
+        .subtitle { text-align: center; color: #888; margin-bottom: 15px; font-size: 13px; }
+
+        .controls {
+            position: fixed; top: 15px; right: 15px; z-index: 100;
+            display: flex; gap: 8px;
+        }
+        .btn {
+            background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2);
+            color: #e0e0e0; padding: 7px 14px; border-radius: 6px; cursor: pointer;
+            font-size: 12px; transition: all 0.2s;
+        }
+        .btn:hover { background: rgba(255,255,255,0.2); }
+        .btn.active { background: #4CAF50; border-color: #4CAF50; }
+
+        .canvas-wrap {
+            position: relative;
+            width: 100%; height: 78vh; min-height: 520px;
+        }
+        #flowCanvas {
+            display: block; width: 100%; height: 100%;
+            cursor: pointer;
+        }
+        .node {
+            position: absolute;
+            padding: 10px 14px;
+            background: rgba(20,20,40,0.85);
+            border: 2px solid;
+            border-radius: 8px;
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            transform: translate(-50%, -50%);
+            min-width: 120px;
+            text-align: center;
+            transition: transform 0.15s, box-shadow 0.15s;
+            user-select: none;
+        }
+        .node:hover {
+            transform: translate(-50%, -50%) scale(1.08);
+            box-shadow: 0 0 20px currentColor;
+            z-index: 5;
+        }
+        .node .group-tag {
+            font-size: 9px; font-weight: 400;
+            color: #a0aec0; display: block; margin-top: 3px;
+        }
+
+        .legend {
+            position: fixed; bottom: 12px; left: 12px; font-size: 11px; color: #718096;
+            background: rgba(0,0,0,0.3); padding: 8px 12px; border-radius: 6px;
+        }
+        .legend-item { display: flex; align-items: center; gap: 6px; margin-bottom: 4px; }
+        .legend-line { width: 20px; height: 2px; }
+
+        .detail-panel {
+            position: fixed; bottom: 0; left: 0; right: 0;
+            background: rgba(15,12,41,0.97); border-top: 1px solid rgba(99,179,237,0.3);
+            padding: 16px 30px; transform: translateY(100%);
+            transition: transform 0.3s cubic-bezier(0.4,0,0.2,1); z-index: 20;
+            max-height: 40vh; overflow-y: auto;
+        }
+        .detail-panel.show { transform: translateY(0); }
+        .detail-title { font-size: 16px; font-weight: 600; margin-bottom: 10px; color: #63b3ed; }
+        .detail-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 25px; }
+        .detail-section h3 { font-size: 12px; color: #a0aec0; margin-bottom: 6px; }
+        .detail-list { font-size: 12px; line-height: 1.7; color: #d0d0d0; }
+        .detail-list code {
+            background: rgba(99,179,237,0.15); padding: 2px 5px; border-radius: 3px;
+            font-family: 'Consolas', monospace; font-size: 11px;
+        }
+        .close-btn { float: right; }
+    </style>
+</head>
+<body>
+    <h1>Confluencia 3.0 — 插件数据流</h1>
+    <p class="subtitle">circRNA 序列在各插件间传递的完整数据通路 | 点连线看流过的数据 | 点插件看详情</p>
+
+    <div class="controls">
+        <button class="btn" id="animBtn" onclick="toggleAnim()">播放数据流</button>
+        <button class="btn" onclick="highlightCircRNA()">高亮 circRNA 链</button>
+        <button class="btn" onclick="resetView()">重置</button>
+    </div>
+
+    <div class="canvas-wrap" id="canvasWrap">
+        <canvas id="flowCanvas"></canvas>
+        <!-- 节点卡片 (HTML div 叠在 Canvas 上，支持点击) -->
+    </div>
+
+    <div class="detail-panel" id="detailPanel">
+        <div>
+            <span class="detail-title" id="detailTitle">选择查看</span>
+            <button class="btn close-btn" onclick="closeDetail()">关闭</button>
+        </div>
+        <div class="detail-grid" id="detailGrid"></div>
+    </div>
+
+    <div class="legend">
+        <div class="legend-item"><div class="legend-line" style="background:#667eea"></div>序列数据</div>
+        <div class="legend-item"><div class="legend-line" style="background:#d53f8c"></div>crna_ 评估结果</div>
+        <div class="legend-item"><div class="legend-line" style="background:#ed8936"></div>TME 反馈信号</div>
+        <div class="legend-item"><div class="legend-line" style="background:#48bb78"></div>状态写入</div>
+    </div>
+
+    <script>
+        // 节点定义 (比例坐标，0~1，渲染时映射到 Canvas 像素)
+        const NODES = [
+            { id: 'seq_input',    label: 'circRNA 序列',    x: 0.05, y: 0.50, color: '#667eea', group: '输入源' },
+            { id: 'seq_provider', label: 'SequenceProvider', x: 0.18, y: 0.50, color: '#667eea', group: '序列注入插件' },
+            { id: 'circrna_mgr',  label: 'CircRNAManager',  x: 0.34, y: 0.50, color: '#d53f8c', group: 'circRNA 编排' },
+            { id: 'immune',       label: 'ImmuneSensing',   x: 0.52, y: 0.18, color: '#d53f8c', group: '免疫感知' },
+            { id: 'structure',    label: 'StructurePrediction\n(TorusFold)', x: 0.52, y: 0.40, color: '#d53f8c', group: '结构预测' },
+            { id: 'toposhot',     label: 'TopoShot',         x: 0.52, y: 0.62, color: '#d53f8c', group: '序列进化' },
+            { id: 'vaccine',      label: 'VaccineAssess',    x: 0.52, y: 0.84, color: '#d53f8c', group: '疫苗评估' },
+            { id: 'state_store',  label: 'StateStore\n(crna_* 键)', x: 0.72, y: 0.50, color: '#48bb78', group: '状态命名空间' },
+            { id: 'tme',          label: 'TME / Immune\nDynamics', x: 0.90, y: 0.50, color: '#ed8936', group: '微环境模拟' },
+        ];
+
+        const EDGES = [
+            { from: 'seq_input', to: 'seq_provider', label: 'sequence', color: '#667eea', detail: 'circRNA 序列字符串 (ACGU, ≥10nt)' },
+            { from: 'seq_provider', to: 'circrna_mgr', label: 'CIRCRNA_SEQUENCE_ASSIGN', color: '#667eea', detail: 'EventBus 事件: 把序列注入到 CircRNAManager._current_sequence' },
+            { from: 'circrna_mgr', to: 'immune',    label: 'assess_immunogenicity(seq)', color: '#d53f8c', detail: '调用免疫原性评估 (heuristic / vienna / esm2 / moe_v3)' },
+            { from: 'circrna_mgr', to: 'structure', label: 'predict_structure(seq)',    color: '#d53f8c', detail: '调用结构预测 (TorusFold → ViennaRNA → heuristic 三层降级)' },
+            { from: 'circrna_mgr', to: 'toposhot',  label: 'evolve_sequence(seq)',      color: '#d53f8c', detail: 'NSGA-II 多目标进化 + GFlowNet 序列采样' },
+            { from: 'circrna_mgr', to: 'vaccine',   label: 'assess_vaccine(seq)',       color: '#d53f8c', detail: '疫苗治疗窗口评估 (基于免疫原性 + IPS)' },
+            { from: 'immune',    to: 'state_store', label: 'crna_immunogenicity_score\ncrna_pkr/rig_i/tlr/ips_score', color: '#48bb78', detail: '免疫原性评分 + 4 通路子分写入状态' },
+            { from: 'structure', to: 'state_store', label: 'crna_mfe_kcal\ncrna_sasa / bsj_closure', color: '#48bb78', detail: 'MFE 自由能 + 3D 坐标 + SASA + BSJ 闭合写入状态' },
+            { from: 'toposhot',  to: 'state_store', label: 'crna_evolution_generation\ncrna_evolution_best_score', color: '#48bb78', detail: '进化代数 + 当前最优评分' },
+            { from: 'vaccine',   to: 'state_store', label: 'crna_vaccine_therapeutic_window', color: '#48bb78', detail: '疫苗治疗窗口评分' },
+            { from: 'state_store', to: 'tme',       label: 'crna_immunogenicity_score\n→ cfr_immune_activation_boost', color: '#ed8936', detail: 'circRNA 免疫原性反馈到 TME 免疫动力学 (六维联动最后一环)' },
+        ];
+
+        const canvas = document.getElementById('flowCanvas');
+        const ctx = canvas.getContext('2d');
+        const wrap = document.getElementById('canvasWrap');
+
+        let nodePositions = [];  // 像素坐标
+        let edgePaths = [];      // 像素路径 (供命中检测)
+        let animating = false;
+        let animIdx = 0;
+        let animTimer = null;
+        let highlightMode = false;
+
+        function resize() {
+            const rect = wrap.getBoundingClientRect();
+            canvas.width = rect.width;
+            canvas.height = rect.height;
+            computeLayout();
+            render();
+        }
+
+        function computeLayout() {
+            const W = canvas.width, H = canvas.height;
+            nodePositions = NODES.map(n => ({
+                ...n,
+                px: n.x * W,
+                py: n.y * H,
+                w: 140, h: 50,
+            }));
+        }
+
+        function drawEdge(from, to, label, color, isDim, isHighlight) {
+            const f = nodePositions.find(n => n.id === from);
+            const t = nodePositions.find(n => n.id === to);
+            if (!f || !t) return;
+
+            ctx.save();
+            const alpha = isHighlight ? 1.0 : (isDim ? 0.15 : 0.55);
+            ctx.globalAlpha = alpha;
+            ctx.strokeStyle = color;
+            ctx.lineWidth = isHighlight ? 3 : 2;
+
+            // 起点 (f 右边缘) / 终点 (t 左边缘)
+            const x1 = f.px + f.w/2;
+            const y1 = f.py;
+            const x2 = t.px - t.w/2;
+            const y2 = t.py;
+
+            // 贝塞尔控制点 (水平弯曲)
+            const cx = (x1 + x2) / 2;
+
+            ctx.beginPath();
+            ctx.moveTo(x1, y1);
+            ctx.bezierCurveTo(cx, y1, cx, y2, x2, y2);
+            ctx.stroke();
+
+            // 箭头 (在终点方向)
+            const angle = Math.atan2(y2 - (y1 + y2)/2, x2 - cx);
+            const ax = x2 - 4 * Math.cos(angle);
+            const ay = y2 - 4 * Math.sin(angle);
+            ctx.fillStyle = color;
+            ctx.beginPath();
+            ctx.moveTo(ax, ay);
+            ctx.lineTo(ax - 10*Math.cos(angle-0.35), ay - 10*Math.sin(angle-0.35));
+            ctx.lineTo(ax - 10*Math.cos(angle+0.35), ay - 10*Math.sin(angle+0.35));
+            ctx.closePath();
+            ctx.fill();
+
+            // 标签 (曲线中点偏上)
+            const mx = (x1 + x2) / 2;
+            const my = (y1 + y2) / 2;
+            ctx.globalAlpha = isHighlight ? 1.0 : (isDim ? 0.2 : 0.85);
+            ctx.fillStyle = color;
+            ctx.font = '10px Consolas, monospace';
+            ctx.textAlign = 'center';
+            const lines = label.split('\n');
+            lines.forEach((line, i) => {
+                ctx.fillText(line, mx, my - (lines.length-1)*6 + i*12 - 6);
+            });
+
+            // 记录路径用于命中检测
+            edgePaths.push({ from, to, x1, y1, x2, y2, cx, cy: (y1+y2)/2 });
+
+            ctx.restore();
+        }
+
+        function render() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            edgePaths = [];
+
+            const circIds = new Set(['seq_input','seq_provider','circrna_mgr','immune','structure','toposhot','vaccine','state_store']);
+
+            EDGES.forEach((e, i) => {
+                const isDim = highlightMode && !(circIds.has(e.from) && circIds.has(e.to));
+                const isHighlight = animating && i === animIdx;
+                drawEdge(e.from, e.to, e.label, e.color, isDim, isHighlight);
+            });
+
+            // 渲染节点 HTML 卡片 (位置更新)
+            renderNodeCards();
+        }
+
+        function renderNodeCards() {
+            // 清理旧的
+            document.querySelectorAll('.node').forEach(el => el.remove());
+
+            nodePositions.forEach(n => {
+                const div = document.createElement('div');
+                div.className = 'node';
+                div.style.color = n.color;
+                div.style.borderColor = n.color;
+                div.style.left = n.px + 'px';
+                div.style.top = n.py + 'px';
+                div.innerHTML = `${n.label.replace(/\n/g,'<br>')}<span class="group-tag">${n.group}</span>`;
+                div.onclick = () => showNodeDetail(n.id);
+                wrap.appendChild(div);
+            });
+        }
+
+        function hitTestEdge(mx, my) {
+            for (let i = 0; i < edgePaths.length; i++) {
+                const p = edgePaths[i];
+                // 近似: 检查点是否在起止点之间矩形内且到贝塞尔曲线距离小
+                const xMin = Math.min(p.x1, p.x2) - 20;
+                const xMax = Math.max(p.x1, p.x2) + 20;
+                const yMin = Math.min(p.y1, p.y2) - 30;
+                const yMax = Math.max(p.y1, p.y2) + 30;
+                if (mx >= xMin && mx <= xMax && my >= yMin && my <= yMax) {
+                    // 计算点到贝塞尔曲线的近似距离
+                    for (let t = 0; t <= 1; t += 0.05) {
+                        const tt = 1 - t;
+                        const bx = tt*tt*tt*p.x1 + 3*tt*tt*t*((p.x1+p.x2)/2) + 3*tt*t*t*((p.x1+p.x2)/2) + t*t*t*p.x2;
+                        const by = tt*tt*tt*p.y1 + 3*tt*tt*t*p.y1 + 3*tt*t*t*p.y2 + t*t*t*p.y2;
+                        const d = Math.hypot(bx - mx, by - my);
+                        if (d < 15) return i;
+                    }
+                }
+            }
+            return -1;
+        }
+
+        canvas.addEventListener('click', e => {
+            const rect = canvas.getBoundingClientRect();
+            const mx = e.clientX - rect.left;
+            const my = e.clientY - rect.top;
+            const idx = hitTestEdge(mx, my);
+            if (idx >= 0) showEdgeDetail(idx);
+        });
+
+        function showNodeDetail(id) {
+            const n = NODES.find(n => n.id === id);
+            const incoming = EDGES.filter(e => e.to === id);
+            const outgoing = EDGES.filter(e => e.from === id);
+
+            document.getElementById('detailTitle').textContent = `${n.label.replace(/\n/g,' ')} — ${n.group}`;
+
+            const inHtml = incoming.length ? incoming.map(e =>
+                `<code>${e.from}</code> → <code style="color:${e.color}">${e.label.replace(/\n/g,' ')}</code>`
+            ).join('<br>') : '<span style="color:#718096">无输入</span>';
+
+            const outHtml = outgoing.length ? outgoing.map(e =>
+                `→ <code>${e.to}</code> : <code style="color:${e.color}">${e.label.replace(/\n/g,' ')}</code>`
+            ).join('<br>') : '<span style="color:#718096">无输出</span>';
+
+            document.getElementById('detailGrid').innerHTML = `
+                <div class="detail-section">
+                    <h3>输入数据流 (从哪来)</h3>
+                    <div class="detail-list">${inHtml}</div>
+                </div>
+                <div class="detail-section">
+                    <h3>输出数据流 (到哪去)</h3>
+                    <div class="detail-list">${outHtml}</div>
+                </div>
+                <div class="detail-section">
+                    <h3>所属分组</h3>
+                    <div class="detail-list"><span style="color:${n.color}">● ${n.color}</span><br>${n.group}</div>
+                </div>
+            `;
+            document.getElementById('detailPanel').classList.add('show');
+        }
+
+        function showEdgeDetail(i) {
+            const e = EDGES[i];
+            document.getElementById('detailTitle').textContent = `数据流: ${e.from} → ${e.to}`;
+
+            document.getElementById('detailGrid').innerHTML = `
+                <div class="detail-section">
+                    <h3>流过的数据</h3>
+                    <div class="detail-list"><code style="color:${e.color}">${e.label.replace(/\n/g,'<br>')}</code></div>
+                </div>
+                <div class="detail-section">
+                    <h3>起点插件</h3>
+                    <div class="detail-list"><code>${e.from}</code></div>
+                </div>
+                <div class="detail-section">
+                    <h3>说明</h3>
+                    <div class="detail-list">${e.detail}</div>
+                </div>
+            `;
+            document.getElementById('detailPanel').classList.add('show');
+        }
+
+        function closeDetail() {
+            document.getElementById('detailPanel').classList.remove('show');
+        }
+
+        function toggleAnim() {
+            const btn = document.getElementById('animBtn');
+            if (animating) {
+                animating = false; btn.classList.remove('active'); btn.textContent = '播放数据流';
+                clearInterval(animTimer);
+                highlightMode = false;
+                render();
+            } else {
+                animating = true; btn.classList.add('active'); btn.textContent = '停止';
+                animIdx = 0;
+                highlightMode = true;
+                animTimer = setInterval(() => {
+                    animIdx = (animIdx + 1) % EDGES.length;
+                    render();
+                }, 550);
+            }
+        }
+
+        function highlightCircRNA() {
+            highlightMode = true;
+            animating = false;
+            render();
+        }
+
+        function resetView() {
+            closeDetail();
+            animating = false;
+            highlightMode = false;
+            document.getElementById('animBtn').classList.remove('active');
+            document.getElementById('animBtn').textContent = '播放数据流';
+            clearInterval(animTimer);
+            render();
+        }
+
+        window.addEventListener('resize', resize);
+        window.addEventListener('load', resize);
+        resize();
+    </script>
+</body>
+</html>
