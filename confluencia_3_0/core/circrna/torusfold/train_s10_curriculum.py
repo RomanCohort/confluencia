@@ -1,0 +1,768 @@
+"""train_s10_curriculum.py - S10 curriculum training with stratified length mixing.
+
+Framework: train_stratified_curriculum.py (4 phases, each contains all length scales,
+  ratios drift from short-heavy to long-heavy over phase).
+
+Verified ABC+D geometry priors ported from train_s10_82k.py (smoke-tested, all pass).
+
+Phases:
+  Phase 1: short=90% medium=8% long=2% (conf>=0.8, high-quality)
+  Phase 2: short=70% medium=20% long=10% (conf>=0.5)
+  Phase 3: short=40% medium=40% long=20% (conf>=0.5)
+  Phase 4: short=20% medium=30% long=50% (conf>=0.3, BSJ stress)
+
+No phase isolation - all length scales present every epoch -> no representation collapse.
+"""
+# ── MUST come before any torch import ──
+# ROCm's CUDAPluggableAllocator routes all allocations through a fused internal kernel
+# (fused_adagrad_) that crashes with c10_cuda_check_implementation under batched load.
+# Disable it: use the standard HIP device allocator instead.
+import os
+os.environ['PYTORCH_HIP_ALLOC_CONF'] = 'garbage_collection_threshold:0.5'
+# expandable_segments is supported on ROCm 6.x+; try anyway for fragmentation relief
+os.environ['PYTORCH_CUDA_ALLOC_CONF'] = 'expandable_segments:True'
+
+import sys, time, json, gc, math
+import numpy as np
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+from collections import defaultdict
+
+sys.stdout.reconfigure(line_buffering=True)
+sys.stderr.reconfigure(line_buffering=True)
+
+sys.path.insert(0, '.')
+sys.path.insert(0, os.path.join('.', 'circrna_3d_pipeline'))
+sys.path.insert(0, os.path.join('.', 'rl'))
+
+from scheme10_equivariant import EquivariantS10Config, StrictlyEquivariantS10
+
+# A+B+C geometry prior modules (verified in train_s10_82k.py)
+from stereochemistry_losses import get_stereo_loss_breakdown
+from physics_decoupled_loss import PhysicsDecoupledLoss
+from physics_loss import PhysicsLoss
+from contact_map_aux_head import ContactMapAuxHead, generate_contact_map
+from chirality_embedding import ChiralityAwareEmbedding
+from cartesian_to_torus import cartesian_to_torus, major_ring_radius
+from contrastive_circrna import GeometryContrastiveLoss
+from physics_bridge import ConstraintExtractor
+from physics_distillation import ContactMapDistillationLoss
+from bias_annealing import apply_bias_annealing
+from train_curriculum import BSJGeometryLoss
+from train_all_schemes import kabsch_rmsd
+
+# Phase definitions (4-bucket, aligned with circrna_3d_all full distribution)
+# short<=200, medium 201-500, long 501-1000, xlong >1000
+LENGTH_BUCKET = {
+    "short": (151, 200),
+    "medium": (201, 500),
+    "long": (501, 1000),
+    "xlong": (1001, 5000),
+}
+PHASES = {
+    1: {"conf_min": 0.8,
+        "ratios": {"short": 0.60, "medium": 0.30, "long": 0.08, "xlong": 0.02},
+        "desc": "Short-dominant core geometry (high quality)"},
+    2: {"conf_min": 0.5,
+        "ratios": {"short": 0.40, "medium": 0.40, "long": 0.15, "xlong": 0.05},
+        "desc": "Shift to medium, introduce long"},
+    3: {"conf_min": 0.5,
+        "ratios": {"short": 0.20, "medium": 0.35, "long": 0.35, "xlong": 0.10},
+        "desc": "Long-dominant, all medium+ quality"},
+    4: {"conf_min": 0.3,
+        "ratios": {"short": 0.10, "medium": 0.25, "long": 0.40, "xlong": 0.25},
+        "desc": "Long+xlong heavy with BSJ stress"},
+}
+DEFAULT_PHASE_EPOCHS = {1: 10, 2: 10, 3: 10, 4: 10}  # Reduced: 50 -> 10 per phase for speed
+
+LOSS_WEIGHTS = {
+    'coord': 10.0, 'closure': 5.0, 'bond': 2.0, 'diffusion': 1.0,
+    'stereo': 1.0, 'physics_decoupled': 1.0, 'physics_pairing': 1.0,
+    'contact_aux': 1.0, 'torus': 0.5, 'chirality': 0.5,
+    'contrastive': 0.1, 'physics_bridge': 0.1, 'distillation': 0.1,
+}
+
+# ═══════════════════════════════════════════════════════════════
+# MC-Dropout Uncertainty Weighting (from train_uncertainty_weighted.py)
+# ═══════════════════════════════════════════════════════════════
+#
+# Each epoch: K forward passes per sample (dropout active) -> per-bucket variance
+# -> bucket weight = 1 + temperature * (bucket_var / max_var)
+#
+# Mechanically independent of phase ratios: phases control SAMPLING,
+# MC-Dropout controls GRADIENT scaling. No empirical thresholds.
+#
+MC_N_SAMPLES = 5           # K MC-Dropout samples per sample
+MC_TEMPERATURE = 2.0       # weight scaling temperature
+MC_MAX_SAMPLES = 8          # reduced: 200 caused CPU-bound collate to block GPU for minutes per epoch
+MC_START_EPOCH = 0         # start MC-Dropout from epoch 0
+BUCKET_NAMES = ["short", "medium", "long", "xlong"]
+
+
+def length_bucket_full(L):
+    """Four-bucket classification aligned with circrna_3d_all distribution."""
+    if L <= 200:
+        return "short"
+    elif L <= 500:
+        return "medium"
+    elif L <= 1000:
+        return "long"
+    else:
+        return "xlong"
+
+
+def estimate_bucket_uncertainty(bucket_groups, model, collate, device,
+                                 mc_n, mc_temp, mc_max):
+    """
+    MC-Dropout uncertainty estimation per bucket.
+
+    For each bucket, draw max_samples indices, do K MC-forward passes,
+    compute per-sample coordinate variance, aggregate to bucket variance.
+
+    Returns: bucket_weights dict {bname: weight}
+    """
+    # Keep dropout active for MC sampling
+    model.train()
+
+    bucket_var = {}
+    bucket_count = {}
+
+    for bname in BUCKET_NAMES:
+        pool = bucket_groups.get(bname, [])
+        if len(pool) == 0:
+            bucket_var[bname] = 0.0
+            bucket_count[bname] = 0
+            continue
+
+        # Skip xlong bucket during MC estimation: L>1000 triggers multiscale
+        # decoder which has a relative-import bug (multiscale_equivariant.py).
+        # Assign fallback weight = 1 + temperature (max uncertainty assumption).
+        if bname == "xlong":
+            bucket_var[bname] = 1.0  # assume max uncertainty
+            bucket_count[bname] = 0
+            continue
+
+        n_draw = min(mc_max, len(pool))
+        draw_idx = np.random.choice(len(pool), size=n_draw, replace=False)
+        bucket_vars = []
+
+        # Batched MC estimation: process batch_size samples at once
+        # Much faster than single-sample forward on ROCm
+        for start in range(0, len(draw_idx), batch_size):
+            batch_d_idx = draw_idx[start:start + batch_size]
+            batch_indices = [pool[i] for i in batch_d_idx]
+            seq_ids, target_s, lengths = collate(batch_indices)
+            B_eff = len(batch_indices)
+
+            # K MC-Dropout forward passes (entire batch)
+            preds_list = []
+            with torch.no_grad():
+                for _ in range(mc_n):
+                    pred = model(seq_ids, return_loss=False)
+                    preds_list.append(pred)
+            preds = torch.stack(preds_list, dim=0)  # [K, B_eff, L, 3]
+
+            # Per-sample variance [B_eff, L]
+            pred_var = torch.var(preds, dim=0, unbiased=False).sum(dim=-1)
+            for b in range(B_eff):
+                L = int(lengths[b].item())
+                sample_var = pred_var[b, :L].mean().item()
+                bucket_vars.append(sample_var)
+
+        bucket_var[bname] = float(np.mean(bucket_vars))
+        bucket_count[bname] = n_draw
+
+    # Normalize variance -> weights
+    global_max = max(bucket_var.values()) + 1e-8
+    bucket_weights = {}
+    for bname in BUCKET_NAMES:
+        norm_var = min(bucket_var[bname] / global_max, 1.0)
+        bucket_weights[bname] = 1.0 + mc_temp * norm_var
+
+    return bucket_weights, bucket_var, bucket_count
+
+BASE = os.path.abspath('.')
+DEPLOY_ROOT = os.path.normpath(os.path.join(BASE, '..', '..', '..', '..'))
+device = 'cuda'
+output_dir = os.path.join(BASE, 'models', 's10_curriculum')
+os.makedirs(output_dir, exist_ok=True)
+
+batch_size = 4       # ROCm stable on AMD 8060S (diffusion=20 keeps peak ~15GB)
+grad_accum_steps = 4  # Effective batch = 16
+n_epochs_per_phase = 10   # (unused; loop uses DEFAULT_PHASE_EPOCHS)
+
+print('=' * 60)
+print('  S10 Curriculum Training (stratified length mixing)')
+print('=' * 60)
+print(f'Device: {device}, GPU: {torch.cuda.get_device_name(0)}')
+print(f'Output: {output_dir}, Batch size: {batch_size}')
+
+# Load data from consolidated npz (82k samples, ~0.55 GB)
+print(f'Loading data from consolidated npz ...')
+t0 = time.time()
+npz_path = os.path.join(DEPLOY_ROOT, 'data', 'circrna_3d_all_consolidated.npz')
+if os.path.isfile(npz_path):
+    data = np.load(npz_path, allow_pickle=True)
+    ids_arr = data['ids']
+    lengths_arr = data['lengths']
+    coords_arr = data['coords']
+    n = len(lengths_arr)
+    seqs = [('ACGU' * (int(L) // 4 + 1))[:int(L)] for L in lengths_arr]
+    coords = [np.asarray(c[:int(L)], dtype=np.float32) for c, L in zip(coords_arr, lengths_arr)]
+    meta = [{'id': str(i), 'length': int(L)} for i, L in zip(ids_arr, lengths_arr)]
+    print(f'  Loaded {n} samples in {time.time()-t0:.2f}s')
+else:
+    raise FileNotFoundError(f'Consolidated npz not found: {npz_path}. Run consolidate_npy_to_npz.py first.')
+
+n = len(seqs)
+val_idx = list(range(max(0, n - 50), n))
+train_idx = [i for i in range(n) if i not in val_idx]
+t_seq = [seqs[i] for i in train_idx]
+t_coords = [coords[i] for i in train_idx]
+t_meta = [meta[i] for i in train_idx]
+
+# Length bucket assignment
+def length_bucket(L):
+    for bname in ["short", "medium", "long", "xlong"]:
+        lo, hi = LENGTH_BUCKET[bname]
+        if lo <= L <= hi:
+            return bname
+    return "xlong"
+
+bucket_groups = defaultdict(list)
+for i in range(len(t_seq)):
+    bucket_groups[length_bucket(t_meta[i]['length'])].append(i)
+print(f'  Buckets: {dict(sorted((k, len(v)) for k, v in bucket_groups.items()))}')
+
+# Model
+cfg = EquivariantS10Config(
+    d_model=256, d_inv=64, d_eq=32, n_layers=4,
+    k_theta=4, k_phi=2, use_diffusion=True, n_diffusion_steps=20,  # 100 -> 20: 5x faster forward
+    use_s8_refine=True, use_adaptive_k=True,
+    d_model_inv=64, d_model_eq=64, dropout=0.1,
+    n_tokens=5, bond_length=5.9, r_scale=300.0
+)
+model = StrictlyEquivariantS10(cfg).to(device)
+print(f'  Model: {sum(p.numel() for p in model.parameters()):,} params')
+
+# Prior modules (A+B+C, all verified)
+pd_loss_fn = PhysicsDecoupledLoss(w_geo=1.0, w_phys=0.1, use_rg_loss=True,
+                                   use_clash_loss=True, use_angle_loss=True).to(device)
+physics_loss_fn = PhysicsLoss(n_tokens=5, device=device).to(device)
+contact_head = ContactMapAuxHead(d_inv=64, d_hidden=32).to(device)
+contact_proj = nn.Linear(3, 64, bias=False).to(device)
+chirality_emb = ChiralityAwareEmbedding(n_tokens=5, d_model=64).to(device)
+chirality_proj = nn.Linear(64, 64, bias=False).to(device)
+contrastive_loss_fn = GeometryContrastiveLoss(temperature=0.1).to(device)
+constraint_extractor = ConstraintExtractor(c_z=64, n_rbf=16, bond_length=5.9,
+                                            pair_distance=8.0, pair_threshold=0.5,
+                                            bsj_weight_boost=2.0).to(device)
+distillation_loss_fn = None
+try:
+    distillation_loss_fn = ContactMapDistillationLoss(config=None).to(device)
+except Exception:
+    pass
+# BSJGeometryLoss is single-sample only (L,3) from train_curriculum.py
+# We wrap it for batched input (B,L,3)
+bsj_geom_loss_single = BSJGeometryLoss(
+    target_angle=108.0, target_dihedral=180.0, target_distance=3.5,
+    angle_weight=2.0, dihedral_weight=1.0, distance_weight=5.0,
+)
+
+def bsj_geom_loss_batched(p_denorm, lengths):
+    """Compute BSJ geometry loss for a batch of samples."""
+    B = p_denorm.shape[0]
+    total = torch.tensor(0.0, device=device)
+    valid = 0
+    for b in range(B):
+        L = lengths[b]
+        if L < 4: continue
+        coords = p_denorm[b, :L]  # (L, 3)
+        bsj_indices = torch.tensor([0, L-1], device=device)
+        val = bsj_geom_loss_single(coords, bsj_indices)
+        if torch.is_tensor(val) and not torch.isnan(val):
+            total += val
+            valid += 1
+    return total / max(valid, 1)
+
+prior_params = (list(contact_head.parameters()) + list(contact_proj.parameters()) +
+                list(chirality_emb.parameters()) + list(chirality_proj.parameters()) +
+                list(contrastive_loss_fn.parameters()) +
+                list(constraint_extractor.parameters()) +
+                list(pd_loss_fn.parameters()) +
+                list(physics_loss_fn.parameters()))
+if distillation_loss_fn is not None:
+    prior_params += list(distillation_loss_fn.parameters())
+all_params = list(model.parameters()) + prior_params
+# ROCm fused optimizer crashes (AdamW with fused=False still dispatches to fused kernel).
+# AdamW with higher lr for faster convergence (loss was stuck at ~555k with SGD lr=1e-4)
+optimizer = torch.optim.AdamW(all_params, lr=1e-3, weight_decay=1e-3, fused=False)
+# AMP mixed precision: cuts activation memory in half -> batch=16 fits without OOM
+scaler = torch.amp.GradScaler('cuda', enabled=True)
+scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
+    optimizer, mode='min', factor=0.7, patience=8
+)
+total_params = sum(p.numel() for p in all_params)
+print(f'  + geometry prior params: {total_params - sum(p.numel() for p in model.parameters()):,}')
+print(f'  Total trainable: {total_params:,} params')
+
+# Collate function
+def collate(indices):
+    max_L = max(t_meta[i]['length'] for i in indices)
+    bs, bc, lengths = [], [], []
+    for i in indices:
+        L = t_meta[i]['length']
+        seq_ids = torch.tensor(
+            [{'A': 0, 'U': 1, 'G': 2, 'C': 3}.get(b, 4) for b in t_seq[i]],
+            dtype=torch.long)
+        seq_pad = torch.zeros(max_L, dtype=torch.long)
+        seq_pad[:L] = seq_ids
+        c = torch.zeros(max_L, 3)
+        c[:L] = torch.tensor(t_coords[i], dtype=torch.float32)
+        bs.append(seq_pad); bc.append(c); lengths.append(L)
+    return (torch.stack(bs).to(device), torch.stack(bc).to(device),
+            torch.tensor(lengths, dtype=torch.long).to(device))
+
+# Warmup
+print(f'  Warmup forward (compile ROCm kernels)...')
+warmup_seq, warmup_tgt, _ = collate(bucket_groups["short"][:2])
+model.train()
+t0 = time.time()
+with torch.no_grad():
+    model(warmup_seq, return_loss=True)
+torch.cuda.synchronize()
+print(f'  Warmup done in {time.time()-t0:.1f}s, GPU: {torch.cuda.max_memory_allocated()/1e9:.1f}GB')
+with torch.no_grad():
+    model(warmup_seq, return_loss=True)
+torch.cuda.synchronize()
+print(f'  Second warmup done, GPU: {torch.cuda.max_memory_allocated()/1e9:.1f}GB')
+print()
+
+# ═══════════════════════════════════════════════════════════════
+# Loss computation (all ABC+D, verified in train_s10_82k.py)
+# ═══════════════════════════════════════════════════════════════
+
+def compute_all_losses(p_denorm, seq_ids, target, lengths):
+    """Compute all ABC+D loss terms. Returns (total_loss, loss_dict)."""
+    B, Lc, _ = p_denorm.shape  # Bc == B
+    loss = torch.tensor(0.0, device=device)
+    loss_dict = {}
+
+    # Pre-compute normalized coords
+    t_c = target - target.mean(dim=1, keepdim=True)
+    t_scale = torch.norm(t_c, dim=(1, 2), keepdim=True).clamp(min=1.0)
+    t_norm = t_c / t_scale
+    p_c = p_denorm - p_denorm.mean(dim=1, keepdim=True)
+    p_norm = p_c / t_scale
+
+    # 1. Coordinate loss
+    coord_loss = torch.tensor(0.0, device=device)
+    for b in range(B):
+        vL = lengths[b]
+        coord_loss += torch.mean((p_norm[b, :vL] - t_norm[b, :vL]) ** 2)
+    coord_loss /= B
+    loss = loss + coord_loss * LOSS_WEIGHTS['coord']
+    loss_dict['coord'] = coord_loss.item()
+
+    # 2. Closure loss
+    closure_dists = torch.norm(p_denorm[:, 0] - p_denorm[:, -1], dim=-1)
+    cm = torch.where(lengths >= 2, 1.0, 0.0).to(device)
+    closure_loss = (cm * (closure_dists - 5.9) ** 2).sum() / cm.sum().clamp(min=1.0)
+    loss = loss + closure_loss * LOSS_WEIGHTS['closure']
+    loss_dict['closure'] = closure_loss.item()
+
+    # 3. Bond loss
+    bond_loss = torch.tensor(0.0, device=device); nb = 0
+    for b in range(B):
+        vL = lengths[b]
+        if vL < 4: continue
+        bonds = torch.norm(p_denorm[b, 1:vL] - p_denorm[b, :vL - 1], dim=-1)
+        bsj = torch.norm(p_denorm[b, 0] - p_denorm[b, vL - 1])
+        all_b = torch.cat([bonds, bsj.unsqueeze(0)])
+        # Manual MSE to avoid ROCm fused kernel bug that causes OOM
+        bond_loss += ((all_b - 5.9) ** 2).mean()
+        nb += 1
+    bond_loss /= max(nb, 1)
+    loss = loss + bond_loss * LOSS_WEIGHTS['bond']
+    loss_dict['bond'] = bond_loss.item()
+
+    # 4. Stereochemistry loss
+    try:
+        stereo_result = get_stereo_loss_breakdown(p_denorm, lengths)
+        stereo_total = stereo_result['total']
+        loss = loss + stereo_total * LOSS_WEIGHTS['stereo']
+        loss_dict['stereo'] = stereo_total.item()
+    except Exception:
+        loss_dict['stereo'] = 0.0
+
+    # 5. Physics decoupled loss
+    try:
+        pd_result = pd_loss_fn(p_denorm, target, lengths, None)
+        pd_loss = pd_result['loss'] if isinstance(pd_result, dict) else pd_result
+        loss = loss + pd_loss * LOSS_WEIGHTS['physics_decoupled']
+        loss_dict['physics_decoupled'] = pd_loss.item()
+    except Exception:
+        loss_dict['physics_decoupled'] = 0.0
+
+    # 6. Physics pairing loss
+    try:
+        phys_loss = physics_loss_fn(p_denorm, seq_ids)
+        loss = loss + phys_loss * LOSS_WEIGHTS['physics_pairing']
+        loss_dict['physics_pairing'] = phys_loss.item()
+    except Exception:
+        loss_dict['physics_pairing'] = 0.0
+
+    # 7. Contact map auxiliary loss
+    try:
+        latent_contact = contact_proj(p_norm)
+        contact_pred = contact_head(latent_contact)
+        with torch.no_grad():
+            contact_target = generate_contact_map(target, threshold=8.0)
+        # Manual BCE to avoid ROCm fused kernel bug that causes OOM
+        # binary_cross_entropy = -[y*log(x) + (1-y)*log(1-x)]
+        eps = 1e-7
+        contact_loss = -(contact_target * (contact_pred + eps).log() +
+                         (1 - contact_target) * (1 - contact_pred + eps).log()).mean()
+        loss = loss + contact_loss * LOSS_WEIGHTS['contact_aux']
+        loss_dict['contact_aux'] = contact_loss.item()
+    except Exception:
+        loss_dict['contact_aux'] = 0.0
+
+    # 8. Torus coordinate loss
+    try:
+        R_target = major_ring_radius(lengths.float(), bond_length=5.9)
+        theta_pred, phi_pred, r_pred = cartesian_to_torus(p_denorm, R_target)
+        theta_tgt, phi_tgt, r_tgt = cartesian_to_torus(target, R_target)
+        dtheta = torch.remainder(theta_pred - theta_tgt + math.pi, 2 * math.pi) - math.pi
+        dphi = torch.remainder(phi_pred - phi_tgt + math.pi, 2 * math.pi) - math.pi
+        dr = r_pred - r_tgt
+        torus_loss = (dtheta ** 2).mean() + (dphi ** 2).mean() + (dr ** 2).mean()
+        loss = loss + torus_loss * LOSS_WEIGHTS['torus']
+        loss_dict['torus'] = torus_loss.item()
+    except Exception:
+        loss_dict['torus'] = 0.0
+
+    # 9. Chirality loss
+    try:
+        seq_float = seq_ids.float()
+        chirality_out = chirality_proj(chirality_emb(seq_float))
+        chirality_loss = (chirality_out - contact_proj(p_norm)).pow(2).mean()
+        loss = loss + chirality_loss * LOSS_WEIGHTS['chirality']
+        loss_dict['chirality'] = chirality_loss.item()
+    except Exception:
+        loss_dict['chirality'] = 0.0
+
+    # 10. Contrastive loss (B >= 4)
+    if B >= 4:
+        try:
+            mid = B // 2
+            contrastive_loss = contrastive_loss_fn(p_denorm[:mid],
+                                                    p_denorm[mid:2*mid] if 2*mid <= B else p_denorm[:mid],
+                                                    lengths[:mid])
+            loss = loss + contrastive_loss * LOSS_WEIGHTS['contrastive']
+            loss_dict['contrastive'] = contrastive_loss.item()
+        except Exception:
+            loss_dict['contrastive'] = 0.0
+
+    # 11. Physics bridge constraint loss (B >= 2)
+    if B >= 2:
+        try:
+            Bc, Lc, _ = p_denorm.shape
+            pair_repr = torch.zeros(B, Lc, Lc, 64, device=device)
+            for bi in range(B):
+                vL = lengths[bi]
+                dists = torch.cdist(p_denorm[bi, :vL], p_denorm[bi, :vL])
+                pair_repr[bi, :vL, :vL, 0] = dists
+            pair_probs = torch.zeros(B, Lc, Lc, device=device)
+            constraints = constraint_extractor(pair_repr, pair_probs, seq_ids)
+            constraint_loss = constraints.pow(2).mean()
+            loss = loss + constraint_loss * LOSS_WEIGHTS['physics_bridge']
+            loss_dict['physics_bridge'] = constraint_loss.item()
+        except Exception:
+            loss_dict['physics_bridge'] = 0.0
+
+    # 12. Contact distillation loss
+    if distillation_loss_fn is not None:
+        try:
+            teacher_contact = generate_contact_map(target, threshold=8.0)
+            confidence = torch.ones(B, Lc, Lc, device=device)
+            distill_loss = distillation_loss_fn(contact_pred, teacher_contact, confidence)
+            loss = loss + distill_loss * LOSS_WEIGHTS['distillation']
+            loss_dict['distillation'] = distill_loss.item()
+        except Exception:
+            loss_dict['distillation'] = 0.0
+
+    return loss, loss_dict
+
+# ═══════════════════════════════════════════════════════════════
+# Curriculum training loop
+# ═══════════════════════════════════════════════════════════════
+
+def build_epoch_batches(phase, epoch, n_phase_epochs):
+    """Build batches for one epoch using phase's length-mixing ratios."""
+    ratios = PHASES[phase]["ratios"]
+    t = epoch / max(n_phase_epochs - 1, 1)
+    short_final = max(0.05, ratios["short"] * (1.0 - t * 0.1))
+    long_final = ratios["long"] * (1.0 + t * 0.05)
+    medium_final = max(0.05, 1.0 - short_final - long_final)
+    norm = short_final + medium_final + long_final
+    ratios = {"short": short_final/norm, "medium": medium_final/norm, "long": long_final/norm}
+
+    # Build per-bucket pools (skip empty buckets)
+    bucket_indices = {}
+    for bname in ["short", "medium", "long"]:
+        pool = bucket_groups[bname].copy()
+        if len(pool) == 0:
+            continue  # skip if no samples in this bucket
+        np.random.shuffle(pool)
+        bucket_indices[bname] = pool
+
+    if not bucket_indices:
+        return []
+
+    N_TARGET = sum(len(v) for v in bucket_indices.values()) // batch_size
+    epoch_batches = []
+    for bname, ratio in ratios.items():
+        pool = bucket_indices.get(bname)
+        if pool is None or len(pool) == 0:
+            continue  # skip empty bucket
+        n_from = int(N_TARGET * ratio)
+        if n_from == 0: continue
+        indices = np.random.choice(len(pool), size=n_from, replace=True)
+        for idx in indices:
+            batch = pool[idx:idx+batch_size]
+            if len(batch) >= 2:
+                epoch_batches.append(batch)
+    np.random.shuffle(epoch_batches)
+    return epoch_batches
+
+def train_one_phase(phase, n_phase_epochs):
+    """Train one phase of the curriculum."""
+    ratios = PHASES[phase]["ratios"]
+    print(f'\n  === Phase {phase}: {n_phase_epochs} epochs ===')
+    print(f'  {PHASES[phase]["desc"]}')
+    print(f'  Length mixing: short={ratios["short"]:.0%} medium={ratios["medium"]:.0%} long={ratios["long"]:.0%} xlong={ratios["xlong"]:.0%}')
+
+    best_val = float('inf')
+    phase_history = []
+    patience = 0
+
+    for epoch in range(n_phase_epochs):
+        model.train()
+
+        # MC-Dropout uncertainty weighting per bucket
+        bucket_weights, bucket_var, bucket_count = estimate_bucket_uncertainty(
+            bucket_groups, model, collate, device,
+            mc_n=MC_N_SAMPLES, mc_temp=MC_TEMPERATURE, mc_max=MC_MAX_SAMPLES
+        )
+        weight_str = ' '.join(f'{b}={bucket_weights[b]:.2f}' for b in BUCKET_NAMES)
+
+        epoch_batches = build_epoch_batches(phase, epoch, n_phase_epochs)
+        if not epoch_batches: continue
+        print(f'  [P{phase}] Epoch {epoch+1}/{n_phase_epochs} ({len(epoch_batches)} batches) UQ({weight_str})')
+
+        epoch_frac = epoch / max(n_phase_epochs - 1, 1)
+        bsj_weight = max(0.0, 3.0 * (1.0 - epoch_frac))
+        anneal_sigma = 2.0 * (1.0 - epoch_frac)
+
+        train_loss = 0.0; n_batches = 0; nan_batches = 0
+        epoch_t0 = time.time()
+
+        for step, batch_indices in enumerate(epoch_batches):
+            seq_ids, target, lengths = collate(batch_indices)
+            B = target.shape[0]
+            if torch.isnan(target).any():
+                nan_batches += 1; continue
+
+            # Bias annealing on target
+            if anneal_sigma > 0.01:
+                target = target + torch.randn_like(target) * anneal_sigma
+
+            # Forward + loss (AMP autocast: fp16 activations cut memory in half)
+            # No GradScaler: avoids unscale_/update() pairing bugs on ROCm.
+            with torch.amp.autocast('cuda'):
+                pred, diff_loss, _ = model(seq_ids, return_loss=True)
+                if torch.isnan(pred).any():
+                    nan_batches += 1; continue
+
+                # Normalize
+                t_c = target - target.mean(dim=1, keepdim=True)
+                t_scale = torch.norm(t_c, dim=(1, 2), keepdim=True).clamp(min=1.0)
+                p_c = pred - pred.mean(dim=1, keepdim=True)
+                p_scale = torch.norm(p_c, dim=(1, 2), keepdim=True).clamp(min=1e-6)
+                p_denorm = p_c / p_scale * t_scale + target.mean(dim=1, keepdim=True)
+
+                # All ABC+D losses
+                loss, loss_dict = compute_all_losses(p_denorm, seq_ids, target, lengths)
+
+                # Diffusion loss
+                if diff_loss is not None:
+                    loss = loss + diff_loss * LOSS_WEIGHTS['diffusion']
+                    loss_dict['diffusion'] = diff_loss.item()
+
+                # BSJ geometry loss (dynamic weight, decays over phase)
+                if bsj_weight > 0:
+                    try:
+                        bsj_loss_val = bsj_geom_loss_batched(p_denorm, lengths)
+                        if not torch.isnan(bsj_loss_val):
+                            loss = loss + bsj_loss_val * bsj_weight
+                            loss_dict['bsj_geometry'] = bsj_loss_val.item()
+                    except Exception:
+                        pass
+
+                # MC-Dropout uncertainty weight
+                bw = 0.0
+                for b in range(B):
+                    bname = length_bucket_full(int(lengths[b].item()))
+                    bw += bucket_weights[bname]
+                uq_weight = bw / max(B, 1)
+                loss = loss * uq_weight
+                loss_dict['uq_weight'] = uq_weight
+
+            # Backward + optimizer step (fp32, gradient accumulation)
+            # AMP GradScaler removed: with batch=4 + grad_accum, no memory pressure,
+            # and GradScaler's unscale_()/update() pairing causes runtime errors.
+            loss = loss / grad_accum_steps  # scale down for accumulation
+            if torch.isnan(loss) or torch.isinf(loss):
+                nan_batches += 1; continue
+            loss.backward()
+
+            # At accumulation boundary or end of epoch, check for NaN and step
+            if (step + 1) % grad_accum_steps == 0 or step == len(epoch_batches) - 1:
+                has_nan = any(p.grad is not None and torch.isnan(p.grad).any() for p in all_params)
+                if has_nan:
+                    nan_batches += 1
+                    optimizer.zero_grad()
+                else:
+                    torch.nn.utils.clip_grad_norm_(all_params, max_norm=0.5)
+                    optimizer.step()
+                    optimizer.zero_grad()
+            n_batches += 1
+            train_loss += loss.item() * grad_accum_steps  # restore original scale for logging
+
+            # Cache clear every 100 steps (ROCm fragmentation OOM mitigation)
+            # Removed per-step synchronize() which killed throughput (57s/step -> ~1s/step)
+            if step > 0 and step % 100 == 0:
+                gc.collect()
+                torch.cuda.empty_cache()
+            if step > 0 and step % 500 == 0:
+                avg = train_loss / n_batches
+                lr = optimizer.param_groups[0]['lr']
+                cur_mem = torch.cuda.memory_allocated() / 1e9
+                max_mem = torch.cuda.max_memory_allocated() / 1e9
+                reserved = torch.cuda.memory_reserved() / 1e9
+                print(f'    step {step}/{len(epoch_batches)} loss={avg:.2f} nan={nan_batches} '
+                      f'lr={lr:.1e} GPU: cur={cur_mem:.2f}GB peak={max_mem:.2f}GB reserved={reserved:.2f}GB')
+                torch.cuda.reset_peak_memory_stats(device)
+                gc.collect()
+                torch.cuda.empty_cache()
+
+        # Validation
+        avg_train = train_loss / max(n_batches, 1)
+        model.eval()
+        val_rmsd = 0.0; n_val = 0
+        with torch.no_grad():
+            for vi in range(min(20, 50)):
+                i = val_idx[vi]
+                L = meta[i]['length']
+                if L < 4: continue
+                s_ids = torch.tensor(
+                    [{'A': 0, 'U': 1, 'G': 2, 'C': 3}.get(b, 4) for b in seqs[i]],
+                    dtype=torch.long).unsqueeze(0).to(device)
+                t_val = torch.tensor(coords[i], dtype=torch.float32).unsqueeze(0).to(device)
+                p_val = model(s_ids, return_loss=False)
+                t_c = t_val - t_val.mean(dim=1, keepdim=True)
+                t_scale = torch.norm(t_c, dim=(1, 2), keepdim=True).clamp(min=1.0)
+                p_c = p_val - p_val.mean(dim=1, keepdim=True)
+                p_scale = torch.norm(p_c, dim=(1, 2), keepdim=True).clamp(min=1e-6)
+                p_denorm = p_c / p_scale * t_scale + t_val.mean(dim=1, keepdim=True)
+                p_s = p_denorm[0, :L]  # (L, 3)
+                t_s = t_val[0, :L]     # (L, 3)
+                if p_s.abs().sum() > 1e-6 and t_s.abs().sum() > 1e-6:
+                    rmsd = kabsch_rmsd(p_s, t_s)
+                    if not (np.isnan(rmsd) or np.isinf(rmsd)):
+                        val_rmsd += rmsd; n_val += 1
+        avg_val = val_rmsd / max(n_val, 1)
+
+        scheduler.step(avg_val)
+
+        if avg_val < best_val:
+            best_val = avg_val; patience = 0
+            torch.save({'model_state_dict': model.state_dict(), 'phase': phase,
+                         'epoch': epoch+1, 'val_rmsd': avg_val},
+                        os.path.join(output_dir, f'phase{phase}_best.pt'))
+            print(f'    -> Best model saved (val_rmsd={avg_val:.1f}A)')
+        else:
+            patience += 1
+
+        # Save full checkpoint every 5 epochs (resume-ready)
+        if (epoch + 1) % 5 == 0:
+            ckpt = {
+                'model_state_dict': model.state_dict(),
+                'optimizer_state_dict': optimizer.state_dict(),
+                'scheduler_state_dict': scheduler.state_dict(),
+                'phase': phase, 'epoch': epoch + 1,
+                'best_val': best_val, 'patience': patience,
+                'val_rmsd': avg_val, 'avg_train': avg_train,
+                'bucket_weights': bucket_weights,
+                'history': phase_history,
+            }
+            ckpt_path = os.path.join(output_dir, f'phase{phase}_epoch{epoch+1:03d}_full.pt')
+            torch.save(ckpt, ckpt_path)
+            print(f'    -> Full checkpoint saved: {os.path.basename(ckpt_path)}')
+
+        lr = optimizer.param_groups[0]['lr']
+        epoch_time = time.time() - epoch_t0
+        print(f'  [P{phase}] Epoch {epoch+1}/{n_phase_epochs} '
+              f'train_loss={avg_train:.2f} val_rmsd={avg_val:.1f}A lr={lr:.1e} '
+              f'time={epoch_time/60:.1f}m pat={patience}')
+        phase_history.append({'phase': phase, 'epoch': epoch+1, 'train_loss': avg_train,
+                               'val_rmsd': avg_val, 'lr': lr, 'loss_breakdown': loss_dict})
+
+        if patience >= 10:
+            print(f'  [P{phase}] Early stopping at epoch {epoch+1}')
+            break
+
+        gc.collect(); torch.cuda.empty_cache()
+
+    # Phase-end full checkpoint (resume-ready)
+    phase_end_ckpt = {
+        'model_state_dict': model.state_dict(),
+        'optimizer_state_dict': optimizer.state_dict(),
+        'scheduler_state_dict': scheduler.state_dict(),
+        'phase': phase, 'epoch': len(phase_history),
+        'best_val': best_val, 'patience': patience,
+        'val_rmsd': avg_val, 'avg_train': avg_train,
+        'bucket_weights': bucket_weights,
+        'history': phase_history,
+    }
+    ckpt_path = os.path.join(output_dir, f'phase{phase}_end_full.pt')
+    torch.save(phase_end_ckpt, ckpt_path)
+    print(f'  Phase-end checkpoint saved: {os.path.basename(ckpt_path)}')
+
+    print(f'  Phase {phase} done: best val_rmsd={best_val:.1f}A')
+    return best_val, phase_history
+
+
+# ═══════════════════════════════════════════════════════════════
+# Run all phases
+# ═══════════════════════════════════════════════════════════════
+
+all_history = []
+for phase in range(1, 5):
+    n_ep = DEFAULT_PHASE_EPOCHS[phase]
+    best_val, history = train_one_phase(phase, n_ep)
+    all_history.append({'phase': phase, 'best_val': best_val, 'history': history})
+    with open(os.path.join(output_dir, f'phase{phase}_history.json'), 'w') as f:
+        json.dump(history, f, indent=2, default=str)
+
+with open(os.path.join(output_dir, 'all_history.json'), 'w') as f:
+    json.dump(all_history, f, indent=2, default=str)
+
+print()
+print('=' * 60)
+print('  S10 Curriculum Training Complete')
+print('=' * 60)
+for h in all_history:
+    print(f'  Phase {h["phase"]}: best val_rmsd={h["best_val"]:.1f}A')
