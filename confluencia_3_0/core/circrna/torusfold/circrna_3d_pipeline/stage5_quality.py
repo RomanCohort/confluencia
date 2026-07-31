@@ -41,7 +41,15 @@ class QualityFilter:
         self.run_dfire = config.get('run_dfire_rna', False)
         self.run_rsrnasp = config.get('run_rsrnasp', False)
         self.dfire_path = config.get('dfire_rna_path', 'DFIRE-RNA')
-        self.rsrnasp_path = config.get('rsrnasp_path', 'rsRNASP')
+        self.rsrnasp_home = config.get(
+            'rsrnasp_home',
+            '/c/rsRNASP1_build'  # default rsRNASP1 installation
+        )
+        self.rsrnasp_path = config.get(
+            'rsrnasp_path',
+            os.path.join(self.rsrnasp_home, 'bin', 'rsRNASP1')
+        )
+        self.rsrnasp_use_wsl = config.get('rsrnasp_use_wsl', True)
 
         # Confidence weights
         weights = config.get('confidence_weights', {})
@@ -288,26 +296,152 @@ class QualityFilter:
         return 0.5
 
     def _run_rsrnasp(self, pdb_path):
-        """Run rsRNASP scoring (if available)."""
-        if not os.path.exists(self.rsrnasp_path):
+        """
+        Run rsRNASP1 scoring on a full-atom RNA PDB.
+
+        rsRNASP1 (Lou et al., Biophys J 2025) is a distance- and
+        dihedral-dependent statistical potential for RNA 3D quality.
+        The compiled binary is Linux x86_64, so it runs through WSL.
+
+        Input:  full-atom PDB (must have backbone atoms O5'/C5'/C4'/C3'
+                etc.; CG [L,3] C3' coords cannot be scored directly).
+        Output: raw rsRNASP1 score (more negative = better structure).
+                Converted to [0,1] confidence via sigmoid.
+
+        Returns 0.5 on failure (neutral / no-op).
+        """
+        if not self.run_rsrnasp:
             return 0.5
+        if not os.path.isfile(self.rsrnasp_path):
+            return 0.5
+        if not os.path.isfile(pdb_path):
+            return 0.5
+
+        # Normalize paths for WSL
+        bin_path = self._to_wsl_path(self.rsrnasp_path)
+        home_path = self._to_wsl_path(self.rsrnasp_home)
+        pdb_wsl = self._to_wsl_path(pdb_path)
+
+        if self.rsrnasp_use_wsl:
+            return self._run_rsrnasp_wsl(bin_path, home_path, pdb_wsl)
+        else:
+            return self._run_rsrnasp_direct(bin_path, home_path, pdb_wsl)
+
+    def _to_wsl_path(self, windows_path):
+        """
+        Convert path to WSL-accessible /mnt/c/ form.
+
+        Handles four path styles:
+          - Windows absolute: C:\\Users\\... or C:/Users/...
+          - Git Bash alias:   /c/Users/...
+          - Already WSL:      /mnt/c/... (passed through)
+          - Python posixpath: /c/... normalized to C:/ then converted
+
+        NOTE: os.path.abspath on Windows turns '/c/foo' into 'C:\\c\\foo'
+        (it treats /c as the root of C:), which is WRONG for Git Bash
+        /c/ prefix paths. So we normalize BEFORE calling abspath.
+        """
+        raw = windows_path.replace("\\", "/")
+
+        # Already WSL path — pass through
+        if raw.startswith("/mnt/"):
+            return raw
+
+        # Git Bash /c/ /d/ prefix — fix before abspath
+        if raw.startswith("/c/") or raw.startswith("/d/"):
+            drive = raw[1].upper()
+            raw = f"{drive}:/{raw[3:]}"
+
+        # Normalize via abspath now that we have a valid Windows path
+        p = os.path.abspath(raw).replace("\\", "/")
+
+        # Windows drive letter style
+        drive = p[:2].lower()
+        if drive in ("c:", "d:"):
+            letter = drive[0]
+            return f"/mnt/{letter}{p[2:]}"
+        return p
+
+    def _run_rsrnasp_wsl(self, bin_path, home_path, pdb_wsl):
+        """Run rsRNASP1 via WSL bash."""
         try:
-            result = subprocess.run(
-                [self.rsrnasp_path, pdb_path],
-                capture_output=True, text=True, timeout=60
+            # bash -c expects a single quoted string after -c
+            inner = (
+                f"rsRNASP_RNA_HOME='{home_path}' "
+                f"'{bin_path}' '{pdb_wsl}'"
             )
-            # Parse score
-            for line in result.stdout.split('\n'):
-                if 'Score' in line or 'rsRNASP' in line:
-                    parts = line.split()
-                    for p in parts:
-                        try:
-                            return float(p)
-                        except:
-                            pass
-        except Exception:
-            pass
+            cmd = f'wsl bash -c "{inner}"'
+            result = subprocess.run(
+                cmd,
+                shell=True,
+                capture_output=True,
+                text=True,
+                timeout=120,
+            )
+            return self._parse_rsrnasp_output(result.stdout, pdb_wsl)
+        except (subprocess.TimeoutExpired, subprocess.SubprocessError, OSError):
+            return 0.5
+
+    def _run_rsrnasp_direct(self, bin_path, home_path, pdb_wsl):
+        """Fallback: run rsRNASP1 directly (no WSL, if binary is native)."""
+        try:
+            env = os.environ.copy()
+            env["rsRNASP_RNA_HOME"] = home_path
+            result = subprocess.run(
+                [bin_path, pdb_wsl],
+                capture_output=True,
+                text=True,
+                timeout=120,
+                env=env,
+            )
+            return self._parse_rsrnasp_output(result.stdout, pdb_wsl)
+        except (subprocess.TimeoutExpired, subprocess.SubprocessError, OSError):
+            return 0.5
+
+    def _parse_rsrnasp_output(self, stdout, pdb_path):
+        """
+        Parse rsRNASP1 output.
+
+        Output format: "path -3146.575662"
+        Negative score = good structure. Convert to [0,1] confidence.
+        """
+        import math
+
+        # Strip the pdb path from output to get the score
+        for line in stdout.strip().split("\n"):
+            line = line.strip()
+            if not line or line.startswith("#"):
+                continue
+            # Format: "path -score" — last token is the score
+            parts = line.rsplit(" ", 1)
+            if len(parts) == 2:
+                try:
+                    raw_score = float(parts[1])
+                    return self._rsrnasp_score_to_confidence(raw_score)
+                except ValueError:
+                    continue
         return 0.5
+
+    def _rsrnasp_score_to_confidence(self, raw_score):
+        """
+        Convert raw rsRNASP1 score to [0,1] confidence.
+
+        rsRNASP1 scores are typically in range [-5000, +2000] for RNA.
+        More negative = better structure.
+
+        Sigmoid mapping: confidence = 1 / (1 + exp(raw_score / 1000))
+        - Score = -5000 -> confidence ~ 0.99 (excellent)
+        - Score = -2000 -> confidence ~ 0.88 (good)
+        - Score =    0 -> confidence =  0.50 (average)
+        - Score = +1000 -> confidence ~ 0.27 (poor)
+        - Score = +3000 -> confidence ~ 0.05 (bad)
+        """
+        import math
+        try:
+            confidence = 1.0 / (1.0 + math.exp(raw_score / 1000.0))
+            return max(0.0, min(1.0, confidence))
+        except (OverflowError, ValueError):
+            return 0.5
 
     def filter_batch(self, md_results, cyclized_results, ss_results):
         """Filter and score multiple MD results."""
