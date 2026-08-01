@@ -82,6 +82,7 @@ LOSS_WEIGHTS = {
     'stereo': 1.0, 'physics_decoupled': 1.0, 'physics_pairing': 1.0,
     'contact_aux': 1.0, 'torus': 0.5, 'chirality': 0.5,
     'contrastive': 0.1, 'physics_bridge': 0.1, 'distillation': 0.1,
+    'anchor_aux': 0.5,  # dynamic anchor scorer supervision
 }
 
 # ═══════════════════════════════════════════════════════════════
@@ -165,7 +166,7 @@ def estimate_bucket_uncertainty(bucket_groups, model, collate, device,
             preds = torch.stack(preds_list, dim=0)  # [K, B_eff, L, 3]
 
             # Per-sample variance [B_eff, L]
-            pred_var = torch.var(preds, dim=0, unbiased=False).sum(dim=-1)
+            pred_var = preds.var(dim=0).sum(dim=-1)
             for b in range(B_eff):
                 L = int(lengths[b].item())
                 sample_var = pred_var[b, :L].mean().item()
@@ -281,7 +282,8 @@ print(f'  Buckets: {dict(sorted((k, len(v)) for k, v in bucket_groups.items()))}
 # Model
 cfg = EquivariantS10Config(
     d_model=256, d_inv=64, d_eq=32, n_layers=4,
-    k_theta=4, k_phi=2, use_diffusion=True, n_diffusion_steps=20,  # 100 -> 20: 5x faster forward
+    k_theta=4, k_phi=2, use_coord_diffusion=True, n_diffusion_steps=20,  # 100 -> 20: 5x faster forward
+    d_coord_hidden=128, cfg_dropout_prob=0.1,
     use_s8_refine=True, use_adaptive_k=True,
     d_model_inv=64, d_model_eq=64, dropout=0.1,
     n_tokens=5, bond_length=5.9, r_scale=300.0
@@ -381,11 +383,11 @@ warmup_seq, warmup_tgt, warmup_len, warmup_pp = collate(bucket_groups["short"][:
 model.train()
 t0 = time.time()
 with torch.no_grad():
-    model(warmup_seq, return_loss=True)
+    model(warmup_seq, target_coords=warmup_tgt, return_loss=True)
 torch.cuda.synchronize()
 print(f'  Warmup done in {time.time()-t0:.1f}s, GPU: {torch.cuda.max_memory_allocated()/1e9:.1f}GB')
 with torch.no_grad():
-    model(warmup_seq, return_loss=True)
+    model(warmup_seq, target_coords=warmup_tgt, return_loss=True)
 torch.cuda.synchronize()
 print(f'  Second warmup done, GPU: {torch.cuda.max_memory_allocated()/1e9:.1f}GB')
 print()
@@ -716,9 +718,20 @@ def train_one_phase(phase, n_phase_epochs):
                 target = target + torch.randn_like(target) * anneal_sigma * valid_mask.float().unsqueeze(-1)
 
             # autocast ON: fp16 activations cut memory, scaler handles grad scaling
+            # v4: coord diffusion — diff_loss is MSE on (B,L,3); x0_pred is the
+            # single-step denoised coords (differentiable) for geometric losses.
+            # v4.1: 4-tuple return with anchor_aux_loss for dynamic anchor supervision.
             with torch.amp.autocast('cuda'):
-                pred, diff_loss, _ = model(seq_ids, return_loss=True)
-                if torch.isnan(pred).any():
+                diff_loss, x0_pred, _, anchor_aux_loss = model(
+                    seq_ids, target_coords=target, pair_probs=batch_pp,
+                    return_loss=True,
+                )
+                if torch.isnan(diff_loss):
+                    nan_batches += 1; continue
+
+                # x0_pred: (B, Lc, 3) — single-step denoised coordinate prediction
+                pred = x0_pred
+                if pred is None or torch.isnan(pred).any():
                     nan_batches += 1; continue
 
                 # Normalize (valid_mask: P10 padding fix)
@@ -732,13 +745,18 @@ def train_one_phase(phase, n_phase_epochs):
                 p_scale = torch.norm(p_c * valid_mask.unsqueeze(-1), dim=(1, 2), keepdim=True).clamp(min=1e-6)
                 p_denorm = p_c / p_scale * t_scale + t_sum
 
-                # All ABC+D losses
+                # All ABC+D losses (geometric regularizers on x0_pred)
                 loss, loss_dict = compute_all_losses(p_denorm, seq_ids, target, lengths, batch_pp)
 
-                # Diffusion loss
+                # Diffusion loss (primary — direct 3D coordinate MSE)
                 if diff_loss is not None:
                     loss = loss + diff_loss * LOSS_WEIGHTS['diffusion']
                     loss_dict['diffusion'] = diff_loss.item()
+
+                # Dynamic anchor auxiliary loss (supervises scorer via pair_probs hotspot)
+                if anchor_aux_loss is not None and not torch.isnan(anchor_aux_loss):
+                    loss = loss + anchor_aux_loss * LOSS_WEIGHTS['anchor_aux']
+                    loss_dict['anchor_aux'] = anchor_aux_loss.item()
 
                 # BSJ geometry loss (dynamic weight, decays over phase)
                 if bsj_weight > 0:
