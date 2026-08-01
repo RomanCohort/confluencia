@@ -581,21 +581,17 @@ def compute_all_losses(p_denorm, seq_ids, target, lengths, pair_probs, model=Non
     if B >= 2:
         try:
             Bc, Lc, _ = p_denorm.shape
-            # Pair repr: distance matrix in first channel (sparse GNN input)
-            pair_repr = torch.zeros(B, Lc, Lc, 64, device=device)
-            for bi in range(B):
-                vL = int(lengths[bi].item())
-                dists = torch.cdist(p_denorm[bi, :vL], p_denorm[bi, :vL])
-                pair_repr[bi, :vL, :vL, 0] = dists
-
+            # [v4 fix] Removed dead O(L²) allocation: pair_repr = torch.zeros(B, Lc, Lc, 64)
+            # was 16 GB at L=2000/B=16, but the `constraints` object it produced was
+            # never read — violations below recompute distances from cmat + constants
+            # (constraint_extractor.bond_length / pair_distance). Deleting it changes
+            # no behavior, just frees the O(L²·c_z) peak that OOM'd long sequences.
             tok2base = {0: 'A', 1: 'U', 2: 'G', 3: 'C', 4: 'N'}
-            tok2idx = {'A': 0, 'U': 1, 'C': 2, 'G': 3, 'N': 4}
             seq0 = seq_ids[0]
             L0 = int(lengths[0].item())
             seq_str = ''.join(tok2base.get(int(t), 'N') for t in seq0[:L0])
-            constraints = constraint_extractor(pair_repr, pair_probs, seq_str)
         except Exception as e:
-            logging.warning(f"physics_bridge: constraint extraction failed: {e}")
+            logging.warning(f"physics_bridge: setup failed: {e}")
             loss_dict['physics_bridge'] = 0.0
             constraint_loss = torch.tensor(0.0, device=device)
         else:
@@ -775,7 +771,7 @@ def train_one_phase(phase, n_phase_epochs):
             # single-step denoised coords (differentiable) for geometric losses.
             # v4.1: 4-tuple return with anchor_aux_loss for dynamic anchor supervision.
             with torch.amp.autocast('cuda'):
-                diff_loss, x0_pred, _, anchor_aux_loss = model(
+                diff_loss, x0_pred, contact_pred_latent, anchor_aux_loss = model(
                     seq_ids, target_coords=target, pair_probs=batch_pp,
                     return_loss=True,
                 )
@@ -810,6 +806,24 @@ def train_one_phase(phase, n_phase_epochs):
                 if anchor_aux_loss is not None and not torch.isnan(anchor_aux_loss):
                     loss = loss + anchor_aux_loss * LOSS_WEIGHTS['anchor_aux']
                     loss_dict['anchor_aux'] = anchor_aux_loss.item()
+
+                # [v4] Latent-direct contact loss — only in detach phase.
+                # All p_denorm-based supervision is cut by stop-grad, so this head
+                # (latent_inv → contact map, NOT through diffusion) is the Encoder's
+                # structural signal. Uses real coords as target (no_grad).
+                if model.detach_latent and contact_pred_latent is not None:
+                    try:
+                        contact_target = generate_contact_map(target, threshold=8.0)
+                        eps = 1e-7
+                        latent_contact_loss = -(
+                            contact_target * (contact_pred_latent + eps).log() +
+                            (1 - contact_target) * (1 - contact_pred_latent + eps).log()
+                        ).mean()
+                        if not torch.isnan(latent_contact_loss):
+                            loss = loss + latent_contact_loss * LOSS_WEIGHTS['contact_aux']
+                            loss_dict['latent_contact'] = latent_contact_loss.item()
+                    except Exception as e:
+                        logging.warning(f'latent-direct contact loss failed: {e}')
 
                 # BSJ geometry loss (dynamic weight, decays over phase)
                 if bsj_weight > 0:

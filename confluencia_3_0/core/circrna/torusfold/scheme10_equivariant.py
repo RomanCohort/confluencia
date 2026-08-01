@@ -40,6 +40,7 @@ import torch.nn.functional as F
 from equivariant_tpe import CircularRelativePositionBias
 from equivariant_s8_refine import SparseEquivariantS8Refine
 from coord_diffusion import CoordDiffusion
+from physics_refine import refine_coords
 from so2_equivariant import SO2EquivariantLinear
 from chirality_embedding import ChiralityAwareEmbedding
 from adaptive_sparse_k import AdaptiveSparseK
@@ -497,10 +498,10 @@ class StrictlyEquivariantS10(nn.Module):
             self.coord_diffusion = None
 
         # V2: 接触图辅助任务
-        if config.use_contact_aux:
-            self.contact_aux_head = ContactMapAuxHead(d_inv=config.d_inv, d_hidden=64)
-        else:
-            self.contact_aux_head = None
+        # Always instantiated (cheap). Used when use_contact_aux OR during the
+        # Phase-1 stop-grad window — there all p_denorm-based supervision is cut,
+        # so this latent-direct structural head is the Encoder's only geometry signal.
+        self.contact_aux_head = ContactMapAuxHead(d_inv=config.d_inv, d_hidden=64)
 
         # [v4] Stop-Gradient toggle for latent→diffusion edge.
         # When True, geometric losses on x0_pred cannot backprop into the Encoder
@@ -527,6 +528,9 @@ class StrictlyEquivariantS10(nn.Module):
         pair_probs: Optional[torch.Tensor] = None,
         return_loss: bool = True,
         return_coords: bool = False,
+        lengths: Optional[torch.Tensor] = None,
+        refine: bool = False,
+        refine_steps: int = 20,
     ) -> Tuple[torch.Tensor, torch.Tensor, Optional[torch.Tensor]]:
         """
         v4: 训练时走坐标扩散，推理时走 DDIM 生成。
@@ -537,6 +541,9 @@ class StrictlyEquivariantS10(nn.Module):
             pair_probs    : (B, L, L) 配对概率（可选）
             return_loss   : 训练时返回 diffusion loss
             return_coords : 训练时是否额外返回 coords（默认只返回 loss）
+            lengths       : (B,) 有效长度。推理精修必需（padding 不动）
+            refine        : 推理时是否跑 AF3 式轻量物理精修（键长/键角/位阻/二面角）
+            refine_steps  : 精修步数
 
         Returns:
             - 训练: (diffusion_loss, pred_coords_or_None, contact_pred)
@@ -586,9 +593,20 @@ class StrictlyEquivariantS10(nn.Module):
                     cond_inv_d, cond_eq_d,
                 )
 
-        # V2: 接触图辅助任务
+        # [v4] AF3-style lightweight physics refinement (inference only).
+        # Minimizes stereochemistry energy (bond/angle/clash/dihedral) on the
+        # predicted coords via short Adam descent + bond-length projection.
+        # Guarantees chemically valid backbone geometry in the output.
+        if refine and not self.training and pred_coords is not None and lengths is not None:
+            pred_coords = refine_coords(
+                pred_coords, lengths, n_steps=refine_steps, lr=0.5,
+                project_bonds=True,
+            )
+
+        # V2: 接触图辅助任务 — predict only when it will be consumed
+        # (use_contact_aux flag, or detach_latent so Phase-1 has a geometry signal)
         contact_pred = None
-        if self.contact_aux_head is not None:
+        if self.contact_aux_head is not None and (self.config.use_contact_aux or self.detach_latent):
             contact_pred = self.contact_aux_head(latent_inv)
 
         if return_loss and diffusion_loss is not None:
