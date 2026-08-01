@@ -1,31 +1,31 @@
 """
-scheme10_equivariant.py — TorusFold S10 完整等变架构
+scheme10_equivariant.py — TorusFold S10 完整等变架构 (v4: 坐标扩散)
 
 严格等变设计：
 1. irrep 显式分离：inv (degree-0) + eq (degree-1, shape=(B,L,d,2))
 2. 所有 eq 投影用 SO2EquivariantLinear
-3. TorusCoordHead 分离预测
-4. 循环边界连续性
 
-架构（训练）：
+架构（训练 — AF3 式坐标扩散）：
   序列 → ChiralityAwareEmbedding (无绝对位置)
       → SparseEquivariantGNN (steerable kernel + 等变 update)
       → Irrep Split: inv (B,L,d) + eq (B,L,d,2)
       → S8 Refine (attn from inv, v_proj from eq) — 在 Latent 之前
       → Latent-inv (MLP) + Latent-eq (SO2EquivariantLinear)
-      → Inv Diffusion (只对 inv, eq 条件注入, training only)
-      → SO2AxisAngleCoordHead (Rodrigues 轴角) → coords (B, L, 3)
+      → CoordDiffusion: (B,L,3) 坐标直接去噪 (条件=inv+eq) → coords
 
-架构（推理 — 扩散生成）：
-  序列 → encoder → s8_refine → latent_eq (条件)
-      → DDIMSampler: z~N(0,1) → 50 步反向采样
-          cond_attn(latent_eq) + CFG(w) 引导
-      → coord_head(sampled_inv, latent_eq) → coords
+架构（推理 — 坐标扩散 DDIM）：
+  序列 → encoder → s8_refine → latent_inv + latent_eq
+      → CoordDiffusion.generate: x_T~N(0,I) → DDIM (20 steps) → x_0 (B,L,3)
       → 多种子 → 构象系综 + RMSF + 折叠轨迹
 
+关键变化（v3→v4）：
+  - 废弃 InvDiffusion（特征空间扩散） + SO2AxisAngleCoordHead（Rodrigues 几何头）
+  - 改为 CoordDiffusion（3D 坐标空间扩散）— 训练/推理靶子都是 (B,L,3) 坐标
+  - denoiser 输出直接是 3D 坐标噪声预测，loss 是 MSE on (B,L,3)
+
 SO(2) 等变声明：网络等变群是 SO(2)（绕 z 轴旋转），
-不是 SO(3)。坐标头用 axis-angle + Rodrigues 参数化，
-可表达任意 3D 方向，但等变约束严格为 SO(2)。
+不是 SO(3)。3D 坐标中 (x,y) 为 degree-1, z 为 degree-0，
+diffusion 按此度分离处理以保持等变性。
 """
 
 from __future__ import annotations
@@ -39,7 +39,7 @@ import torch.nn.functional as F
 
 from equivariant_tpe import CircularRelativePositionBias
 from equivariant_s8_refine import SparseEquivariantS8Refine
-from equivariant_coord_head import StrictlyEquivariantCoordHead
+from coord_diffusion import CoordDiffusion
 from so2_equivariant import SO2EquivariantLinear
 from chirality_embedding import ChiralityAwareEmbedding
 from adaptive_sparse_k import AdaptiveSparseK
@@ -83,12 +83,14 @@ class EquivariantS10Config:
     n_refine_layers: int = 2
     K_refine: int = 40  # Top-K 稀疏邻居
 
-    # 扩散（只对 inv）
-    use_diffusion: bool = True
+    # 坐标扩散（v4：直接在 3D 坐标空间做扩散，替代特征空间 InvDiffusion）
+    use_coord_diffusion: bool = True
     n_diffusion_steps: int = 100
-    # Diffusion denoiser 配置（可搜索）
-    denoiser_hidden: int = 128
-    n_denoiser_hidden_layers: int = 2
+    d_coord_hidden: int = 128  # 坐标扩散内部特征维度
+    cfg_dropout_prob: float = 0.1  # CFG 训练时 drop 条件的概率
+
+    # v4.1: 动态锚点选择（AF3 思想，基于 pair_probs 热点）
+    use_dynamic_anchors: bool = True  # 默认打开：DynamicGlobalAnchorAttention
 
     # V2: 接触图辅助任务
     use_contact_aux: bool = False
@@ -430,272 +432,31 @@ class StrictlyEquivariantLatent(nn.Module):
 
 
 # ══════════════════════════════════════════════════════════════════════════════
-# Mixed Attention: Sliding Window + Global Anchor (O(L), not O(L²))
+# Mixed Attention: now in mixed_attention.py (shared with coord_diffusion.py)
 # ══════════════════════════════════════════════════════════════════════════════
-# Replaces the O(L²) nn.MultiheadAttention in InvDiffusion.cond_attn.
+# Moved out to avoid circular import: coord_diffusion imports MixedHybridAttention,
+# and scheme10_equivariant imports CoordDiffusion from coord_diffusion.
+# MixedHybridAttention is used internally by CoordDiffusion (in coord_diffusion.py).
+from mixed_attention import (
+    SlidingWindowAttention,
+    GlobalAnchorAttention,
+    MixedHybridAttention,
+)
+
+__all__ = ["MixedHybridAttention", "SlidingWindowAttention", "GlobalAnchorAttention"]
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# InvDiffusion (deprecated) — replaced by CoordDiffusion in v4.
 #
-# For circRNA of length L (target: L=2000):
-#   - SlidingWindowAttention: each token attends to W circular neighbors → O(L·W)
-#   - GlobalAnchorAttention: every token attends to A global anchors covering
-#     BSJ flanks + far-range positions for long-term pairing → O(L·A)
-# Both use F.scaled_dot_product_attention with masks.
-
-
-def _circular_neighbor_mask(L: int, W: int, device: torch.device) -> torch.Tensor:
-    """(L, L) bool mask: token i attends to j iff d_ring(i, j) <= W//2.
-
-    d_ring(i, j) = min(|i-j|, L-|i-j|).  No data copy — pure index math.
-    """
-    i = torch.arange(L, device=device)
-    j = torch.arange(L, device=device)
-    diff = (i.unsqueeze(1) - j.unsqueeze(0)).abs()
-    circ_dist = torch.minimum(diff, L - diff)
-    return circ_dist <= (W // 2)
-
-
-def _global_anchor_indices(L: int, A: int, bsj_flank: int,
-                           device: torch.device) -> torch.Tensor:
-    """A anchor positions: BSJ flanks + evenly spaced across interior.
-
-    All indices clamped to [0, L-1].  For short sequences A is capped at L.
-    """
-    A = min(A, L)
-    anchors: set[int] = set()
-    half = max(1, bsj_flank)
-    for _i in range(min(half, L)):
-        anchors.add(_i)
-        anchors.add(L - half + _i)
-    inner = A - len(anchors)
-    if inner > 0 and L > 0:
-        for _i in range(inner):
-            anchors.add(min(L - 1, (_i + 1) * L // max(inner, 1)))
-    return torch.tensor(sorted(anchors)[:A], device=device, dtype=torch.long)
-
-
-class SlidingWindowAttention(nn.Module):
-    """Sliding-window cross-attention: O(L·W).
-
-    Each token in `query` attends to W circular neighbors in key/value.
-    Mask is built per-(L, W) pair and cached via `torch.compile` friendliness
-    (no persistent state).
-    """
-
-    def __init__(self, d_model: int, n_heads: int = 4, window: int = 256,
-                 dropout: float = 0.1):
-        super().__init__()
-        self.n_heads = n_heads
-        self.window = window
-        self.head_dim = d_model // n_heads
-        assert d_model % n_heads == 0
-        self.q_proj = nn.Linear(d_model, d_model, bias=False)
-        self.k_proj = nn.Linear(d_model, d_model, bias=False)
-        self.v_proj = nn.Linear(d_model, d_model, bias=False)
-        self.out_proj = nn.Linear(d_model, d_model, bias=False)
-        self.dropout_p = dropout
-
-    def forward(self, query: torch.Tensor,
-                key: torch.Tensor, value: torch.Tensor) -> torch.Tensor:
-        B, L, D = query.shape
-        device = query.device
-        q = self.q_proj(query).view(B, L, self.n_heads, self.head_dim)
-        k = self.k_proj(key).view(B, L, self.n_heads, self.head_dim)
-        v = self.v_proj(value).view(B, L, self.n_heads, self.head_dim)
-
-        # Scaled dot-product attention via einsum: O(B·L·L·head_dim) compute,
-        # but only O(L·W) entries have finite attention weight.
-        scores = torch.einsum("blhd,bkhd->bhkl", q, k) / math.sqrt(self.head_dim)
-        # Apply sliding-window mask: -inf where not attended
-        mask = _circular_neighbor_mask(L, self.window, device)  # (L, L)
-        scores = scores.masked_fill(~mask, float("-inf"))
-        attn = F.softmax(scores, dim=-1)
-        if self.dropout_p > 0 and self.training:
-            attn = F.dropout(attn, p=self.dropout_p)
-        out = torch.einsum("bhkl,bkhd->blhd", attn, v)  # (B, L, heads, head_dim)
-        out = out.reshape(B, L, D)
-        return self.out_proj(out)
-
-
-class GlobalAnchorAttention(nn.Module):
-    """Global anchor cross-attention: O(L·A).
-
-    Each token queries only A anchor positions (BSJ flanks + far-range) in key/value.
-    """
-
-    def __init__(self, d_model: int, n_heads: int = 4, n_anchors: int = 128,
-                 bsj_flank: int = 32, dropout: float = 0.1):
-        super().__init__()
-        self.n_heads = n_heads
-        self.n_anchors = n_anchors
-        self.bsj_flank = bsj_flank
-        self.head_dim = d_model // n_heads
-        assert d_model % n_heads == 0
-        self.q_proj = nn.Linear(d_model, d_model, bias=False)
-        self.k_proj = nn.Linear(d_model, d_model, bias=False)
-        self.v_proj = nn.Linear(d_model, d_model, bias=False)
-        self.out_proj = nn.Linear(d_model, d_model, bias=False)
-        self.dropout_p = dropout
-
-    def forward(self, query: torch.Tensor,
-                key: torch.Tensor, value: torch.Tensor) -> torch.Tensor:
-        B, L, D = query.shape
-        device = query.device
-        q = self.q_proj(query).view(B, L, self.n_heads, self.head_dim)
-        aidx = _global_anchor_indices(L, self.n_anchors, self.bsj_flank, device)
-        A = aidx.shape[0]
-        ka = self.k_proj(key[:, aidx, :]).view(B, A, self.n_heads, self.head_dim)
-        va = self.v_proj(value[:, aidx, :]).view(B, A, self.n_heads, self.head_dim)
-        # Manual attention (no SDPA mask needed — no masking for anchors)
-        scores = torch.einsum("blhd,bahd->bhal", q, ka) / math.sqrt(self.head_dim)
-        attn = F.softmax(scores, dim=-1)
-        if self.dropout_p > 0 and self.training:
-            attn = F.dropout(attn, p=self.dropout_p)
-        out = torch.einsum("bhal,bahd->blhd", attn, va)
-        out = out.reshape(B, L, D)
-        return self.out_proj(out)
-
-
-class MixedHybridAttention(nn.Module):
-    """Sliding-window + global-anchor mixed attention.
-
-    4-layer default (local ↔ global interleaved):
-      L0: SlidingWindow(W=256)  L1: GlobalAnchor(A=128)
-      L2: SlidingWindow(W=256)  L3: GlobalAnchor(A=128)
-    Each layer has residual + LayerNorm.  Same `cond_attn(q, k, v)` interface
-    as nn.MultiheadAttention, so InvDiffusion code around it is unchanged.
-    """
-
-    def __init__(self, d_model: int, n_layers: int = 4, n_heads: int = 4,
-                 window: int = 256, n_anchors: int = 128, bsj_flank: int = 32,
-                 dropout: float = 0.1):
-        super().__init__()
-        self.layers = nn.ModuleList()
-        self.norms = nn.ModuleList()
-        for i in range(n_layers):
-            if i % 2 == 0:
-                self.layers.append(SlidingWindowAttention(
-                    d_model, n_heads, window=window, dropout=dropout))
-            else:
-                self.layers.append(GlobalAnchorAttention(
-                    d_model, n_heads, n_anchors=n_anchors,
-                    bsj_flank=bsj_flank, dropout=dropout))
-            self.norms.append(nn.LayerNorm(d_model))
-
-    def forward(self, query: torch.Tensor,
-                key: torch.Tensor, value: torch.Tensor) -> torch.Tensor:
-        x = query
-        for layer, norm in zip(self.layers, self.norms):
-            x = x + layer(query, key, value)
-            x = norm(x)
-        return x
-
-
+# The old path denoised a (B,L,64) latent feature vector, then passed the
+# result through a Rodrigues-axis-angle coord_head to recover 3D coords.
+# This was a two-hop prediction: diffusion didn't see 3D geometry at all,
+# so it couldn't be held accountable for coordinate errors.
+#
+# Replaced by CoordDiffusion which directly denoises (B,L,3) coordinates
+# in the same way as AF3's structure module.
 # ══════════════════════════════════════════════════════════════════════════════
-# Inv 扩散（只对 degree-0）
-# ══════════════════════════════════════════════════════════════════════════════
-
-class InvDiffusion(nn.Module):
-    """只对 inv 通道做扩散（条件：latent_eq）
-
-    核心设计：
-    - 扩散只对 degree-0（inv）
-    - degree-1（eq）作为条件注入
-    - 确保 inv 和 eq 的一致性
-    """
-
-    def __init__(self, d_inv, d_eq=16, n_steps=100,
-                 denoiser_hidden=128, n_denoiser_hidden_layers=2,
-                 cfg_dropout_prob=0.1):
-        super().__init__()
-        self.d_inv = d_inv
-        self.d_eq = d_eq
-        self.n_steps = n_steps
-        self.cfg_dropout_prob = cfg_dropout_prob  # CFG 训练时随机 drop 条件
-
-        # 时间步嵌入
-        self.time_embed = nn.Sequential(
-            nn.Linear(1, 64),
-            nn.SiLU(),
-            nn.Linear(64, 64),
-        )
-
-        # 条件嵌入（把 eq 的 (cos, sin) 投影到 d_inv，与 cond_attn embed_dim 对齐）
-        self.cond_proj = nn.Linear(d_eq * 2, d_inv)
-
-        # 混合注意力（滑动窗口 + 全局锚点），替代 O(L²) 的 nn.MultiheadAttention
-        # 局部：窗口 256，保局部结构；全局：128 锚点覆盖 BSJ 首尾 + 远端，保长程配对
-        self.cond_attn = MixedHybridAttention(
-            d_model=d_inv,
-            n_heads=4,
-            window=256,
-            n_anchors=128,
-            bsj_flank=32,
-            dropout=0.1,
-        )
-
-        # 去噪器（inv + t_emb + cond）— 可配置深度和宽度
-        # 结构: input → [Linear(hidden)+GELU] × n_hidden → Linear(d_inv)
-        layers = [nn.Linear(d_inv + 64, denoiser_hidden), nn.GELU()]
-        for _ in range(n_denoiser_hidden_layers):
-            layers.append(nn.Linear(denoiser_hidden, denoiser_hidden))
-            layers.append(nn.GELU())
-        layers.append(nn.Linear(denoiser_hidden, d_inv))
-        self.denoiser = nn.Sequential(*layers)
-
-        beta = torch.linspace(1e-4, 0.02, n_steps)
-        alpha = 1.0 - beta
-        self.register_buffer("beta", beta)
-        self.register_buffer("alpha", alpha)
-        self.register_buffer("alpha_bar", torch.cumprod(alpha, dim=0))
-
-    def forward(self, x_clean, return_loss=True, cond_eq=None):
-        """
-        Args:
-            x_clean: (B, L, d_inv) 干净的 inv
-            return_loss: 是否返回 loss
-            cond_eq: (B, L, d_eq, 2) 条件 eq 特征
-
-        Returns:
-            loss: 如果 return_loss=True
-            noise_pred: 预测的噪声
-        """
-        B, L, D = x_clean.shape
-        device = x_clean.device
-        t = torch.randint(0, self.n_steps, (B,), device=device)
-
-        # Fix 3: Vectorized add_noise — 无 Python for-loop
-        # alpha_bar: (B,) → (B, 1, 1) broadcast to (B, L, D)
-        alpha_bar_t = self.alpha_bar[t]                    # (B,)
-        alpha_bar_t = alpha_bar_t.view(B, 1, 1)            # (B, 1, 1)
-        one_minus_bar = 1.0 - alpha_bar_t                  # (B, 1, 1)
-
-        noise = torch.randn_like(x_clean)                  # (B, L, D)
-        x_noisy = torch.sqrt(alpha_bar_t) * x_clean + torch.sqrt(one_minus_bar) * noise
-
-        # 条件交叉注意力（如果有 cond_eq）
-        # CFG 训练：以 cfg_dropout_prob 概率随机 drop 条件，让模型同时学 conditional 和 unconditional
-        if cond_eq is not None and self.training and self.cfg_dropout_prob > 0:
-            # 每个 batch 独立决定是否 drop（不是 per-sample，简化实现）
-            if torch.rand(1).item() < self.cfg_dropout_prob:
-                cond_eq = None
-        if cond_eq is not None:
-            cond_flat = cond_eq.reshape(B, L, -1)
-            cond_emb = self.cond_proj(cond_flat)  # (B, L, d_eq)
-            x_cond = self.cond_attn(query=x_noisy, key=cond_emb, value=cond_emb)
-            x_input = x_noisy + x_cond
-        else:
-            x_input = x_noisy
-
-        # 时间步嵌入：t → t_emb (B, L, 64)
-        t_frac = (t.float() / self.n_steps).unsqueeze(-1)      # (B, 1)
-        t_emb = self.time_embed(t_frac)                          # (B, 64)
-        t_emb = t_emb.unsqueeze(1).expand(B, L, -1)             # (B, L, 64)
-
-        x_input = torch.cat([x_input, t_emb], dim=-1)
-        noise_pred = self.denoiser(x_input)
-
-        if return_loss:
-            return F.mse_loss(noise_pred, noise)
-        return noise_pred
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -714,7 +475,7 @@ class StrictlyEquivariantS10(nn.Module):
 
         if config.use_s8_refine:
             self.s8_refine = SparseEquivariantS8Refine(
-                config.d_model_inv, config.d_model_eq,  # Fix 4: refine 在 Latent 之前，用 node_repr 维度
+                config.d_model_inv, config.d_model_eq,
                 n_layers=config.n_refine_layers,
                 K=config.K_refine,
                 dropout=config.dropout,
@@ -722,24 +483,18 @@ class StrictlyEquivariantS10(nn.Module):
         else:
             self.s8_refine = None
 
-        if config.use_diffusion:
-            # 用关键字参数，避免 d_eq 被位置参数错赋为 n_diffusion_steps
-            self.diffusion = InvDiffusion(
+        # v4: 坐标扩散直接对 (B,L,3) 做去噪，替代 InvDiffusion + coord_head
+        if config.use_coord_diffusion:
+            self.coord_diffusion = CoordDiffusion(
                 d_inv=config.d_inv,
                 d_eq=config.d_eq,
+                d_coord_hidden=config.d_coord_hidden,
                 n_steps=config.n_diffusion_steps,
-                denoiser_hidden=config.denoiser_hidden,
-                n_denoiser_hidden_layers=config.n_denoiser_hidden_layers,
+                cfg_dropout_prob=config.cfg_dropout_prob,
+                use_dynamic_anchors=config.use_dynamic_anchors,
             )
         else:
-            self.diffusion = None
-
-        self.coord_head = StrictlyEquivariantCoordHead(
-            config.d_inv, config.d_eq,
-            d_hidden=64,
-            dropout=config.dropout,
-            r_scale=config.r_scale,  # Fix 5: 显式传入 config.r_scale
-        )
+            self.coord_diffusion = None
 
         # V2: 接触图辅助任务
         if config.use_contact_aux:
@@ -747,36 +502,89 @@ class StrictlyEquivariantS10(nn.Module):
         else:
             self.contact_aux_head = None
 
-    def forward(self, seq_tokens, pair_probs=None, return_loss=True):
+        # [v4] Stop-Gradient toggle for latent→diffusion edge.
+        # When True, geometric losses on x0_pred cannot backprop into the Encoder
+        # via the diffusion path — Encoder learns structure from anchor_aux /
+        # contact_aux self-supervision instead of being pulled by coordinate fits.
+        # anchor_aux_loss still uses the un-detached latent (separate path) so the
+        # scorer keeps learning. Toggled per-phase by the training loop.
+        self.detach_latent = False
+
+        # [v4] Kendall uncertainty weighting — learnable log σ² per conflicting loss term.
+        # Uniform init (log_var=0 → σ²=1, weight=0.5) so the model discovers the balance
+        # itself rather than inheriting the hand-tuned LOSS_WEIGHTS prior.
+        # Applies to the 6 geometry+physics core terms that are prone to gradient conflict;
+        # diffusion/torus/chirality/contrastive/distillation keep fixed weights.
+        self.uncertainty_log_vars = nn.ParameterDict({
+            k: nn.Parameter(torch.zeros(1)) for k in
+            ['coord', 'bond', 'stereo', 'physics_pairing', 'contact_aux', 'physics_bridge']
+        })
+
+    def forward(
+        self,
+        seq_tokens: torch.Tensor,
+        target_coords: Optional[torch.Tensor] = None,
+        pair_probs: Optional[torch.Tensor] = None,
+        return_loss: bool = True,
+        return_coords: bool = False,
+    ) -> Tuple[torch.Tensor, torch.Tensor, Optional[torch.Tensor]]:
         """
+        v4: 训练时走坐标扩散，推理时走 DDIM 生成。
+
         Args:
-            seq_tokens: (B, L)
-            pair_probs: (B, L, L) 配对概率（可选）
+            seq_tokens    : (B, L)
+            target_coords : (B, L, 3) 训练时传入真实坐标（用于扩散 loss）
+            pair_probs    : (B, L, L) 配对概率（可选）
+            return_loss   : 训练时返回 diffusion loss
+            return_coords : 训练时是否额外返回 coords（默认只返回 loss）
 
         Returns:
-            coords: (B, L, 3)
-            loss: 如果 return_loss=True
+            - 训练: (diffusion_loss, pred_coords_or_None, contact_pred)
+            - 推理: (pred_coords,)
         """
         # Encoder
         node_repr_inv, node_repr_eq, topk_idx = self.encoder(seq_tokens, pair_probs)
 
-        # S8 Refine 放在 Latent 之前（在 d_model_inv=128 维空间做，避免压缩后信息不足）
-        # 传入 topk_idx 跳过 O(L²) pair_probs 计算
+        # S8 Refine（在 Latent 之前）
         if self.s8_refine is not None:
             node_repr_eq = self.s8_refine(
-                node_repr_inv, node_repr_eq, topk_idx=topk_idx
+                node_repr_inv, node_repr_eq, topk_idx=topk_idx,
             )
 
         # Latent
         latent_inv, latent_eq = self.latent(node_repr_inv, node_repr_eq)
 
-        # Diffusion（只对 inv，条件注入 latent_eq）
+        # ── 坐标扩散 ────────────────────────────────────────────
         diffusion_loss = None
-        if self.diffusion is not None and self.training:
-            diffusion_loss = self.diffusion(latent_inv, return_loss=True, cond_eq=latent_eq)
+        anchor_aux_loss = None
+        pred_coords = None
 
-        # Coord Head — SO(2) 等变 + 轴角参数化，显式传入 r_scale
-        coords, r, axis, angle = self.coord_head(latent_inv, latent_eq)
+        if self.coord_diffusion is not None:
+            # [v4] Stop-Gradient: when detach_latent=True, the diffusion path sees a
+            # detached latent so geometric losses on x0_pred cannot reach the Encoder.
+            # anchor_aux_loss keeps the un-detached latent (independent scorer path).
+            cond_inv_d = latent_inv.detach() if self.detach_latent else latent_inv
+            cond_eq_d = latent_eq.detach() if self.detach_latent else latent_eq
+            if self.training and target_coords is not None:
+                diffusion_loss, noise_pred, pred_coords = self.coord_diffusion(
+                    target_coords, cond_inv=cond_inv_d, cond_eq=cond_eq_d,
+                    return_noise_pred=True, return_x0_pred=True,
+                )
+                # Dynamic anchor auxiliary loss (supervise scorer via pair_probs)
+                # Uses the UN-detached latent so the scorer still learns even when
+                # detach_latent=True (Encoder gets this signal, diffusion doesn't).
+                if pair_probs is not None:
+                    anchor_aux_loss = self.coord_diffusion.anchor_aux_loss(
+                        latent_inv, latent_eq, pair_probs,
+                    )
+                if return_coords:
+                    pred_coords = self.coord_diffusion.generate(
+                        cond_inv_d, cond_eq_d,
+                    )
+            elif not self.training:
+                pred_coords = self.coord_diffusion.generate(
+                    cond_inv_d, cond_eq_d,
+                )
 
         # V2: 接触图辅助任务
         contact_pred = None
@@ -784,10 +592,12 @@ class StrictlyEquivariantS10(nn.Module):
             contact_pred = self.contact_aux_head(latent_inv)
 
         if return_loss and diffusion_loss is not None:
-            return coords, diffusion_loss, contact_pred
+            # v4.1: return 4-tuple — (diff_loss, pred_coords, contact_pred, anchor_aux_loss)
+            # anchor_aux_loss may be None (pair_probs not provided) or a scalar
+            return diffusion_loss, pred_coords, contact_pred, anchor_aux_loss
         if contact_pred is not None:
-            return coords, contact_pred
-        return coords
+            return pred_coords, contact_pred
+        return pred_coords
 
     @torch.no_grad()
     def generate_ensemble(

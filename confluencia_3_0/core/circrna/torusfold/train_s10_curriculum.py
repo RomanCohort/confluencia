@@ -64,15 +64,19 @@ LENGTH_BUCKET = {
 PHASES = {
     1: {"conf_min": 0.8,
         "ratios": {"short": 0.60, "medium": 0.30, "long": 0.08, "xlong": 0.02},
+        "detach_frac": 0.25,  # [v4] freeze Encoder via stop-grad for first 25% of phase
         "desc": "Short-dominant core geometry (high quality)"},
     2: {"conf_min": 0.5,
         "ratios": {"short": 0.40, "medium": 0.40, "long": 0.15, "xlong": 0.05},
+        "detach_frac": 0.0,
         "desc": "Shift to medium, introduce long"},
     3: {"conf_min": 0.5,
         "ratios": {"short": 0.20, "medium": 0.35, "long": 0.35, "xlong": 0.10},
+        "detach_frac": 0.0,
         "desc": "Long-dominant, all medium+ quality"},
     4: {"conf_min": 0.3,
         "ratios": {"short": 0.10, "medium": 0.25, "long": 0.40, "xlong": 0.25},
+        "detach_frac": 0.0,
         "desc": "Long+xlong heavy with BSJ stress"},
 }
 DEFAULT_PHASE_EPOCHS = {1: 10, 2: 10, 3: 10, 4: 10}  # 10 per phase
@@ -396,15 +400,37 @@ print()
 # Loss computation (all ABC+D, verified in train_s10_82k.py)
 # ═══════════════════════════════════════════════════════════════
 
-def compute_all_losses(p_denorm, seq_ids, target, lengths, pair_probs):
+def compute_all_losses(p_denorm, seq_ids, target, lengths, pair_probs, model=None):
     """Compute all ABC+D loss terms. Returns (total_loss, loss_dict).
 
     Args:
         pair_probs: (B, Lc, Lc) ViennaRNA base-pair probabilities (padded with 0).
+        model: if provided, uses Kendall uncertainty weighting for the 6 core
+               geometry+physics terms (coord/bond/stereo/physics_pairing/
+               contact_aux/physics_bridge) via model.uncertainty_log_vars.
+               Other terms keep fixed LOSS_WEIGHTS.
     """
     B, Lc, _ = p_denorm.shape  # Bc == B
     loss = torch.tensor(0.0, device=device)
     loss_dict = {}
+
+    # [v4] Kendall uncertainty weighting helper.
+    # weighted_L = 0.5 * exp(-log_var) * L + 0.5 * log_var
+    # log_var = log(σ²); uniform init (0 → σ²=1, weight=0.5); light L2 reg prevents
+    # a term from being turned off entirely (σ² → ∞).
+    UW_TERMS = {'coord', 'bond', 'stereo', 'physics_pairing', 'contact_aux', 'physics_bridge'}
+    UW_REG = 0.01  # light regularizer on log_var drift
+    log_vars = getattr(model, 'uncertainty_log_vars', None) if model is not None else None
+
+    def uw_add(term, value):
+        """Apply Kendall UW to a core term, else fall back to fixed weight."""
+        if log_vars is not None and term in UW_TERMS and term in log_vars:
+            lv = log_vars[term]
+            precision = torch.exp(-lv)            # 1/σ²
+            reg = UW_REG * (lv ** 2)
+            weighted = 0.5 * precision * value + 0.5 * lv + reg
+            return weighted, precision.item(), lv.item()
+        return value * LOSS_WEIGHTS.get(term, 1.0), None, None
 
     # Pre-compute normalized coords (mask padding per sample)
     valid_mask = torch.arange(Lc, device=device).unsqueeze(0) < lengths.unsqueeze(-1)  # [B, Lc]
@@ -422,8 +448,11 @@ def compute_all_losses(p_denorm, seq_ids, target, lengths, pair_probs):
         vL = int(lengths[b].item())
         coord_loss += torch.mean((p_norm[b, :vL] - t_norm[b, :vL]) ** 2)
     coord_loss /= B
-    loss = loss + coord_loss * LOSS_WEIGHTS['coord']
+    w, p, lv = uw_add('coord', coord_loss)
+    loss = loss + w
     loss_dict['coord'] = coord_loss.item()
+    if p is not None:
+        loss_dict['coord_sigma2'] = float(np.exp(lv)); loss_dict['coord_prec'] = p
 
     # 2. Closure loss (P9 fix: use true last residue per sample, not padded tail)
     last_idx = (lengths - 1).clamp(min=0).long()  # [B]
@@ -446,15 +475,21 @@ def compute_all_losses(p_denorm, seq_ids, target, lengths, pair_probs):
         bond_loss += ((all_b - 5.9) ** 2).mean()
         nb += 1
     bond_loss /= max(nb, 1)
-    loss = loss + bond_loss * LOSS_WEIGHTS['bond']
+    w, p, lv = uw_add('bond', bond_loss)
+    loss = loss + w
     loss_dict['bond'] = bond_loss.item()
+    if p is not None:
+        loss_dict['bond_sigma2'] = float(np.exp(lv))
 
     # 4. Stereochemistry loss
     try:
         stereo_result = get_stereo_loss_breakdown(p_denorm, lengths)
         stereo_total = stereo_result['total']
-        loss = loss + stereo_total * LOSS_WEIGHTS['stereo']
+        w, p, lv = uw_add('stereo', stereo_total)
+        loss = loss + w
         loss_dict['stereo'] = stereo_total.item()
+        if p is not None:
+            loss_dict['stereo_sigma2'] = float(np.exp(lv))
     except Exception as e:
         logging.warning(f"stereochemistry loss failed (sampled): {e}")
         loss_dict['stereo'] = 0.0
@@ -472,8 +507,11 @@ def compute_all_losses(p_denorm, seq_ids, target, lengths, pair_probs):
     # 6. Physics pairing loss (P2 fix: pass real pair_probs for pairing_consistency)
     try:
         phys_loss = physics_loss_fn(p_denorm, seq_ids, pair_probs, lengths=lengths)
-        loss = loss + phys_loss * LOSS_WEIGHTS['physics_pairing']
+        w, p, lv = uw_add('physics_pairing', phys_loss)
+        loss = loss + w
         loss_dict['physics_pairing'] = phys_loss.item()
+        if p is not None:
+            loss_dict['physics_pairing_sigma2'] = float(np.exp(lv))
     except Exception as e:
         logging.warning(f"physics_pairing loss failed: {e}")
         loss_dict['physics_pairing'] = 0.0
@@ -488,8 +526,11 @@ def compute_all_losses(p_denorm, seq_ids, target, lengths, pair_probs):
         eps = 1e-7
         contact_loss = -(contact_target * (contact_pred + eps).log() +
                          (1 - contact_target) * (1 - contact_pred + eps).log()).mean()
-        loss = loss + contact_loss * LOSS_WEIGHTS['contact_aux']
+        w, p, lv = uw_add('contact_aux', contact_loss)
+        loss = loss + w
         loss_dict['contact_aux'] = contact_loss.item()
+        if p is not None:
+            loss_dict['contact_aux_sigma2'] = float(np.exp(lv))
     except Exception as e:
         logging.warning(f"contact_aux loss failed: {e}")
         loss_dict['contact_aux'] = 0.0
@@ -603,7 +644,10 @@ def compute_all_losses(p_denorm, seq_ids, target, lengths, pair_probs):
                 loss_dict['physics_bridge'] = 0.0
 
         if constraint_loss > 0:
-            loss = loss + constraint_loss * LOSS_WEIGHTS['physics_bridge']
+            w, p, lv = uw_add('physics_bridge', constraint_loss)
+            loss = loss + w
+            if p is not None:
+                loss_dict['physics_bridge_sigma2'] = float(np.exp(lv))
 
     # 12. Contact distillation loss
     if distillation_loss_fn is not None:
@@ -686,6 +730,15 @@ def train_one_phase(phase, n_phase_epochs):
     for epoch in range(n_phase_epochs):
         model.train()
 
+        # [v4] Stop-Gradient schedule: detach latent→diffusion edge for the first
+        # detach_frac of Phase 1, so the Encoder learns structure from self-supervision
+        # (anchor_aux / contact_aux) instead of being pulled by coordinate losses.
+        detach_frac = PHASES[phase].get("detach_frac", 0.0)
+        frac_done = epoch / max(n_phase_epochs - 1, 1)
+        model.detach_latent = (detach_frac > 0.0 and frac_done < detach_frac)
+        if model.detach_latent and (epoch == 0 or frac_done < detach_frac <= frac_done + 1.0/n_phase_epochs):
+            print(f'    [stop-grad] latent→diffusion detached (epoch {epoch+1}, releases at {int(detach_frac*100)}%)')
+
         # MC-Dropout uncertainty weighting per bucket
         bucket_weights, bucket_var, bucket_count = estimate_bucket_uncertainty(
             bucket_groups, model, collate, device,
@@ -746,7 +799,7 @@ def train_one_phase(phase, n_phase_epochs):
                 p_denorm = p_c / p_scale * t_scale + t_sum
 
                 # All ABC+D losses (geometric regularizers on x0_pred)
-                loss, loss_dict = compute_all_losses(p_denorm, seq_ids, target, lengths, batch_pp)
+                loss, loss_dict = compute_all_losses(p_denorm, seq_ids, target, lengths, batch_pp, model=model)
 
                 # Diffusion loss (primary — direct 3D coordinate MSE)
                 if diff_loss is not None:
@@ -823,6 +876,10 @@ def train_one_phase(phase, n_phase_epochs):
                 print(f'    step {step}/{len(epoch_batches)} loss={avg:.2f} nan={nan_batches} '
                       f'lr={lr:.1e} GPU: cur={cur_mem:.2f}GB peak={max_mem:.2f}GB reserved={reserved:.2f}GB')
                 print(f'      BREAKDOWN: ' + ' | '.join(parts))
+                # [v4] Kendall UW learned σ² per core term (tracks how the model balances geometry vs physics)
+                uw_parts = [f"{k}:σ²={float(np.exp(model.uncertainty_log_vars[k].item())):.2f}"
+                            for k in ['coord','bond','stereo','physics_pairing','contact_aux','physics_bridge']]
+                print(f'      UW-σ²: ' + ' | '.join(uw_parts))
                 loss_acc.clear()
                 torch.cuda.reset_peak_memory_stats(device)
                 gc.collect()
