@@ -111,6 +111,8 @@
 <line x1="605" y1="914" x2="605" y2="944" stroke="#008300" stroke-width="2" marker-end="url(#a-eq)"/>
 <text x="334" y="956" text-anchor="middle" font-size="8" fill="#2a78d6">latent_inv (cond)</text>
 <text x="605" y="956" text-anchor="middle" font-size="8" fill="#008300">latent_eq (cond)</text>
+<text x="470" y="935" text-anchor="middle" font-size="8" fill="#7c3aed" font-weight="700">⫶ [v4] detach_latent (P1 前25%切断几何梯度回传 Encoder)</text>
+<text x="470" y="947" text-anchor="middle" font-size="7" fill="#898781">anchor_aux 仍走原 latent (独立路径, 不被切断)</text>
 
 <rect x="100" y="968" width="640" height="290" rx="6" fill="url(#v4Fill)" stroke="#7c3aed" stroke-opacity="0.55" stroke-width="1.4"/>
 <text class="v4-tag" x="112" y="986">[v4] CoordDiffusion — 坐标空间扩散, 直出 (B,L,3) · 废弃 Rodrigues coord_head</text>
@@ -178,6 +180,18 @@
 <text x="855" y="1158" text-anchor="middle" font-size="7" fill="#7c3aed">P1:90/8/2→P4:20/30/50</text>
 <line x1="780" y1="1120" x2="740" y2="1120" stroke="#7c3aed" stroke-width="1.2" stroke-dasharray="3,2" marker-end="url(#a-side)"/>
 
+<rect x="780" y="1196" width="150" height="142" rx="5" fill="url(#v4Fill)" stroke="#7c3aed" stroke-opacity="0.55" stroke-width="1.3" stroke-dasharray="4,3"/>
+<text class="v4-tag" x="855" y="1214" text-anchor="middle">[v4] Kendall UW</text>
+<text x="855" y="1230" text-anchor="middle" font-size="8" font-weight="600" fill="#0b0b0b">可学习 σ² (6项)</text>
+<text x="855" y="1244" text-anchor="middle" font-size="7" fill="#52514e">coord · bond · stereo</text>
+<text x="855" y="1256" text-anchor="middle" font-size="7" fill="#52514e">physics_pairing</text>
+<text x="855" y="1268" text-anchor="middle" font-size="7" fill="#52514e">contact_aux · bridge</text>
+<text x="855" y="1284" text-anchor="middle" font-size="7" fill="#7c3aed">0.5·e^(-logσ²)·L + 0.5·logσ²</text>
+<text x="855" y="1296" text-anchor="middle" font-size="6" fill="#898781">均匀起步 σ²=1 · +0.01·log² 正则</text>
+<text x="855" y="1310" text-anchor="middle" font-size="6" fill="#898781">其余项固定权重</text>
+<text x="855" y="1326" text-anchor="middle" font-size="6" fill="#7c3aed" font-weight="600">自动平衡几何vs物理冲突</text>
+<line x1="780" y1="1266" x2="740" y2="1246" stroke="#7c3aed" stroke-width="1.2" stroke-dasharray="3,2" marker-end="url(#a-side)"/>
+
 <rect x="190" y="1296" width="560" height="100" rx="6" fill="url(#lossFill)" stroke="#e34948" stroke-opacity="0.55" stroke-width="1.4"/>
 <text x="470" y="1316" text-anchor="middle" font-size="12" font-weight="600" fill="#e34948">3D 环面 circRNA 坐标 (B, L, 3)</text>
 <text x="470" y="1334" text-anchor="middle" font-size="10" fill="#52514e">coords 直接来自扩散去噪 · 不再经 Rodrigues 重建</text>
@@ -194,8 +208,8 @@
 <text x="855" y="1362" text-anchor="middle" font-size="8" fill="#52514e">构象系综挑选</text>
 <text x="855" y="1380" text-anchor="middle" font-size="7" fill="#eda100" font-weight="600">[规划] 精修回路</text>
 
-<text x="470" y="1430" text-anchor="middle" font-size="9" fill="#7c3aed" font-weight="600">v4 关键变更: 扩散直出 (B,L,3) 坐标 (废弃 Rodrigues 头, 消除归一化误差放大) · 动态锚点 (pair_probs 热点 top-K) · anchor_aux_loss 接入训练</text>
+<text x="470" y="1430" text-anchor="middle" font-size="9" fill="#7c3aed" font-weight="600">v4 关键变更: 扩散直出 (B,L,3) 坐标 (废弃 Rodrigues 头) · 动态锚点 (pair_probs 热点 top-K) · Kendall UW (6项可学习σ²) · Stop-Gradient (P1前25%冻结Encoder)</text>
 <text x="470" y="1446" text-anchor="middle" font-size="9" fill="#898781">Config: d_model=256 · d_inv=64 · d_eq=32 · n_layers=4 · K=60 · n_diffusion=20 · d_coord_hidden=128 · window=256 · n_anchors=128 · bsj_flank=32</text>
 <text x="470" y="1462" text-anchor="middle" font-size="8" fill="#898781">数据: circrna_3d_all 82106 条 · pair_probs 50% (21/42 shard) · Loss 含 13 项 + anchor_aux(0.5)</text>
-<text x="470" y="1478" text-anchor="middle" font-size="8" fill="#898781">痛点三 (Rodrigues 误差放大) 已随头废弃而消解 · 痛点一/二 仍待处理 (梯度链+手工权重)</text>
+<text x="470" y="1478" text-anchor="middle" font-size="8" fill="#898781">痛点①梯度链: Stop-Gradient (P1前25%) 切断 · 痛点②手工权重: Kendall UW 6项可学习σ² · 痛点③Rodrigues: v4废弃头已消解</text>
 </svg>
