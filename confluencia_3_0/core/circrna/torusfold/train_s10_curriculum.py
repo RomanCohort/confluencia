@@ -685,7 +685,7 @@ def compute_all_losses(p_denorm, seq_ids, target, lengths, pair_probs, model=Non
                     else:
                         pair_v = torch.tensor(0.0, device=device)
 
-                    violations.append(float(bond_v + pair_v))
+                    violations.append((bond_v + pair_v).detach().item())
 
                 constraint_loss = torch.tensor(float(np.mean(violations)), device=device)
                 loss_dict['physics_bridge'] = float(constraint_loss.item())
@@ -1135,14 +1135,23 @@ def train_one_phase(phase, n_phase_epochs):
 
 all_history = []
 cg_state = None
-for phase in range(0, 5):  # [v4] Phase 0 = PDB 3D pretrain (目标1), 1-4 = CG circRNA (目标2)
+# [test] TORUSFOLD_TEST_PHASES="phase:epochs" 限制训练范围 (本地快测用, 如 "0:2")
+# 不设则跑完整 0-4 phase.
+import os as _os
+_test_phases = _os.environ.get('TORUSFOLD_TEST_PHASES')
+_phase_iter = [_int_p for _int_p in [(int(s.split(':')[0]), int(s.split(':')[1]))
+                                     for s in (_test_phases or '0:5;1:10;2:10;3:10;4:10').split(';')]] \
+    if _test_phases else None
+
+for _pi, (phase, n_ep_override) in enumerate(_phase_iter if _phase_iter is not None
+                                             else [(p, DEFAULT_PHASE_EPOCHS[p]) for p in range(0, 5)]):
     # [v4] Phase 0 data source switch: PDB cyclized 3D → CG circRNA
     if phase == 0 and os.path.isfile(PDB_NPZ):
         cg_state = load_pdb_phase0_data()
     elif phase == 1 and cg_state is not None:
         restore_cg_data(cg_state)
         cg_state = None
-    n_ep = DEFAULT_PHASE_EPOCHS[phase]
+    n_ep = n_ep_override if _test_phases else DEFAULT_PHASE_EPOCHS[phase]
     best_val, history = train_one_phase(phase, n_ep)
     all_history.append({'phase': phase, 'best_val': best_val, 'history': history})
     with open(os.path.join(output_dir, f'phase{phase}_history.json'), 'w') as f:
