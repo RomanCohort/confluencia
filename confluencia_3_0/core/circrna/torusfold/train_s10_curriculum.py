@@ -899,10 +899,14 @@ def train_one_phase(phase, n_phase_epochs):
                     nan_batches += 1; continue
 
                 # Normalize (valid_mask: P10 padding fix)
+                # [v5 fix] denominator must be [B,1,1] — torch left-aligns [B,1]
+                # when dividing [B,1,3]/[B,1] → [B,B,3] (silent broadcast bug that
+                # crashes whenever Lc != B, e.g. A800 batch=16, seq 30-2000).
                 Lc = target.shape[1]
                 valid_mask = torch.arange(Lc, device=device).unsqueeze(0) < lengths.unsqueeze(-1)
-                t_sum = (target * valid_mask.unsqueeze(-1)).sum(dim=1, keepdim=True) / valid_mask.sum(dim=-1, keepdim=True).clamp(min=1)
-                p_sum = (pred * valid_mask.unsqueeze(-1)).sum(dim=1, keepdim=True) / valid_mask.sum(dim=-1, keepdim=True).clamp(min=1)
+                n_valid = valid_mask.sum(dim=-1).clamp(min=1).unsqueeze(-1).unsqueeze(-1)  # [B,1,1]
+                t_sum = (target * valid_mask.unsqueeze(-1)).sum(dim=1, keepdim=True) / n_valid
+                p_sum = (pred * valid_mask.unsqueeze(-1)).sum(dim=1, keepdim=True) / n_valid
                 t_c = target - t_sum
                 t_scale = torch.norm(t_c * valid_mask.unsqueeze(-1), dim=(1, 2), keepdim=True).clamp(min=1.0)
                 p_c = pred - p_sum
