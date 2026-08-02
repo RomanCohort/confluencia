@@ -36,14 +36,30 @@ python -c "import RNA; print('ViennaRNA OK')"
 | `data/circrna_3d_all_consolidated.npz` | CG 训练数据 82106 条 | ✅ 已有 |
 | `data/circrna/circbase_seqs.fa.gz` | CG 样本序列 (FASTA) | ✅ 已有 |
 | `data/pdb_cyclized/consolidated.npz` | Phase 0 PDB 混合 11214 条 (is_circular) | ✅ 已有 |
-| `data/circrna_3d_all_pair_probs.npz` | ViennaRNA bpp (可选) | ⚠️ **缺失** |
-| `data/pdb_cyclized/consolidated_pair_probs.npz` | PDB 距离核 (可选) | ⚠️ 缺失 |
+| `data/circrna_3d_all_pair_probs.npz` | ViennaRNA bpp (**Phase 1-4 必需**) | ⚠️ **本地续跑中, 需合并后上传** |
+| `data/pdb_cyclized/consolidated_pair_probs.npz` | PDB 距离核 (Phase 0 不需要) | ✅ Phase 0 用几何核实时算 |
 
-> `pair_probs` 缺失时训练脚本自动 `geometric fallback`（每样本 zeros），
-> 但会少掉物理配对先验。**建议部署后补跑** `precompute_pair_probs.py`：
+> ⚠️ **`circrna_3d_all_pair_probs.npz` 缺失不是"可选"**——它是 Phase 1-4 的
+> AnchorScorer 输入。缺失时 collate 填全零矩阵：训练不崩，但 `anchor_aux_loss=0`、
+> 锚点选择退化（完全失去物理配对先验）。
+>
+> **本地已有 38/42 分片**（`data/.precompute_tmp/bp_0..37.npz`, 共 162GB,
+> ViennaRNA bpp 每样本 [L,L] float32）。分片 38-41（~4248 样本）曾在算到
+> shard_38 时中断，**续跑命令**（resumable, 自动跳过已完成的 38 分片）:
 > ```bash
-> python precompute_pair_probs.py   # 在 A800 上, 生成 circrna_3d_all_pair_probs.npz
+> python precompute_pair_probs.py \
+>     --consolidated ../../../../data/circrna_3d_all_consolidated.npz \
+>     --fasta ../../../../data/circrna/circbase_seqs.fa.gz \
+>     --output ../../../../data/circrna_3d_all_pair_probs.npz \
+>     --tmp-dir ../../../../data/.precompute_tmp \
+>     --chunk-size 2000 --max-len 1000 --n-threads 32
 > ```
+> 完成后合并出 `circrna_3d_all_pair_probs.npz`（bp_probs 是 82106 个 [L,L] 的
+> object 数组），再连同 5 个数据文件一起上传 A800。
+>
+> `--max-len` 默认 1000: L>1000 的 4749 条 xlong 样本会被写入**全零矩阵**
+> (ViennaRNA O(L²) 对超长序列太慢)。如需长序列配对先验可 `--max-len 5000`,
+> 但单条可能需数分钟, 建议先默认 1000 跑通, 后续再补长序列。
 
 ### 1.3 推理/验证环境
 - 批量筛选: `generate_32_workers.py`（默认 `refine=False` 高通量直出坐标）
