@@ -46,7 +46,7 @@ def _global_anchor_indices(L: int, A: int, bsj_flank: int,
     half = max(1, bsj_flank)
     for _i in range(min(half, L)):
         anchors.add(_i)
-        anchors.add(L - half + _i)
+        anchors.add(max(0, L - half + _i))  # clamp ≥0: L<flank 时否则负索引
     inner = A - len(anchors)
     if inner > 0 and L > 0:
         for _i in range(inner):
@@ -269,7 +269,7 @@ class DynamicGlobalAnchorAttention(nn.Module):
         bsj_set: list[int] = []
         for i in range(min(half, L)):
             bsj_set.append(i)
-            bsj_set.append(L - half + i)
+            bsj_set.append(max(0, L - half + i))  # clamp ≥0: L<flank 时否则负索引
         bsj_set = sorted(set(bsj_set))
         bsj_tensor = torch.tensor(bsj_set, device=device, dtype=torch.long)
         n_bsj = len(bsj_set)

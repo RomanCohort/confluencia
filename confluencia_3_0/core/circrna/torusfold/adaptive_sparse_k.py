@@ -1,18 +1,13 @@
 """
 adaptive_sparse_k.py — 自适应稀疏邻居数
 
-ROCm gfx1151/RDNA 3.5 编译器 bug：
-1. int64→float32 返回未初始化内存（已用 bool 掩码修复）
-2. .max(dim) / .min(dim) 非确定性内存腐蚀（已用 argmax+gather 修复）
-3. .sum(dim) 也可能非确定性腐蚀
-
-最终策略：compute_local_complexity 在 CPU 上计算，再搬到 GPU。
-复杂度计算是纯数据操作，CPU 跑很快（~2ms per batch），完全不影响训练吞吐。
+K 值由局部序列复杂度（滑动窗口频率熵）+ pair_probs 共同决定。
+复杂度计算走 GPU 原生 Tensor ops，无 CPU 搬运。
 """
 
 from __future__ import annotations
 
-import numpy as np
+import math
 
 import torch
 import torch.nn as nn
@@ -22,55 +17,43 @@ import torch.nn.functional as F
 def compute_local_complexity(
     seq_tokens: torch.Tensor, window: int = 8, n_tokens: int = 5
 ) -> torch.Tensor:
-    """计算局部序列复杂度（基于频率熵）
+    """计算局部序列复杂度（基于滑动窗口频率熵）
 
-    **CPU 计算**，避免 ROCm gfx1151 的 reduction 非确定性内存腐蚀。
-    seq_tokens 可以是 GPU tensor（自动移到 CPU 计算）。
+    完全在输入 tensor 所在设备上计算（GPU/CPU 均可）。
+    复杂度 = normalized entropy of nucleotide frequencies in a window.
 
-    Returns: [B, L] float32 tensor on the SAME device as input.
+    Args:
+        seq_tokens: [B, L] 整数 token（0..n_tokens-1）
+        window: 滑动窗口大小
+        n_tokens: 碱基数（默认 5: A/U/C/G/N）
+
+    Returns:
+        [B, L] float32，归一化熵 ∈ [0, 1]，同 device 作为输入。
     """
     B, L = seq_tokens.shape
+    device = seq_tokens.device
     if n_tokens <= 1:
-        return torch.zeros(B, L, dtype=torch.float32, device=seq_tokens.device)
+        return torch.zeros(B, L, dtype=torch.float32, device=device)
 
-    # 移到 CPU 用 numpy 计算（安全、准确）
-    seq_np = seq_tokens.cpu().numpy().astype(np.int64)  # [B, L]
-    seq_np = np.clip(seq_np, 0, n_tokens - 1)
+    seq = torch.clamp(seq_tokens, 0, n_tokens - 1).long()  # [B, L]
 
+    # 每行 padding（edge mode）
     pad_left = (window - 1) // 2
     pad_right = window - 1 - pad_left
+    seq_pad = F.pad(seq, (pad_left, pad_right), mode='constant', value=0)  # [B, L+window-1]
 
-    # 每行 padding
-    s_padded = np.pad(seq_np, ((0, 0), (pad_left, pad_right)), mode='edge')  # [B, L+window-1]
+    # 滑动窗口展成 [B, window, L] 然后 transpose → [B, L, window]
+    s = seq_pad.unfold(dimension=1, size=window, step=1)  # [B, L, window]
 
-    # 滑动窗口：用 stride_tricks 或逐元素构造 [B, L, window]
-    # 为性能考虑，用 stride 避免 for 循环
-    from numpy.lib import stride_tricks
-    # [B, L, window] via rolling view
-    n_cols = L + window - 1
-    itemsize = seq_np.strides[1]  # bytes per element in L-dim
-    h, w = seq_np.shape[1], window
-    complexity = np.zeros((B, L), dtype=np.float32)
+    # 每个窗口的碱基计数
+    oh = F.one_hot(s, num_classes=n_tokens).float()  # [B, L, window, n_tokens]
+    counts = oh.sum(dim=2)  # [B, L, n_tokens]
 
-    for b in range(B):
-        s = s_padded[b]  # [L+window-1]
-        # 滑动窗口 [L, window]
-        strides = (s.strides[0], s.strides[0])
-        windowed = stride_tricks.as_strided(
-            s, shape=(L, window), strides=strides, writeable=False
-        )  # [L, window]
-        # 每窗口碱基计数
-        counts = np.zeros((L, n_tokens), dtype=np.float32)
-        for t_idx in range(n_tokens):
-            counts[:, t_idx] = (windowed == t_idx).sum(axis=1)  # [L]
-        total = counts.sum(axis=1, keepdims=True)  # [L, 1]
-        freq = counts / total  # [L, n_tokens]
-        entropy = -np.sum(freq * np.log(freq + 1e-8), axis=1)  # [L]
-        max_entropy = np.log(n_tokens)
-        complexity[b] = entropy / max_entropy
-
-    out = torch.from_numpy(complexity).to(dtype=torch.float32, device=seq_tokens.device)
-    return out
+    # 频率 + 熵
+    total = counts.sum(dim=-1, keepdim=True).clamp(min=1e-8)  # [B, L, 1]
+    freq = counts / total  # [B, L, n_tokens]
+    entropy = -(freq * torch.log(freq + 1e-8)).sum(dim=-1)  # [B, L]
+    return (entropy / math.log(n_tokens)).float()
 
 
 class AdaptiveSparseK(nn.Module):
@@ -96,7 +79,7 @@ class AdaptiveSparseK(nn.Module):
         return k_int.to(torch.float32)
 
     def get_global_K(self, k_per_residue: torch.Tensor, L: int) -> int:
-        # ROCm gfx1151 安全：先 clamp 防止 corruption 产生的 inf
+        # clamp + nan_to_num 防御性保护（避免极端序列产生 inf）
         k_safe = k_per_residue.clamp(self.K_min, self.K_max)
         K_avg = int(torch.nan_to_num(k_safe).mean().item())
         K_global = min(K_avg, L)

@@ -48,6 +48,24 @@ from contact_map_aux_head import ContactMapAuxHead
 
 
 # ══════════════════════════════════════════════════════════════════════════════
+# CRBPSA hydrogen-bond weighting (A-U=2, G-C=3, G-U=0.8)
+# ══════════════════════════════════════════════════════════════════════════════
+# Indexed by the ACTUAL token encoding used in train_s10_curriculum.py collate:
+#     A=0, U=1, G=2, C=3, N/pad=4   (n_tokens=5)
+# Real Watson-Crick pairs (AU/GC) outrank the G-U wobble (0.8) and non-pairing
+# (1.0), so the LAMA anchor hotspot concentrates on genuine stems instead of
+# raw pairing-probability peaks. Symmetric matrix.
+HBOND_MAP = torch.tensor([
+    #            A(0)   U(1)   G(2)   C(3)   N(4)
+    [1.0, 2.0, 1.0, 1.0, 1.0],  # A-*    (A-U=2)
+    [2.0, 1.0, 0.8, 1.0, 1.0],  # U-*    (U-A=2, U-G=0.8)
+    [1.0, 0.8, 1.0, 3.0, 1.0],  # G-*    (G-U=0.8, G-C=3)
+    [1.0, 1.0, 3.0, 1.0, 1.0],  # C-*    (C-G=3)
+    [1.0, 1.0, 1.0, 1.0, 1.0],  # N-*    (pad/unknown, neutral)
+], dtype=torch.float32)
+
+
+# ══════════════════════════════════════════════════════════════════════════════
 # Config
 # ══════════════════════════════════════════════════════════════════════════════
 
@@ -286,6 +304,8 @@ class StrictlyEquivariantEncoder(nn.Module):
             # 自适应稀疏 K：根据局部复杂度调整
             k_per_residue = self.adaptive_k(seq_tokens, pair_probs)  # [B, L]
             K_actual = self.adaptive_k.get_global_K(k_per_residue, L)  # 全局 K
+            K_actual = min(K_actual, L)  # clamp: get_global_K 下限是 K_min，
+                                         # L<K_min 的短序列会 topk 越界（真实 bug）
         else:
             # 固定 K
             K_actual = max(self.config.K_sparse_min, int(L * self.config.K_sparse_ratio))
@@ -581,8 +601,23 @@ class StrictlyEquivariantS10(nn.Module):
                 # Uses the UN-detached latent so the scorer still learns even when
                 # detach_latent=True (Encoder gets this signal, diffusion doesn't).
                 if pair_probs is not None:
+                    # CRBPSA: hydrogen-bond-weight the pairing signal before LAMA
+                    # anchor supervision. Strong H-bond pairs (A-U=2, G-C=3) are real
+                    # stem contacts; G-U wobble (0.8) and non-pairing stay at 1.0. This
+                    # makes all 3 LAMA channels (pair_hotspot / neighbor_density /
+                    # local_connectivity) stem-aware instead of raw-pairing-aware.
+                    # Only the anchor scorer path is weighted — contact_aux and
+                    # physics_pairing keep the original pair_probs.
+                    # Dual advanced indexing (broadcast to [B,L,L]); the naive
+                    # HBOND_MAP[seq][:,:,seq] would explode to [B,L,B,L,5].
+                    # .to(seq_tokens.device): module-level const is on CPU, GPU
+                    # indexing tensors must match the indexed tensor's device.
+                    hbond_w = HBOND_MAP.to(seq_tokens.device)[
+                        seq_tokens.unsqueeze(-1),
+                        seq_tokens.unsqueeze(-2)]   # [B, L, L]
+                    pair_hb = pair_probs * hbond_w.to(pair_probs.device)
                     anchor_aux_loss = self.coord_diffusion.anchor_aux_loss(
-                        latent_inv, latent_eq, pair_probs,
+                        latent_inv, latent_eq, pair_hb,
                     )
                 if return_coords:
                     pred_coords = self.coord_diffusion.generate(

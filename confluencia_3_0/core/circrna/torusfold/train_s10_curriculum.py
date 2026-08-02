@@ -717,6 +717,66 @@ def build_epoch_batches(phase, epoch, n_phase_epochs):
     np.random.shuffle(epoch_batches)
     return epoch_batches
 
+
+# ═══════════════════════════════════════════════════════════════
+# [v4] Phase 0 data source switch — PDB cyclized 3D (目标1)
+# ═══════════════════════════════════════════════════════════════
+# collate / build_epoch_batches / validation all read module-level globals
+# (t_seq, t_coords, t_meta, t_pair_probs, bucket_groups, seqs, coords, meta,
+#  val_idx). Phase 0 swaps them to the PDB-cyclized set, then restores the CG
+# set before Phase 1 so the curriculum continues on circrna_3d_all untouched.
+PDB_NPZ = os.path.join(DEPLOY_ROOT, 'data', 'pdb_cyclized', 'consolidated.npz')
+
+
+def _geom_pair_probs(coords_list, lengths, decay=4.0):
+    """Spatial-neighbor pair signal: exp(-d/decay), diag=0.
+    PDB has no ViennaRNA bpp; nearest-neighbor topology from real coords stands
+    in for topk neighbor selection + LAMA anchor hotspot (validated in
+    validate_phase0.py)."""
+    pps = []
+    for c, L in zip(coords_list, lengths):
+        cc = torch.tensor(np.asarray(c[:L], dtype=np.float32))
+        d = torch.cdist(cc, cc)
+        w = torch.exp(-d / decay)
+        w.fill_diagonal_(0)
+        pps.append(w.numpy())
+    return pps
+
+
+def load_pdb_phase0_data():
+    """Swap globals to PDB cyclized 3D data. Returns the CG state to restore."""
+    global t_seq, t_coords, t_meta, t_pair_probs, bucket_groups
+    global seqs, coords, meta, val_idx
+    cg_state = (t_seq, t_coords, t_meta, t_pair_probs,
+                dict(bucket_groups), seqs, coords, meta, list(val_idx))
+    data = np.load(PDB_NPZ, allow_pickle=True)
+    ids_a, lens_a, coords_a, seqs_a = data['ids'], data['lengths'], data['coords'], data['seqs']
+    n = len(lens_a)
+    seqs = [str(s) for s in seqs_a]
+    coords = [np.asarray(coords_a[i, :int(l)], dtype=np.float32)
+              for i, l in enumerate(lens_a)]
+    meta = [{'id': str(ids_a[i]), 'length': int(l)} for i, l in enumerate(lens_a)]
+    # PDB pretrain uses all samples (no train/val split); val = last 50.
+    t_seq, t_coords, t_meta = seqs, coords, meta
+    t_pair_probs = _geom_pair_probs(coords, lens_a)
+    bucket_groups = defaultdict(list)
+    for i in range(n):
+        bucket_groups[length_bucket(int(lens_a[i]))].append(i)
+    val_idx = list(range(max(0, n - 50), n))
+    nb = {k: len(v) for k, v in sorted(bucket_groups.items())}
+    print(f'  [PDB Phase 0] {n} cyclized samples loaded, buckets={nb}')
+    return cg_state
+
+
+def restore_cg_data(cg_state):
+    """Restore CG curriculum globals after Phase 0."""
+    global t_seq, t_coords, t_meta, t_pair_probs, bucket_groups
+    global seqs, coords, meta, val_idx
+    (t_seq, t_coords, t_meta, t_pair_probs,
+     bucket_groups, seqs, coords, meta, val_idx) = cg_state
+    print(f'  [CG restore] back to {len(t_seq)} circrna_3d_all samples')
+
+
 def train_one_phase(phase, n_phase_epochs):
     """Train one phase of the curriculum."""
     ratios = PHASES[phase]["ratios"]
@@ -725,17 +785,14 @@ def train_one_phase(phase, n_phase_epochs):
     print(f'  Length mixing: short={ratios["short"]:.0%} medium={ratios["medium"]:.0%} long={ratios["long"]:.0%} xlong={ratios["xlong"]:.0%}')
 
     # [v4] Phase 0 (目标1): 3D pretrain on PDB-cyclized linear RNA.
-    # Data lives in a separate dir; if not generated yet, skip with guidance.
-    if phase == 0:
-        pdb_data_path = os.path.join(DEPLOY_ROOT, 'data', 'pdb_cyclized', 'consolidated.npz')
-        if not os.path.isfile(pdb_data_path):
-            print(f'  [skip] PDB 3D pretrain data not found: {pdb_data_path}')
-            print(f'         Run the PDB download+cyclize pipeline first (see torusfold-twostage-3d-pretrain-strategy memory).')
-            print(f'         Falling through to Phase 1 (CG-only training, no 3D prior).')
-            return float('inf'), []
-        print(f'  [目标1] Loading PDB-cyclized 3D data: {pdb_data_path}')
-        # TODO: load pdb bucket_groups here once the cyclize pipeline produces data
-        # For now, fall through using the global CG bucket_groups as a stub.
+    # Data source was already swapped to PDB by load_pdb_phase0_data() in the
+    # main loop (globals now point at the cyclized set). Only guard: if the
+    # pipeline never ran, fall through to CG-only training (no 3D prior).
+    if phase == 0 and not os.path.isfile(PDB_NPZ):
+        print(f'  [skip] PDB 3D pretrain data not found: {PDB_NPZ}')
+        print(f'         Run the PDB download+cyclize pipeline first (see torusfold-twostage-3d-pretrain-strategy memory).')
+        print(f'         Falling through to Phase 1 (CG-only training, no 3D prior).')
+        return float('inf'), []
 
     best_val = float('inf')
     phase_history = []
@@ -1009,7 +1066,14 @@ def train_one_phase(phase, n_phase_epochs):
 # ═══════════════════════════════════════════════════════════════
 
 all_history = []
+cg_state = None
 for phase in range(0, 5):  # [v4] Phase 0 = PDB 3D pretrain (目标1), 1-4 = CG circRNA (目标2)
+    # [v4] Phase 0 data source switch: PDB cyclized 3D → CG circRNA
+    if phase == 0 and os.path.isfile(PDB_NPZ):
+        cg_state = load_pdb_phase0_data()
+    elif phase == 1 and cg_state is not None:
+        restore_cg_data(cg_state)
+        cg_state = None
     n_ep = DEFAULT_PHASE_EPOCHS[phase]
     best_val, history = train_one_phase(phase, n_ep)
     all_history.append({'phase': phase, 'best_val': best_val, 'history': history})

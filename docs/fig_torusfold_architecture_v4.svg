@@ -28,9 +28,16 @@
 <text x="820" y="49" text-anchor="middle" font-size="8" fill="#52514e">动态锚点·坐标扩散·废弃Rodrigues头</text>
 
 <rect x="370" y="76" width="200" height="44" rx="6" fill="#fcfcfb" stroke="#0b0b0b" stroke-opacity="0.3" stroke-width="1"/>
-<text x="470" y="98" text-anchor="middle" font-size="13" font-weight="600" fill="#0b0b0b">circRNA 序列</text>
-<text x="470" y="113" text-anchor="middle" font-size="10" fill="#52514e">one-hot tokens · L×5 · pair_probs (ViennaRNA bpp)</text>
+<text x="470" y="98" text-anchor="middle" font-size="13" font-weight="600" fill="#0b0b0b">RNA 序列</text>
+<text x="470" y="113" text-anchor="middle" font-size="10" fill="#52514e">one-hot tokens · L×5 · pair_probs</text>
 <line x1="470" y1="120" x2="470" y2="138" stroke="#0b0b0b" stroke-opacity="0.5" stroke-width="1.5" marker-end="url(#a-black)"/>
+<rect x="60" y="76" width="290" height="86" rx="5" fill="url(#v4Fill)" stroke="#7c3aed" stroke-opacity="0.5" stroke-width="1.2" stroke-dasharray="4,3"/>
+<text class="v4-tag" x="72" y="93">[v4.1] 两阶段数据源</text>
+<text x="205" y="110" text-anchor="middle" font-size="8.5" font-weight="600" fill="#7c3aed">Phase 0 (目标1): PDB 环化 3D 预训练</text>
+<text x="205" y="124" text-anchor="middle" font-size="7.5" fill="#52514e">data/pdb_cyclized · 5607 条 · 真实 3D (z_span 52.8Å)</text>
+<text x="205" y="137" text-anchor="middle" font-size="7.5" fill="#52514e">RNAsolo+NAKB → RCSB → C3' 环化 → geom pair_probs</text>
+<text x="205" y="150" text-anchor="middle" font-size="8" font-weight="600" fill="#0b0b0b">Phase 1-4 (目标2): circrna_3d_all 82106 条 (CG)</text>
+<line x1="350" y1="119" x2="370" y2="98" stroke="#7c3aed" stroke-width="1.2" stroke-dasharray="3,2" marker-end="url(#a-anchor)"/>
 
 <rect x="250" y="144" width="440" height="72" rx="6" fill="url(#fixFill)" stroke="#0ca30c" stroke-opacity="0.4" stroke-width="1.3"/>
 <text class="v2-tag" x="262" y="160">[v2] ROCm SafeParameter + 手性感知</text>
@@ -141,16 +148,18 @@
 <text x="493" y="1124" text-anchor="middle" font-size="7" fill="#898781">time_embed: 1→64→64 SiLU</text>
 <text x="493" y="1140" text-anchor="middle" font-size="7" fill="#898781">α_bar 向量化</text>
 
-<rect x="578" y="1040" width="150" height="120" rx="4" fill="url(#anchorFill)" stroke="#db2777" stroke-opacity="0.5" stroke-width="1.2"/>
-<text class="anchor-tag" x="653" y="1058" text-anchor="middle">[v4] AnchorScorer</text>
+<rect x="578" y="1040" width="150" height="122" rx="4" fill="url(#anchorFill)" stroke="#db2777" stroke-opacity="0.5" stroke-width="1.2"/>
+<text class="anchor-tag" x="653" y="1058" text-anchor="middle">[v4.1] AnchorScorer</text>
 <text x="653" y="1072" text-anchor="middle" font-size="8" fill="#52514e">MLP(D→D/4→1)</text>
 <text x="653" y="1084" text-anchor="middle" font-size="8" fill="#db2777">key→scores[B,L]</text>
-<text x="653" y="1096" text-anchor="middle" font-size="8" fill="#db2777">hotspot=pair_probs.sum(-1)</text>
-<text x="653" y="1108" text-anchor="middle" font-size="7" fill="#898781">BSJ flank 设 -inf</text>
-<text x="653" y="1120" text-anchor="middle" font-size="7" fill="#898781">hard top-K 不可微</text>
-<text x="653" y="1138" text-anchor="middle" font-size="7" fill="#db2777">MSE 监督 = anchor_aux</text>
-<line x1="578" y1="1098" x2="408" y2="1098" stroke="#db2777" stroke-width="1.2" stroke-dasharray="3,2" marker-end="url(#a-anchor)"/>
-<text x="493" y="1091" text-anchor="middle" font-size="7" fill="#db2777">select</text>
+<text x="653" y="1096" text-anchor="middle" font-size="7.5" fill="#db2777">hotspot=Σ(pair_hb)</text>
+<text x="653" y="1108" text-anchor="middle" font-size="7" fill="#898781">[v4.1] CRBPSA 氢键</text>
+<text x="653" y="1118" text-anchor="middle" font-size="7" fill="#898781">A-U=2 · G-C=3 · G-U=0.8</text>
+<text x="653" y="1129" text-anchor="middle" font-size="7" fill="#898781">× [LAMA] 3通道融合</text>
+<text x="653" y="1140" text-anchor="middle" font-size="7" fill="#898781">hotspot+密度+连通 · top-K</text>
+<text x="653" y="1156" text-anchor="middle" font-size="7.5" fill="#db2777">MSE 监督 = anchor_aux (0.5)</text>
+<line x1="578" y1="1110" x2="408" y2="1110" stroke="#db2777" stroke-width="1.2" stroke-dasharray="3,2" marker-end="url(#a-anchor)"/>
+<text x="493" y="1103" text-anchor="middle" font-size="7" fill="#db2777">select</text>
 
 <rect x="118" y="1170" width="610" height="78" rx="4" fill="#fcfcfb" stroke="#7c3aed" stroke-opacity="0.35" stroke-width="1.2"/>
 <text x="423" y="1188" text-anchor="middle" font-size="10" font-weight="600" fill="#7c3aed">扩散输出 — 两条路径 (无 Rodrigues, 直出坐标)</text>
@@ -208,8 +217,8 @@
 <text x="855" y="1362" text-anchor="middle" font-size="8" fill="#52514e">构象系综挑选</text>
 <text x="855" y="1380" text-anchor="middle" font-size="7" fill="#eda100" font-weight="600">[规划] 精修回路</text>
 
-<text x="470" y="1430" text-anchor="middle" font-size="9" fill="#7c3aed" font-weight="600">v4 关键变更: 扩散直出 (B,L,3) 坐标 (废弃 Rodrigues 头) · 动态锚点 (pair_probs 热点 top-K) · Kendall UW (6项可学习σ²) · Stop-Gradient (P1前25%冻结Encoder)</text>
+<text x="470" y="1430" text-anchor="middle" font-size="9" fill="#7c3aed" font-weight="600">v4.1 关键变更: 扩散直出 (B,L,3) · 动态锚点 + LAMA 3通道融合 · CRBPSA 氢键加权 (A-U=2 G-C=3 G-U=0.8) · Kendall UW · Stop-Gradient · 两阶段数据管线</text>
 <text x="470" y="1446" text-anchor="middle" font-size="9" fill="#898781">Config: d_model=256 · d_inv=64 · d_eq=32 · n_layers=4 · K=60 · n_diffusion=20 · d_coord_hidden=128 · window=256 · n_anchors=128 · bsj_flank=32</text>
-<text x="470" y="1462" text-anchor="middle" font-size="8" fill="#898781">数据: circrna_3d_all 82106 条 · pair_probs 50% (21/42 shard) · Loss 含 13 项 + anchor_aux(0.5)</text>
-<text x="470" y="1478" text-anchor="middle" font-size="8" fill="#898781">痛点①梯度链: Stop-Gradient (P1前25%) 切断 · 痛点②手工权重: Kendall UW 6项可学习σ² · 痛点③Rodrigues: v4废弃头已消解</text>
+<text x="470" y="1462" text-anchor="middle" font-size="8" fill="#898781">Phase 0 数据: PDB 环化 5607 条 (RNAsolo+NAKB→RCSB→C3'环化, z_span 52.8Å) · Phase 1-4: circrna_3d_all 82106 条 · pair_probs 50%</text>
+<text x="470" y="1478" text-anchor="middle" font-size="8" fill="#898781">痛点①梯度链: Stop-Gradient (P1前25%) · 痛点②手工权重: Kendall UW · 痛点③扁平CG数据: PDB 环化 3D 预训练 (Phase 0 探针 acc 50.3%→85.3% 验证通过)</text>
 </svg>
