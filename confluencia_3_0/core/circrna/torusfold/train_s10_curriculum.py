@@ -285,21 +285,14 @@ if os.path.isfile(npz_path):
         pp_data = np.load(pair_probs_path, allow_pickle=True)
         pp_ids = {str(x): i for i, x in enumerate(pp_data['ids'])}
         pp_arr = pp_data['bp_probs']
+        # [mem] 不预解压全部 (160GB raw 会 OOM 在 120G 机器)。存 bytes 引用,
+        # collate 里按需解压单个 batch. 峰值内存 = 单 batch 的 [L,L] (~几十MB).
         pair_probs = []
-        for cid, meta_i in zip(ids_arr, meta):
+        for cid in ids_arr:
             idx = pp_ids.get(str(cid))
-            if idx is None:
-                pair_probs.append(None)
-                continue
-            val = pp_arr[idx]
-            if isinstance(val, bytes):  # gzip 压缩格式
-                L = meta_i['length']
-                pair_probs.append(
-                    np.frombuffer(gzip.decompress(val), dtype=np.float32).reshape(L, L))
-            else:
-                pair_probs.append(val)
+            pair_probs.append(pp_arr[idx] if idx is not None else None)
         n_pp = sum(1 for x in pair_probs if x is not None)
-        print(f'  pair_probs loaded: {n_pp}/{n} with data, {time.time()-t_pp:.2f}s')
+        print(f'  pair_probs loaded: {n_pp}/{n} with data (lazy, {time.time()-t_pp:.2f}s)')
     else:
         pair_probs = [None] * n
         logging.warning(f"pair_probs not found: {pair_probs_path}; "
@@ -414,6 +407,8 @@ def collate(indices):
         pp = t_pair_probs[i]
         if pp is not None:
             pp_mat = torch.zeros(max_L, max_L)
+            if isinstance(pp, bytes):  # gzip lazy-decompress this sample only
+                pp = np.frombuffer(gzip.decompress(pp), dtype=np.float32).reshape(L, L)
             pp_mat[:L, :L] = torch.tensor(pp[:L, :L], dtype=torch.float32)
         else:
             pp_mat = torch.zeros(max_L, max_L)
