@@ -78,12 +78,15 @@ if HAS_TORCH:
             self,
             coords: torch.Tensor,
             lengths: Optional[torch.Tensor] = None,
+            circular: Optional[torch.Tensor] = None,
         ) -> dict:
             """计算所有立体化学损失。
 
             Args:
                 coords: (B, L, 3) 预测坐标
                 lengths: (B,) 每个序列的实际长度
+                circular: (B,) 0/1 — 1=环化(BSJ键/闭环惩罚), 0=线性(跳过BSJ)。
+                          None → 全环化 (旧行为, CG数据全环化)。
 
             Returns:
                 losses: {
@@ -103,7 +106,7 @@ if HAS_TORCH:
             clash_loss = self._compute_clash_loss(coords, lengths)
 
             # Bond loss
-            bond_loss = self._compute_bond_loss(coords, lengths)
+            bond_loss = self._compute_bond_loss(coords, lengths, circular=circular)
 
             # Angle loss
             angle_loss = self._compute_angle_loss(coords, lengths)
@@ -172,8 +175,11 @@ if HAS_TORCH:
             self,
             coords: torch.Tensor,
             lengths: torch.Tensor,
+            circular: Optional[torch.Tensor] = None,
         ) -> torch.Tensor:
-            """Bond loss: 惩罚键长偏差。"""
+            """Bond loss: 惩罚键长偏差。
+            [v5] circular=0 的线性样本跳过 BSJ 键 (首尾不闭合, 加了会误导)。
+            """
             B, L, _ = coords.shape
             target = self.params["bond_length"]
 
@@ -190,11 +196,12 @@ if HAS_TORCH:
                 # 相邻键
                 bonds = torch.norm(c[1:] - c[:-1], dim=1)
 
-                # BSJ 键
-                bsj_bond = torch.norm(c[0] - c[-1])
-
-                # 所有键
-                all_bonds = torch.cat([bonds, bsj_bond.unsqueeze(0)])
+                # BSJ 键 — 仅环化样本 (circular None → 全环化, 旧行为)
+                if circular is None or circular[b] > 0:
+                    bsj_bond = torch.norm(c[0] - c[-1])
+                    all_bonds = torch.cat([bonds, bsj_bond.unsqueeze(0)])
+                else:
+                    all_bonds = bonds
 
                 # MSE
                 total_loss = total_loss + torch.mean((all_bonds - target) ** 2)
@@ -296,8 +303,12 @@ def get_stereo_loss_breakdown(
     coords: "torch.Tensor",
     lengths: Optional["torch.Tensor"] = None,
     params: Optional[dict] = None,
+    circular: Optional["torch.Tensor"] = None,
 ) -> dict:
     """便捷函数：获取各损失项的分解。
+
+    Args:
+        circular: (B,) 0/1 — 1=环化(BSJ惩罚), 0=线性(跳过BSJ)。None→全环化。
 
     Returns:
         {
@@ -312,7 +323,7 @@ def get_stereo_loss_breakdown(
         raise ImportError("PyTorch not available")
 
     stereo_loss = StereochemistryLoss(params)
-    return stereo_loss(coords, lengths)
+    return stereo_loss(coords, lengths, circular=circular)
 
 
 # ═══════════════════════════════════════════════════════════════

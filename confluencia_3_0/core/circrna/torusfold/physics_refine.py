@@ -26,17 +26,20 @@ BOND_LENGTH = 5.9  # Å, P-P backbone (matches stereochemistry_losses default)
 
 @torch.no_grad()
 def _project_bond_lengths(coords: torch.Tensor, lengths: torch.Tensor,
-                          bond_length: float = BOND_LENGTH) -> torch.Tensor:
+                          bond_length: float = BOND_LENGTH,
+                          circular: Optional[torch.Tensor] = None) -> torch.Tensor:
     """Rigid-ish bond-length projection: rescale each consecutive pair to bond_length.
 
     Greedy sequential projection (forward pass along the chain). Not a true
     rigid projection (that needs Lagrange/constraint solver) but converges
     fast and keeps bond error near zero after a few passes. Circular BSJ
-    bond (0, L-1) is also projected.
+    bond (0, L-1) is also projected — but only for circular samples
+    (linear RNA 首尾不闭合, 投影会错误折叠).
 
     Args:
         coords: (B, L, 3) — modified in place (returns same tensor)
         lengths: (B,) valid lengths
+        circular: (B,) 0/1 — None→全环化 (旧行为)
     """
     B = coords.shape[0]
     for b in range(B):
@@ -50,19 +53,22 @@ def _project_bond_lengths(coords: torch.Tensor, lengths: torch.Tensor,
             n = d.norm()
             if n > 1e-6:
                 c[i] = c[i - 1] + d * (bond_length / n)
-        # BSJ closure: pull c[0] and c[vL-1] to bond_length apart (split diff)
-        d_bsj = c[0] - c[vL - 1]
-        n_bsj = d_bsj.norm()
-        if n_bsj > 1e-6:
-            half = d_bsj * 0.5 * (1.0 - bond_length / n_bsj)
-            c[0] = c[0] - half
-            c[vL - 1] = c[vL - 1] + half
+        # BSJ closure: only for circular samples (linear 首尾不闭合)
+        if circular is None or circular[b] > 0:
+            d_bsj = c[0] - c[vL - 1]
+            n_bsj = d_bsj.norm()
+            if n_bsj > 1e-6:
+                half = d_bsj * 0.5 * (1.0 - bond_length / n_bsj)
+                c[0] = c[0] - half
+                c[vL - 1] = c[vL - 1] + half
     return coords
 
 
-def _energy(coords: torch.Tensor, lengths: torch.Tensor) -> torch.Tensor:
-    """Differentiable stereo energy (bond/angle/clash/dihedral) — scalar."""
-    breakdown = get_stereo_loss_breakdown(coords, lengths)
+def _energy(coords: torch.Tensor, lengths: torch.Tensor,
+            circular: Optional[torch.Tensor] = None) -> torch.Tensor:
+    """Differentiable stereo energy (bond/angle/clash/dihedral) — scalar.
+    [v5] circular: 1=环化(BSJ惩罚), 0=线性(跳过BSJ)。None→全环化。"""
+    breakdown = get_stereo_loss_breakdown(coords, lengths, circular=circular)
     return breakdown['total']
 
 
@@ -72,6 +78,7 @@ def refine_coords(coords: torch.Tensor,
                    lr: float = 0.5,
                    project_bonds: bool = True,
                    bond_length: float = BOND_LENGTH,
+                   circular: Optional[torch.Tensor] = None,
                    return_history: bool = False) -> torch.Tensor:
     """AF3-style lightweight physics refinement.
 
@@ -86,6 +93,7 @@ def refine_coords(coords: torch.Tensor,
         lr: Adam learning rate (default 0.5 Å — coarse, geometric-scale)
         project_bonds: if True, rigid-project bond lengths each step
         bond_length: target P-P distance (default 5.9 Å)
+        circular: (B,) 0/1 — 1=环化(BSJ约束), 0=线性(跳过BSJ)。None→全环化。
         return_history: if True, returns (coords, [energy per step])
 
     Returns:
@@ -107,7 +115,7 @@ def refine_coords(coords: torch.Tensor,
         opt = torch.optim.Adam([x], lr=lr)
         for step in range(n_steps):
             opt.zero_grad()
-            e = _energy(x, lengths)
+            e = _energy(x, lengths, circular=circular)
             e.backward()
             if x.grad is not None:
                 x.grad.mul_(mask_f)
@@ -115,7 +123,7 @@ def refine_coords(coords: torch.Tensor,
 
             if project_bonds:
                 with torch.no_grad():
-                    _project_bond_lengths(x, lengths, bond_length)
+                    _project_bond_lengths(x, lengths, bond_length, circular=circular)
             x = x.detach().requires_grad_(True)
             opt = torch.optim.Adam([x], lr=lr)
 

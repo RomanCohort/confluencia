@@ -93,11 +93,12 @@ class GlobalAnchorAttention(nn.Module):
     """Global anchor cross-attention with UNIFORM anchor placement: O(L·A)."""
 
     def __init__(self, d_model: int, n_heads: int = 4, n_anchors: int = 128,
-                 bsj_flank: int = 32, dropout: float = 0.1):
+                 bsj_flank: int = 32, dropout: float = 0.1, anchor_ratio: float = 0.1):
         super().__init__()
         self.n_heads = n_heads
         self.n_anchors = n_anchors
         self.bsj_flank = bsj_flank
+        self.anchor_ratio = anchor_ratio  # 长序列动态扩展: A = max(n_anchors, L*ratio)
         self.head_dim = d_model // n_heads
         assert d_model % n_heads == 0
         self.q_proj = nn.Linear(d_model, d_model, bias=False)
@@ -111,7 +112,8 @@ class GlobalAnchorAttention(nn.Module):
         B, L, D = query.shape
         device = query.device
         q = self.q_proj(query).view(B, L, self.n_heads, self.head_dim)
-        aidx = _global_anchor_indices(L, self.n_anchors, self.bsj_flank, device)
+        n_a = min(max(self.n_anchors, int(L * self.anchor_ratio)), L)
+        aidx = _global_anchor_indices(L, n_a, self.bsj_flank, device)
         A = aidx.shape[0]
         ka = self.k_proj(key[:, aidx, :]).view(B, A, self.n_heads, self.head_dim)
         va = self.v_proj(value[:, aidx, :]).view(B, A, self.n_heads, self.head_dim)
@@ -148,11 +150,12 @@ class DynamicGlobalAnchorAttention(nn.Module):
     """
 
     def __init__(self, d_model: int, n_heads: int = 4, n_anchors: int = 128,
-                 bsj_flank: int = 32, dropout: float = 0.1):
+                 bsj_flank: int = 32, dropout: float = 0.1, anchor_ratio: float = 0.1):
         super().__init__()
         self.n_heads = n_heads
         self.n_anchors = n_anchors
         self.bsj_flank = bsj_flank
+        self.anchor_ratio = anchor_ratio  # 长序列动态扩展: A = max(n_anchors, L*ratio)
         self.head_dim = d_model // n_heads
         assert d_model % n_heads == 0
         self.q_proj = nn.Linear(d_model, d_model, bias=False)
@@ -183,9 +186,12 @@ class DynamicGlobalAnchorAttention(nn.Module):
         # Per-position anchor importance from key features
         anchor_scores = self.anchor_scorer(key).squeeze(-1)  # [B, L]
 
+        # [v5] Dynamic anchor count: A grows with L so long sequences keep
+        # coverage instead of saturating a fixed 128.  A = max(n_anchors, L*ratio).
+        A = min(max(self.n_anchors, int(L * self.anchor_ratio)), L)
+
         # Hard top-K anchor selection (no grad through indices)
-        hard_idx = self._select_dynamic_anchors(anchor_scores, L, device)  # [B, A]
-        A = hard_idx.shape[1]
+        hard_idx = self._select_dynamic_anchors(anchor_scores, A, device)  # [B, A]
         D_idx = hard_idx.unsqueeze(-1).expand(-1, -1, D)
         ka = self.k_proj(key.gather(1, D_idx)).view(B, A, self.n_heads, self.head_dim)
         va = self.v_proj(value.gather(1, D_idx)).view(B, A, self.n_heads, self.head_dim)
@@ -255,14 +261,19 @@ class DynamicGlobalAnchorAttention(nn.Module):
         return F.mse_loss(scores_norm, target)
 
     @torch.no_grad()
-    def _select_dynamic_anchors(self, scores: torch.Tensor, L: int,
+    def _select_dynamic_anchors(self, scores: torch.Tensor, A: int,
                                 device: torch.device) -> torch.Tensor:
         """Per-sample top-K anchor selection with BSJ flank priority.
 
+        Args:
+            scores: [B, L] anchor importance scores
+            A: number of anchors to select (computed by forward as
+               min(max(self.n_anchors, L*anchor_ratio), L))
         Returns: [B, A] long tensor of anchor indices.
         """
         B = scores.shape[0]
-        A = min(self.n_anchors, L)
+        L = scores.shape[1]
+        A = min(A, L)
         half = max(1, self.bsj_flank)
 
         # BSJ flanks: always included
@@ -276,7 +287,8 @@ class DynamicGlobalAnchorAttention(nn.Module):
 
         remaining = A - n_bsj
         if remaining <= 0:
-            return bsj_tensor.unsqueeze(0).expand(B, -1).contiguous()
+            # A ≤ n_bsj: BSJ flanks alone fill the budget; trim to A
+            return bsj_tensor[:A].unsqueeze(0).expand(B, -1).contiguous()
 
         # Mask out BSJ positions from dynamic selection
         mask = torch.ones(L, dtype=torch.bool, device=device)
@@ -307,7 +319,8 @@ class MixedHybridAttention(nn.Module):
 
     def __init__(self, d_model: int, n_layers: int = 4, n_heads: int = 4,
                  window: int = 256, n_anchors: int = 128, bsj_flank: int = 32,
-                 dropout: float = 0.1, use_dynamic_anchors: bool = False):
+                 dropout: float = 0.1, use_dynamic_anchors: bool = False,
+                 anchor_ratio: float = 0.1):
         super().__init__()
         self.layers = nn.ModuleList()
         self.norms = nn.ModuleList()
@@ -320,11 +333,13 @@ class MixedHybridAttention(nn.Module):
                 if use_dynamic_anchors:
                     self.layers.append(DynamicGlobalAnchorAttention(
                         d_model, n_heads, n_anchors=n_anchors,
-                        bsj_flank=bsj_flank, dropout=dropout))
+                        bsj_flank=bsj_flank, dropout=dropout,
+                        anchor_ratio=anchor_ratio))
                 else:
                     self.layers.append(GlobalAnchorAttention(
                         d_model, n_heads, n_anchors=n_anchors,
-                        bsj_flank=bsj_flank, dropout=dropout))
+                        bsj_flank=bsj_flank, dropout=dropout,
+                        anchor_ratio=anchor_ratio))
             self.norms.append(nn.LayerNorm(d_model))
 
     def forward(self, query: torch.Tensor,

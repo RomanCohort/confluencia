@@ -29,6 +29,7 @@ RAW_DIR = DEPLOY_ROOT / 'data' / 'pdb_raw'
 OUTPUT = IN_DIR / 'consolidated.npz'
 
 MIN_LEN, MAX_LEN = 20, 500
+LINEAR_DIR = DEPLOY_ROOT / 'data' / 'pdb_rna_c3prime'  # 线性 RNA C3'（未环化）
 
 # Same RNA residue set as harvest_pdb_rna.filter_rna_chains.
 RNA_RES = {
@@ -106,25 +107,10 @@ def extract_chain_seq_bio(pdb_id: str, chain_id: str) -> str | None:
     return None
 
 
-def main():
-    print('=' * 60)
-    print('  Consolidate PDB-cyclized RNA to consolidated.npz')
-    print('=' * 60)
-    print(f'Input:  {IN_DIR}')
-
-    files = sorted(IN_DIR.glob('*.npy'))
-    print(f'Found {len(files)} cyclized .npy files')
-
-    # Cache: {pdbid: {chain: seq}} — each PDB read exactly once.
-    t0 = time.time()
-    pdb_cache: dict = {}
-    for f in files:
-        pdb_id = f.stem.rsplit('_', 1)[0]
-        if pdb_id not in pdb_cache:
-            pdb_cache[pdb_id] = extract_chains_seqs(pdb_id)
-    print(f'Cached {len(pdb_cache)} unique PDBs in {time.time()-t0:.1f}s')
-
-    ids, lengths, coords_list, seqs = [], [], [], []
+def _pack_dir(files, pdb_cache, circ_label: int):
+    """Pack one directory's .npy files. Returns (ids, lengths, coords, seqs, is_circular).
+    circ_label: 1 for cyclized (pseudo-circRNA), 0 for linear RNA."""
+    ids, lengths, coords_list, seqs, circs = [], [], [], [], []
     bad = n_fallback = 0
     t1 = time.time()
     for i, f in enumerate(files):
@@ -149,14 +135,46 @@ def main():
             lengths.append(L)
             coords_list.append(arr.astype(np.float32))
             seqs.append(s)
+            circs.append(circ_label)
         except Exception:
             bad += 1
             continue
         if (i + 1) % 1000 == 0:
             print(f'  [{i+1}/{len(files)}] ok={len(coords_list)} bad={bad} seq_fallback={n_fallback} ({time.time()-t1:.1f}s)')
+    return ids, lengths, coords_list, seqs, circs, bad, n_fallback
+
+
+def main(include_linear: bool = True):
+    print('=' * 60)
+    print('  Consolidate PDB RNA (cyclized + linear) to consolidated.npz')
+    print('=' * 60)
+    print(f'Input:  {IN_DIR} (cyclized)  +  {LINEAR_DIR} (linear, {"ON" if include_linear else "OFF"})')
+
+    files = sorted(IN_DIR.glob('*.npy'))
+    files_lin = sorted(LINEAR_DIR.glob('*.npy')) if include_linear else []
+    print(f'Found {len(files)} cyclized + {len(files_lin)} linear .npy files')
+
+    # Cache: {pdbid: {chain: seq}} — each PDB read exactly once.
+    t0 = time.time()
+    pdb_cache: dict = {}
+    for f in files + files_lin:
+        pdb_id = f.stem.rsplit('_', 1)[0]
+        if pdb_id not in pdb_cache:
+            pdb_cache[pdb_id] = extract_chains_seqs(pdb_id)
+    print(f'Cached {len(pdb_cache)} unique PDBs in {time.time()-t0:.1f}s')
+
+    ids, lengths, coords_list, seqs, circs, bad, n_fb = [], [], [], [], [], 0, 0
+    r = _pack_dir(files, pdb_cache, circ_label=1)
+    ids += r[0]; lengths += r[1]; coords_list += r[2]; seqs += r[3]; circs += r[4]
+    bad += r[5]; n_fb += r[6]
+    if files_lin:
+        r2 = _pack_dir(files_lin, pdb_cache, circ_label=0)
+        ids += r2[0]; lengths += r2[1]; coords_list += r2[2]; seqs += r2[3]; circs += r2[4]
+        bad += r2[5]; n_fb += r2[6]
 
     n = len(coords_list)
-    print(f'Packed {n} samples, {bad} skipped, {n_fallback} seq fallback in {time.time()-t1:.1f}s')
+    n_circ = sum(1 for c in circs if c == 1)
+    print(f'Packed {n} samples ({n_circ} circular, {n-n_circ} linear), {bad} skipped, {n_fb} seq fallback')
 
     max_L = max(lengths)
     coords_padded = np.zeros((n, max_L, 3), dtype=np.float32)
@@ -170,6 +188,7 @@ def main():
         lengths=np.array(lengths, dtype=np.int32),
         coords=coords_padded,
         seqs=np.array(seqs, dtype=object),
+        is_circular=np.array(circs, dtype=np.int8),   # 1=环化, 0=线性
     )
     print(f'Saved: {OUTPUT} ({OUTPUT.stat().st_size/1e6:.1f} MB)')
 
@@ -181,4 +200,8 @@ def main():
 
 
 if __name__ == '__main__':
-    main()
+    import argparse
+    ap = argparse.ArgumentParser()
+    ap.add_argument('--no-linear', action='store_true', help='exclude linear RNA (cyclized only)')
+    args = ap.parse_args()
+    main(include_linear=not args.no_linear)

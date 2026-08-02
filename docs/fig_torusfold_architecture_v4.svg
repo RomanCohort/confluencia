@@ -219,6 +219,6 @@
 
 <text x="470" y="1430" text-anchor="middle" font-size="9" fill="#7c3aed" font-weight="600">v4.1 关键变更: 扩散直出 (B,L,3) · 动态锚点 + LAMA 3通道融合 · CRBPSA 氢键加权 (A-U=2 G-C=3 G-U=0.8) · Kendall UW · Stop-Gradient · 两阶段数据管线</text>
 <text x="470" y="1446" text-anchor="middle" font-size="9" fill="#898781">Config: d_model=256 · d_inv=64 · d_eq=32 · n_layers=4 · K=60 · n_diffusion=20 · d_coord_hidden=128 · window=256 · n_anchors=128 · bsj_flank=32</text>
-<text x="470" y="1462" text-anchor="middle" font-size="8" fill="#898781">Phase 0 数据: PDB 环化 5607 条 (RNAsolo+NAKB→RCSB→C3'环化, z_span 52.8Å) · Phase 1-4: circrna_3d_all 82106 条 · pair_probs 50%</text>
-<text x="470" y="1478" text-anchor="middle" font-size="8" fill="#898781">痛点①梯度链: Stop-Gradient (P1前25%) · 痛点②手工权重: Kendall UW · 痛点③扁平CG数据: PDB 环化 3D 预训练 (Phase 0 探针 acc 50.3%→85.3% 验证通过)</text>
+<text x="470" y="1462" text-anchor="middle" font-size="8" fill="#898781">Phase 0 数据: PDB 环化+线性 11214 条 (5607 环化伪circRNA + 5607 线性 RNA, C3' 坐标, z_span 52.8Å) · Phase 1-4: circrna_3d_all 82106 条 · pair_probs 50%</text>
+<text x="470" y="1478" text-anchor="middle" font-size="8" fill="#898781">v5: anchor 动态扩展 (A=max(128, L×0.1)) · 线性 RNA circular_mask 感知 (closure/BSJ 按 is_circular 跳过) · MC-Dropout UQ 修复 · normalization [B,1,1] 修复 · 推理 refine_steps 20→100</text>
 </svg>

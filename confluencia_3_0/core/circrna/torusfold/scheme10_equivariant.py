@@ -110,6 +110,9 @@ class EquivariantS10Config:
 
     # v4.1: 动态锚点选择（AF3 思想，基于 pair_probs 热点）
     use_dynamic_anchors: bool = True  # 默认打开：DynamicGlobalAnchorAttention
+    # [v5] 长序列动态扩展: A = max(n_anchors, L*ratio)。固定 128 在 L>1280nt
+    # 时覆盖率不足，长 circRNA 会漏关键折叠信号。
+    anchor_ratio: float = 0.1
 
     # V2: 接触图辅助任务
     use_contact_aux: bool = False
@@ -513,6 +516,7 @@ class StrictlyEquivariantS10(nn.Module):
                 n_steps=config.n_diffusion_steps,
                 cfg_dropout_prob=config.cfg_dropout_prob,
                 use_dynamic_anchors=config.use_dynamic_anchors,
+                anchor_ratio=getattr(config, 'anchor_ratio', 0.1),
             )
         else:
             self.coord_diffusion = None
@@ -550,7 +554,7 @@ class StrictlyEquivariantS10(nn.Module):
         return_coords: bool = False,
         lengths: Optional[torch.Tensor] = None,
         refine: bool = False,
-        refine_steps: int = 20,
+        refine_steps: int = 100,
     ) -> Tuple[torch.Tensor, torch.Tensor, Optional[torch.Tensor]]:
         """
         v4: 训练时走坐标扩散，推理时走 DDIM 生成。
@@ -563,7 +567,7 @@ class StrictlyEquivariantS10(nn.Module):
             return_coords : 训练时是否额外返回 coords（默认只返回 loss）
             lengths       : (B,) 有效长度。推理精修必需（padding 不动）
             refine        : 推理时是否跑 AF3 式轻量物理精修（键长/键角/位阻/二面角）
-            refine_steps  : 精修步数
+            refine_steps  : 精修步数（默认 100，比 20 更充分吸收局部 clash）
 
         Returns:
             - 训练: (diffusion_loss, pred_coords_or_None, contact_pred)
@@ -623,7 +627,11 @@ class StrictlyEquivariantS10(nn.Module):
                     pred_coords = self.coord_diffusion.generate(
                         cond_inv_d, cond_eq_d,
                     )
-            elif not self.training:
+            elif not self.training or return_coords:
+                # MC-Dropout (model.train() + return_loss=False + no target) also
+                # needs generation — UQ estimation in train_s10_curriculum calls
+                # model(seq_ids, return_loss=False) in train() mode with dropout
+                # active. Without this, pred_coords stays None → UQ crashes.
                 pred_coords = self.coord_diffusion.generate(
                     cond_inv_d, cond_eq_d,
                 )

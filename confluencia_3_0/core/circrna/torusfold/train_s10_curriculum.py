@@ -170,7 +170,7 @@ def estimate_bucket_uncertainty(bucket_groups, model, collate, device,
             preds_list = []
             with torch.no_grad():
                 for _ in range(mc_n):
-                    pred = model(seq_ids, return_loss=False)
+                    pred = model(seq_ids, return_loss=False, return_coords=True)
                     preds_list.append(pred)
             preds = torch.stack(preds_list, dim=0)  # [K, B_eff, L, 3]
 
@@ -324,14 +324,17 @@ bsj_geom_loss_single = BSJGeometryLoss(
     angle_weight=2.0, dihedral_weight=1.0, distance_weight=5.0,
 )
 
-def bsj_geom_loss_batched(p_denorm, lengths):
-    """Compute BSJ geometry loss for a batch of samples."""
+def bsj_geom_loss_batched(p_denorm, lengths, circular_mask=None):
+    """Compute BSJ geometry loss for a batch of samples.
+    [v5] circular_mask: 0=线性样本, 跳过 (无 BSJ)."""
     B = p_denorm.shape[0]
     total = torch.tensor(0.0, device=device)
     valid = 0
     for b in range(B):
         L = int(lengths[b].item())
         if L < 4: continue
+        if circular_mask is not None and circular_mask[b] <= 0:
+            continue  # 线性样本无 BSJ
         coords = p_denorm[b, :L]  # (L, 3)
         bsj_indices = torch.tensor([0, L-1], device=device)
         val = bsj_geom_loss_single(coords, bsj_indices)
@@ -405,7 +408,8 @@ print()
 # Loss computation (all ABC+D, verified in train_s10_82k.py)
 # ═══════════════════════════════════════════════════════════════
 
-def compute_all_losses(p_denorm, seq_ids, target, lengths, pair_probs, model=None):
+def compute_all_losses(p_denorm, seq_ids, target, lengths, pair_probs, model=None,
+                       circular_mask=None):
     """Compute all ABC+D loss terms. Returns (total_loss, loss_dict).
 
     Args:
@@ -414,8 +418,14 @@ def compute_all_losses(p_denorm, seq_ids, target, lengths, pair_probs, model=Non
                geometry+physics terms (coord/bond/stereo/physics_pairing/
                contact_aux/physics_bridge) via model.uncertainty_log_vars.
                Other terms keep fixed LOSS_WEIGHTS.
+        circular_mask: [B] float 0/1 — 1=环化样本(BSJ闭合约束), 0=线性样本
+               (跳过 closure / BSJ bond 惩罚, 因为线性 RNA 首尾本就不闭合)。
+               None → 全按环化 (旧行为, CG 数据全环化)。
     """
     B, Lc, _ = p_denorm.shape  # Bc == B
+    if circular_mask is None:
+        circular_mask = torch.ones(B, device=device)
+    circular_mask = circular_mask.to(device).float()
     loss = torch.tensor(0.0, device=device)
     loss_dict = {}
 
@@ -439,8 +449,12 @@ def compute_all_losses(p_denorm, seq_ids, target, lengths, pair_probs, model=Non
 
     # Pre-compute normalized coords (mask padding per sample)
     valid_mask = torch.arange(Lc, device=device).unsqueeze(0) < lengths.unsqueeze(-1)  # [B, Lc]
-    t_sum = (target * valid_mask.unsqueeze(-1)).sum(dim=1, keepdim=True) / valid_mask.sum(dim=-1, keepdim=True).clamp(min=1)
-    p_sum = (p_denorm * valid_mask.unsqueeze(-1)).sum(dim=1, keepdim=True) / valid_mask.sum(dim=-1, keepdim=True).clamp(min=1)
+    # [v5 fix] denominator must be [B,1,1], not [B,1] — torch left-aligns [B,1]
+    # when dividing [B,1,3]/[B,1] → [B,B,3] (silent broadcast bug: t_sum became
+    # [B,B,3], corrupting normalization whenever B≠1).
+    n_valid = valid_mask.sum(dim=-1).clamp(min=1).unsqueeze(-1).unsqueeze(-1)  # [B,1,1]
+    t_sum = (target * valid_mask.unsqueeze(-1)).sum(dim=1, keepdim=True) / n_valid
+    p_sum = (p_denorm * valid_mask.unsqueeze(-1)).sum(dim=1, keepdim=True) / n_valid
     t_c = target - t_sum
     t_scale = torch.norm(t_c * valid_mask.unsqueeze(-1), dim=(1, 2), keepdim=True).clamp(min=1.0)
     t_norm = t_c / t_scale
@@ -460,11 +474,15 @@ def compute_all_losses(p_denorm, seq_ids, target, lengths, pair_probs, model=Non
         loss_dict['coord_sigma2'] = float(np.exp(lv)); loss_dict['coord_prec'] = p
 
     # 2. Closure loss (P9 fix: use true last residue per sample, not padded tail)
+    # [v5] 线性样本(circular_mask=0)跳过 — 首尾本就不闭合, 惩罚会误导。
     last_idx = (lengths - 1).clamp(min=0).long()  # [B]
     last_coords = p_denorm[torch.arange(B, device=device), last_idx]  # [B, 3]
     closure_dists = torch.norm(p_denorm[:, 0] - last_coords, dim=-1)
-    cm = torch.where(lengths >= 2, 1.0, 0.0).to(device)
-    closure_loss = (cm * (closure_dists - 5.9) ** 2).sum() / cm.sum().clamp(min=1.0)
+    cm = torch.where(lengths >= 2, 1.0, 0.0).to(device) * circular_mask
+    if cm.sum() > 0:
+        closure_loss = (cm * (closure_dists - 5.9) ** 2).sum() / cm.sum().clamp(min=1.0)
+    else:
+        closure_loss = torch.tensor(0.0, device=device)
     loss = loss + closure_loss * LOSS_WEIGHTS['closure']
     loss_dict['closure'] = closure_loss.item()
 
@@ -474,8 +492,12 @@ def compute_all_losses(p_denorm, seq_ids, target, lengths, pair_probs, model=Non
         vL = int(lengths[b].item())
         if vL < 4: continue
         bonds = torch.norm(p_denorm[b, 1:vL] - p_denorm[b, :vL - 1], dim=-1)
-        bsj = torch.norm(p_denorm[b, 0] - p_denorm[b, vL - 1])
-        all_b = torch.cat([bonds, bsj.unsqueeze(0)])
+        # [v5] BSJ 键只对环化样本惩罚 (线性首尾不闭合)
+        if circular_mask[b] > 0:
+            bsj = torch.norm(p_denorm[b, 0] - p_denorm[b, vL - 1])
+            all_b = torch.cat([bonds, bsj.unsqueeze(0)])
+        else:
+            all_b = bonds
         # Manual MSE
         bond_loss += ((all_b - 5.9) ** 2).mean()
         nb += 1
@@ -488,7 +510,7 @@ def compute_all_losses(p_denorm, seq_ids, target, lengths, pair_probs, model=Non
 
     # 4. Stereochemistry loss
     try:
-        stereo_result = get_stereo_loss_breakdown(p_denorm, lengths)
+        stereo_result = get_stereo_loss_breakdown(p_denorm, lengths, circular=circular_mask)
         stereo_total = stereo_result['total']
         w, p, lv = uw_add('stereo', stereo_total)
         loss = loss + w
@@ -751,11 +773,15 @@ def load_pdb_phase0_data():
                 dict(bucket_groups), seqs, coords, meta, list(val_idx))
     data = np.load(PDB_NPZ, allow_pickle=True)
     ids_a, lens_a, coords_a, seqs_a = data['ids'], data['lengths'], data['coords'], data['seqs']
+    # [v5] is_circular: 1=cyclized (pseudo-circRNA), 0=linear RNA. 旧 npz 无此字段时
+    # 默认全视为环化（兼容）。
+    circ_a = data['is_circular'] if 'is_circular' in data else np.ones(len(lens_a), dtype=np.int8)
     n = len(lens_a)
     seqs = [str(s) for s in seqs_a]
     coords = [np.asarray(coords_a[i, :int(l)], dtype=np.float32)
               for i, l in enumerate(lens_a)]
-    meta = [{'id': str(ids_a[i]), 'length': int(l)} for i, l in enumerate(lens_a)]
+    meta = [{'id': str(ids_a[i]), 'length': int(l),
+             'is_circular': int(circ_a[i])} for i, l in enumerate(lens_a)]
     # PDB pretrain uses all samples (no train/val split); val = last 50.
     t_seq, t_coords, t_meta = seqs, coords, meta
     t_pair_probs = _geom_pair_probs(coords, lens_a)
@@ -764,7 +790,8 @@ def load_pdb_phase0_data():
         bucket_groups[length_bucket(int(lens_a[i]))].append(i)
     val_idx = list(range(max(0, n - 50), n))
     nb = {k: len(v) for k, v in sorted(bucket_groups.items())}
-    print(f'  [PDB Phase 0] {n} cyclized samples loaded, buckets={nb}')
+    n_circ = sum(1 for m in meta if m.get('is_circular', 1))
+    print(f'  [PDB Phase 0] {n} samples loaded ({n_circ} circular, {n-n_circ} linear), buckets={nb}')
     return cg_state
 
 
@@ -870,7 +897,14 @@ def train_one_phase(phase, n_phase_epochs):
                 p_denorm = p_c / p_scale * t_scale + t_sum
 
                 # All ABC+D losses (geometric regularizers on x0_pred)
-                loss, loss_dict = compute_all_losses(p_denorm, seq_ids, target, lengths, batch_pp, model=model)
+                # [v5] circular_mask: Phase 0 PDB 混合环化/线性时, 线性样本跳过
+                # closure/BSJ 惩罚. CG 数据(Phase 1-4) meta 无 is_circular → 全环化.
+                circ_mask = torch.tensor(
+                    [float(meta[i].get('is_circular', 1)) for i in batch_indices],
+                    device=device)
+                loss, loss_dict = compute_all_losses(
+                    p_denorm, seq_ids, target, lengths, batch_pp,
+                    model=model, circular_mask=circ_mask)
 
                 # Diffusion loss (primary — direct 3D coordinate MSE)
                 if diff_loss is not None:
@@ -903,7 +937,7 @@ def train_one_phase(phase, n_phase_epochs):
                 # BSJ geometry loss (dynamic weight, decays over phase)
                 if bsj_weight > 0:
                     try:
-                        bsj_loss_val = bsj_geom_loss_batched(p_denorm, lengths)
+                        bsj_loss_val = bsj_geom_loss_batched(p_denorm, lengths, circ_mask)
                         if not torch.isnan(bsj_loss_val):
                             loss = loss + bsj_loss_val * bsj_weight
                             loss_dict['bsj_geometry'] = bsj_loss_val.item()
