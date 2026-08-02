@@ -488,7 +488,19 @@ __all__ = ["MixedHybridAttention", "SlidingWindowAttention", "GlobalAnchorAttent
 # ══════════════════════════════════════════════════════════════════════════════
 
 class StrictlyEquivariantS10(nn.Module):
-    """完整等变 S10 模型"""
+    """完整等变 S10 模型
+
+    ⚠️ 等变范围澄清（避免过度承诺）:
+    - **局部严格 SO(2) 等变**: SparseSO2SteerableKernel 的 Top-K 邻居选择基于
+      循环相对位置 + 序列复杂度（与旋转无关），SO(2) 旋转下 Top-K 集合同样旋转，
+      局部卷积在数学上保持等变。
+    - **全局锚点路径非严格等变**: DynamicGlobalAnchorAttention 的 anchor 选择
+      依赖 pair_probs（来自 ViennaRNA，非等变输入）。scorer top-K 因此不保证
+      在旋转下一致 → 全局长程路径是"近似等变"。
+    - 降采样 (L>1000) 的 mean pool 对 SO(2) 等变是保序的。
+    - 结论: 模型在**局部拓扑块内严格等变**，全局路径因 pair_probs 依赖而非严格。
+      文档/图表应写 "局部严格 SO(2) 等变"，不要写 "strictly equivariant"。
+    """
 
     def __init__(self, config):
         super().__init__()

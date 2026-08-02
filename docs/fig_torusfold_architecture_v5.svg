@@ -22,7 +22,7 @@
 </defs>
 <rect width="940" height="1640" fill="#fcfcfb" rx="4"/>
 <text x="470" y="36" text-anchor="middle" font-size="20" font-weight="600" fill="#0b0b0b">TorusFold 架构 v5 — 动态锚点 + 坐标扩散 + 混合数据预训练 (L≤2000)</text>
-<text x="470" y="54" text-anchor="middle" font-size="11" fill="#52514e">SO(2) 等变 · O(L·K) GNN · 多尺度 2x · 动态锚点注意力 O(L·A) · 扩散直出坐标 · 循环相对位置 · 环化/线性感知</text>
+<text x="470" y="54" text-anchor="middle" font-size="11" fill="#52514e">局部严格 SO(2) 等变 · O(L·K) GNN · 多尺度 2x · 动态锚点注意力 O(L·A) · 扩散直出坐标 · 循环相对位置 · 环化/线性感知</text>
 <rect x="720" y="20" width="200" height="42" rx="4" fill="url(#v4Fill)" stroke="#7c3aed" stroke-opacity="0.5" stroke-width="1"/>
 <text x="820" y="36" text-anchor="middle" font-size="9" fill="#7c3aed" font-weight="600">■ 紫色 = v5 新/修改动</text>
 <text x="820" y="49" text-anchor="middle" font-size="8" fill="#52514e">anchor扩展·混合线性RNA·circular感知</text>
@@ -47,8 +47,8 @@
 <line x1="470" y1="216" x2="470" y2="236" stroke="#0b0b0b" stroke-opacity="0.5" stroke-width="1.5" marker-end="url(#a-black)"/>
 
 <rect x="210" y="242" width="520" height="190" rx="6" fill="url(#mixFill)" stroke="#4a3aa7" stroke-opacity="0.45" stroke-width="1.2"/>
-<text x="470" y="264" text-anchor="middle" font-size="12" font-weight="600" fill="#4a3aa7">StrictlyEquivariantEncoder — 无绝对位置 · O(L·K)</text>
-<text x="470" y="279" text-anchor="middle" font-size="10" fill="#52514e">EquivariantGNNLayer × n_layers=4 · 循环相对位置偏置（替代 TPE）</text>
+<text x="470" y="264" text-anchor="middle" font-size="12" font-weight="600" fill="#4a3aa7">EquivariantEncoder — 无绝对位置 · O(L·K)</text>
+<text x="470" y="279" text-anchor="middle" font-size="10" fill="#52514e">EquivariantGNNLayer × n_layers=4 · 循环相对位置偏置 · 局部严格 SO(2) 等变</text>
 <rect x="228" y="294" width="240" height="76" rx="4" fill="#fcfcfb" stroke="#4a3aa7" stroke-opacity="0.25" stroke-width="1"/>
 <text x="348" y="312" text-anchor="middle" font-size="10" font-weight="600" fill="#4a3aa7">SparseSO2SteerableKernel</text>
 <text x="348" y="326" text-anchor="middle" font-size="9" fill="#52514e">irrep: sin/cos(k·θ)×sin/cos(l·φ)</text>
@@ -95,8 +95,8 @@
 <text x="470" y="724" text-anchor="middle" font-size="8" fill="#008300">refined_eq</text>
 
 <rect x="190" y="734" width="560" height="180" rx="6" fill="url(#mixFill)" stroke="#4a3aa7" stroke-opacity="0.4" stroke-width="1.2"/>
-<text x="470" y="756" text-anchor="middle" font-size="12" font-weight="600" fill="#4a3aa7">StrictlyEquivariantLatent — 浅降采样保单碱基细节</text>
-<text x="470" y="772" text-anchor="middle" font-size="10" fill="#52514e">等变 Latent 投影 · L&gt;1000nt 自动启用多尺度</text>
+<text x="470" y="756" text-anchor="middle" font-size="12" font-weight="600" fill="#4a3aa7">EquivariantLatent — 浅降采样保单碱基细节</text>
+<text x="470" y="772" text-anchor="middle" font-size="10" fill="#52514e">等变 Latent 投影 · L&gt;1000nt 自动启用多尺度 · 全局锚点路径近似等变 (pair_probs 非等变输入)</text>
 <rect x="208" y="784" width="252" height="118" rx="4" fill="url(#mixFill)" stroke="#4a3aa7" stroke-opacity="0.35" stroke-width="1"/>
 <text x="334" y="802" text-anchor="middle" font-size="10" font-weight="600" fill="#4a3aa7">短序列 (L≤1000) — 直接投影</text>
 <rect x="220" y="816" width="228" height="38" rx="3" fill="url(#invFill)" stroke="#2a78d6" stroke-opacity="0.35" stroke-width="1"/>

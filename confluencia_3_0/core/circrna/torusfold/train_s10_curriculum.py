@@ -12,6 +12,19 @@ Phases:
   Phase 4: short=20% medium=30% long=50% (conf>=0.3, BSJ stress)
 
 No phase isolation - all length scales present every epoch -> no representation collapse.
+
+═══ 数据瓶颈与过拟合缓解 (回应评审点 6) ═══
+RNA 高精度 3D 结构远少于蛋白质，复杂多目标 loss 有过拟合风险。缓解策略:
+1. **粗粒化设计**: 每残基单 C3' 原子 → 数据需求远低于全原子 (全原子由
+   下游 allatom_reconstruct 处理)。这是"意识到数据少才做的粗粒化"，非巧合。
+2. **大规模合成 CG 数据**: circrna_3d_all 82106 条 (高通量 CG 生成) 覆盖
+   长度/GC/拓扑多样性，天然抗过拟合。
+3. **真实结构正则**: Phase 0 PDB 11214 条 (环化+线性, 实验 3D) 提供
+   物理先验，防止模型只拟合 CG 合成分布。
+4. **Kendall UW**: 6 项核心 loss 可学习 σ² 自动平衡，防止某项主导导致
+   过拟合到单一目标。
+5. **多尺度 + 长度分桶**: 4-phase 课程混合所有长度 → 无表征塌缩。
+   (策略 1-3 使"数据饥渴"从障碍变为工程选择。)
 """
 # ── MUST come before any torch import ──
 import os
