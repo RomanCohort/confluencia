@@ -274,6 +274,11 @@ if os.path.isfile(npz_path):
     # [compressed] merge_pair_probs_compressed.py 产出的 npz 里 bp_probs 是
     # gzip bytes (解压后 [L,L] float32) → 检测到 bytes 就解压。
     pair_probs_path = os.path.join(DEPLOY_ROOT, 'data', 'circrna_3d_all_pair_probs.npz')
+    # [fallback] 允许 _compressed 后缀 (merge_pair_probs_compressed.py 产物)
+    if not os.path.isfile(pair_probs_path):
+        alt = os.path.join(DEPLOY_ROOT, 'data', 'circrna_3d_all_pair_probs_compressed.npz')
+        if os.path.isfile(alt):
+            pair_probs_path = alt
     pair_probs = None
     if os.path.isfile(pair_probs_path):
         t_pp = time.time()
