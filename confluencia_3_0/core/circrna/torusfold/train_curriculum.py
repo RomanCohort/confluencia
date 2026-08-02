@@ -44,7 +44,10 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 # Reuse core components from train_all_schemes
-from confluencia_3_0.core.circrna.torusfold.train_all_schemes import (
+# [fix] 相对导入: 原绝对导入 from confluencia_3_0... 会触发 confluencia_3_0/
+# __init__.py → core/__init__.py → RNACTM → pandas 重型依赖链, A800 缺 pandas
+# 直接崩. 同目录相对导入等价且绕过整条包链.
+from train_all_schemes import (
     load_pseudo_labels,
     CircRNADataset,
     collate_fn,
