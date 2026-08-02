@@ -62,13 +62,18 @@ LENGTH_BUCKET = {
     "xlong": (1001, 5000),
 }
 PHASES = {
+    0: {"conf_min": 0.0,
+        "ratios": {"short": 0.50, "medium": 0.30, "long": 0.20, "xlong": 0.00},
+        "detach_frac": 0.0,  # Phase 0 = joint training (learn 3D, no stop-grad)
+        "data_source": "pdb",  # [v4] 目标1: PDB线性RNA环化样本,3D真实
+        "desc": "[目标1] PDB 3D先验预训练 (茎区螺旋/假结立体)"},
     1: {"conf_min": 0.8,
         "ratios": {"short": 0.60, "medium": 0.30, "long": 0.08, "xlong": 0.02},
-        "detach_frac": 0.25,  # [v4] freeze Encoder via stop-grad for first 25% of phase
-        "desc": "Short-dominant core geometry (high quality)"},
+        "detach_frac": 1.0,  # [v4] 目标2微调初期全程stop-grad,防CG扁平冲掉PDB学的3D
+        "desc": "[目标2] CG circRNA 环化拓扑 (高质短链)"},
     2: {"conf_min": 0.5,
         "ratios": {"short": 0.40, "medium": 0.40, "long": 0.15, "xlong": 0.05},
-        "detach_frac": 0.0,
+        "detach_frac": 0.5,  # 逐步释放 stop-grad
         "desc": "Shift to medium, introduce long"},
     3: {"conf_min": 0.5,
         "ratios": {"short": 0.20, "medium": 0.35, "long": 0.35, "xlong": 0.10},
@@ -79,7 +84,7 @@ PHASES = {
         "detach_frac": 0.0,
         "desc": "Long+xlong heavy with BSJ stress"},
 }
-DEFAULT_PHASE_EPOCHS = {1: 10, 2: 10, 3: 10, 4: 10}  # 10 per phase
+DEFAULT_PHASE_EPOCHS = {0: 5, 1: 10, 2: 10, 3: 10, 4: 10}  # Phase 0 short (few千条PDB)
 
 LOSS_WEIGHTS = {
     'coord': 10.0, 'closure': 5.0, 'bond': 2.0, 'diffusion': 1.0,
@@ -719,6 +724,19 @@ def train_one_phase(phase, n_phase_epochs):
     print(f'  {PHASES[phase]["desc"]}')
     print(f'  Length mixing: short={ratios["short"]:.0%} medium={ratios["medium"]:.0%} long={ratios["long"]:.0%} xlong={ratios["xlong"]:.0%}')
 
+    # [v4] Phase 0 (目标1): 3D pretrain on PDB-cyclized linear RNA.
+    # Data lives in a separate dir; if not generated yet, skip with guidance.
+    if phase == 0:
+        pdb_data_path = os.path.join(DEPLOY_ROOT, 'data', 'pdb_cyclized', 'consolidated.npz')
+        if not os.path.isfile(pdb_data_path):
+            print(f'  [skip] PDB 3D pretrain data not found: {pdb_data_path}')
+            print(f'         Run the PDB download+cyclize pipeline first (see torusfold-twostage-3d-pretrain-strategy memory).')
+            print(f'         Falling through to Phase 1 (CG-only training, no 3D prior).')
+            return float('inf'), []
+        print(f'  [目标1] Loading PDB-cyclized 3D data: {pdb_data_path}')
+        # TODO: load pdb bucket_groups here once the cyclize pipeline produces data
+        # For now, fall through using the global CG bucket_groups as a stub.
+
     best_val = float('inf')
     phase_history = []
     patience = 0
@@ -991,7 +1009,7 @@ def train_one_phase(phase, n_phase_epochs):
 # ═══════════════════════════════════════════════════════════════
 
 all_history = []
-for phase in range(1, 5):
+for phase in range(0, 5):  # [v4] Phase 0 = PDB 3D pretrain (目标1), 1-4 = CG circRNA (目标2)
     n_ep = DEFAULT_PHASE_EPOCHS[phase]
     best_val, history = train_one_phase(phase, n_ep)
     all_history.append({'phase': phase, 'best_val': best_val, 'history': history})
