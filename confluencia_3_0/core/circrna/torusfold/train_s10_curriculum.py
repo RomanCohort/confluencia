@@ -592,7 +592,7 @@ def compute_all_losses(p_denorm, seq_ids, target, lengths, pair_probs, model=Non
 
     # 8. Torus coordinate loss
     try:
-        R_target = major_ring_radius(lengths.float(), bond_length=5.9)
+        R_target = major_ring_radius(bond_length=5.9, lengths=lengths.float())
         theta_pred, phi_pred, r_pred = cartesian_to_torus(p_denorm, R_target)
         theta_tgt, phi_tgt, r_tgt = cartesian_to_torus(target, R_target)
         dtheta = torch.remainder(theta_pred - theta_tgt + math.pi, 2 * math.pi) - math.pi
@@ -1000,7 +1000,9 @@ def train_one_phase(phase, n_phase_epochs):
                 has_nan = any(p.grad is not None and torch.isnan(p.grad).any() for p in all_params)
                 if has_nan:
                     nan_batches += 1
-                    scaler.unscale_(optimizer)
+                    # [fix] has_nan 时不调用 unscale_ (没有 step, 下个 step 若再
+                    # 遇 has_nan 会重复 unscale_ 报错 "already been called").
+                    # 直接 zero_grad 丢弃 NaN 梯度即可.
                     optimizer.zero_grad()
                 else:
                     scaler.unscale_(optimizer)

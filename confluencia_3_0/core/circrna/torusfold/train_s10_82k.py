@@ -441,7 +441,7 @@ for epoch in range(n_epochs):
         # 9. Torus coordinate loss (C: cartesian_to_torus)
         #   Transform predicted and target coords to torus (θ, φ, r) coordinates
         #   Enforce torus manifold geometry for circRNA
-        R_target = major_ring_radius(lengths.float(), bond_length=5.9)  # (B,)
+        R_target = major_ring_radius(bond_length=5.9, lengths=lengths.float())  # (B,)
         theta_pred, phi_pred, r_pred = cartesian_to_torus(p_denorm, R_target)  # each (B, L)
         theta_tgt, phi_tgt, r_tgt = cartesian_to_torus(target, R_target)  # each (B, L)
         # Loss on torus angles (wrapped to [-π, π])
