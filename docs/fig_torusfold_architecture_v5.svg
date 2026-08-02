@@ -21,23 +21,23 @@
   </style>
 </defs>
 <rect width="940" height="1640" fill="#fcfcfb" rx="4"/>
-<text x="470" y="36" text-anchor="middle" font-size="20" font-weight="600" fill="#0b0b0b">TorusFold 架构 v4 — 动态锚点 + 坐标扩散 (L≤2000)</text>
-<text x="470" y="54" text-anchor="middle" font-size="11" fill="#52514e">SO(2) 等变 · O(L·K) GNN · 多尺度 2x · 动态锚点注意力 O(L·A) · 扩散直出坐标 · 循环相对位置</text>
+<text x="470" y="36" text-anchor="middle" font-size="20" font-weight="600" fill="#0b0b0b">TorusFold 架构 v5 — 动态锚点 + 坐标扩散 + 混合数据预训练 (L≤2000)</text>
+<text x="470" y="54" text-anchor="middle" font-size="11" fill="#52514e">SO(2) 等变 · O(L·K) GNN · 多尺度 2x · 动态锚点注意力 O(L·A) · 扩散直出坐标 · 循环相对位置 · 环化/线性感知</text>
 <rect x="720" y="20" width="200" height="42" rx="4" fill="url(#v4Fill)" stroke="#7c3aed" stroke-opacity="0.5" stroke-width="1"/>
-<text x="820" y="36" text-anchor="middle" font-size="9" fill="#7c3aed" font-weight="600">■ 紫色 = v4 新/修改动</text>
-<text x="820" y="49" text-anchor="middle" font-size="8" fill="#52514e">动态锚点·坐标扩散·废弃Rodrigues头</text>
+<text x="820" y="36" text-anchor="middle" font-size="9" fill="#7c3aed" font-weight="600">■ 紫色 = v5 新/修改动</text>
+<text x="820" y="49" text-anchor="middle" font-size="8" fill="#52514e">anchor扩展·混合线性RNA·circular感知</text>
 
 <rect x="370" y="76" width="200" height="44" rx="6" fill="#fcfcfb" stroke="#0b0b0b" stroke-opacity="0.3" stroke-width="1"/>
 <text x="470" y="98" text-anchor="middle" font-size="13" font-weight="600" fill="#0b0b0b">RNA 序列</text>
 <text x="470" y="113" text-anchor="middle" font-size="10" fill="#52514e">one-hot tokens · L×5 · pair_probs</text>
 <line x1="470" y1="120" x2="470" y2="138" stroke="#0b0b0b" stroke-opacity="0.5" stroke-width="1.5" marker-end="url(#a-black)"/>
-<rect x="60" y="76" width="290" height="86" rx="5" fill="url(#v4Fill)" stroke="#7c3aed" stroke-opacity="0.5" stroke-width="1.2" stroke-dasharray="4,3"/>
-<text class="v4-tag" x="72" y="93">[v4.1] 两阶段数据源</text>
-<text x="205" y="110" text-anchor="middle" font-size="8.5" font-weight="600" fill="#7c3aed">Phase 0 (目标1): PDB 环化 3D 预训练</text>
-<text x="205" y="124" text-anchor="middle" font-size="7.5" fill="#52514e">data/pdb_cyclized · 5607 条 · 真实 3D (z_span 52.8Å)</text>
-<text x="205" y="137" text-anchor="middle" font-size="7.5" fill="#52514e">RNAsolo+NAKB → RCSB → C3' 环化 → geom pair_probs</text>
-<text x="205" y="150" text-anchor="middle" font-size="8" font-weight="600" fill="#0b0b0b">Phase 1-4 (目标2): circrna_3d_all 82106 条 (CG)</text>
-<line x1="350" y1="119" x2="370" y2="98" stroke="#7c3aed" stroke-width="1.2" stroke-dasharray="3,2" marker-end="url(#a-anchor)"/>
+<rect x="60" y="76" width="290" height="66" rx="5" fill="url(#v4Fill)" stroke="#7c3aed" stroke-opacity="0.5" stroke-width="1.2" stroke-dasharray="4,3"/>
+<text class="v4-tag" x="72" y="92">[v5] 两阶段数据源</text>
+<text x="205" y="108" text-anchor="middle" font-size="8.5" font-weight="600" fill="#7c3aed">Phase 0 (目标1): PDB 环化+线性 3D 预训练</text>
+<text x="205" y="121" text-anchor="middle" font-size="7.5" fill="#52514e">pdb_cyclized · 11214 条 (5607环化+5607线性)</text>
+<text x="205" y="133" text-anchor="middle" font-size="7.5" fill="#52514e">C3' 真实 3D · is_circular · 首尾 5.9/43.5Å</text>
+<line x1="350" y1="110" x2="370" y2="98" stroke="#7c3aed" stroke-width="1.2" stroke-dasharray="3,2" marker-end="url(#a-anchor)"/>
+<text x="205" y="176" text-anchor="middle" font-size="8" font-weight="600" fill="#0b0b0b">Phase 1-4 (目标2): circrna_3d_all 82106 (CG)</text>
 
 <rect x="250" y="144" width="440" height="72" rx="6" fill="url(#fixFill)" stroke="#0ca30c" stroke-opacity="0.4" stroke-width="1.3"/>
 <text class="v2-tag" x="262" y="160">[v2] ROCm SafeParameter + 手性感知</text>
@@ -122,9 +122,10 @@
 <text x="470" y="947" text-anchor="middle" font-size="7" fill="#898781">anchor_aux 仍走原 latent (独立路径, 不被切断)</text>
 
 <rect x="100" y="968" width="640" height="290" rx="6" fill="url(#v4Fill)" stroke="#7c3aed" stroke-opacity="0.55" stroke-width="1.4"/>
-<text class="v4-tag" x="112" y="986">[v4] CoordDiffusion — 坐标空间扩散, 直出 (B,L,3) · 废弃 Rodrigues coord_head</text>
+<text class="v4-tag" x="112" y="986">[v5] CoordDiffusion — 坐标空间扩散, 直出 (B,L,3) · 废弃 Rodrigues coord_head</text>
 <text x="420" y="1008" text-anchor="middle" font-size="12" font-weight="600" fill="#0b0b0b">CoordDiffusion · n_steps=20 · d_coord_hidden=128 · cond = latent_inv ∪ latent_eq</text>
-<text x="420" y="1024" text-anchor="middle" font-size="10" fill="#52514e">扩散靶 = (B,L,3) 坐标本身 · (x,y)→degree-1 eq · z→degree-0 inv · 保 SO(2) 等变</text>
+<text x="420" y="1016" text-anchor="middle" font-size="8" fill="#db2777">[v5] 推理 physics_refine 精修: refine_steps 20→100 (更充分吸收局部 clash)</text>
+<text x="420" y="1030" text-anchor="middle" font-size="10" fill="#52514e">扩散靶 = (B,L,3) 坐标本身 · (x,y)→degree-1 eq · z→degree-0 inv · 保 SO(2) 等变</text>
 
 <rect x="118" y="1040" width="290" height="120" rx="4" fill="url(#anchorFill)" stroke="#db2777" stroke-opacity="0.5" stroke-width="1.2"/>
 <text class="anchor-tag" x="263" y="1058" text-anchor="middle">[v4] MixedHybridAttention (cond_attn)</text>
@@ -135,9 +136,10 @@
 <text x="190" y="1123" text-anchor="middle" font-size="7" fill="#52514e">局部 d_ring≤128</text>
 <text x="190" y="1134" text-anchor="middle" font-size="7" fill="#52514e">O(L·W) · L0/L2</text>
 <rect x="273" y="1094" width="125" height="58" rx="3" fill="url(#anchorFill)" stroke="#db2777" stroke-opacity="0.45" stroke-width="1.2"/>
-<text x="335" y="1110" text-anchor="middle" font-size="8" font-weight="600" fill="#db2777">DynamicAnchor A=128</text>
-<text x="335" y="1123" text-anchor="middle" font-size="7" fill="#db2777">BSJ×32固定+scorer top-K</text>
-<text x="335" y="1134" text-anchor="middle" font-size="7" fill="#898781">O(L·A) · L1/L3</text>
+<text x="335" y="1110" text-anchor="middle" font-size="8" font-weight="600" fill="#db2777">DynamicAnchor</text>
+<text x="335" y="1122" text-anchor="middle" font-size="7" fill="#db2777">A=max(128, L×0.1)</text>
+<text x="335" y="1133" text-anchor="middle" font-size="7" fill="#db2777">BSJ×32固定+scorer top-K</text>
+<text x="335" y="1144" text-anchor="middle" font-size="7" fill="#898781">O(L·A) · L1/L3 · [v5]长序列扩展</text>
 
 <rect x="418" y="1040" width="150" height="120" rx="4" fill="#fcfcfb" stroke="#7c3aed" stroke-opacity="0.35" stroke-width="1"/>
 <text x="493" y="1058" text-anchor="middle" font-size="9" font-weight="600" fill="#7c3aed">Denoiser MLP</text>
@@ -217,8 +219,8 @@
 <text x="855" y="1362" text-anchor="middle" font-size="8" fill="#52514e">构象系综挑选</text>
 <text x="855" y="1380" text-anchor="middle" font-size="7" fill="#eda100" font-weight="600">[规划] 精修回路</text>
 
-<text x="470" y="1430" text-anchor="middle" font-size="9" fill="#7c3aed" font-weight="600">v4.1 关键变更: 扩散直出 (B,L,3) · 动态锚点 + LAMA 3通道融合 · CRBPSA 氢键加权 (A-U=2 G-C=3 G-U=0.8) · Kendall UW · Stop-Gradient · 两阶段数据管线</text>
-<text x="470" y="1446" text-anchor="middle" font-size="9" fill="#898781">Config: d_model=256 · d_inv=64 · d_eq=32 · n_layers=4 · K=60 · n_diffusion=20 · d_coord_hidden=128 · window=256 · n_anchors=128 · bsj_flank=32</text>
-<text x="470" y="1462" text-anchor="middle" font-size="8" fill="#898781">Phase 0 数据: PDB 环化+线性 11214 条 (5607 环化伪circRNA + 5607 线性 RNA, C3' 坐标, z_span 52.8Å) · Phase 1-4: circrna_3d_all 82106 条 · pair_probs 50%</text>
-<text x="470" y="1478" text-anchor="middle" font-size="8" fill="#898781">v5: anchor 动态扩展 (A=max(128, L×0.1)) · 线性 RNA circular_mask 感知 (closure/BSJ 按 is_circular 跳过) · MC-Dropout UQ 修复 · normalization [B,1,1] 修复 · 推理 refine_steps 20→100</text>
+<text x="470" y="1430" text-anchor="middle" font-size="9" fill="#7c3aed" font-weight="600">v5 关键变更: 混合线性 RNA 进 Phase 0 (11214条, is_circular 感知) · anchor 动态扩展 (A=max(128,L×0.1)) · 推理 refine_steps 20→100 · circular_mask 贯穿 loss/精修</text>
+<text x="470" y="1446" text-anchor="middle" font-size="8.5" fill="#7c3aed" font-weight="600">v4.1 保留: 扩散直出坐标 · 动态锚点 + LAMA 3通道 · CRBPSA 氢键加权 (A-U=2 G-C=3 G-U=0.8) · Kendall UW · Stop-Gradient</text>
+<text x="470" y="1462" text-anchor="middle" font-size="9" fill="#898781">Config: d_model=256 · d_inv=64 · d_eq=32 · n_layers=4 · K=60 · n_diffusion=20 · d_coord_hidden=128 · window=256 · anchor_ratio=0.1 · bsj_flank=32</text>
+<text x="470" y="1478" text-anchor="middle" font-size="8" fill="#898781">数据: Phase 0 = PDB 环化5607+线性5607 (C3', z_span 52.8Å, 首尾 5.9/43.5Å) · Phase 1-4 = circrna_3d_all 82106 (CG) · MD energy 正则由可微 stereo 项覆盖 (OpenMM 不可微仅推理)</text>
 </svg>
