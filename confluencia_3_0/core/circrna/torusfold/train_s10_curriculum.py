@@ -98,7 +98,7 @@ PHASES = {
         "detach_frac": 0.0,
         "desc": "Long+xlong heavy with BSJ stress"},
 }
-DEFAULT_PHASE_EPOCHS = {0: 5, 1: 10, 2: 10, 3: 10, 4: 10}  # Phase 0 short (few千条PDB)
+DEFAULT_PHASE_EPOCHS = {0: 30, 1: 50, 2: 50, 3: 50, 4: 50}  # [v5] 豪华配置 (230 epoch, A800 ~5h). Phase 0 PDB 预训练充分, 1-4 CG 课程完整收敛
 
 LOSS_WEIGHTS = {
     'coord': 10.0, 'closure': 5.0, 'bond': 2.0, 'diffusion': 1.0,
@@ -185,6 +185,10 @@ def estimate_bucket_uncertainty(bucket_groups, model, collate, device,
             with torch.no_grad():
                 for _ in range(mc_n):
                     pred = model(seq_ids, return_loss=False, return_coords=True)
+                    # [fix] detach_latent (Phase 1 stop-grad) 时 forward 返回
+                    # (pred_coords, contact_pred) 二元组 → 取第一个元素.
+                    if isinstance(pred, tuple):
+                        pred = pred[0]
                     preds_list.append(pred)
             preds = torch.stack(preds_list, dim=0)  # [K, B_eff, L, 3]
 
@@ -1056,6 +1060,9 @@ def train_one_phase(phase, n_phase_epochs):
                     dtype=torch.long).unsqueeze(0).to(device)
                 t_val = torch.tensor(coords[i], dtype=torch.float32).unsqueeze(0).to(device)
                 p_val = model(s_ids, return_loss=False)
+                # [fix] detach_latent 时返回 (coords, contact) tuple → 取 coords
+                if isinstance(p_val, tuple):
+                    p_val = p_val[0]
                 t_c = t_val - t_val.mean(dim=1, keepdim=True)
                 t_scale = torch.norm(t_c, dim=(1, 2), keepdim=True).clamp(min=1.0)
                 p_c = p_val - p_val.mean(dim=1, keepdim=True)
