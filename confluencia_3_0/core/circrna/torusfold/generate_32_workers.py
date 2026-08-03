@@ -214,10 +214,16 @@ def process_sequence(args: Tuple) -> Dict:
             model = StrictlyEquivariantS10(cfg).to(device)
 
             # Load pretrained weights if available
-            model_path = Path(__file__).parent / "models" / "s10_82k_baseline" / "best.pt"
+            # [v5] 优先 curriculum Phase 0 checkpoint (PDB 3D 预训练), 其次 82k baseline
+            model_path = Path(__file__).parent / "models" / "s10_curriculum" / "phase0_end_full.pt"
+            if not model_path.exists():
+                model_path = Path(__file__).parent / "models" / "s10_82k_baseline" / "best.pt"
             if model_path.exists():
-                model.load_state_dict(torch.load(model_path, map_location=device, weights_only=True))
+                ckpt = torch.load(model_path, map_location=device, weights_only=True)
+                sd = ckpt.get('model_state_dict', ckpt)
+                model.load_state_dict(sd)
                 model.eval()
+                print(f'  loaded {model_path.name}', flush=True)
             else:
                 # If no pretrained model, generate random coords (placeholder)
                 rng = np.random.RandomState(idx)
@@ -240,7 +246,20 @@ def process_sequence(args: Tuple) -> Dict:
             with torch.no_grad():
                 seq_input = seq_tensor.unsqueeze(0).to(device)
                 pred = model(seq_input, return_loss=False)
-                coords = pred.cpu().numpy()[0]
+                if isinstance(pred, tuple):  # detach_latent 时返回 (coords, contact)
+                    pred = pred[0]
+                coords = pred[0, :L].cpu().numpy()  # 截断到 L (去 padding)
+
+            # [v5] physics_refine: 20 步 stereo energy 精修 (键长投影到 5.9)。
+            # 验证显示: 原始输出 clash 20-30%, refine 后 2% → 必需。
+            try:
+                from physics_refine import refine_coords
+                c_t = torch.tensor(coords, dtype=torch.float32).unsqueeze(0).to(device)
+                l_t = torch.tensor([L], dtype=torch.long).to(device)
+                ref = refine_coords(c_t, l_t, n_steps=20, project_bonds=True)
+                coords = ref[0].cpu().numpy()
+            except Exception as e:
+                print(f'\n  refine failed (using raw coords) {idx}: {e}', flush=True)
 
             # ── Step 6: Quality assessment ──
             if HAS_QUALITY:
