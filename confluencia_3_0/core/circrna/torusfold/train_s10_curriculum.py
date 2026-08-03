@@ -174,8 +174,10 @@ def estimate_bucket_uncertainty(bucket_groups, model, collate, device,
         bucket_vars = []
 
         # Batched MC estimation: process batch_size samples at once
-        for start in range(0, len(draw_idx), batch_size):
-            batch_d_idx = draw_idx[start:start + batch_size]
+        # [mem] 长 bucket 用更小 batch 防 OOM (与 build_epoch_batches 一致)
+        mc_bs = {'short': 16, 'medium': 8, 'long': 4, 'xlong': 2}[bname]
+        for start in range(0, len(draw_idx), mc_bs):
+            batch_d_idx = draw_idx[start:start + mc_bs]
             batch_indices = [pool[i] for i in batch_d_idx]
             seq_ids, target_s, lengths, _ = collate(batch_indices)
             B_eff = len(batch_indices)
@@ -763,9 +765,16 @@ def build_epoch_batches(phase, epoch, n_phase_epochs):
         # no replace=True duplication.  n_from is # of samples, rounded up to
         # fill an integer number of full-size batches.
         np.random.shuffle(pool)
-        n_batches = (n_from + batch_size - 1) // batch_size
+        # [mem] 动态 batch size: 按 bucket 长度降批, 控制峰值显存.
+        # xlong (到 5000nt) batch 16 → [16,5000,60,64] kernel ≈ 12GB OOM.
+        # short≤200:16, medium:8, long:4, xlong:2 → 峰值 ~4GB 可控.
+        eff_bs = {'short': 16, 'medium': 8, 'long': 4, 'xlong': 2}[bname]
+        # 同 bucket 内按长度排序: 相近长度同 batch, collate max_L padding 不浪费.
+        if len(pool) > eff_bs * 4:
+            pool = sorted(pool, key=lambda i: t_meta[i]['length'])
+        n_batches = (n_from + eff_bs - 1) // eff_bs
         for i in range(n_batches):
-            batch = pool[i * batch_size:(i + 1) * batch_size]
+            batch = pool[i * eff_bs:(i + 1) * eff_bs]
             if len(batch) >= 2:
                 epoch_batches.append(batch)
     np.random.shuffle(epoch_batches)
