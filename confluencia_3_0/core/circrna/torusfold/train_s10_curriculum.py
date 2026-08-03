@@ -229,9 +229,14 @@ print(f'Device: {device}, GPU: {torch.cuda.get_device_name(0)}')
 print(f'Output: {output_dir}, Batch size: {batch_size}')
 
 # Load data from consolidated npz (82k samples, ~0.55 GB)
+# [v5] 优先 regenerated 版本 (Phase 0 模型 + refine 重生成的真实坐标),
+# 否则用原 consolidated. regenerate_cg_coords.py 产出 *_regenerated.npz.
 print(f'Loading data from consolidated npz ...')
 t0 = time.time()
 npz_path = os.path.join(DEPLOY_ROOT, 'data', 'circrna_3d_all_consolidated.npz')
+npz_path = os.path.join(DEPLOY_ROOT, 'data', 'circrna_3d_all_consolidated_regenerated.npz') \
+    if os.path.isfile(os.path.join(DEPLOY_ROOT, 'data', 'circrna_3d_all_consolidated_regenerated.npz')) \
+    else npz_path
 if os.path.isfile(npz_path):
     data = np.load(npz_path, allow_pickle=True)
     ids_arr = data['ids']
