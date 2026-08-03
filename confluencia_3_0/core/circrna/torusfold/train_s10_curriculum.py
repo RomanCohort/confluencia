@@ -234,9 +234,12 @@ print(f'Output: {output_dir}, Batch size: {batch_size}')
 print(f'Loading data from consolidated npz ...')
 t0 = time.time()
 npz_path = os.path.join(DEPLOY_ROOT, 'data', 'circrna_3d_all_consolidated.npz')
-npz_path = os.path.join(DEPLOY_ROOT, 'data', 'circrna_3d_all_consolidated_regenerated.npz') \
-    if os.path.isfile(os.path.join(DEPLOY_ROOT, 'data', 'circrna_3d_all_consolidated_regenerated.npz')) \
-    else npz_path
+# [v5.1] 优先级: scheme2 生成 (circBase 全量, 方案2 3-bead+RL) > regenerated > 原版
+for _cand in ['circrna_training_scheme2.npz', 'circrna_3d_all_consolidated_regenerated.npz']:
+    _p = os.path.join(DEPLOY_ROOT, 'data', _cand)
+    if os.path.isfile(_p):
+        npz_path = _p
+        break
 if os.path.isfile(npz_path):
     data = np.load(npz_path, allow_pickle=True)
     ids_arr = data['ids']

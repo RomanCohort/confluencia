@@ -17,9 +17,10 @@ from multiprocessing import Process, Queue
 
 import numpy as np
 
-SCHEME2_ROOT = r'C:\Users\颜子壹\TorusFold-scheme2-rl'
-if SCHEME2_ROOT not in sys.path:
-    sys.path.insert(0, SCHEME2_ROOT + r'\src')
+# [v5.2] 从本地 scheme2_work import (复制自 TorusFold-scheme2-rl, 独立运行)
+_SCHEME2_WORK = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'scheme2_work')
+if _SCHEME2_WORK not in sys.path:
+    sys.path.insert(0, _SCHEME2_WORK)
 
 
 def worker_fn(wid: int, in_q: Queue, out_q: Queue):
