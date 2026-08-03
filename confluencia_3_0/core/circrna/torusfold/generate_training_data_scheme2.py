@@ -35,15 +35,20 @@ def worker_fn(wid: int, in_q: Queue, out_q: Queue):
         init_from_secondary_structure, refine_segmented_3bead,
     )
     print(f'  worker {wid} ready', flush=True)
+    n_done = 0
     while True:
         task = in_q.get()
         if task is None:
             break
         idx, seq_id, L, seq = task
         try:
+            # [opt] n_anneal 按长度自适应: 短(<500) 20 快, 长(>=500) 60 保质量
+            n_anneal = 20 if L < 500 else 60
+            # RL 模拟数: 短序列少模拟(快), 长序列多(保远配质量)
+            n_sim = 30 if L < 500 else 50
             pairs, _ = vienna_pair_probs(seq, 0.5)
             p_init = init_from_secondary_structure(L, pairs)
-            cg, e0, e1 = refine_segmented_3bead(p_init, pairs, 'CPU', n_anneal=60)
+            cg, e0, e1 = refine_segmented_3bead(p_init, pairs, 'CPU', n_anneal=n_anneal)
             _, scan_pairs, far_pairs = build_full_pair_graph(seq, pairs, do_scan=True)
             stem_blocks = extract_stem_blocks(pairs, scan_pairs)
             n_far = len(far_pairs)
@@ -52,7 +57,7 @@ def worker_fn(wid: int, in_q: Queue, out_q: Queue):
             if far_pairs:
                 opt_p, cg_orig, rl_info = optimize_far_pairs(
                     cg, seq, far_pairs, stem_blocks,
-                    policy_path=None, n_simulations=50,
+                    policy_path=None, n_simulations=n_sim,
                     dpo_weight=5.0, dpo_simulate=True,
                 )
                 cg = opt_p
@@ -82,7 +87,7 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument('--fasta',
                     default=r'C:\Users\颜子壹\Documents\circbase_seqs.fa.gz')
-    ap.add_argument('--max-len', type=int, default=5000)
+    ap.add_argument('--max-len', type=int, default=2000)
     ap.add_argument('--n-workers', type=int, default=32)
     ap.add_argument('--limit', type=int, default=0)
     ap.add_argument('--out',
