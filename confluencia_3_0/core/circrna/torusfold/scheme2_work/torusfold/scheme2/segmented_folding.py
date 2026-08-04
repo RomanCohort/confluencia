@@ -132,6 +132,7 @@ def build_segmented_3bead_system(
     from openmm import (
         System, HarmonicBondForce, HarmonicAngleForce,
         CustomBondForce, CustomNonbondedForce, CustomTorsionForce,
+        CustomExternalForce,
     )
 
     L = len(p_coords)
@@ -326,7 +327,19 @@ def build_segmented_3bead_system(
                         excluded.add(k); clash_force.addExclusion(*k)
         system.addForce(clash_force)
 
-    return system, coords_nm, pair_force, pair_bonds, bsj_force
+    # ── 7. 径向引导力 (长链闭合关键) ──
+    # 弱 harmonic 势把 P 原子拉向目标半径 r_target, 引导链弯成环.
+    # k_guide=0 时关闭 (phase 1/3), 退火时 ramp k_guide 控制引导强度.
+    r_target = L * BOND_LEN / (2 * math.pi * 10.0)  # nm
+    guide_k0 = 0.1 * L  # kJ/mol/nm² per atom (线性缩放)
+    guide = CustomExternalForce("0.5*kg*(sqrt(x*x+y*y+z*z)-rt)^2")
+    guide.addGlobalParameter("kg", 0.0)
+    guide.addGlobalParameter("rt", r_target)
+    for i in range(L):
+        guide.addParticle(P(i), [])
+    system.addForce(guide)
+
+    return system, coords_nm, pair_force, pair_bonds, bsj_force, guide, guide_k0
 
 
 def init_from_secondary_structure(
@@ -503,7 +516,7 @@ def refine_segmented_3bead(
     # 配对距离自然满足, 力场只需局部松弛.
     p_init = init_from_secondary_structure(L, pairs)
 
-    system, coords_nm, pair_force, pair_bonds, bsj_force = \
+    system, coords_nm, pair_force, pair_bonds, bsj_force, guide_force, guide_k0 = \
         build_segmented_3bead_system(p_init, pairs, stems,
                                      pair_gate=pair_gate, pair_eps=pair_eps,
                                      enabled=enabled,
@@ -532,38 +545,43 @@ def refine_segmented_3bead(
     sim.minimizeEnergy(maxIterations=500)
 
     def set_pair_k(scale):
-        # CustomCompoundBondForce: w_pair 是建场时固定的 per-bond 参数,
-        # 退火只调全局 pair_k_scale (index 0)
         if pair_force is None:
-            return  # en[6]=False 时无配对力
+            return
         pair_force.setGlobalParameterDefaultValue(0, scale)
         pair_force.updateParametersInContext(sim.context)
 
+    # [fix] BSJ k 长度自适应: sqrt(L/100) 放大 k_max, 长链闭合力更强
+    _bsj_k_base = 500.0 * math.sqrt(L / 100.0)
     def set_bsj_k(scale):
         if bsj_force is None:
-            return  # en[1]=False 时无 BSJ 力
-        bsj_force.setBondParameters(0, 3*(L-1), 0, [scale * 500.0, BOND_LEN / 10.0])
+            return
+        bsj_force.setBondParameters(0, 3*(L-1), 0, [scale * _bsj_k_base, BOND_LEN / 10.0])
         bsj_force.updateParametersInContext(sim.context)
 
-    # 三阶段: 弱BSJ形成茎螺旋 → 强配对+中BSJ拉拢配对 → 强BSJ闭合
-    # 低温避免散开. 阶段2 用强配对把散开配对(17A)拉拢到5A, 多步MD收敛.
+    def set_guide_k(k_val):
+        if guide_force is None:
+            return
+        guide_force.setGlobalParameterDefaultValue(0, k_val)
+        guide_force.updateParametersInContext(sim.context)
+
+    # [fix] 阶段数按长度: 长链需要更多步数
+    _phase3_mult = 3 if L > 1000 else 2
+
     pre_md = sim.context.getState(getPositions=True, getEnergy=True)
-    # 阶段1: 配对保持强(1.0)! 初始minimize已把配对放对位置(9.9Å),
-    # 弱化配对会被clash/堆叠推到15Å (诊断: 弱配对k=0.3→pair_rate 0.16).
-    # 只弱BSJ让结构微调, 配对不动.
-    set_pair_k(1.0); set_bsj_k(0.1)
+    # 阶段1: 弱 BSJ + 无引导 → 结构微调
+    set_pair_k(1.0); set_bsj_k(0.1); set_guide_k(0.0)
     sim.integrator.setTemperature(300 * unit.kelvin)
     sim.step(n_anneal); sim.minimizeEnergy(maxIterations=2000)
 
-    # 阶段2: 配对强 + BSJ中, 压缩+闭合
-    set_pair_k(1.0); set_bsj_k(0.5)
+    # 阶段2: 配对强 + BSJ 中 + 径向引导 → 引导链弯成环
+    set_pair_k(1.0); set_bsj_k(0.5); set_guide_k(guide_k0)
     sim.integrator.setTemperature(300 * unit.kelvin)
     sim.step(n_anneal * 3); sim.minimizeEnergy(maxIterations=3000)
 
-    # 阶段3: 低温 + 配对强 + BSJ强, 最终闭合
-    set_pair_k(1.0); set_bsj_k(5.0)
+    # 阶段3: 低温 + 配对强 + BSJ 强 + 引导关闭 → 最终闭合
+    set_pair_k(1.0); set_bsj_k(5.0); set_guide_k(0.0)
     sim.integrator.setTemperature(290 * unit.kelvin)
-    sim.step(n_anneal * 2)
+    sim.step(n_anneal * _phase3_mult)
     sim.minimizeEnergy(tolerance=10.0 * unit.kilojoules_per_mole / unit.nanometer,
                        maxIterations=8000)
 
