@@ -59,6 +59,38 @@ ROT_STEP_DEG = (30.0, 60.0, 90.0)
 
 WC_TARGET_DIST = 20.0  # Å, Watson-Crick C1'-C1' 目标距离 (L>300nt 远端配对 P-P 经验值)
 
+# [v2] Per-pair target distance 映射: 序列距离 → 3D 目标距离
+NEAR_SEQ_DIST = 100    # ≤100nt 算近程 (stem 内/局部茎-环)
+FAR_SEQ_DIST = 100     # >100nt 算远端 (跨茎)
+NEAR_TARGET_30 = 11.0  # 序列距离 ≤30nt: 目标 10-12Å (A-form P-P)
+NEAR_TARGET_100 = 20.0 # 序列距离 30-100nt: 目标 15-25Å
+FAR_PULL_FRAC = 0.6    # 远端: 目标 = 初始距离 × 0.6 (拉拢 40%)
+R_NEAR_STAY_SIGMA = 5.0  # Å, 近程保持高斯 σ
+R_FAR_PULL_WEIGHT = 1.0  # 远端拉拢权重
+
+
+def compute_pair_targets(p_init: np.ndarray, far_pairs, L: int):
+    """从初始构象估算每对远端配对的 3D 目标距离.
+
+    映射规则:
+      - 序列距离 ≤ 30nt (stem 内): 目标 10-12Å (A-form P-P)
+      - 序列距离 30-100nt: 目标 15-25Å (局部茎-环)
+      - 序列距离 > 100nt: 目标 = 初始距离 × 0.6 (拉拢 40%)
+    Returns:
+        targets: List[float], 与 far_pairs 一一对应
+    """
+    targets = []
+    for (i, j) in far_pairs:
+        seq_dist = min(abs(j - i), L - abs(j - i))
+        d_init = float(np.linalg.norm(p_init[i] - p_init[j]))
+        if seq_dist <= 30:
+            targets.append(NEAR_TARGET_30)
+        elif seq_dist <= NEAR_SEQ_DIST:
+            targets.append(NEAR_TARGET_100)
+        else:
+            targets.append(d_init * FAR_PULL_FRAC)
+    return targets
+
 
 # ---------- 构象分布数据结构 (SamplingDesign 式概率空间输出) ----------
 @dataclass
@@ -747,74 +779,83 @@ def compute_reward(
     initial_p_coords: Optional[np.ndarray] = None,
     sequence: Optional[str] = None,
     dpo_weight: float = 0.0,
+    p_init: Optional[np.ndarray] = None,
 ) -> float:
-    """远端配对 reward + 正则 (防作弊) + BSJ 闭合惩罚 + 距离改进量 + cgRNASP。
+    """新架构 reward: 近远分治 + 方向梯度 + 自适应紧凑度.
 
-    R = R_pair + R_sat + R_improve - λ_clash·R_clash
-      - λ_distort·R_distort - λ_closure·R_closure - λ_cgrnas·E_long_range
+    R = R_near_stay + R_far_pull + R_improve
+      - λ_clash·R_clash - λ_distort·R_distort - λ_closure·R_closure
+      + r_compact + r_cgrnas + r_dpo
 
-    R_pair        远端配对到位 (exp(-|d-target|/2) - penalty)
-    R_sat         已满足 WC 几何的配对额外 bonus
-    R_improve     配对比初始状态靠近的渐进奖励 (DRAG 式)
-    R_clash       非键 P-P 太近惩罚
-    R_distort     相邻 P-P 偏离 5.9Å 骨架扭曲惩罚
-    R_closure     BSJ 闭合惩罚 (循环约束)
-    R_cgrnas      cgRNASP long-range CG 能量惩罚
+    设计原则:
+      1. Per-pair 目标距离: 从 p_init 的环上距离推导 (compute_pair_targets)
+      2. Near/Far 分治: 近程 (≤100nt) 奖励保持, 远端 (>100nt) 奖励拉拢
+      3. 方向梯度: R_far_pull 含 d_now>d_init 负奖励 (远离有惩罚)
+      4. 紧凑度自适应: 目标 Rg 从配对几何推导, 不用 sqrt(L)
+      5. R_improve 永远可用: p_init 从参数或 initial_p_coords 获取
 
-    分布解 + reward 自驱: 防止 RL 靠"硬拉远端配对但崩骨架/扯坏闭合"作弊。
-    use_regularization=False 时退回纯 R_pair (验证阶段用)。
-    target_dists: 每对远端配对的目标距离 (None 时全部用 WC_TARGET_DIST)。
-    initial_p_coords: 初始 P 坐标, 用于计算 R_improve 距离改进量。
-    sequence: RNA 序列 (传给 cgRNASP 评分, 影响 atom type 判定)。
+    Args:
+        p_init: 初始 P 坐标 (新参数, 优先级高于 initial_p_coords 用于 per-pair target)
     """
     L = len(p_coords)
     if not far_pairs:
         return 0.0
 
-    # R_pair (主目标) — 支持 per-pair target distance
-    r_pair = 0.0
+    # ── Per-pair 目标距离 ──
+    if target_dists is None:
+        _ref = p_init if p_init is not None else initial_p_coords
+        if _ref is not None:
+            target_dists = compute_pair_targets(_ref, far_pairs, L)
+        else:
+            target_dists = [WC_TARGET_DIST] * len(far_pairs)
+
+    # ── R_near_stay + R_far_pull (近远分治) ──
+    r_near = 0.0   # 近程配对保持
+    r_far = 0.0    # 远端配对拉拢
+    _ref = p_init if p_init is not None else initial_p_coords
     for k, (i, j) in enumerate(far_pairs):
-        d = np.linalg.norm(p_coords[i] - p_coords[j])
-        target = target_dists[k] if target_dists is not None else WC_TARGET_DIST
-        dev = abs(d - target)
-        r_pair += np.exp(-dev / 2.0) - 0.01 * dev
+        d_now = float(np.linalg.norm(p_coords[i] - p_coords[j]))
+        seq_dist = min(abs(j - i), L - abs(j - i))
+        target = target_dists[k]
 
-    # R_sat (DRAG 结构匹配距离分数): 已满足 WC 几何的远端配对给额外 bonus
-    # 配对距离 < WC_TARGET_DIST - SAT_MARGIN 时视为"已满足"
-    r_sat = 0.0
-    sat_count = 0
-    for (i, j) in far_pairs:
-        d = np.linalg.norm(p_coords[i] - p_coords[j])
-        target = WC_TARGET_DIST
-        if d < target - SAT_MARGIN:
-            # 越接近 target, bonus 越大; 用 exp 衰减
-            sat_count += 1
-            r_sat += np.exp(-abs(d - target) / 2.0)
+        if seq_dist <= NEAR_SEQ_DIST:
+            # 近程: 高斯保持在初始距离附近 (允许热运动)
+            d_init = float(np.linalg.norm(_ref[i] - _ref[j])) if _ref is not None else target
+            r_near += math.exp(-((d_now - d_init) / R_NEAR_STAY_SIGMA) ** 2)
+        else:
+            # 远端: 朝目标拉拢 + 方向梯度
+            d_init = float(np.linalg.norm(_ref[i] - _ref[j])) if _ref is not None else d_now
+            if d_init > target + 1.0:
+                # 正在拉拢: (d_init - d_now) / (d_init - target), cap at 1.0
+                progress = min(1.0, (d_init - d_now) / (d_init - target))
+                r_far += progress
+            elif d_now > d_init + 1.0:
+                # 拉远了: 负奖励 (惩罚远离)
+                r_far -= (d_now - d_init) / 20.0
+            # d_init ≈ d_target → 0 (已在目标)
 
-    r_pair += LAMBDA_SAT * r_sat
-
-    # R_improve (DRAG 结构匹配距离改进量): 配对比初始状态靠近时给 reward,
-    # 让 agent 能"感知距离在缩小", 而不是只在目标距离附近才有信号。
-    # 量级: 每个改善 10Å 给 ~0.1 reward, 避免压过 R_pair。
+    # ── R_improve (DRAG 式, 永远可用) ──
     r_improve = 0.0
-    if initial_p_coords is not None:
+    _ref2 = p_init if p_init is not None else initial_p_coords
+    if _ref2 is not None:
         for k, (i, j) in enumerate(far_pairs):
-            target = target_dists[k] if target_dists is not None else WC_TARGET_DIST
-            d_now = np.linalg.norm(p_coords[i] - p_coords[j])
-            d_init = np.linalg.norm(initial_p_coords[i] - initial_p_coords[j])
-            improvement = d_init - d_now  # >0 表示配对比初始更靠近
+            d_now = float(np.linalg.norm(p_coords[i] - p_coords[j]))
+            d_init = float(np.linalg.norm(_ref2[i] - _ref2[j]))
+            improvement = d_init - d_now
             if improvement > DIST_IMPROVE_THRESH:
                 r_improve += improvement / DIST_IMPROVE_SCALE
+            elif improvement < -DIST_IMPROVE_THRESH:
+                r_improve += improvement / (DIST_IMPROVE_SCALE * 2.0)  # 惩罚减半
 
-    r_pair += LAMBDA_IMPROVE * r_improve
+    # 合并配对 reward
+    r_pair = (R_FAR_PULL_WEIGHT * r_far
+              + (1.0 / max(len(far_pairs), 1)) * r_near
+              + LAMBDA_IMPROVE * r_improve)
 
     if not use_regularization or L < 3:
         return float(r_pair)
 
-    # R_clash: 非键 P-P 太近 — 一次性批量计算 (方案 H: 批量向量化)
-    # 旧版: for r in far_residues 循环, 每次一次 linalg.norm (100次循环)。
-    # 新版: 一次算所有远端 residue 到所有 P 的距离矩阵 (far_N × L), 然后
-    #       批量 mask 和 sum。复杂度: 1次矩阵运算 vs N次向量运算, 差 ~50x。
+    # ── R_clash: 非键 P-P 太近 (向量化) ──
     r_clash = 0.0
     far_residues_set: Set[int] = set()
     far_pair_set: Set[Tuple[int, int]] = set()
@@ -825,66 +866,54 @@ def compute_reward(
     far_N = len(far_indices)
 
     if far_N > 0:
-        # 一次批量距离矩阵: (far_N, L)
-        far_p = p_coords[far_indices]  # (far_N, 3)
-        dists = np.linalg.norm(far_p[:, np.newaxis, :] - p_coords[np.newaxis, :, :],
-                               axis=2)  # (far_N, L)
-
-        # 批量 mask: 排除自身 + 相邻 + 配对边
-        k_arr = np.arange(L)
+        far_p = p_coords[far_indices]
+        dists = np.linalg.norm(far_p[:, np.newaxis, :] - p_coords[np.newaxis, :, :], axis=2)
         exclude = np.zeros((far_N, L), dtype=bool)
         for ri, r in enumerate(far_indices):
-            # 自身 + 相邻
             exclude[ri, r] = True
-            if r > 0:
-                exclude[ri, r - 1] = True
-            if r < L - 1:
-                exclude[ri, r + 1] = True
-            # 配对边
+            if r > 0: exclude[ri, r - 1] = True
+            if r < L - 1: exclude[ri, r + 1] = True
             for (pi, pj) in far_pair_set:
-                if pi == r:
-                    exclude[ri, pj] = True
-                elif pj == r:
-                    exclude[ri, pi] = True
+                if pi == r: exclude[ri, pj] = True
+                elif pj == r: exclude[ri, pi] = True
         valid_d = dists[~exclude]
         close = valid_d[valid_d < CLASH_THRESH]
         r_clash = float(np.sum(CLASH_THRESH - close))
 
-    # R_distort: 相邻 P-P 偏离 5.9Å (骨架扭曲, 向量化) — 不含 BSJ
+    # ── R_distort: 相邻 P-P 偏离 5.9Å ──
     r_distort = 0.0
-    adj_d = np.linalg.norm(np.diff(p_coords, axis=0), axis=1)  # (L-1,) 相邻距离
+    adj_d = np.linalg.norm(np.diff(p_coords, axis=0), axis=1)
     dev_bond = np.abs(adj_d - BOND_LEN_CG)
     excess = dev_bond[dev_bond > BOND_TOL]
     r_distort += float(np.sum(excess - BOND_TOL))
 
-    # R_closure: BSJ 闭合 (独立惩罚, 高权重)
+    # ── R_closure: BSJ 闭合 ──
     d_bsj = float(np.linalg.norm(p_coords[0] - p_coords[-1]))
     r_closure = d_bsj
 
-    # R_cgrnas: cgRNASP 全局 CG 质量 (仅 long-range term, skip E_bonded)
+    # ── R_cgrnas: cgRNASP long-range ──
     r_cgrnas = 0.0
     cgrnas_val = _cgRNAS_score(p_coords, sequence)
     if cgrnas_val is not None:
         r_cgrnas = -LAMBDA_CGRNAS * cgrnas_val
 
-    # R_compact: 紧凑度奖励 (长序列核心). 奖励 Rg 接近目标值, 而非无限小.
-    # 之前"越小越好"导致结构压到 Rg=15 穿模 clash 爆炸 (reward -57606).
-    # 改: 目标 Rg = sqrt(L)*1.0 (经验, 1916nt ~44A), 奖励 |Rg-target| 小.
-    # 用高斯: r_compact = λ * exp(-((Rg-target)/scale)²), Rg=target 时最大.
+    # ── R_compact: 自适应目标 Rg (从配对几何推导) ──
     r_compact = 0.0
     if L > 3:
         rg_now = float(np.sqrt(((p_coords - p_coords.mean(0)) ** 2).sum(1).mean()))
-        target_rg = math.sqrt(L) * 1.0  # 经验目标 Rg
-        scale = target_rg * 0.3  # 容忍 ±30% target
+        # 目标 Rg: 从配对的平均序列距离推导 (非 sqrt(L) 经验公式)
+        if far_pairs:
+            avg_seq_dist = float(np.mean([min(abs(j-i), L-abs(j-i)) for i,j in far_pairs]))
+            target_rg = avg_seq_dist * 0.15  # 经验系数
+        else:
+            target_rg = math.sqrt(L) * 1.0  # fallback
+        scale = max(target_rg * 0.3, 5.0)  # 容忍 ±30%, 最小 5Å
         r_compact = LAMBDA_COMPACT * math.exp(-((rg_now - target_rg) / scale) ** 2) * (L / 100.0)
 
     total = (r_pair - LAMBDA_CLASH * r_clash - LAMBDA_DISTORT * r_distort
              - LAMBDA_CLOSURE * r_closure + r_cgrnas + r_compact)
 
-    # R_dpo: DPO policy 构象质量分量 (RiboPO 式). 可选 (dpo_weight>0 才开).
-    # DPO V 绝对量级大, 先 z-score 归一化 (减去常数偏移, 除以量级) 再加.
-    # 归一化: V 每 ~50 单位对应明显质量差 (验证时 far拉 vs base 差 ~150),
-    # 所以 dpo_weight * (V + 800) / 100 让 [好→坏] 产生 ~1.5 的梯度 (可比于 R_pair).
+    # ── R_dpo: DPO policy 构象质量 ──
     if dpo_weight > 0:
         v_dpo = _dpo_value(p_coords, far_pairs, sequence=sequence)
         if v_dpo is not None:
@@ -1428,7 +1457,8 @@ class MCTS:
             # 与 dpo_simulate 一致用 compute_reward (R_pair 驱动拉拢), 树内同量级.
             return compute_reward(p, far_pairs,
                                   initial_p_coords=initial_p_coords,
-                                  sequence=sequence, dpo_weight=self.dpo_weight)
+                                  sequence=sequence, dpo_weight=self.dpo_weight,
+                                  p_init=initial_p_coords)
         for _ in range(self.rollout_depth):
             tmp = RLOptimizerState(
                 p_coords=p, sequence=state.sequence,
@@ -1439,7 +1469,8 @@ class MCTS:
             p = apply_action(tmp, bidx, didx, sidx)
         return compute_reward(p, far_pairs,
                               initial_p_coords=initial_p_coords,
-                              sequence=sequence, dpo_weight=self.dpo_weight)
+                              sequence=sequence, dpo_weight=self.dpo_weight,
+                              p_init=initial_p_coords)
 
 
     def search(
@@ -1464,11 +1495,13 @@ class MCTS:
             # (R_pair 驱动拉拢 + clash 防塌缩), 与子节点同量级可比.
             root_reward = compute_reward(state.p_coords, far_pairs,
                                          initial_p_coords=initial_p_coords,
-                                         sequence=sequence, dpo_weight=self.dpo_weight)
+                                         sequence=sequence, dpo_weight=self.dpo_weight,
+                                         p_init=initial_p_coords)
         else:
             root_reward = compute_reward(state.p_coords, far_pairs,
                                          initial_p_coords=initial_p_coords,
-                                         sequence=sequence, dpo_weight=self.dpo_weight)
+                                         sequence=sequence, dpo_weight=self.dpo_weight,
+                                         p_init=initial_p_coords)
         root = MCTSNode(p_coords=state.p_coords, reward=root_reward)
         best = root
 
@@ -1557,11 +1590,13 @@ class MCTS:
                 # 树内量级一致 (全用 compute_reward), UCB 可比.
                 r_exp = compute_reward(new_p, far_pairs,
                                        initial_p_coords=initial_p_coords,
-                                       sequence=sequence, dpo_weight=self.dpo_weight)
+                                       sequence=sequence, dpo_weight=self.dpo_weight,
+                                       p_init=initial_p_coords)
             else:
                 r_exp = compute_reward(new_p, far_pairs,
                                        initial_p_coords=initial_p_coords,
-                                       sequence=sequence, dpo_weight=self.dpo_weight)
+                                       sequence=sequence, dpo_weight=self.dpo_weight,
+                                       p_init=initial_p_coords)
 
             # 保存两层 mutation 信息 (供 block_action_distribution 使用)
             # heuristic 路径: type_id/dira 未知, 用占位
@@ -1733,7 +1768,8 @@ def optimize_far_pairs(
     initial_p_coords = p_coords.copy()
     reward_before = compute_reward(p_coords, far_pairs,
                                    initial_p_coords=initial_p_coords,
-                                   sequence=sequence, dpo_weight=dpo_weight)
+                                   sequence=sequence, dpo_weight=dpo_weight,
+                                   p_init=initial_p_coords)
     cg_coords = p_coords.copy()
 
     policy = None
@@ -1846,7 +1882,8 @@ def optimize_far_pairs(
 
     reward_after = compute_reward(optimized_p, far_pairs,
                                   initial_p_coords=initial_p_coords,
-                                  sequence=sequence, dpo_weight=dpo_weight)
+                                  sequence=sequence, dpo_weight=dpo_weight,
+                                  p_init=initial_p_coords)
 
     info = {
         "reward_before": float(reward_before),
