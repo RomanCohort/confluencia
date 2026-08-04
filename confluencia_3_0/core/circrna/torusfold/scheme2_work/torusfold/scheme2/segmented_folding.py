@@ -331,7 +331,8 @@ def build_segmented_3bead_system(
     # 弱 harmonic 势把 P 原子拉向目标半径 r_target, 引导链弯成环.
     # k_guide=0 时关闭 (phase 1/3), 退火时 ramp k_guide 控制引导强度.
     r_target = L * BOND_LEN / (2 * math.pi * 10.0)  # nm
-    guide_k0 = 0.1 * L  # kJ/mol/nm² per atom (线性缩放)
+    # [fix] guide_k 限制上限, 避免长链过度压缩
+    guide_k0 = min(0.01 * L, 50.0)  # kJ/mol/nm², cap at 50
     guide = CustomExternalForce("0.5*kg*(sqrt(x*x+y*y+z*z)-rt)^2")
     guide.addGlobalParameter("kg", 0.0)
     guide.addGlobalParameter("rt", r_target)
