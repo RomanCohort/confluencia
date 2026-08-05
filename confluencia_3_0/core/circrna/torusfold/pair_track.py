@@ -196,6 +196,13 @@ class PairTrack(nn.Module):
             nn.Linear(config.d_pair, config.d_pair),
         )
 
+        # RNA FM pair_repr → d_pair 投影 (维度可能不同)
+        self.init_pair_proj = nn.Sequential(
+            nn.Linear(128, config.d_pair),  # RNA FM d_pair=128 → config.d_pair
+            nn.GELU(),
+            nn.Linear(config.d_pair, config.d_pair),
+        )
+
         # N 层 pair track (稀疏版本)
         self.layers = nn.ModuleList([
             PairTrackLayer(
@@ -208,6 +215,42 @@ class PairTrack(nn.Module):
         ])
 
         self.norm_out = nn.LayerNorm(config.d_pair)
+
+    def init_from_rna_fm_pair(
+        self,
+        pair_repr: torch.Tensor,
+        topk_idx: torch.Tensor = None,
+    ) -> torch.Tensor:
+        """从 RNA FM 的 pair_repr 初始化稀疏 pair representation.
+
+        RNA FM 的 pair_repr 是全局 (B, L, L, d_rna_fm), 这里提取稀疏子集.
+
+        Args:
+            pair_repr: (B, L, L, d_rna_fm) — RNA FM 全局 pair repr (d_rna_fm=128)
+            topk_idx: (B, L, K) — 每个节点的 K 个最近邻索引
+
+        Returns:
+            z: (B, L, K, d_pair) — 稀疏 pair representation
+        """
+        B, L, _, d_rna = pair_repr.shape
+        K = self.config.max_len if hasattr(self.config, 'max_len') else 30
+        K = min(K, L)
+
+        if topk_idx is None:
+            # 用 pair_repr 的强度选择 top-K (而非随机)
+            pair_strength = pair_repr.mean(dim=-1)  # (B, L, L)
+            _, topk_idx = pair_strength.topk(K, dim=-1)  # (B, L, K)
+
+        # 从全局 pair_repr 提取稀疏子集
+        b_idx = torch.arange(B, device=pair_repr.device).view(B, 1, 1).expand(B, L, K)
+        i_idx = torch.arange(L, device=pair_repr.device).view(1, L, 1).expand(B, L, K)
+        z = pair_repr[b_idx, i_idx, topk_idx]  # (B, L, K, d_rna)
+
+        # 投影到 d_pair (如果维度不同)
+        if d_rna != self.config.d_pair:
+            z = self.init_pair_proj(z)  # (B, L, K, d_pair)
+
+        return z
 
     def init_from_node(self, node_feat: torch.Tensor, topk_idx: torch.Tensor = None) -> torch.Tensor:
         """从 node representation 初始化稀疏 pair representation.
