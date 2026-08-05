@@ -11,7 +11,7 @@ scale per step on GPU. Trade-off vs full physics: no real thermodynamics,
 but guarantees the 4 hard stereo constraints are minimized.
 
 Public API:
-    refine_coords(coords, lengths, n_steps=20, lr=0.5, project_bonds=True)
+    refine_coords(coords, lengths, n_steps=100, lr=0.5, project_bonds=True)
 """
 from __future__ import annotations
 import torch
@@ -162,7 +162,7 @@ if __name__ == '__main__':
         return sum(errs) / len(errs)
 
     before = bond_err(coords)
-    refined, hist = refine_coords(coords, lengths, n_steps=20, lr=0.5,
+    refined, hist = refine_coords(coords, lengths, n_steps=100, lr=0.5,
                                    return_history=True)
     after = bond_err(refined)
 

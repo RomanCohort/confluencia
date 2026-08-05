@@ -220,8 +220,9 @@ class OverlapConsistencyLoss(nn.Module):
 
         # 确保右手系
         if torch.det(R) < 0:
-            Vt[-1, :] *= -1
-            R = Vt.T @ U.T
+            Vt_fixed = Vt.clone()
+            Vt_fixed[-1, :] = -Vt_fixed[-1, :]
+            R = Vt_fixed.T @ U.T
 
         # 应用旋转 + 平移
         P_aligned = P_center @ R.T + Q_center.mean(dim=0)
