@@ -544,11 +544,25 @@ def train_scheme1(train_loader, val_loader, args, device):
             # Denormalize for physical losses: scale pred_norm by target_scale
             # This puts prediction in the same Å-scale as target
             pred_denorm = pred_norm * target_scale + target.mean(dim=1, keepdim=True)
-            closure_dists = torch.norm(pred_denorm[:, 0] - pred_denorm[:, -1], dim=-1)  # (B,)
-            # Mask: only count samples where both first and last positions are valid
-            closure_mask = torch.tensor([lengths[b] >= 2 for b in range(B)],
+            # [FAPE] BSJ FAPE 式损失: 局部坐标系下比较 BSJ 附近几何
+            from .bsj_fape import BSJFAPELoss
+            bsj_fape_fn = BSJFAPELoss(bsj_margin=min(10, max(3, L // 20)))
+            # Mask: only count samples where length >= 4
+            closure_mask = torch.tensor([lengths[b] >= 4 for b in range(B)],
                                         device=device, dtype=torch.float32)
-            closure_loss = (closure_mask * (closure_dists - bond_length) ** 2).sum() / closure_mask.sum().clamp(min=1.0)
+            if closure_mask.sum() > 0:
+                # 对每个有效样本计算 BSJ FAPE
+                bsj_fape_vals = []
+                for b in range(B):
+                    if lengths[b] >= 4:
+                        v = bsj_fape_fn(pred_denorm[b:b+1], target[b:b+1])
+                        bsj_fape_vals.append(v)
+                if bsj_fape_vals:
+                    closure_loss = torch.stack(bsj_fape_vals).mean()
+                else:
+                    closure_loss = torch.tensor(0.0, device=device)
+            else:
+                closure_loss = torch.tensor(0.0, device=device)
 
             # Bond consistency loss (vectorized per-batch, only adjacent bonds)
             bond_loss = torch.tensor(0.0, device=device)
@@ -691,6 +705,10 @@ def train_scheme1(train_loader, val_loader, args, device):
               f"closure={avg_train_closure:.2f}Å "
               f"val={avg_val:.1f}Å val_closure={avg_val_closure:.2f}Å "
               f"lr={current_lr:.1e} nan={nan_batches} pat={patience_counter}/10")
+        # BSJ confidence (从 FAPE 衍生, 越高越好)
+        if avg_train_closure < float('inf'):
+            bsj_conf = max(0, min(1, 1.0 - avg_train_closure / 50.0))
+            print(f"         BSJ confidence: {bsj_conf:.3f} (0=bad, 1=good)")
 
         if patience_counter >= 10:
             print(f"  Early stopping at epoch {epoch+1}")
