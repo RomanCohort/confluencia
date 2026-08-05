@@ -59,6 +59,12 @@ try:
     HAS_PAIR_TRACK = True
 except ImportError:
     HAS_PAIR_TRACK = False
+# [RhoFold] RhoFold+ RNA FM backbone
+try:
+    from torusfold_rhofold import TorusFoldRhoFold, TorusFoldRhoFoldConfig
+    HAS_RHOFOLD = True
+except ImportError:
+    HAS_RHOFOLD = False
 
 # A+B+C geometry prior modules (verified in train_s10_82k.py)
 from stereochemistry_losses import get_stereo_loss_breakdown
@@ -363,6 +369,23 @@ else:
     pair_norm = None
     pair_params = []
 
+# [RhoFold] USE_RHOFOLD=1 用 RhoFold+ RNA FM 作为 backbone
+USE_RHOFOLD = os.environ.get('USE_RHOFOLD', '0') == '1'
+if USE_RHOFOLD and HAS_RHOFOLD:
+    rhofold_config = TorusFoldRhoFoldConfig(
+        freeze_backbone=True,  # Phase 1: 冻结
+        freeze_layers=9,
+        use_pair_repr=True,
+        d_node=256, d_pair=64,
+        pair_track_layers=2,
+    )
+    rhofold_model = TorusFoldRhoFold(rhofold_config).to(device)
+    # 不覆盖主 model — rhofold_model 独立使用
+    print(f'  RhoFold+ backbone: enabled (freeze_layers=9)')
+    print(f'  RhoFold+ params: {sum(p.numel() for p in rhofold_model.parameters()):,}')
+else:
+    rhofold_model = None
+
 # Prior modules (A+B+C, all verified)
 pd_loss_fn = PhysicsDecoupledLoss(w_geo=1.0, w_phys=0.1, use_rg_loss=True,
                                    use_clash_loss=True, use_angle_loss=True).to(device)
@@ -414,7 +437,13 @@ prior_params = (list(contact_head.parameters()) + list(contact_proj.parameters()
                 list(physics_loss_fn.parameters()))
 if distillation_loss_fn is not None:
     prior_params += list(distillation_loss_fn.parameters())
-all_params = list(model.parameters()) + prior_params + pair_params
+# [RhoFold] 可训练参数: backbone 冻结, 只训 decoder + pair_track + projections
+rhofold_params = []
+if rhofold_model is not None:
+    rhofold_params = [p for p in rhofold_model.parameters() if p.requires_grad]
+    print(f"  RhoFold+ trainable params: {sum(p.numel() for p in rhofold_params):,}")
+
+all_params = list(model.parameters()) + prior_params + pair_params + rhofold_params
 # AdamW with higher lr for faster convergence (loss was stuck at ~555k with SGD lr=1e-4)
 optimizer = torch.optim.AdamW(all_params, lr=1e-3, weight_decay=1e-3)
 scaler = torch.amp.GradScaler('cuda', enabled=True)
@@ -960,10 +989,18 @@ def train_one_phase(phase, n_phase_epochs):
             # single-step denoised coords (differentiable) for geometric losses.
             # v4.1: 4-tuple return with anchor_aux_loss for dynamic anchor supervision.
             with torch.amp.autocast('cuda'):
-                diff_loss, x0_pred, contact_pred_latent, anchor_aux_loss = model(
-                    seq_ids, target_coords=target, pair_probs=batch_pp,
-                    return_loss=True,
-                )
+                # [RhoFold] 用 RhoFold+ backbone 替代 S10 forward
+                if rhofold_model is not None:
+                    rhofold_result = rhofold_model(seq_ids, coords_target=target)
+                    diff_loss = torch.tensor(0.0, device=device)  # 无扩散 loss
+                    x0_pred = rhofold_result['coords']
+                    contact_pred_latent = None
+                    anchor_aux_loss = torch.tensor(0.0, device=device)
+                else:
+                    diff_loss, x0_pred, contact_pred_latent, anchor_aux_loss = model(
+                        seq_ids, target_coords=target, pair_probs=batch_pp,
+                        return_loss=True,
+                    )
                 if torch.isnan(diff_loss):
                     nan_batches += 1; continue
 
@@ -1128,6 +1165,10 @@ def train_one_phase(phase, n_phase_epochs):
                     dtype=torch.long).unsqueeze(0).to(device)
                 t_val = torch.tensor(coords[i], dtype=torch.float32).unsqueeze(0).to(device)
                 p_val = model(s_ids, return_loss=False)
+                # [RhoFold] validation 用 RhoFold+
+                if rhofold_model is not None:
+                    with torch.no_grad():
+                        p_val = rhofold_model.sample(s_ids)['coords']
                 # [PairTrack] validation 也加 PairTrack 后处理
                 if pair_track_module is not None and p_val is not None:
                     B_v, L_v, _ = p_val.shape
