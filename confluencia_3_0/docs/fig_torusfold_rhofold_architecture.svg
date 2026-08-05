@@ -1,0 +1,248 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 1800" font-family="Consolas, monospace">
+  <defs>
+    <marker id="arrow" markerWidth="10" markerHeight="7" refX="10" refY="3.5" orient="auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#333"/>
+    </marker>
+    <linearGradient id="bgGrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#f8f9fa"/>
+      <stop offset="100%" stop-color="#e9ecef"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Background -->
+  <rect width="1200" height="1800" fill="url(#bgGrad)" rx="12"/>
+
+  <!-- Title -->
+  <text x="600" y="45" text-anchor="middle" font-size="22" font-weight="bold" fill="#1a1a2e">TorusFold + RhoFold+ Complete Architecture</text>
+  <text x="600" y="68" text-anchor="middle" font-size="13" fill="#666">circRNA 3D Structure Prediction with RNA FM Encoder Backbone</text>
+
+  <!-- ========== Section 1: Input ========== -->
+  <rect x="30" y="90" width="1140" height="70" rx="8" fill="#fff3cd" stroke="#ffc107" stroke-width="1.5"/>
+  <text x="50" y="115" font-size="14" font-weight="bold" fill="#856404">INPUT</text>
+  <text x="50" y="138" font-size="12" fill="#856404">circRNA Sequence (B, L) token IDs: A=0 U=1 G=2 C=3 N=4</text>
+  <text x="700" y="138" font-size="11" fill="#856404">2OIU: 71nt | CircBase: 151-5000nt</text>
+
+  <!-- Arrow -->
+  <line x1="600" y1="160" x2="600" y2="185" stroke="#333" stroke-width="2" marker-end="url(#arrow)"/>
+
+  <!-- ========== Section 2: RhoFold+ RNA FM Encoder ========== -->
+  <rect x="30" y="185" width="1140" height="180" rx="8" fill="#d4edda" stroke="#28a745" stroke-width="1.5"/>
+  <text x="50" y="215" font-size="14" font-weight="bold" fill="#155724">RhoFold+ RNA FM ENCODER (FROZEN, 9/12 layers)</text>
+
+  <!-- RNA FM box -->
+  <rect x="80" y="235" width="350" height="110" rx="6" fill="#fff" stroke="#28a745"/>
+  <text x="255" y="260" text-anchor="middle" font-size="13" font-weight="bold" fill="#155724">RNA FM Encoder</text>
+  <text x="255" y="280" text-anchor="middle" font-size="11" fill="#155724">12-layer Transformer</text>
+  <text x="255" y="298" text-anchor="middle" font-size="11" fill="#155724">d_model=640, 20 heads</text>
+  <text x="255" y="316" text-anchor="middle" font-size="11" fill="#155724">99,521,546 params (frozen)</text>
+  <text x="255" y="334" text-anchor="middle" font-size="10" fill="#28a745">✓ 碱基配对保守性信号</text>
+
+  <!-- PairNet box -->
+  <rect x="520" y="235" width="280" height="110" rx="6" fill="#fff" stroke="#28a745"/>
+  <text x="660" y="260" text-anchor="middle" font-size="13" font-weight="bold" fill="#155724">PairNet</text>
+  <text x="660" y="280" text-anchor="middle" font-size="11" fill="#155724">Pair Embedding</text>
+  <text x="660" y="298" text-anchor="middle" font-size="11" fill="#155724">d_pair=128</text>
+  <text x="660" y="316" text-anchor="middle" font-size="10" fill="#28a745">✓ 残基对关系</text>
+
+  <!-- Outputs -->
+  <rect x="880" y="235" width="250" height="50" rx="6" fill="#c3e6cb" stroke="#28a745"/>
+  <text x="1005" y="257" text-anchor="middle" font-size="11" font-weight="bold" fill="#155724">node_repr (B, L, 640)</text>
+
+  <rect x="880" y="300" width="250" height="50" rx="6" fill="#c3e6cb" stroke="#28a745"/>
+  <text x="1005" y="322" text-anchor="middle" font-size="11" font-weight="bold" fill="#155724">pair_repr (B, L, L, 128)</text>
+
+  <!-- Arrow -->
+  <line x1="600" y1="365" x2="600" y2="390" stroke="#333" stroke-width="2" marker-end="url(#arrow)"/>
+
+  <!-- ========== Section 3: Projection ========== -->
+  <rect x="30" y="390" width="1140" height="70" rx="8" fill="#cce5ff" stroke="#007bff" stroke-width="1.5"/>
+  <text x="50" y="415" font-size="14" font-weight="bold" fill="#004085">PROJECTION LAYER (TRAINABLE)</text>
+  <text x="50" y="440" font-size="11" fill="#004085">node_proj: Linear(640→256) + LayerNorm + GELU  |  pair_proj: Linear(128→64) + LayerNorm + GELU</text>
+  <text x="800" y="440" font-size="11" fill="#004085">~200,000 params</text>
+
+  <!-- Arrow -->
+  <line x1="600" y1="460" x2="600" y2="485" stroke="#333" stroke-width="2" marker-end="url(#arrow)"/>
+
+  <!-- ========== Section 4: PairTrack ========== -->
+  <rect x="30" y="485" width="1140" height="180" rx="8" fill="#e2d5f1" stroke="#6f42c1" stroke-width="1.5"/>
+  <text x="50" y="515" font-size="14" font-weight="bold" fill="#4a235a">PAIRTRACK (TRAINABLE, 2 layers, 132,864 params)</text>
+
+  <!-- init_from_rna_fm_pair -->
+  <rect x="80" y="535" width="280" height="80" rx="6" fill="#fff" stroke="#6f42c1"/>
+  <text x="220" y="558" text-anchor="middle" font-size="12" font-weight="bold" fill="#4a235a">init_from_rna_fm_pair()</text>
+  <text x="220" y="576" text-anchor="middle" font-size="10" fill="#4a235a">pair_repr (B,L,L,128)</text>
+  <text x="220" y="592" text-anchor="middle" font-size="10" fill="#4a235a">→ top-K (K=30) 选择</text>
+  <text x="220" y="608" text-anchor="middle" font-size="10" fill="#4a235a">→ proj (128→64)</text>
+
+  <!-- TriMulUpdate -->
+  <rect x="440" y="535" width="350" height="80" rx="6" fill="#fff" stroke="#6f42c1"/>
+  <text x="615" y="558" text-anchor="middle" font-size="12" font-weight="bold" fill="#4a235a">TriMulUpdate ×2</text>
+  <text x="615" y="576" text-anchor="middle" font-size="10" fill="#4a235a">三角不等式约束</text>
+  <text x="615" y="592" text-anchor="middle" font-size="10" fill="#4a235a">d(i,j) ≤ d(i,k) + d(k,j)</text>
+  <text x="615" y="608" text-anchor="middle" font-size="10" fill="#4a235a">O(L × K × d) 稀疏</text>
+
+  <!-- Output -->
+  <rect x="880" y="535" width="250" height="50" rx="6" fill="#d4c5f9" stroke="#6f42c1"/>
+  <text x="1005" y="557" text-anchor="middle" font-size="11" font-weight="bold" fill="#4a235a">z: (B, L, 30, 64)</text>
+  <text x="1005" y="572" text-anchor="middle" font-size="10" fill="#4a235a">三角一致性增强 pair</text>
+
+  <!-- Arrow -->
+  <line x1="600" y1="665" x2="600" y2="690" stroke="#333" stroke-width="2" marker-end="url(#arrow)"/>
+
+  <!-- ========== Section 5: Fusion ========== -->
+  <rect x="30" y="690" width="1140" height="70" rx="8" fill="#fff3cd" stroke="#ffc107" stroke-width="1.5"/>
+  <text x="50" y="715" font-size="14" font-weight="bold" fill="#856404">PAIR → NODE FUSION (TRAINABLE)</text>
+  <text x="50" y="740" font-size="11" fill="#856404">pair_to_node: Linear(64→256)×2 + LayerNorm  |  node_feat = node_feat + pair_enhance  |  ~130,000 params</text>
+
+  <!-- Arrow -->
+  <line x1="600" y1="760" x2="600" y2="785" stroke="#333" stroke-width="2" marker-end="url(#arrow)"/>
+
+  <!-- ========== Section 6: CG Decoder ========== -->
+  <rect x="30" y="785" width="1140" height="70" rx="8" fill="#f8d7da" stroke="#dc3545" stroke-width="1.5"/>
+  <text x="50" y="810" font-size="14" font-weight="bold" fill="#721c24">CG DECODER (TRAINABLE)</text>
+  <text x="50" y="835" font-size="11" fill="#721c24">MLP: 256→256→3 + LayerNorm + GELU + Dropout(0.1)  |  ~67,075 params  |  Output: P atom positions</text>
+
+  <!-- Arrow -->
+  <line x1="600" y1="855" x2="600" y2="880" stroke="#333" stroke-width="2" marker-end="url(#arrow)"/>
+
+  <!-- ========== Section 7: Output ========== -->
+  <rect x="30" y="880" width="1140" height="70" rx="8" fill="#d4edda" stroke="#28a745" stroke-width="1.5"/>
+  <text x="50" y="905" font-size="14" font-weight="bold" fill="#155724">OUTPUT</text>
+  <text x="50" y="930" font-size="11" fill="#155724">CG 3-bead coordinates (B, L, 3)  |  bsj_confidence (B,)  |  closure_dist (B,)</text>
+
+  <!-- Arrow -->
+  <line x1="600" y1="950" x2="600" y2="975" stroke="#333" stroke-width="2" marker-end="url(#arrow)"/>
+
+  <!-- ========== Section 8: Loss Functions ========== -->
+  <rect x="30" y="975" width="1140" height="250" rx="8" fill="#f8f9fa" stroke="#6c757d" stroke-width="1.5"/>
+  <text x="50" y="1005" font-size="14" font-weight="bold" fill="#495057">LOSS FUNCTIONS (15 terms, Kendall Uncertainty Weighting)</text>
+
+  <!-- Core losses -->
+  <rect x="50" y="1020" width="200" height="40" rx="4" fill="#ffeeba" stroke="#ffc107"/>
+  <text x="150" y="1045" text-anchor="middle" font-size="11" font-weight="bold" fill="#856404">coord_L2 ×10.0</text>
+
+  <rect x="270" y="1020" width="200" height="40" rx="4" fill="#ffeeba" stroke="#ffc107"/>
+  <text x="370" y="1045" text-anchor="middle" font-size="11" font-weight="bold" fill="#856404">BSJ_FAPE ×2.0</text>
+
+  <rect x="490" y="1020" width="200" height="40" rx="4" fill="#ffeeba" stroke="#ffc107"/>
+  <text x="590" y="1045" text-anchor="middle" font-size="11" font-weight="bold" fill="#856404">bond ×0.5</text>
+
+  <rect x="710" y="1020" width="200" height="40" rx="4" fill="#ffeeba" stroke="#ffc107"/>
+  <text x="810" y="1045" text-anchor="middle" font-size="11" font-weight="bold" fill="#856404">closure ×5.0</text>
+
+  <rect x="930" y="1020" width="200" height="40" rx="4" fill="#ffeeba" stroke="#ffc107"/>
+  <text x="1030" y="1045" text-anchor="middle" font-size="11" font-weight="bold" fill="#856404">diffusion ×1.0</text>
+
+  <!-- Secondary losses row 1 -->
+  <rect x="50" y="1070" width="160" height="35" rx="4" fill="#d1ecf1" stroke="#17a2b8"/>
+  <text x="130" y="1092" text-anchor="middle" font-size="10" fill="#0c5460">stereo ×1.0</text>
+
+  <rect x="225" y="1070" width="160" height="35" rx="4" fill="#d1ecf1" stroke="#17a2b8"/>
+  <text x="305" y="1092" text-anchor="middle" font-size="10" fill="#0c5460">physics ×1.0</text>
+
+  <rect x="400" y="1070" width="160" height="35" rx="4" fill="#d1ecf1" stroke="#17a2b8"/>
+  <text x="480" y="1092" text-anchor="middle" font-size="10" fill="#0c5460">pairing ×1.0</text>
+
+  <rect x="575" y="1070" width="160" height="35" rx="4" fill="#d1ecf1" stroke="#17a2b8"/>
+  <text x="655" y="1092" text-anchor="middle" font-size="10" fill="#0c5460">contact ×1.0</text>
+
+  <rect x="750" y="1070" width="160" height="35" rx="4" fill="#d1ecf1" stroke="#17a2b8"/>
+  <text x="830" y="1092" text-anchor="middle" font-size="10" fill="#0c5460">torus ×0.5</text>
+
+  <rect x="925" y="1070" width="200" height="35" rx="4" fill="#d1ecf1" stroke="#17a2b8"/>
+  <text x="1025" y="1092" text-anchor="middle" font-size="10" fill="#0c5460">chirality ×0.5</text>
+
+  <!-- Secondary losses row 2 -->
+  <rect x="50" y="1115" width="160" height="35" rx="4" fill="#e2e3e5" stroke="#6c757d"/>
+  <text x="130" y="1137" text-anchor="middle" font-size="10" fill="#383d41">contrastive ×0.1</text>
+
+  <rect x="225" y="1115" width="160" height="35" rx="4" fill="#e2e3e5" stroke="#6c757d"/>
+  <text x="305" y="1137" text-anchor="middle" font-size="10" fill="#383d41">bridge ×0.1</text>
+
+  <rect x="400" y="1115" width="160" height="35" rx="4" fill="#e2e3e5" stroke="#6c757d"/>
+  <text x="480" y="1137" text-anchor="middle" font-size="10" fill="#383d41">distill ×0.1</text>
+
+  <rect x="575" y="1115" width="160" height="35" rx="4" fill="#e2e3e5" stroke="#6c757d"/>
+  <text x="655" y="1137" text-anchor="middle" font-size="10" fill="#383d41">anchor ×0.5</text>
+
+  <rect x="750" y="1115" width="160" height="35" rx="4" fill="#e2e3e5" stroke="#6c757d"/>
+  <text x="830" y="1137" text-anchor="middle" font-size="10" fill="#383d41">bsj_geo ×dyn</text>
+
+  <!-- Arrow -->
+  <line x1="600" y1="1225" x2="600" y2="1250" stroke="#333" stroke-width="2" marker-end="url(#arrow)"/>
+
+  <!-- ========== Section 9: Training Modes ========== -->
+  <rect x="30" y="1250" width="1140" height="140" rx="8" fill="#fff" stroke="#6c757d" stroke-width="1.5"/>
+  <text x="50" y="1280" font-size="14" font-weight="bold" fill="#495057">TRAINING MODES (environment variable switch)</text>
+
+  <rect x="50" y="1295" width="260" height="75" rx="6" fill="#d4edda" stroke="#28a745"/>
+  <text x="180" y="1315" text-anchor="middle" font-size="11" font-weight="bold" fill="#155724">原版 S10</text>
+  <text x="180" y="1335" text-anchor="middle" font-size="10" fill="#155724">StrictlyEquivariantS10</text>
+  <text x="180" y="1355" text-anchor="middle" font-size="9" fill="#155724">SO(2)×SO(2)×R⁺ equivariant</text>
+
+  <rect x="370" y="1295" width="260" height="75" rx="6" fill="#e2d5f1" stroke="#6f42c1"/>
+  <text x="500" y="1315" text-anchor="middle" font-size="11" font-weight="bold" fill="#4a235a">USE_PAIR_TRACK=1</text>
+  <text x="500" y="1335" text-anchor="middle" font-size="10" fill="#4a235a">S10 + PairTrack wrapper</text>
+  <text x="500" y="1355" text-anchor="middle" font-size="9" fill="#4a235a">+ 三角一致性 post-processing</text>
+
+  <rect x="690" y="1295" width="260" height="75" rx="6" fill="#cce5ff" stroke="#007bff"/>
+  <text x="820" y="1315" text-anchor="middle" font-size="11" font-weight="bold" fill="#004085">USE_RHOFOLD=1</text>
+  <text x="820" y="1335" text-anchor="middle" font-size="10" fill="#004085">RhoFold+ RNA FM backbone</text>
+  <text x="820" y="1355" text-anchor="middle" font-size="9" fill="#004085">+ CG Decoder (recommended)</text>
+
+  <rect x="1010" y="1295" width="130" height="75" rx="6" fill="#fff3cd" stroke="#ffc107"/>
+  <text x="1075" y="1315" text-anchor="middle" font-size="10" font-weight="bold" fill="#856404">RESUME</text>
+  <text x="1075" y="1335" text-anchor="middle" font-size="9" fill="#856404">TORUSFOLD_</text>
+  <text x="1075" y="1350" text-anchor="middle" font-size="9" fill="#856404">RESUME=path</text>
+  <text x="1075" y="1365" text-anchor="middle" font-size="8" fill="#856404">checkpoint</text>
+
+  <!-- Arrow -->
+  <line x1="600" y1="1390" x2="600" y2="1415" stroke="#333" stroke-width="2" marker-end="url(#arrow)"/>
+
+  <!-- ========== Section 10: Curriculum ========== -->
+  <rect x="30" y="1415" width="1140" height="130" rx="8" fill="#fff" stroke="#6c757d" stroke-width="1.5"/>
+  <text x="50" y="1445" font-size="14" font-weight="bold" fill="#495057">5-PHASE CURRICULUM TRAINING</text>
+
+  <rect x="50" y="1460" width="180" height="65" rx="6" fill="#d4edda" stroke="#28a745"/>
+  <text x="140" y="1480" text-anchor="middle" font-size="10" font-weight="bold" fill="#155724">Phase 0</text>
+  <text x="140" y="1495" text-anchor="middle" font-size="9" fill="#155724">PDB 3D pretrained</text>
+  <text x="140" y="1510" text-anchor="middle" font-size="9" fill="#155724">5,607 real structures</text>
+
+  <rect x="260" y="1460" width="180" height="65" rx="6" fill="#cce5ff" stroke="#007bff"/>
+  <text x="350" y="1480" text-anchor="middle" font-size="10" font-weight="bold" fill="#004085">Phase 1</text>
+  <text x="350" y="1495" text-anchor="middle" font-size="9" fill="#004085">CG short 151-200nt</text>
+  <text x="350" y="1510" text-anchor="middle" font-size="9" fill="#004085">60% short heavy</text>
+
+  <rect x="470" y="1460" width="180" height="65" rx="6" fill="#e2d5f1" stroke="#6f42c1"/>
+  <text x="560" y="1480" text-anchor="middle" font-size="10" font-weight="bold" fill="#4a235a">Phase 2</text>
+  <text x="560" y="1495" text-anchor="middle" font-size="9" fill="#4a235a">CG medium 201-500nt</text>
+  <text x="560" y="1510" text-anchor="middle" font-size="9" fill="#4a235a">20-40% medium</text>
+
+  <rect x="680" y="1460" width="180" height="65" rx="6" fill="#f8d7da" stroke="#dc3545"/>
+  <text x="770" y="1480" text-anchor="middle" font-size="10" font-weight="bold" fill="#721c24">Phase 3</text>
+  <text x="770" y="1495" text-anchor="middle" font-size="9" fill="#721c24">CG long 501-1000nt</text>
+  <text x="770" y="1510" text-anchor="middle" font-size="9" fill="#721c24">40-50% long heavy</text>
+
+  <rect x="890" y="1460" width="250" height="65" rx="6" fill="#ffeeba" stroke="#ffc107"/>
+  <text x="1015" y="1480" text-anchor="middle" font-size="10" font-weight="bold" fill="#856404">Phase 4</text>
+  <text x="1015" y="1495" text-anchor="middle" font-size="9" fill="#856404">CG xlong 1001-5000nt</text>
+  <text x="1015" y="1510" text-anchor="middle" font-size="9" fill="#856404">20-30% + BSJ stress</text>
+
+  <!-- ========== Section 11: Parameter Summary ========== -->
+  <rect x="30" y="1560" width="1140" height="120" rx="8" fill="#fff" stroke="#6c757d" stroke-width="1.5"/>
+  <text x="50" y="1590" font-size="14" font-weight="bold" fill="#495057">PARAMETER SUMMARY</text>
+
+  <text x="50" y="1615" font-size="11" fill="#333">RNA FM Encoder: 99,521,546 (frozen 9/12 layers)</text>
+  <text x="50" y="1635" font-size="11" fill="#333">PairTrack: 132,864 (trainable)</text>
+  <text x="50" y="1655" font-size="11" fill="#333">CG Decoder: 67,075 (trainable)</text>
+  <text x="50" y="1675" font-size="11" fill="#333">Projections + Fusion: ~330,000 (trainable)</text>
+
+  <rect x="700" y="1605" width="450" height="70" rx="6" fill="#d4edda" stroke="#28a745"/>
+  <text x="925" y="1630" text-anchor="middle" font-size="14" font-weight="bold" fill="#155724">99,994,253 total</text>
+  <text x="925" y="1650" text-anchor="middle" font-size="12" fill="#155724">25,493,133 trainable (25.5%)</text>
+  <text x="925" y="1668" text-anchor="middle" font-size="10" fill="#155724">✓ Phase 1 frozen backbone</text>
+
+  <!-- Footer -->
+  <text x="600" y="1730" text-anchor="middle" font-size="10" fill="#999">Generated 2026-08-05 | confluencia_3_0 | feat/scheme8-iterative-refinement</text>
+</svg>
