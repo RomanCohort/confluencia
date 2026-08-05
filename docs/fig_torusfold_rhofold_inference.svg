@@ -15,115 +15,115 @@
   </defs>
   <rect width="940" height="2200" fill="#fcfcfb" rx="4"/>
 
-  <!-- Title -->
-  <text x="470" y="32" text-anchor="middle" font-size="18" font-weight="600" fill="#0b0b0b">circRNA 3D Structure Prediction — Hierarchical Architecture</text>
-  <text x="470" y="50" text-anchor="middle" font-size="10" fill="#52514e">RhoFold+ RNA FM Encoder (Sequential) + S10 Equivariant Decoder + RL-MCTS Post-optimization</text>
+  <!-- ====== 标题 ====== -->
+  <text x="470" y="32" text-anchor="middle" font-size="18" font-weight="600" fill="#0b0b0b">circRNA 3D 结构预测 — 层次化架构</text>
+  <text x="470" y="50" text-anchor="middle" font-size="10" fill="#52514e">RhoFold+ RNA FM 编码器 (串联) + S10 等变解码器 + RL-MCTS 后优化</text>
 
-  <!-- Legend -->
+  <!-- 图例 -->
   <rect x="680" y="16" width="240" height="64" rx="4" fill="#fff" stroke="#e5e5e5"/>
-  <rect x="692" y="24" width="10" height="10" rx="2" fill="#8b5cf6" fill-opacity="0.6"/><text x="708" y="33" font-size="8" fill="#52514e">Purple = Hierarchical Pipeline</text>
-  <rect x="692" y="38" width="10" height="10" rx="2" fill="#16a34a" fill-opacity="0.6"/><text x="708" y="47" font-size="8" fill="#52514e">Green = RhoFold+ Encoder</text>
-  <rect x="692" y="52" width="10" height="10" rx="2" fill="#2563eb" fill-opacity="0.6"/><text x="708" y="61" font-size="8" fill="#52514e">Blue = S10 Equivariant</text>
-  <rect x="692" y="66" width="10" height="10" rx="2" fill="#dc2626" fill-opacity="0.6"/><text x="708" y="75" font-size="8" fill="#52514e">Red = RL-MCTS</text>
+  <rect x="692" y="24" width="10" height="10" rx="2" fill="#8b5cf6" fill-opacity="0.6"/><text x="708" y="33" font-size="8" fill="#52514e">紫色 = 层次化管线</text>
+  <rect x="692" y="38" width="10" height="10" rx="2" fill="#16a34a" fill-opacity="0.6"/><text x="708" y="47" font-size="8" fill="#52514e">绿色 = RhoFold+ 编码器</text>
+  <rect x="692" y="52" width="10" height="10" rx="2" fill="#2563eb" fill-opacity="0.6"/><text x="708" y="61" font-size="8" fill="#52514e">蓝色 = S10 等变层</text>
+  <rect x="692" y="66" width="10" height="10" rx="2" fill="#dc2626" fill-opacity="0.6"/><text x="708" y="75" font-size="8" fill="#52514e">红色 = RL-MCTS</text>
 
-  <!-- ========== INPUT ========== -->
+  <!-- ====== 输入 ====== -->
   <rect x="250" y="88" width="200" height="44" rx="6" fill="#fff" stroke="#0b0b0b" stroke-opacity="0.3"/>
-  <text x="350" y="108" text-anchor="middle" font-size="12" font-weight="600" fill="#0b0b0b">circRNA Sequence</text>
+  <text x="350" y="108" text-anchor="middle" font-size="12" font-weight="600" fill="#0b0b0b">circRNA 序列</text>
   <text x="350" y="124" text-anchor="middle" font-size="8" fill="#52514e">seq_tokens (B, L) + MSA (N, L)</text>
 
   <rect x="560" y="88" width="200" height="44" rx="6" fill="#fff" stroke="#8b5cf6" stroke-opacity="0.4"/>
-  <text x="660" y="108" text-anchor="middle" font-size="12" font-weight="600" fill="#6d28d9">MSA (N sequences)</text>
-  <text x="660" y="124" text-anchor="middle" font-size="8" fill="#52514e">CircBase 140K / Rfam / MMseqs2</text>
+  <text x="660" y="108" text-anchor="middle" font-size="12" font-weight="600" fill="#6d28d9">MSA (N 条序列)</text>
+  <text x="660" y="124" text-anchor="middle" font-size="8" fill="#52514e">CircBase 14万 / Rfam / MMseqs2</text>
 
   <line x1="450" y1="110" x2="480" y2="110" stroke="#0b0b0b" stroke-opacity="0.5" stroke-width="1.5" marker-end="url(#a-blk)"/>
 
-  <!-- ========== MSA CLUSTERING ========== -->
+  <!-- ====== MSA 聚类 ====== -->
   <rect x="480" y="150" width="420" height="80" rx="6" fill="url(#hierFill)" stroke="#8b5cf6" stroke-opacity="0.5" stroke-width="1.3"/>
-  <text x="690" y="172" text-anchor="middle" font-size="11" font-weight="600" fill="#6d28d9">MSA Clustering (Level 0)</text>
-  <text x="690" y="188" text-anchor="middle" font-size="8" fill="#52514e">Embedding-based K-means: N seqs -> M representatives (M=64)</text>
-  <text x="690" y="202" text-anchor="middle" font-size="8" fill="#52514e">One-hot -> mean pool -> cosine K-means -> greedy center selection</text>
-  <text x="690" y="216" text-anchor="middle" font-size="8" fill="#52514e">Output: rep_ids (M,), rep_seqs (M,L), weights (M,)</text>
-  <text x="690" y="228" text-anchor="middle" font-size="7" fill="#8b5cf6">Also supports MMseqs2 / CD-HIT CLI fallback</text>
+  <text x="690" y="172" text-anchor="middle" font-size="11" font-weight="600" fill="#6d28d9">MSA 聚类 (Level 0)</text>
+  <text x="690" y="188" text-anchor="middle" font-size="8" fill="#52514e">Embedding K-means: N 条序列 → M 条代表性序列 (M=64)</text>
+  <text x="690" y="202" text-anchor="middle" font-size="8" fill="#52514e">One-hot → mean pool → 余弦 K-means → 贪心中心选择</text>
+  <text x="690" y="216" text-anchor="middle" font-size="8" fill="#52514e">输出: rep_ids (M,), rep_seqs (M,L), weights (M,)</text>
+  <text x="690" y="228" text-anchor="middle" font-size="7" fill="#8b5cf6">支持 MMseqs2 / CD-HIT CLI 回退</text>
 
   <line x1="350" y1="132" x2="350" y2="250" stroke="#0b0b0b" stroke-opacity="0.4" stroke-width="1.2"/>
   <line x1="690" y1="230" x2="350" y2="250" stroke="#8b5cf6" stroke-width="1.2" stroke-dasharray="4,3" marker-end="url(#a-pur)"/>
 
-  <!-- ========== CHUNK SPLITTING ========== -->
+  <!-- ====== Chunk 切分 ====== -->
   <rect x="50" y="250" width="600" height="90" rx="6" fill="url(#hierFill)" stroke="#8b5cf6" stroke-opacity="0.5" stroke-width="1.3"/>
-  <text x="350" y="272" text-anchor="middle" font-size="12" font-weight="600" fill="#6d28d9">Chunk Splitting (Level 1 Input)</text>
+  <text x="350" y="272" text-anchor="middle" font-size="12" font-weight="600" fill="#6d28d9">Chunk 切分 (Level 1 输入)</text>
   <text x="350" y="288" text-anchor="middle" font-size="9" fill="#52514e">chunk_size=500nt, overlap=50nt (10%)</text>
-  <text x="350" y="302" text-anchor="middle" font-size="8" fill="#52514e">Linear: simple sliding window | Circular: BSJ at chunk boundary</text>
-  <text x="350" y="316" text-anchor="middle" font-size="8" fill="#52514e">5000nt -> 11 chunks (500nt each, 50nt overlap)</text>
-  <text x="350" y="332" text-anchor="middle" font-size="7" fill="#8b5cf6">Memory: O(chunk^2) per chunk instead of O(L^2) globally</text>
+  <text x="350" y="302" text-anchor="middle" font-size="8" fill="#52514e">线性: 滑动窗口 | 环状: BSJ 位置必须是 chunk 边界</text>
+  <text x="350" y="316" text-anchor="middle" font-size="8" fill="#52514e">5000nt → 11 个 chunk (每个 500nt, 50nt 重叠)</text>
+  <text x="350" y="332" text-anchor="middle" font-size="7" fill="#8b5cf6">显存: 每个 chunk O(chunk^2), 而非全局 O(L^2)</text>
 
-  <!-- Chunk visualization -->
+  <!-- Chunk 可视化 -->
   <rect x="70" y="340" width="120" height="20" rx="3" fill="#8b5cf6" fill-opacity="0.3"/>
   <text x="130" y="354" text-anchor="middle" font-size="7" fill="#6d28d9">chunk 0 [0:500]</text>
   <rect x="170" y="340" width="120" height="20" rx="3" fill="#8b5cf6" fill-opacity="0.2"/>
   <text x="230" y="354" text-anchor="middle" font-size="7" fill="#6d28d9">chunk 1 [450:950]</text>
   <rect x="270" y="340" width="120" height="20" rx="3" fill="#8b5cf6" fill-opacity="0.15"/>
   <text x="330" y="354" text-anchor="middle" font-size="7" fill="#6d28d9">chunk 2 [900:1400]</text>
-  <text x="440" y="354" font-size="8" fill="#8b5cf6">... overlap=50nt</text>
+  <text x="440" y="354" font-size="8" fill="#8b5cf6">... 重叠 50nt</text>
 
   <line x1="350" y1="340" x2="350" y2="370" stroke="#8b5cf6" stroke-width="1.5" marker-end="url(#a-pur)"/>
 
-  <!-- ========== CHUNK INDEPENDENT PREDICTION ========== -->
+  <!-- ====== Level 1: Chunk 独立预测 ====== -->
   <rect x="30" y="370" width="640" height="320" rx="8" fill="url(#hierFill)" stroke="#8b5cf6" stroke-opacity="0.5" stroke-width="1.4"/>
-  <text x="350" y="392" text-anchor="middle" font-size="12" font-weight="600" fill="#6d28d9">Level 1: Chunk Independent Prediction (RhoFold+ -> S10)</text>
-  <text x="350" y="408" text-anchor="middle" font-size="8" fill="#52514e">Each chunk processed independently by sequential RhoFold+ -> S10 pipeline</text>
+  <text x="350" y="392" text-anchor="middle" font-size="12" font-weight="600" fill="#6d28d9">Level 1: Chunk 独立预测 (RhoFold+ → S10)</text>
+  <text x="350" y="408" text-anchor="middle" font-size="8" fill="#52514e">每个 chunk 独立经过串联的 RhoFold+ → S10 管线</text>
 
-  <!-- RNA FM Encoder -->
+  <!-- RNA FM 编码器 -->
   <rect x="50" y="420" width="280" height="70" rx="5" fill="url(#rfFill)" stroke="#16a34a" stroke-opacity="0.5"/>
-  <text x="190" y="440" text-anchor="middle" font-size="10" font-weight="600" fill="#15803d">RhoFold+ RNA FM Encoder (Frozen)</text>
-  <text x="190" y="456" text-anchor="middle" font-size="8" fill="#52514e">12-layer Transformer, d=640, 99.5M params</text>
+  <text x="190" y="440" text-anchor="middle" font-size="10" font-weight="600" fill="#15803d">RhoFold+ RNA FM 编码器 (冻结)</text>
+  <text x="190" y="456" text-anchor="middle" font-size="8" fill="#52514e">12 层 Transformer, d=640, 99.5M 参数</text>
   <text x="190" y="470" text-anchor="middle" font-size="8" fill="#52514e">node_repr (L, 640) + pair_repr (L, L, 128)</text>
-  <text x="190" y="484" text-anchor="middle" font-size="7" fill="#16a34a">Frozen 9/12 layers, last 3 trainable</text>
+  <text x="190" y="484" text-anchor="middle" font-size="7" fill="#16a34a">冻结前 9 层, 后 3 层可训练</text>
 
   <line x1="190" y1="490" x2="190" y2="510" stroke="#16a34a" stroke-width="1.2" marker-end="url(#a-grn)"/>
 
-  <!-- Projection -->
+  <!-- 投影层 -->
   <rect x="50" y="510" width="280" height="36" rx="4" fill="#dcfce7" stroke="#16a34a" stroke-opacity="0.4"/>
-  <text x="190" y="532" text-anchor="middle" font-size="9" font-weight="600" fill="#15803d">Projection: 640->256 + LN + GELU | pair: 128->64</text>
+  <text x="190" y="532" text-anchor="middle" font-size="9" font-weight="600" fill="#15803d">投影: 640→256 + LN + GELU | pair: 128→64</text>
 
   <line x1="190" y1="546" x2="190" y2="566" stroke="#16a34a" stroke-width="1.2" marker-end="url(#a-grn)"/>
 
   <!-- PairTrack -->
   <rect x="50" y="566" width="280" height="50" rx="5" fill="url(#rfFill)" stroke="#16a34a" stroke-opacity="0.5"/>
-  <text x="190" y="586" text-anchor="middle" font-size="10" font-weight="600" fill="#15803d">PairTrack x2 (TriMulUpdate)</text>
-  <text x="190" y="600" text-anchor="middle" font-size="8" fill="#52514e">Triangle inequality: d(i,j) &lt;= d(i,k)+d(k,j)</text>
-  <text x="190" y="612" text-anchor="middle" font-size="7" fill="#16a34a">Sparse K=30, O(L*K*d), 132K params</text>
+  <text x="190" y="586" text-anchor="middle" font-size="10" font-weight="600" fill="#15803d">PairTrack ×2 (TriMulUpdate)</text>
+  <text x="190" y="600" text-anchor="middle" font-size="8" fill="#52514e">三角不等式: d(i,j) ≤ d(i,k)+d(k,j)</text>
+  <text x="190" y="612" text-anchor="middle" font-size="7" fill="#16a34a">稀疏 K=30, O(L*K*d), 132K 参数</text>
 
   <line x1="190" y1="616" x2="190" y2="636" stroke="#16a34a" stroke-width="1.2" marker-end="url(#a-grn)"/>
 
-  <!-- Fusion -->
+  <!-- 融合 -->
   <rect x="50" y="636" width="280" height="30" rx="4" fill="#fff" stroke="#16a34a" stroke-opacity="0.3" stroke-dasharray="4,3"/>
-  <text x="190" y="655" text-anchor="middle" font-size="8" fill="#15803d">Pair->Node Fusion: node + pair_to_node(pair_enhance)</text>
+  <text x="190" y="655" text-anchor="middle" font-size="8" fill="#15803d">Pair→Node 融合: node + pair_to_node(pair_enhance)</text>
 
   <line x1="190" y1="666" x2="190" y2="686" stroke="#16a34a" stroke-width="1.2" marker-end="url(#a-grn)"/>
 
   <!-- CG Decoder -->
   <rect x="50" y="686" width="280" height="40" rx="5" fill="url(#rfFill)" stroke="#16a34a" stroke-opacity="0.5"/>
-  <text x="190" y="706" text-anchor="middle" font-size="10" font-weight="600" fill="#15803d">CG Decoder: MLP 256->256->3</text>
-  <text x="190" y="720" text-anchor="middle" font-size="7" fill="#16a34a">Output: chunk coords (L_chunk, 3) + node_repr + contact_map</text>
+  <text x="190" y="706" text-anchor="middle" font-size="10" font-weight="600" fill="#15803d">CG Decoder: MLP 256→256→3</text>
+  <text x="190" y="720" text-anchor="middle" font-size="7" fill="#16a34a">输出: chunk 坐标 (L_chunk, 3) + node_repr + contact_map</text>
 
-  <!-- Outputs box -->
+  <!-- 输出框 -->
   <rect x="360" y="420" width="290" height="140" rx="5" fill="#fff" stroke="#8b5cf6" stroke-opacity="0.3"/>
-  <text x="505" y="440" text-anchor="middle" font-size="10" font-weight="600" fill="#6d28d9">Per-Chunk Output</text>
+  <text x="505" y="440" text-anchor="middle" font-size="10" font-weight="600" fill="#6d28d9">每个 Chunk 的输出</text>
   <text x="505" y="458" text-anchor="middle" font-size="8" fill="#52514e">coords (L_chunk, 3)</text>
   <text x="505" y="474" text-anchor="middle" font-size="8" fill="#52514e">node_repr (L_chunk, 256)</text>
   <text x="505" y="490" text-anchor="middle" font-size="8" fill="#52514e">contact_map (L_chunk, L_chunk)</text>
-  <text x="505" y="506" text-anchor="middle" font-size="8" fill="#52514e">bsj_confidence (scalar)</text>
-  <text x="505" y="524" text-anchor="middle" font-size="7" fill="#6d28d9">BSJ closure: exp(-dist/10)</text>
-  <text x="505" y="540" text-anchor="middle" font-size="7" fill="#6d28d9">Contact: dist &lt; 8A threshold</text>
+  <text x="505" y="506" text-anchor="middle" font-size="8" fill="#52514e">bsj_confidence (标量)</text>
+  <text x="505" y="524" text-anchor="middle" font-size="7" fill="#6d28d9">BSJ 闭合: exp(-dist/10)</text>
+  <text x="505" y="540" text-anchor="middle" font-size="7" fill="#6d28d9">Contact: dist &lt; 8A 阈值</text>
 
   <line x1="350" y1="690" x2="360" y2="490" stroke="#8b5cf6" stroke-width="1.2" stroke-dasharray="3,2" marker-end="url(#a-pur)"/>
 
-  <!-- Feature Extraction -->
+  <!-- Level 2: 特征提取 -->
   <rect x="360" y="580" width="290" height="60" rx="5" fill="url(#hierFill)" stroke="#8b5cf6" stroke-opacity="0.4"/>
-  <text x="505" y="598" text-anchor="middle" font-size="9" font-weight="600" fill="#6d28d9">Level 2: Feature Extraction</text>
-  <text x="505" y="614" text-anchor="middle" font-size="7" fill="#52514e">coord_feat: MLP(3->64->256) mean pool</text>
-  <text x="505" y="628" text-anchor="middle" font-size="7" fill="#52514e">contact_feat: AdaptiveAvgPool2d(8) -> Linear(64->256)</text>
-  <text x="505" y="640" text-anchor="middle" font-size="7" fill="#52514e">node_feat: mean(node_repr) -> (256,)</text>
+  <text x="505" y="598" text-anchor="middle" font-size="9" font-weight="600" fill="#6d28d9">Level 2: 特征提取</text>
+  <text x="505" y="614" text-anchor="middle" font-size="7" fill="#52514e">coord_feat: MLP(3→64→256) 平均池化</text>
+  <text x="505" y="628" text-anchor="middle" font-size="7" fill="#52514e">contact_feat: AdaptiveAvgPool2d(8) → Linear(64→256)</text>
+  <text x="505" y="640" text-anchor="middle" font-size="7" fill="#52514e">node_feat: mean(node_repr) → (256,)</text>
 
   <line x1="505" y1="640" x2="505" y2="710" stroke="#8b5cf6" stroke-width="1.2" marker-end="url(#a-pur)"/>
 
@@ -131,165 +131,164 @@
 
   <line x1="350" y1="710" x2="350" y2="740" stroke="#8b5cf6" stroke-width="1.5" marker-end="url(#a-pur)"/>
 
-  <!-- ========== CHUNK FUSION GNN ========== -->
+  <!-- ====== Level 3: 全链融合 GNN ====== -->
   <rect x="30" y="740" width="640" height="120" rx="6" fill="url(#hierFill)" stroke="#8b5cf6" stroke-opacity="0.6" stroke-width="1.4"/>
-  <text x="350" y="762" text-anchor="middle" font-size="12" font-weight="600" fill="#6d28d9">Level 3: Chunk Fusion GNN (Equivariant)</text>
-  <text x="350" y="778" text-anchor="middle" font-size="8" fill="#52514e">Each chunk = "super-residue" in global attention graph</text>
+  <text x="350" y="762" text-anchor="middle" font-size="12" font-weight="600" fill="#6d28d9">Level 3: 全链融合 GNN (等变)</text>
+  <text x="350" y="778" text-anchor="middle" font-size="8" fill="#52514e">每个 chunk = 全局注意力图中的 "超级残基"</text>
 
   <rect x="50" y="790" width="180" height="56" rx="4" fill="#fff" stroke="#8b5cf6" stroke-opacity="0.3"/>
-  <text x="140" y="808" text-anchor="middle" font-size="9" font-weight="600" fill="#6d28d9">Global Attention x4</text>
-  <text x="140" y="822" text-anchor="middle" font-size="7" fill="#52514e">Multi-head self-attention</text>
+  <text x="140" y="808" text-anchor="middle" font-size="9" font-weight="600" fill="#6d28d9">全局注意力 ×4</text>
+  <text x="140" y="822" text-anchor="middle" font-size="7" fill="#52514e">多头自注意力</text>
   <text x="140" y="834" text-anchor="middle" font-size="7" fill="#52514e">+ FFN + LayerNorm</text>
 
   <rect x="250" y="790" width="180" height="56" rx="4" fill="#fff" stroke="#8b5cf6" stroke-opacity="0.3"/>
-  <text x="340" y="808" text-anchor="middle" font-size="9" font-weight="600" fill="#6d28d9">Transform Heads</text>
+  <text x="340" y="808" text-anchor="middle" font-size="9" font-weight="600" fill="#6d28d9">变换头</text>
   <text x="340" y="822" text-anchor="middle" font-size="7" fill="#52514e">offset (3) + rotation (3)</text>
-  <text x="340" y="834" text-anchor="middle" font-size="7" fill="#52514e">+ scale (1) per chunk</text>
+  <text x="340" y="834" text-anchor="middle" font-size="7" fill="#52514e">+ scale (1) 每个 chunk</text>
 
   <rect x="450" y="790" width="200" height="56" rx="4" fill="#fff" stroke="#8b5cf6" stroke-opacity="0.3"/>
-  <text x="550" y="808" text-anchor="middle" font-size="9" font-weight="600" fill="#6d28d9">Coordinate Refinement</text>
-  <text x="550" y="822" text-anchor="middle" font-size="7" fill="#52514e">MLP(3+256->128->3)</text>
-  <text x="550" y="834" text-anchor="middle" font-size="7" fill="#52514e">Per-residue delta correction</text>
+  <text x="550" y="808" text-anchor="middle" font-size="9" font-weight="600" fill="#6d28d9">坐标精炼</text>
+  <text x="550" y="822" text-anchor="middle" font-size="7" fill="#52514e">MLP(3+256→128→3)</text>
+  <text x="550" y="834" text-anchor="middle" font-size="7" fill="#52514e">逐残基 delta 修正</text>
 
-  <text x="350" y="856" text-anchor="middle" font-size="8" fill="#6d28d9">Output: global_coords (L, 3)</text>
+  <text x="350" y="856" text-anchor="middle" font-size="8" fill="#6d28d9">输出: global_coords (L, 3)</text>
 
   <line x1="350" y1="860" x2="350" y2="890" stroke="#8b5cf6" stroke-width="1.5" marker-end="url(#a-pur)"/>
 
-  <!-- ========== OVERLAP LOSS ========== -->
+  <!-- ====== 重叠一致性损失 ====== -->
   <rect x="700" y="370" width="220" height="140" rx="5" fill="url(#hierFill)" stroke="#8b5cf6" stroke-opacity="0.4" stroke-dasharray="4,3"/>
-  <text x="810" y="390" text-anchor="middle" font-size="9" font-weight="600" fill="#6d28d9">Overlap Consistency Loss</text>
-  <text x="810" y="408" text-anchor="middle" font-size="7" fill="#52514e">coord: Kabsch-aligned MSE</text>
+  <text x="810" y="390" text-anchor="middle" font-size="9" font-weight="600" fill="#6d28d9">重叠一致性损失</text>
+  <text x="810" y="408" text-anchor="middle" font-size="7" fill="#52514e">coord: Kabsch 对齐后 MSE</text>
   <text x="810" y="422" text-anchor="middle" font-size="7" fill="#52514e">bond: (d - 5.9A)^2</text>
   <text x="810" y="436" text-anchor="middle" font-size="7" fill="#52514e">tangent: 1 - cos(angle)</text>
   <text x="810" y="450" text-anchor="middle" font-size="7" fill="#52514e">bsj_closure: (||P0-PL|| - 5.9)^2</text>
   <text x="810" y="470" text-anchor="middle" font-size="7" fill="#6d28d9">w_coord=10, w_bond=5</text>
   <text x="810" y="484" text-anchor="middle" font-size="7" fill="#6d28d9">w_tangent=2, w_bsj=5</text>
-  <text x="810" y="500" text-anchor="middle" font-size="7" fill="#8b5cf6">Differentiable, end-to-end trainable</text>
+  <text x="810" y="500" text-anchor="middle" font-size="7" fill="#8b5cf6">可微分, 端到端可训练</text>
 
   <line x1="700" y1="440" x2="680" y2="440" stroke="#8b5cf6" stroke-width="1" stroke-dasharray="3,2" marker-end="url(#a-pur)"/>
 
-  <!-- ========== EVALUATION HUB ========== -->
+  <!-- ====== 质量评估 ====== -->
   <rect x="200" y="890" width="300" height="60" rx="6" fill="#fff7ed" stroke="#f59e0b" stroke-opacity="0.5" stroke-width="1.2"/>
-  <text x="350" y="910" text-anchor="middle" font-size="10" font-weight="600" fill="#92400e">Quality Assessment</text>
-  <text x="350" y="926" text-anchor="middle" font-size="8" fill="#52514e">Kabsch RMSD | Contact Precision | lDDT</text>
-  <text x="350" y="940" text-anchor="middle" font-size="8" fill="#52514e">rsRNASP energy | BSJ closure distance</text>
+  <text x="350" y="910" text-anchor="middle" font-size="10" font-weight="600" fill="#92400e">结构质量评估</text>
+  <text x="350" y="926" text-anchor="middle" font-size="8" fill="#52514e">Kabsch RMSD | Contact 精确率 | lDDT</text>
+  <text x="350" y="940" text-anchor="middle" font-size="8" fill="#52514e">rsRNASP 能量 | BSJ 闭合距离</text>
 
-  <!-- Quality gate -->
   <line x1="350" y1="950" x2="350" y2="980" stroke="#dc2626" stroke-width="1.2" stroke-dasharray="4,3" marker-end="url(#a-red)"/>
-  <text x="350" y="974" text-anchor="middle" font-size="7" fill="#dc2626">quality_score &lt; threshold -> RL</text>
+  <text x="350" y="974" text-anchor="middle" font-size="7" fill="#dc2626">quality_score &lt; 阈值 → RL</text>
 
-  <!-- ========== RL-MCTS ========== -->
+  <!-- ====== RL-MCTS 后优化 ====== -->
   <rect x="30" y="980" width="880" height="220" rx="8" fill="url(#rlFill)" stroke="#dc2626" stroke-opacity="0.5" stroke-width="1.4"/>
-  <text x="470" y="1006" text-anchor="middle" font-size="12" font-weight="600" fill="#991b1b">RL-MCTS Post-optimization (Optional)</text>
-  <text x="470" y="1022" text-anchor="middle" font-size="8" fill="#52514e">Universal post-processor for any scheme | BlockMoveEnvironment</text>
+  <text x="470" y="1006" text-anchor="middle" font-size="12" font-weight="600" fill="#991b1b">RL-MCTS 后优化 (可选)</text>
+  <text x="470" y="1022" text-anchor="middle" font-size="8" fill="#52514e">通用后处理器, 适配所有 scheme | BlockMoveEnvironment</text>
 
   <rect x="50" y="1036" width="160" height="50" rx="4" fill="#fff" stroke="#dc2626" stroke-opacity="0.3"/>
-  <text x="130" y="1054" text-anchor="middle" font-size="9" font-weight="600" fill="#991b1b">PolicyNetwork</text>
+  <text x="130" y="1054" text-anchor="middle" font-size="9" font-weight="600" fill="#991b1b">策略网络</text>
   <text x="130" y="1068" text-anchor="middle" font-size="7" fill="#52514e">Encoder(coords)</text>
-  <text x="130" y="1080" text-anchor="middle" font-size="7" fill="#52514e">-> action_logits</text>
+  <text x="130" y="1080" text-anchor="middle" font-size="7" fill="#52514e">→ action_logits</text>
 
   <rect x="230" y="1036" width="160" height="50" rx="4" fill="#fff" stroke="#dc2626" stroke-opacity="0.3"/>
-  <text x="310" y="1054" text-anchor="middle" font-size="9" font-weight="600" fill="#991b1b">BlockMove</text>
-  <text x="310" y="1068" text-anchor="middle" font-size="7" fill="#52514e">block rotation(</text>
-  <text x="310" y="1080" text-anchor="middle" font-size="7" fill="#52514e">theta,phi) + translate</text>
+  <text x="310" y="1054" text-anchor="middle" font-size="9" font-weight="600" fill="#991b1b">块移动</text>
+  <text x="310" y="1068" text-anchor="middle" font-size="7" fill="#52514e">block rotation(θ,φ)</text>
+  <text x="310" y="1080" text-anchor="middle" font-size="7" fill="#52514e">+ translate</text>
 
   <rect x="410" y="1036" width="160" height="50" rx="4" fill="#fff" stroke="#dc2626" stroke-opacity="0.3"/>
-  <text x="490" y="1054" text-anchor="middle" font-size="9" font-weight="600" fill="#991b1b">MCTS Search</text>
-  <text x="490" y="1068" text-anchor="middle" font-size="7" fill="#52514e">100 simulations</text>
+  <text x="490" y="1054" text-anchor="middle" font-size="9" font-weight="600" fill="#991b1b">MCTS 搜索</text>
+  <text x="490" y="1068" text-anchor="middle" font-size="7" fill="#52514e">100 次模拟</text>
   <text x="490" y="1080" text-anchor="middle" font-size="7" fill="#52514e">UCB1: c_puct=1.414</text>
 
   <rect x="590" y="1036" width="160" height="50" rx="4" fill="#fff" stroke="#dc2626" stroke-opacity="0.3"/>
-  <text x="670" y="1054" text-anchor="middle" font-size="9" font-weight="600" fill="#991b1b">Reward</text>
-  <text x="670" y="1068" text-anchor="middle" font-size="7" fill="#52514e">-delta_energy(rsRNASP)</text>
+  <text x="670" y="1054" text-anchor="middle" font-size="9" font-weight="600" fill="#991b1b">奖励</text>
+  <text x="670" y="1068" text-anchor="middle" font-size="7" fill="#52514e">-Δenergy(rsRNASP)</text>
   <text x="670" y="1080" text-anchor="middle" font-size="7" fill="#52514e">+ closure_bonus</text>
 
   <rect x="50" y="1100" width="840" height="40" rx="4" fill="#fff" stroke="#dc2626" stroke-opacity="0.3" stroke-dasharray="4,3"/>
-  <text x="470" y="1118" text-anchor="middle" font-size="9" font-weight="600" fill="#991b1b">Loop: 200 iterations x 100 MCTS sims | segment_size = max(10, L//10)</text>
-  <text x="470" y="1132" text-anchor="middle" font-size="7" fill="#dc2626">REST2 replica exchange (optional) | reward normalization</text>
+  <text x="470" y="1118" text-anchor="middle" font-size="9" font-weight="600" fill="#991b1b">循环: 200 iterations × 100 MCTS sims | segment_size = max(10, L//10)</text>
+  <text x="470" y="1132" text-anchor="middle" font-size="7" fill="#dc2626">REST2 副本交换 (可选) | 奖励归一化</text>
 
   <rect x="300" y="1150" width="340" height="36" rx="5" fill="#fef2f2" stroke="#dc2626" stroke-opacity="0.5"/>
-  <text x="470" y="1172" text-anchor="middle" font-size="10" font-weight="600" fill="#991b1b">RL Output: Optimized coords (B, L, 3)</text>
+  <text x="470" y="1172" text-anchor="middle" font-size="10" font-weight="600" fill="#991b1b">RL 输出: 优化后坐标 (B, L, 3)</text>
 
   <line x1="350" y1="950" x2="470" y2="980" stroke="#dc2626" stroke-width="1.2" stroke-dasharray="4,3" marker-end="url(#a-red)"/>
   <line x1="350" y1="950" x2="100" y2="980" stroke="#f59e0b" stroke-width="1.2" stroke-dasharray="4,3" marker-end="url(#a-amb)"/>
 
-  <!-- ========== POST-PROCESSING ========== -->
+  <!-- ====== 后处理 ====== -->
   <rect x="30" y="1220" width="880" height="110" rx="6" fill="url(#postFill)" stroke="#f59e0b" stroke-opacity="0.5" stroke-width="1.2"/>
-  <text x="470" y="1244" text-anchor="middle" font-size="11" font-weight="600" fill="#92400e">Post-processing &amp; Evaluation</text>
+  <text x="470" y="1244" text-anchor="middle" font-size="11" font-weight="600" fill="#92400e">后处理 &amp; 评估</text>
 
   <rect x="50" y="1258" width="160" height="56" rx="4" fill="#fff" stroke="#f59e0b" stroke-opacity="0.3"/>
-  <text x="130" y="1276" text-anchor="middle" font-size="9" font-weight="600" fill="#92400e">OpenMM Relax</text>
-  <text x="130" y="1290" text-anchor="middle" font-size="7" fill="#52514e">Force field minimization</text>
+  <text x="130" y="1276" text-anchor="middle" font-size="9" font-weight="600" fill="#92400e">OpenMM 精修</text>
+  <text x="130" y="1290" text-anchor="middle" font-size="7" fill="#52514e">力场能量最小化</text>
   <text x="130" y="1302" text-anchor="middle" font-size="7" fill="#52514e">Bond+Angle+NB+Dihedral</text>
 
   <rect x="230" y="1258" width="160" height="56" rx="4" fill="#fff" stroke="#f59e0b" stroke-opacity="0.3"/>
-  <text x="310" y="1276" text-anchor="middle" font-size="9" font-weight="600" fill="#92400e">rsRNASP Score</text>
+  <text x="310" y="1276" text-anchor="middle" font-size="9" font-weight="600" fill="#92400e">rsRNASP 评分</text>
   <text x="310" y="1290" text-anchor="middle" font-size="7" fill="#52514e">1292 PDB, 579K contacts</text>
   <text x="310" y="1302" text-anchor="middle" font-size="7" fill="#52514e">quality = argmin(energy)</text>
 
   <rect x="410" y="1258" width="160" height="56" rx="4" fill="#fff" stroke="#f59e0b" stroke-opacity="0.3"/>
-  <text x="490" y="1276" text-anchor="middle" font-size="9" font-weight="600" fill="#92400e">Ensemble</text>
+  <text x="490" y="1276" text-anchor="middle" font-size="9" font-weight="600" fill="#92400e">构象系综</text>
   <text x="490" y="1290" text-anchor="middle" font-size="7" fill="#52514e">n=100 DDIM+CFG</text>
-  <text x="490" y="1302" text-anchor="middle" font-size="7" fill="#52514e">RMSF flexibility</text>
+  <text x="490" y="1302" text-anchor="middle" font-size="7" fill="#52514e">RMSF 柔性分析</text>
 
   <rect x="590" y="1258" width="300" height="56" rx="4" fill="#fff" stroke="#f59e0b" stroke-opacity="0.3"/>
-  <text x="740" y="1276" text-anchor="middle" font-size="9" font-weight="600" fill="#92400e">Metrics</text>
-  <text x="740" y="1290" text-anchor="middle" font-size="7" fill="#52514e">Kabsch RMSD | lDDT | Contact Precision/Recall</text>
-  <text x="740" y="1302" text-anchor="middle" font-size="7" fill="#52514e">TM-score | GDT-TS | rsRNASP energy</text>
+  <text x="740" y="1276" text-anchor="middle" font-size="9" font-weight="600" fill="#92400e">评估指标</text>
+  <text x="740" y="1290" text-anchor="middle" font-size="7" fill="#52514e">Kabsch RMSD | lDDT | Contact 精确率/召回率</text>
+  <text x="740" y="1302" text-anchor="middle" font-size="7" fill="#52514e">TM-score | GDT-TS | rsRNASP 能量</text>
 
   <line x1="470" y1="1330" x2="470" y2="1360" stroke="#0b0b0b" stroke-opacity="0.6" stroke-width="2" marker-end="url(#a-blk)"/>
 
-  <!-- ========== FINAL OUTPUT ========== -->
+  <!-- ====== 最终输出 ====== -->
   <rect x="190" y="1360" width="560" height="60" rx="6" fill="#fff" stroke="#0b0b0b" stroke-opacity="0.4" stroke-width="1.5"/>
-  <text x="470" y="1382" text-anchor="middle" font-size="12" font-weight="600" fill="#0b0b0b">circRNA 3D Structure (PDB)</text>
-  <text x="470" y="1398" text-anchor="middle" font-size="8" fill="#52514e">CG 3-bead or all-atom | bsj_confidence | quality_score</text>
-  <text x="470" y="1412" text-anchor="middle" font-size="7" fill="#92400e">Pipelines: Hierarchical -> RL | Short: Direct S10/RhoFold+</text>
+  <text x="470" y="1382" text-anchor="middle" font-size="12" font-weight="600" fill="#0b0b0b">circRNA 3D 结构 (PDB)</text>
+  <text x="470" y="1398" text-anchor="middle" font-size="8" fill="#52514e">CG 3-bead 或全原子 | bsj_confidence | quality_score</text>
+  <text x="470" y="1412" text-anchor="middle" font-size="7" fill="#92400e">管线: 层次化 → RL | 短序列: 直接 S10/RhoFold+</text>
 
-  <!-- ========== ARCHITECTURE SUMMARY ========== -->
+  <!-- ====== 架构总结 ====== -->
   <rect x="30" y="1440" width="880" height="340" rx="6" fill="#f9fafb" stroke="#e5e5e5"/>
-  <text x="470" y="1462" text-anchor="middle" font-size="12" font-weight="600" fill="#374151">Architecture Summary</text>
+  <text x="470" y="1462" text-anchor="middle" font-size="12" font-weight="600" fill="#374151">架构总结</text>
 
-  <!-- Sequential Pipeline -->
+  <!-- 串联管线 -->
   <rect x="50" y="1478" width="420" height="120" rx="5" fill="#fff" stroke="#8b5cf6" stroke-opacity="0.4"/>
-  <text x="260" y="1496" text-anchor="middle" font-size="10" font-weight="600" fill="#6d28d9">Sequential Pipeline (RhoFold+ -> S10)</text>
-  <text x="260" y="1512" text-anchor="middle" font-size="7" fill="#52514e">RhoFold+ RNA FM (640d) -> Proj (256d) -> PairTrack (64d)</text>
-  <text x="260" y="1526" text-anchor="middle" font-size="7" fill="#52514e">-> Fusion (256d) -> CG Decoder -> CoordDiffusion -> Refine</text>
-  <text x="260" y="1542" text-anchor="middle" font-size="7" fill="#52514e">Total: 99.9M (25.5% trainable)</text>
-  <text x="260" y="1558" text-anchor="middle" font-size="7" fill="#52514e">Chunk size: 500nt, overlap: 50nt</text>
-  <text x="260" y="1574" text-anchor="middle" font-size="7" fill="#8b5cf6">Memory: O(chunk^2) per chunk, NOT O(L^2)</text>
-  <text x="260" y="1590" text-anchor="middle" font-size="7" fill="#8b5cf6">BSJ at chunk boundary for circular RNA</text>
+  <text x="260" y="1496" text-anchor="middle" font-size="10" font-weight="600" fill="#6d28d9">串联管线 (RhoFold+ → S10)</text>
+  <text x="260" y="1512" text-anchor="middle" font-size="7" fill="#52514e">RhoFold+ RNA FM (640d) → 投影 (256d) → PairTrack (64d)</text>
+  <text x="260" y="1526" text-anchor="middle" font-size="7" fill="#52514e">→ 融合 (256d) → CG Decoder → CoordDiffusion → 精修</text>
+  <text x="260" y="1542" text-anchor="middle" font-size="7" fill="#52514e">总计: 99.9M 参数 (25.5% 可训练)</text>
+  <text x="260" y="1558" text-anchor="middle" font-size="7" fill="#52514e">Chunk 大小: 500nt, 重叠: 50nt</text>
+  <text x="260" y="1574" text-anchor="middle" font-size="7" fill="#8b5cf6">显存: 每个 chunk O(chunk^2), 而非全局 O(L^2)</text>
+  <text x="260" y="1590" text-anchor="middle" font-size="7" fill="#8b5cf6">BSJ 位置必须是 chunk 边界 (环状 RNA)</text>
 
-  <!-- Hierarchical Benefits -->
+  <!-- 层次化优势 -->
   <rect x="490" y="1478" width="400" height="120" rx="5" fill="#fff" stroke="#16a34a" stroke-opacity="0.4"/>
-  <text x="690" y="1496" text-anchor="middle" font-size="10" font-weight="600" fill="#15803d">Hierarchical Advantages</text>
-  <text x="690" y="1512" text-anchor="middle" font-size="7" fill="#52514e">1. MSA clustering: 140K -> 64 reps (embedding K-means)</text>
-  <text x="690" y="1526" text-anchor="middle" font-size="7" fill="#52514e">2. Chunk splitting: 5000nt -> 11 chunks (500nt each)</text>
-  <text x="690" y="1542" text-anchor="middle" font-size="7" fill="#52514e">3. Independent prediction: no O(L^2) memory</text>
-  <text x="690" y="1558" text-anchor="middle" font-size="7" fill="#52514e">4. Overlap consistency: Kabsch + bond + tangent + BSJ</text>
-  <text x="690" y="1574" text-anchor="middle" font-size="7" fill="#52514e">5. Fusion GNN: global attention + equivariant</text>
-  <text x="690" y="1590" text-anchor="middle" font-size="7" fill="#15803d">End-to-end differentiable, trainable</text>
+  <text x="690" y="1496" text-anchor="middle" font-size="10" font-weight="600" fill="#15803d">层次化优势</text>
+  <text x="690" y="1512" text-anchor="middle" font-size="7" fill="#52514e">1. MSA 聚类: 14万 → 64 代表性序列 (embedding K-means)</text>
+  <text x="690" y="1526" text-anchor="middle" font-size="7" fill="#52514e">2. Chunk 切分: 5000nt → 11 个 chunk (每个 500nt)</text>
+  <text x="690" y="1542" text-anchor="middle" font-size="7" fill="#52514e">3. 独立预测: 无 O(L^2) 显存瓶颈</text>
+  <text x="690" y="1558" text-anchor="middle" font-size="7" fill="#52514e">4. 重叠一致性: Kabsch + 键长 + 切线 + BSJ</text>
+  <text x="690" y="1574" text-anchor="middle" font-size="7" fill="#52514e">5. 融合 GNN: 全局注意力 + 等变变换</text>
+  <text x="690" y="1590" text-anchor="middle" font-size="7" fill="#15803d">端到端可微, 可训练</text>
 
-  <!-- Key Metrics -->
+  <!-- 关键指标 -->
   <rect x="50" y="1610" width="840" height="80" rx="5" fill="#fff" stroke="#e5e5e5"/>
-  <text x="470" y="1630" text-anchor="middle" font-size="10" font-weight="600" fill="#374151">Key Metrics (E2E Test)</text>
-  <text x="50" y="1650" font-size="8" fill="#52514e">Sample: hsa_circ_0000002 (251nt)</text>
-  <text x="50" y="1666" font-size="8" fill="#52514e">MSA: 20 seqs -> 8 reps</text>
-  <text x="50" y="1682" font-size="8" fill="#52514e">Chunks: 2 (size=200, overlap=30)</text>
+  <text x="470" y="1630" text-anchor="middle" font-size="10" font-weight="600" fill="#374151">关键指标 (端到端测试)</text>
+  <text x="50" y="1650" font-size="8" fill="#52514e">样本: hsa_circ_0000002 (251nt)</text>
+  <text x="50" y="1666" font-size="8" fill="#52514e">MSA: 20 条 → 8 条代表性</text>
+  <text x="50" y="1682" font-size="8" fill="#52514e">Chunk: 2 个 (size=200, overlap=30)</text>
   <text x="350" y="1650" font-size="8" fill="#52514e">Overlap loss: coord=1.46 + bond=14.95</text>
   <text x="350" y="1666" font-size="8" fill="#52514e">tangent=0.36 + bsj=19.34 = total=186.78</text>
-  <text x="350" y="1682" font-size="8" fill="#52514e">Gradient flows: True, norm=58.56</text>
-  <text x="650" y="1650" font-size="8" fill="#52514e">Output: (251, 3)</text>
-  <text x="650" y="1666" font-size="8" fill="#52514e">BSJ closure: 0.59A (target 5.9A)</text>
-  <text x="650" y="1682" font-size="8" fill="#8b5cf6">Needs training to reach target</text>
+  <text x="350" y="1682" font-size="8" fill="#52514e">梯度回传: True, norm=58.56</text>
+  <text x="650" y="1650" font-size="8" fill="#52514e">输出: (251, 3)</text>
+  <text x="650" y="1666" font-size="8" fill="#52514e">BSJ 闭合: 0.59A (目标 5.9A)</text>
+  <text x="650" y="1682" font-size="8" fill="#8b5cf6">需训练后达标</text>
 
-  <!-- Training Plan -->
+  <!-- 训练计划 -->
   <rect x="50" y="1700" width="840" height="60" rx="5" fill="#fff" stroke="#8b5cf6" stroke-opacity="0.3"/>
-  <text x="470" y="1718" text-anchor="middle" font-size="10" font-weight="600" fill="#6d28d9">Training Plan</text>
-  <text x="50" y="1738" font-size="8" fill="#52514e">Phase 1: Chunk-level training (overlap loss + coord loss)</text>
-  <text x="50" y="1752" font-size="8" fill="#52514e">Phase 2: Fusion GNN training (global attention + equivariant)</text>
-  <text x="500" y="1738" font-size="8" fill="#52514e">Phase 3: End-to-end fine-tuning (all components)</text>
-  <text x="500" y="1752" font-size="8" fill="#52514e">Phase 4: RL-MCTS post-optimization (optional)</text>
+  <text x="470" y="1718" text-anchor="middle" font-size="10" font-weight="600" fill="#6d28d9">训练计划</text>
+  <text x="50" y="1738" font-size="8" fill="#52514e">Phase 1: Chunk 级训练 (overlap loss + coord loss)</text>
+  <text x="50" y="1752" font-size="8" fill="#52514e">Phase 2: 融合 GNN 训练 (全局注意力 + 等变)</text>
+  <text x="500" y="1738" font-size="8" fill="#52514e">Phase 3: 端到端微调 (所有组件)</text>
+  <text x="500" y="1752" font-size="8" fill="#52514e">Phase 4: RL-MCTS 后优化 (可选)</text>
 
-  <!-- Footer -->
-  <text x="470" y="1790" text-anchor="middle" font-size="9" fill="#898781">TorusFold + RhoFold+ Hierarchical Inference Architecture | 2026-08-06 | confluencia_3_0</text>
+  <!-- 页脚 -->
+  <text x="470" y="1790" text-anchor="middle" font-size="9" fill="#898781">TorusFold + RhoFold+ 层次化推理架构 | 2026-08-06 | confluencia_3_0</text>
 </svg>
