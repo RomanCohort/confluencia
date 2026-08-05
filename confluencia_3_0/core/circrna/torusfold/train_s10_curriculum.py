@@ -52,6 +52,13 @@ sys.path.insert(0, os.path.join('.', 'circrna_3d_pipeline'))
 sys.path.insert(0, os.path.join('.', 'rl'))
 
 from scheme10_equivariant import EquivariantS10Config, StrictlyEquivariantS10
+# [PairTrack] 新版 S10 + PairTrack + BSJ FAPE
+try:
+    from scheme10_full import FullS10Model, FullS10Config
+    from bsj_fape import BSJFAPELoss
+    HAS_PAIR_TRACK = True
+except ImportError:
+    HAS_PAIR_TRACK = False
 
 # A+B+C geometry prior modules (verified in train_s10_82k.py)
 from stereochemistry_losses import get_stereo_loss_breakdown
@@ -340,6 +347,22 @@ cfg = EquivariantS10Config(
 model = StrictlyEquivariantS10(cfg).to(device)
 print(f'  Model: {sum(p.numel() for p in model.parameters()):,} params')
 
+# [PairTrack] USE_PAIR_TRACK=1 在 S10 后加 PairTrack wrapper (不改模型接口)
+USE_PAIR_TRACK = os.environ.get('USE_PAIR_TRACK', '0') == '1'
+if USE_PAIR_TRACK and HAS_PAIR_TRACK:
+    from pair_track import PairTrack, PairTrackConfig
+    pair_cfg = PairTrackConfig(d_pair=64, n_layers=2, n_heads=4, d_ffn=128, dropout=0.1)
+    pair_track_module = PairTrack(pair_cfg, d_node=64).to(device)
+    pair_to_inv = nn.Linear(64, 64, bias=False).to(device)  # pair → node_repr_inv 融合
+    pair_norm = nn.LayerNorm(64).to(device)
+    pair_params = list(pair_track_module.parameters()) + list(pair_to_inv.parameters()) + list(pair_norm.parameters())
+    print(f'  PairTrack: +{sum(p.numel() for p in pair_params):,} params (d_pair=64, 2 layers)')
+else:
+    pair_track_module = None
+    pair_to_inv = None
+    pair_norm = None
+    pair_params = []
+
 # Prior modules (A+B+C, all verified)
 pd_loss_fn = PhysicsDecoupledLoss(w_geo=1.0, w_phys=0.1, use_rg_loss=True,
                                    use_clash_loss=True, use_angle_loss=True).to(device)
@@ -391,7 +414,7 @@ prior_params = (list(contact_head.parameters()) + list(contact_proj.parameters()
                 list(physics_loss_fn.parameters()))
 if distillation_loss_fn is not None:
     prior_params += list(distillation_loss_fn.parameters())
-all_params = list(model.parameters()) + prior_params
+all_params = list(model.parameters()) + prior_params + pair_params
 # AdamW with higher lr for faster convergence (loss was stuck at ~555k with SGD lr=1e-4)
 optimizer = torch.optim.AdamW(all_params, lr=1e-3, weight_decay=1e-3)
 scaler = torch.amp.GradScaler('cuda', enabled=True)
@@ -515,18 +538,33 @@ def compute_all_losses(p_denorm, seq_ids, target, lengths, pair_probs, model=Non
     if p is not None:
         loss_dict['coord_sigma2'] = float(np.exp(lv)); loss_dict['coord_prec'] = p
 
-    # 2. Closure loss (P9 fix: use true last residue per sample, not padded tail)
+    # 2. Closure loss — BSJ FAPE (局部坐标系) 替代标量距离
     # [v5] 线性样本(circular_mask=0)跳过 — 首尾本就不闭合, 惩罚会误导。
     last_idx = (lengths - 1).clamp(min=0).long()  # [B]
     last_coords = p_denorm[torch.arange(B, device=device), last_idx]  # [B, 3]
     closure_dists = torch.norm(p_denorm[:, 0] - last_coords, dim=-1)
     cm = torch.where(lengths >= 2, 1.0, 0.0).to(device) * circular_mask
-    if cm.sum() > 0:
-        closure_loss = (cm * (closure_dists - 5.9) ** 2).sum() / cm.sum().clamp(min=1.0)
+    if HAS_PAIR_TRACK and cm.sum() > 0:
+        # BSJ FAPE: 局部坐标系下比较 BSJ 附近几何
+        bsj_fape_fn = BSJFAPELoss(bsj_margin=10)
+        bsj_fape_vals = []
+        for b in range(B):
+            if cm[b] > 0 and int(lengths[b].item()) >= 4:
+                v = bsj_fape_fn(p_denorm[b:b+1], coords_norm[b:b+1])
+                bsj_fape_vals.append(v)
+        if bsj_fape_vals:
+            closure_loss = torch.stack(bsj_fape_vals).mean()
+        else:
+            closure_loss = torch.tensor(0.0, device=device)
     else:
-        closure_loss = torch.tensor(0.0, device=device)
+        # fallback: 标量距离
+        if cm.sum() > 0:
+            closure_loss = (cm * (closure_dists - 5.9) ** 2).sum() / cm.sum().clamp(min=1.0)
+        else:
+            closure_loss = torch.tensor(0.0, device=device)
     loss = loss + closure_loss * LOSS_WEIGHTS['closure']
     loss_dict['closure'] = closure_loss.item()
+    loss_dict['bsj_confidence'] = float(torch.exp(-closure_loss / 10.0))
 
     # 3. Bond loss
     bond_loss = torch.tensor(0.0, device=device); nb = 0
@@ -934,6 +972,19 @@ def train_one_phase(phase, n_phase_epochs):
                 if pred is None or torch.isnan(pred).any():
                     nan_batches += 1; continue
 
+                # [PairTrack] 稀疏三角一致性后处理: 学 pair 关系 → 修正 coords
+                if pair_track_module is not None:
+                    B_p, L_p, _ = pred.shape
+                    # 用 coords 作为 node feature (3维, 投影到 d_node=64)
+                    node_feat_p = pred.mean(dim=-1, keepdim=True).expand(B_p, L_p, 64) * 0.01  # (B,L,64) 标量信号
+                    topk_idx_p = torch.randint(0, L_p, (B_p, L_p, 30), device=device)
+                    z_p = pair_track_module.init_from_node(node_feat_p, topk_idx_p)
+                    z_p = pair_track_module(z_p)
+                    pair_correction = pair_to_inv(z_p.mean(dim=2))  # (B, L, 64)
+                    pair_correction = pair_norm(pair_correction)
+                    # 轻量残差修正 (学习率自动调节幅度)
+                    pred = pred + 0.01 * pair_correction[:, :, :3]
+
                 # Normalize (valid_mask: P10 padding fix)
                 # [v5 fix] denominator must be [B,1,1] — torch left-aligns [B,1]
                 # when dividing [B,1,3]/[B,1] → [B,B,3] (silent broadcast bug that
@@ -1077,6 +1128,15 @@ def train_one_phase(phase, n_phase_epochs):
                     dtype=torch.long).unsqueeze(0).to(device)
                 t_val = torch.tensor(coords[i], dtype=torch.float32).unsqueeze(0).to(device)
                 p_val = model(s_ids, return_loss=False)
+                # [PairTrack] validation 也加 PairTrack 后处理
+                if pair_track_module is not None and p_val is not None:
+                    B_v, L_v, _ = p_val.shape
+                    node_feat_v = p_val.mean(dim=-1, keepdim=True).expand(B_v, L_v, 64) * 0.01
+                    topk_idx_v = torch.randint(0, L_v, (B_v, L_v, 30), device=device)
+                    z_v = pair_track_module.init_from_node(node_feat_v, topk_idx_v)
+                    z_v = pair_track_module(z_v)
+                    pair_corr_v = pair_to_inv(z_v.mean(dim=2))
+                    p_val = p_val + 0.01 * pair_norm(pair_corr_v)[:, :, :3]
                 # [fix] detach_latent 时返回 (coords, contact) tuple → 取 coords
                 if isinstance(p_val, tuple):
                     p_val = p_val[0]
