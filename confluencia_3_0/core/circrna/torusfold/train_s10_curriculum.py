@@ -920,10 +920,14 @@ def restore_cg_data(cg_state):
     print(f'  [CG restore] back to {len(t_seq)} circrna_3d_all samples')
 
 
-def train_one_phase(phase, n_phase_epochs):
-    """Train one phase of the curriculum."""
+def train_one_phase(phase, n_phase_epochs, resume_epoch=0):
+    """Train one phase of the curriculum.
+
+    Args:
+        resume_epoch: 从哪个 epoch 继续 (0=从头开始)
+    """
     ratios = PHASES[phase]["ratios"]
-    print(f'\n  === Phase {phase}: {n_phase_epochs} epochs ===')
+    print(f'\n  === Phase {phase}: {n_phase_epochs} epochs {"(resume from "+str(resume_epoch)+")" if resume_epoch else ""} ===')
     print(f'  {PHASES[phase]["desc"]}')
     print(f'  Length mixing: short={ratios["short"]:.0%} medium={ratios["medium"]:.0%} long={ratios["long"]:.0%} xlong={ratios["xlong"]:.0%}')
 
@@ -941,7 +945,7 @@ def train_one_phase(phase, n_phase_epochs):
     phase_history = []
     patience = 0
 
-    for epoch in range(n_phase_epochs):
+    for epoch in range(resume_epoch, n_phase_epochs):
         model.train()
 
         # [v4] Stop-Gradient schedule: detach latent→diffusion edge for the first
@@ -1255,11 +1259,32 @@ def train_one_phase(phase, n_phase_epochs):
 
 
 # ═══════════════════════════════════════════════════════════════
-# Run all phases
+# Run all phases (with --resume support)
 # ═══════════════════════════════════════════════════════════════
 
 all_history = []
 cg_state = None
+
+# [resume] TORUSFOLD_RESUME=path/to/checkpoint.pt 断点续跑
+_resume_path = os.environ.get('TORUSFOLD_RESUME', '')
+_resume_phase = 0
+_resume_epoch = 0
+_resume_done = False
+if _resume_path and os.path.isfile(_resume_path):
+    _ckpt = torch.load(_resume_path, map_location=device)
+    model.load_state_dict(_ckpt['model_state_dict'])
+    optimizer.load_state_dict(_ckpt['optimizer_state_dict'])
+    if 'scheduler_state_dict' in _ckpt:
+        scheduler.load_state_dict(_ckpt['scheduler_state_dict'])
+    _resume_phase = _ckpt.get('phase', 0)
+    _resume_epoch = _ckpt.get('epoch', 0)
+    # bucket_weights 恢复
+    if 'bucket_weights' in _ckpt:
+        bucket_weights = _ckpt['bucket_weights']
+    print(f'  [resume] Loaded {_resume_path}')
+    print(f'  [resume] Phase={_resume_phase}, Epoch={_resume_epoch}, Val={_ckpt.get("val_rmsd", "N/A")}')
+    del _ckpt
+
 # [test] TORUSFOLD_TEST_PHASES="phase:epochs" 限制训练范围 (本地快测用, 如 "0:2")
 # 不设则跑完整 0-4 phase.
 import os as _os
@@ -1268,8 +1293,19 @@ _phase_iter = [_int_p for _int_p in [(int(s.split(':')[0]), int(s.split(':')[1])
                                      for s in (_test_phases or '0:5;1:10;2:10;3:10;4:10').split(';')]] \
     if _test_phases else None
 
-for _pi, (phase, n_ep_override) in enumerate(_phase_iter if _phase_iter is not None
-                                             else [(p, DEFAULT_PHASE_EPOCHS[p]) for p in range(0, 5)]):
+_all_phases = _phase_iter if _phase_iter is not None \
+    else [(p, DEFAULT_PHASE_EPOCHS[p]) for p in range(0, 5)]
+
+for _pi, (phase, n_ep_override) in enumerate(_all_phases):
+    # [resume] 跳过已完成的 phase
+    if _resume_phase > 0 and not _resume_done:
+        if phase < _resume_phase:
+            print(f'  [resume] Skipping Phase {phase} (already done)')
+            continue
+        elif phase == _resume_phase:
+            _resume_done = True
+            # train_one_phase 内部会用 resume_epoch 继续
+
     # [v4] Phase 0 data source switch: PDB cyclized 3D → CG circRNA
     if phase == 0 and os.path.isfile(PDB_NPZ):
         cg_state = load_pdb_phase0_data()
@@ -1277,7 +1313,8 @@ for _pi, (phase, n_ep_override) in enumerate(_phase_iter if _phase_iter is not N
         restore_cg_data(cg_state)
         cg_state = None
     n_ep = n_ep_override if _test_phases else DEFAULT_PHASE_EPOCHS[phase]
-    best_val, history = train_one_phase(phase, n_ep)
+    best_val, history = train_one_phase(phase, n_ep,
+                                        resume_epoch=_resume_epoch if phase == _resume_phase and _resume_done else 0)
     all_history.append({'phase': phase, 'best_val': best_val, 'history': history})
     with open(os.path.join(output_dir, f'phase{phase}_history.json'), 'w') as f:
         json.dump(history, f, indent=2, default=str)
