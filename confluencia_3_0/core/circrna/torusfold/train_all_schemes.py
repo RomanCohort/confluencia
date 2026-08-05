@@ -1477,6 +1477,198 @@ def train_scheme8(train_loader, val_loader, args, device):
 
 
 # ═══════════════════════════════════════════════════════════════
+# Scheme 10: S10 + PairTrack + BSJ FAPE (完整等变架构)
+# ═══════════════════════════════════════════════════════════════
+
+def train_scheme10(train_loader, val_loader, args, device):
+    """S10 等变 GNN + PairTrack + BSJ FAPE 损失.
+
+    架构:
+      seq → S10 sparse encoder → PairTrack (三角一致性) → S8 refine → diffusion → coords
+    损失:
+      coord_loss + bsj_fape_loss + bond_loss + closure_loss
+    """
+    print("\n" + "="*60)
+    print("  Training Scheme 10: S10 + PairTrack + BSJ FAPE")
+    print("="*60)
+
+    from .scheme10_full import FullS10Model, FullS10Config
+
+    # Config
+    config = FullS10Config(
+        n_tokens=5,
+        d_model=getattr(args, 'd_hidden', 256),
+        d_edge=64,
+        k_theta=getattr(args, 'k_theta', 2),
+        k_phi=getattr(args, 'k_phi', 1),
+        n_layers=getattr(args, 'n_layers', 4),
+        K_sparse=getattr(args, 'K_sparse', 60),
+        dropout=0.1,
+        d_model_inv=64,
+        d_model_eq=192,
+        d_inv=32,
+        d_eq=32,
+        use_s8_refine=True,
+        n_refine_layers=2,
+        refine_nhead=4,
+        n_diffusion_steps=min(getattr(args, 'diffusion_steps', 100), 50),
+        use_pair_track=True,
+        pair_track_layers=2,
+        d_pair=64,
+        pair_n_heads=4,
+        pair_d_ffn=128,
+        pair_dropout=0.1,
+    )
+
+    model = FullS10Model(config).to(device)
+    n_params = sum(p.numel() for p in model.parameters())
+    print(f"  Model params: {n_params:,} ({n_params/1e6:.2f}M)")
+    print(f"  PairTrack: layers={config.pair_track_layers}, d_pair={config.d_pair}")
+
+    # Optimizer
+    optimizer = torch.optim.AdamW(model.parameters(), lr=1e-4, weight_decay=0.01)
+    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=args.epochs, eta_min=1e-6)
+
+    # Loss components
+    from .bsj_fape import BSJFAPELoss
+    bsj_fape_fn = BSJFAPELoss(bsj_margin=10).to(device)
+    w_bsj_fape = getattr(args, 'w_bsj_fape', 2.0)
+    w_bond = 0.5
+    w_closure = getattr(args, 'w_closure', 5.0)
+    bond_length = 5.9
+
+    best_val = float('inf')
+    patience_counter = 0
+
+    for epoch in range(args.epochs):
+        model.train()
+        train_loss = 0
+        n_batches = 0
+        train_bsj_fape_sum = 0.0
+
+        for batch in train_loader:
+            seq_tokens = batch['seq_tokens'].to(device)
+            coords = batch['coords'].to(device)
+            lengths = batch['lengths']
+
+            # Forward
+            result = model(seq_tokens, coords_target=coords)
+            pred = result['coords']  # (B, L, 3)
+
+            B, L_pred, _ = pred.shape
+
+            # Denormalize for physical loss
+            target_scale = coords.std(dim=1, keepdim=True).clamp(min=1e-6)
+            target_mean = coords.mean(dim=1, keepdim=True)
+            pred_denorm = pred * target_scale + target_mean
+
+            # Coord loss (L2)
+            coord_loss = F.mse_loss(pred_denorm, coords)
+
+            # BSJ FAPE loss
+            bsj_fape_loss = torch.tensor(0.0, device=device)
+            for b in range(B):
+                if lengths[b] >= 4:
+                    v = bsj_fape_fn(pred_denorm[b:b+1], coords[b:b+1])
+                    bsj_fape_loss = bsj_fape_loss + v
+            bsj_fape_loss = bsj_fape_loss / max(1, sum(1 for l in lengths if l >= 4))
+
+            # Bond loss
+            bond_loss = torch.tensor(0.0, device=device)
+            for b in range(B):
+                valid_L = lengths[b]
+                if valid_L < 4:
+                    continue
+                bonds = torch.norm(pred_denorm[b, 1:valid_L] - pred_denorm[b, :valid_L-1], dim=-1)
+                bsj_bond = torch.norm(pred_denorm[b, 0] - pred_denorm[b, valid_L-1])
+                all_bonds = torch.cat([bonds, bsj_bond.unsqueeze(0)])
+                bond_loss = bond_loss + F.mse_loss(all_bonds, torch.full_like(all_bonds, bond_length))
+            bond_loss = bond_loss / max(1, sum(1 for l in lengths if l >= 4))
+
+            # Closure loss (标量距离)
+            closure_dists = torch.norm(pred_denorm[:, 0] - pred_denorm[:, -1], dim=-1)
+            closure_mask = torch.tensor([lengths[b] >= 2 for b in range(B)],
+                                        device=device, dtype=torch.float32)
+            closure_loss = (closure_mask * (closure_dists - bond_length) ** 2).sum() / closure_mask.sum().clamp(min=1.0)
+
+            # Diffusion loss
+            diff_loss = result.get('diff_loss', torch.tensor(0.0, device=device))
+
+            # Total
+            loss = (coord_loss
+                    + w_bsj_fape * bsj_fape_loss
+                    + w_bond * bond_loss
+                    + w_closure * closure_loss
+                    + 0.1 * diff_loss)
+
+            loss.backward()
+            torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
+            optimizer.step()
+            optimizer.zero_grad()
+
+            if not torch.isnan(loss):
+                train_loss += loss.item()
+                train_bsj_fape_sum += float(bsj_fape_loss)
+                n_batches += 1
+
+        scheduler.step()
+
+        # Validation
+        model.eval()
+        val_loss_sum = 0.0
+        val_bsj_fape_sum = 0.0
+        n_val = 0
+        with torch.no_grad():
+            for batch in val_loader:
+                seq_tokens = batch['seq_tokens'].to(device)
+                coords = batch['coords'].to(device)
+                lengths = batch['lengths']
+
+                result = model(seq_tokens)
+                pred = result['coords']
+                B, L_pred, _ = pred.shape
+
+                target_scale = coords.std(dim=1, keepdim=True).clamp(min=1e-6)
+                target_mean = coords.mean(dim=1, keepdim=True)
+                pred_denorm = pred * target_scale + target_mean
+
+                val_loss = F.mse_loss(pred_denorm, coords)
+
+                # BSJ FAPE
+                for b in range(B):
+                    if lengths[b] >= 4:
+                        v = bsj_fape_fn(pred_denorm[b:b+1], coords[b:b+1])
+                        val_bsj_fape_sum += float(v)
+
+                val_loss_sum += float(val_loss)
+                n_val += 1
+
+        avg_train = train_loss / max(n_batches, 1)
+        avg_val = val_loss_sum / max(n_val, 1)
+        avg_bsj_fape = train_bsj_fape_sum / max(n_batches, 1)
+        avg_val_bsj_fape = val_bsj_fape_sum / max(n_val, 1)
+        bsj_conf = max(0, min(1, 1.0 - avg_bsj_fape / 50.0))
+
+        print(f"  Epoch {epoch+1}/{args.epochs} train={avg_train:.4f} val={avg_val:.4f} "
+              f"bsj_fape={avg_bsj_fape:.3f} val_bsj_fape={avg_val_bsj_fape:.3f} "
+              f"bsj_conf={bsj_conf:.3f} lr={optimizer.param_groups[0]['lr']:.1e}")
+
+        if avg_val < best_val:
+            best_val = avg_val
+            patience_counter = 0
+            torch.save(model.state_dict(), f"{args.output}/scheme10_best.pt")
+        else:
+            patience_counter += 1
+
+        if patience_counter >= 10:
+            print(f"  Early stopping at epoch {epoch+1}")
+            break
+
+    print(f"  Best val loss: {best_val:.4f}")
+    return best_val
+
+
+# ═══════════════════════════════════════════════════════════════
 # Scheme 2 & 3: Non-parametric (no training needed)
 # ═══════════════════════════════════════════════════════════════
 
@@ -2106,6 +2298,8 @@ def main():
             val_loss = train_scheme7(train_loader, val_loader, args, device)
         elif scheme_id == 8:
             val_loss = train_scheme8(train_loader, val_loader, args, device)
+        elif scheme_id == 10:
+            val_loss = train_scheme10(train_loader, val_loader, args, device)
         else:
             print(f"  Unknown scheme {scheme_id}, skipping")
             args.epochs = original_epochs

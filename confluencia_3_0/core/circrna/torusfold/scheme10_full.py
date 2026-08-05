@@ -534,14 +534,14 @@ class FullS10Model(nn.Module):
                 d_ffn=c.pair_d_ffn,
                 dropout=c.pair_dropout,
             )
-            self.pair_track = PairTrack(pair_cfg)
+            self.pair_track = PairTrack(pair_cfg, d_node=c.d_model_inv)
             # 从 pair → node 融合: 对每个 node i, 汇总所有 pair (i,j) 的信息
             self.pair_to_node = nn.Sequential(
-                nn.Linear(c.d_pair, c.d_model),
+                nn.Linear(c.d_pair, c.d_model_inv),
                 nn.GELU(),
-                nn.Linear(c.d_model, c.d_model),
+                nn.Linear(c.d_model_inv, c.d_model_inv),
             )
-            self.node_norm_after_pair = nn.LayerNorm(c.d_model)
+            self.node_norm_after_pair = nn.LayerNorm(c.d_model_inv)
         else:
             self.pair_track = None
             self.pair_to_node = None
@@ -608,5 +608,21 @@ class FullS10Model(nn.Module):
 
     @torch.no_grad()
     def sample(self, seq_tokens):
+        """推理: 返回 coords + BSJ confidence.
+
+        Returns:
+            dict: {'coords': (B, L, 3), 'bsj_confidence': (B,), 'closure_dist': (B,)}
+        """
         self.eval()
-        return self.forward(seq_tokens)['coords']
+        result = self.forward(seq_tokens)
+        coords = result['coords']
+
+        # BSJ confidence: 从 closure distance 衍生
+        closure_dist = result['closure_dist']  # (B,)
+        bsj_confidence = torch.exp(-closure_dist / 10.0)  # 越近越好
+
+        return {
+            'coords': coords,
+            'bsj_confidence': bsj_confidence,
+            'closure_dist': closure_dist,
+        }
