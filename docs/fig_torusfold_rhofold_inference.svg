@@ -90,7 +90,7 @@
   <!-- PairTrack -->
   <rect x="50" y="566" width="280" height="50" rx="5" fill="url(#rfFill)" stroke="#16a34a" stroke-opacity="0.5"/>
   <text x="190" y="586" text-anchor="middle" font-size="10" font-weight="600" fill="#15803d">PairTrack x2 (TriMulUpdate)</text>
-  <text x="190" y="600" text-anchor="middle" font-size="8" fill="#52514e">Triangle inequality: d(i,j) <= d(i,k)+d(k,j)</text>
+  <text x="190" y="600" text-anchor="middle" font-size="8" fill="#52514e">Triangle inequality: d(i,j) &lt;= d(i,k)+d(k,j)</text>
   <text x="190" y="612" text-anchor="middle" font-size="7" fill="#16a34a">Sparse K=30, O(L*K*d), 132K params</text>
 
   <line x1="190" y1="616" x2="190" y2="636" stroke="#16a34a" stroke-width="1.2" marker-end="url(#a-grn)"/>
@@ -114,7 +114,7 @@
   <text x="505" y="490" text-anchor="middle" font-size="8" fill="#52514e">contact_map (L_chunk, L_chunk)</text>
   <text x="505" y="506" text-anchor="middle" font-size="8" fill="#52514e">bsj_confidence (scalar)</text>
   <text x="505" y="524" text-anchor="middle" font-size="7" fill="#6d28d9">BSJ closure: exp(-dist/10)</text>
-  <text x="505" y="540" text-anchor="middle" font-size="7" fill="#6d28d9">Contact: dist < 8A threshold</text>
+  <text x="505" y="540" text-anchor="middle" font-size="7" fill="#6d28d9">Contact: dist &lt; 8A threshold</text>
 
   <line x1="350" y1="690" x2="360" y2="490" stroke="#8b5cf6" stroke-width="1.2" stroke-dasharray="3,2" marker-end="url(#a-pur)"/>
 
@@ -176,7 +176,7 @@
 
   <!-- Quality gate -->
   <line x1="350" y1="950" x2="350" y2="980" stroke="#dc2626" stroke-width="1.2" stroke-dasharray="4,3" marker-end="url(#a-red)"/>
-  <text x="350" y="974" text-anchor="middle" font-size="7" fill="#dc2626">quality_score < threshold -> RL</text>
+  <text x="350" y="974" text-anchor="middle" font-size="7" fill="#dc2626">quality_score &lt; threshold -> RL</text>
 
   <!-- ========== RL-MCTS ========== -->
   <rect x="30" y="980" width="880" height="220" rx="8" fill="url(#rlFill)" stroke="#dc2626" stroke-opacity="0.5" stroke-width="1.4"/>
