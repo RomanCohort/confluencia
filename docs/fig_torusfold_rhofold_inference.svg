@@ -69,8 +69,8 @@
 
   <!-- ====== Level 1: Chunk 独立预测 ====== -->
   <rect x="40" y="370" width="640" height="320" rx="8" fill="url(#hierFill)" stroke="#8b5cf6" stroke-opacity="0.5" stroke-width="1.4"/>
-  <text x="360" y="392" text-anchor="middle" font-size="12" font-weight="600" fill="#6d28d9">Level 1: Chunk 独立预测 (RhoFold+ → S10)</text>
-  <text x="360" y="408" text-anchor="middle" font-size="8" fill="#52514e">每个 chunk 独立经过串联的 RhoFold+ → S10 管线</text>
+  <text x="360" y="392" text-anchor="middle" font-size="12" font-weight="600" fill="#6d28d9">Level 1: Chunk 独立预测 (RhoFold+ 编码 → S10 解码)</text>
+  <text x="360" y="408" text-anchor="middle" font-size="8" fill="#52514e">每个 chunk 独立经过 RhoFold+ 编码器 + S10 等变解码器</text>
 
   <!-- RNA FM 编码器 -->
   <rect x="60" y="420" width="280" height="70" rx="5" fill="url(#rfFill)" stroke="#16a34a" stroke-opacity="0.5"/>
@@ -102,9 +102,18 @@
   <line x1="200" y1="666" x2="200" y2="686" stroke="#16a34a" stroke-width="1.2" marker-end="url(#a-grn)"/>
 
   <!-- CG Decoder -->
-  <rect x="60" y="686" width="280" height="40" rx="5" fill="url(#rfFill)" stroke="#16a34a" stroke-opacity="0.5"/>
-  <text x="200" y="706" text-anchor="middle" font-size="10" font-weight="600" fill="#15803d">CG Decoder: MLP 256→256→3</text>
-  <text x="200" y="720" text-anchor="middle" font-size="7" fill="#16a34a">输出: chunk 坐标 (L_chunk, 3) + node_repr + contact_map</text>
+  <rect x="60" y="686" width="280" height="30" rx="5" fill="url(#rfFill)" stroke="#16a34a" stroke-opacity="0.5"/>
+  <text x="200" y="706" text-anchor="middle" font-size="9" font-weight="600" fill="#15803d">CG Decoder: MLP 256→256→3 (粗坐标)</text>
+
+  <line x1="200" y1="716" x2="200" y2="736" stroke="#2563eb" stroke-width="1.2" marker-end="url(#a-blu)"/>
+
+  <!-- S10 等变解码器 -->
+  <rect x="60" y="736" width="280" height="80" rx="5" fill="url(#s10Fill)" stroke="#2563eb" stroke-opacity="0.5"/>
+  <text x="200" y="754" text-anchor="middle" font-size="10" font-weight="600" fill="#1d4ed8">S10 等变解码器</text>
+  <text x="200" y="768" text-anchor="middle" font-size="7" fill="#52514e">EquivariantEncoder ×4 层</text>
+  <text x="200" y="782" text-anchor="middle" font-size="7" fill="#2563eb">Dynamic Anchor: A=max(128, L*0.1)</text>
+  <text x="200" y="796" text-anchor="middle" font-size="7" fill="#52514e">CoordDiffusion → DDIM 100 步</text>
+  <text x="200" y="810" text-anchor="middle" font-size="7" fill="#2563eb">physics_refine: Adam 100 步</text>
 
   <!-- 输出框 -->
   <rect x="370" y="420" width="290" height="140" rx="5" fill="#fff" stroke="#8b5cf6" stroke-opacity="0.3"/>
@@ -167,21 +176,6 @@
   <text x="825" y="500" text-anchor="middle" font-size="7" fill="#8b5cf6">可微分, 端到端可训练</text>
 
   <line x1="710" y1="440" x2="690" y2="440" stroke="#8b5cf6" stroke-width="1" stroke-dasharray="3,2" marker-end="url(#a-pur)"/>
-
-  <!-- ====== S10 等变编码器 (每个 chunk 内部) ====== -->
-  <rect x="710" y="540" width="230" height="170" rx="5" fill="url(#s10Fill)" stroke="#2563eb" stroke-opacity="0.4"/>
-  <text x="825" y="558" text-anchor="middle" font-size="9" font-weight="600" fill="#1d4ed8">S10 等变 GNN (每 chunk)</text>
-  <text x="825" y="576" text-anchor="middle" font-size="7" fill="#52514e">EquivariantEncoder ×4 层</text>
-  <text x="825" y="590" text-anchor="middle" font-size="7" fill="#52514e">SO2EquivariantLinear (256→32d)</text>
-  <text x="825" y="604" text-anchor="middle" font-size="7" fill="#52514e">SparseSO2SteerableKernel</text>
-  <text x="825" y="618" text-anchor="middle" font-size="7" fill="#52514e">irrep 分离: 标量 + 1-等变</text>
-  <text x="825" y="636" text-anchor="middle" font-size="7" fill="#52514e">Dynamic Anchor Attention:</text>
-  <text x="825" y="650" text-anchor="middle" font-size="7" fill="#2563eb">A = max(128, L*0.1) 动态扩展</text>
-  <text x="825" y="668" text-anchor="middle" font-size="7" fill="#52514e">CoordDiffusion → DDIM 100 步</text>
-  <text x="825" y="686" text-anchor="middle" font-size="7" fill="#52514e">physics_refine: Adam 100 步</text>
-  <text x="825" y="704" text-anchor="middle" font-size="7" fill="#2563eb">bond projection + stereo energy</text>
-
-  <line x1="690" y1="620" x2="710" y2="620" stroke="#2563eb" stroke-width="1" stroke-dasharray="3,2" marker-end="url(#a-blu)"/>
 
   <!-- ====== 质量评估 ====== -->
   <rect x="210" y="890" width="300" height="60" rx="6" fill="#fff7ed" stroke="#f59e0b" stroke-opacity="0.5" stroke-width="1.2"/>
@@ -265,14 +259,14 @@
 
   <!-- 串联管线 -->
   <rect x="60" y="1478" width="420" height="130" rx="5" fill="#fff" stroke="#8b5cf6" stroke-opacity="0.4"/>
-  <text x="270" y="1496" text-anchor="middle" font-size="10" font-weight="600" fill="#6d28d9">串联管线 (RhoFold+ → S10)</text>
+  <text x="270" y="1496" text-anchor="middle" font-size="10" font-weight="600" fill="#6d28d9">Level 1: 串联管线 (每个 chunk)</text>
   <text x="270" y="1512" text-anchor="middle" font-size="7" fill="#52514e">RhoFold+ RNA FM (640d) → 投影 (256d) → PairTrack (64d)</text>
-  <text x="270" y="1526" text-anchor="middle" font-size="7" fill="#52514e">→ 融合 (256d) → CG Decoder → CoordDiffusion → 精修</text>
+  <text x="270" y="1526" text-anchor="middle" font-size="7" fill="#52514e">→ 融合 (256d) → CG Decoder → S10 等变解码 → 精修</text>
   <text x="270" y="1542" text-anchor="middle" font-size="7" fill="#52514e">总计: 99.9M 参数 (25.5% 可训练)</text>
   <text x="270" y="1558" text-anchor="middle" font-size="7" fill="#52514e">Chunk 大小: 500nt, 重叠: 50nt</text>
   <text x="270" y="1574" text-anchor="middle" font-size="7" fill="#8b5cf6">显存: 每个 chunk O(chunk^2), 而非全局 O(L^2)</text>
   <text x="270" y="1590" text-anchor="middle" font-size="7" fill="#8b5cf6">BSJ 位置必须是 chunk 边界 (环状 RNA)</text>
-  <text x="270" y="1604" text-anchor="middle" font-size="7" fill="#2563eb">Dynamic Anchor: A=max(128, L*0.1)</text>
+  <text x="270" y="1604" text-anchor="middle" font-size="7" fill="#2563eb">S10: Dynamic Anchor + CoordDiffusion 100步 + physics_refine 100步</text>
 
   <!-- 层次化优势 -->
   <rect x="500" y="1478" width="400" height="130" rx="5" fill="#fff" stroke="#16a34a" stroke-opacity="0.4"/>
