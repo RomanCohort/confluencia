@@ -261,12 +261,23 @@ class StrictlyEquivariantEncoder(nn.Module):
     3. 位置信息通过 delta_theta（循环距离）传递
     """
 
-    def __init__(self, config):
+    def __init__(self, config, use_rhofold_input: bool = False):
         super().__init__()
         self.config = config
+        self.use_rhofold_input = use_rhofold_input
 
         # V2: 手性感知 token embedding（替代普通 token_embed）
         self.token_embed = ChiralityAwareEmbedding(config.n_tokens, config.d_model)
+
+        # RhoFold+ 输入投影 (640 -> d_model=256)
+        if use_rhofold_input:
+            self.rhofold_proj = nn.Sequential(
+                nn.Linear(640, config.d_model),
+                nn.LayerNorm(config.d_model),
+                nn.GELU(),
+            )
+            # pair_repr 投影 (128 -> 1) 用于构建稀疏图
+            self.rhofold_pair_proj = nn.Linear(128, 1, bias=False)
 
         # 不再使用 TPE
         # self.tpe = TorusPositionalEncoding(...)
@@ -298,7 +309,7 @@ class StrictlyEquivariantEncoder(nn.Module):
         # 这里用普通 Linear，因为输入是混合的
         self.to_eq_proj = nn.Linear(config.d_model, config.d_model_eq * 2, bias=False)
 
-    def forward(self, seq_tokens, pair_probs=None):
+    def forward(self, seq_tokens, pair_probs=None, rhofold_node_repr=None, rhofold_pair_repr=None):
         B, L = seq_tokens.shape
         device = seq_tokens.device
 
@@ -314,8 +325,15 @@ class StrictlyEquivariantEncoder(nn.Module):
             K_actual = max(self.config.K_sparse_min, int(L * self.config.K_sparse_ratio))
             K_actual = min(K_actual, L, self.config.K_sparse)
 
-        # Token embedding（无位置编码）
-        x = self.token_embed(seq_tokens)  # (B, L, d_model)
+        # 输入: RhoFold+ 或 token embedding
+        if rhofold_node_repr is not None and self.use_rhofold_input:
+            x = self.rhofold_proj(rhofold_node_repr)  # (B,L,640) -> (B,L,256)
+            # 用 RhoFold+ pair_repr 构建稀疏图
+            if rhofold_pair_repr is not None and pair_probs is None:
+                pair_scores = self.rhofold_pair_proj(rhofold_pair_repr).squeeze(-1)  # (B,L,L,128)->(B,L,L)
+                pair_probs = pair_scores
+        else:
+            x = self.token_embed(seq_tokens)  # (B, L, d_model)
 
         # 不再使用 TPE
         # x = self.tpe(x, seq_len=L)
@@ -502,11 +520,12 @@ class StrictlyEquivariantS10(nn.Module):
       文档/图表应写 "局部严格 SO(2) 等变"，不要写 "strictly equivariant"。
     """
 
-    def __init__(self, config):
+    def __init__(self, config, use_rhofold_input: bool = False):
         super().__init__()
         self.config = config
+        self.use_rhofold_input = use_rhofold_input
 
-        self.encoder = StrictlyEquivariantEncoder(config)
+        self.encoder = StrictlyEquivariantEncoder(config, use_rhofold_input=use_rhofold_input)
         self.latent = StrictlyEquivariantLatent(config)
 
         if config.use_s8_refine:
@@ -567,6 +586,8 @@ class StrictlyEquivariantS10(nn.Module):
         lengths: Optional[torch.Tensor] = None,
         refine: bool = False,
         refine_steps: int = 100,
+        rhofold_node_repr: Optional[torch.Tensor] = None,
+        rhofold_pair_repr: Optional[torch.Tensor] = None,
     ) -> Tuple[torch.Tensor, torch.Tensor, Optional[torch.Tensor]]:
         """
         v4: 训练时走坐标扩散，推理时走 DDIM 生成。
@@ -580,13 +601,19 @@ class StrictlyEquivariantS10(nn.Module):
             lengths       : (B,) 有效长度。推理精修必需（padding 不动）
             refine        : 推理时是否跑 AF3 式轻量物理精修（键长/键角/位阻/二面角）
             refine_steps  : 精修步数（默认 100，比 20 更充分吸收局部 clash）
+            rhofold_node_repr : (B, L, 640) RhoFold+ 编码器输出（串联模式）
+            rhofold_pair_repr : (B, L, L, 128) RhoFold+ pair 输出（串联模式）
 
         Returns:
             - 训练: (diffusion_loss, pred_coords_or_None, contact_pred)
             - 推理: (pred_coords,)
         """
         # Encoder
-        node_repr_inv, node_repr_eq, topk_idx = self.encoder(seq_tokens, pair_probs)
+        node_repr_inv, node_repr_eq, topk_idx = self.encoder(
+            seq_tokens, pair_probs,
+            rhofold_node_repr=rhofold_node_repr,
+            rhofold_pair_repr=rhofold_pair_repr,
+        )
 
         # S8 Refine（在 Latent 之前）
         if self.s8_refine is not None:

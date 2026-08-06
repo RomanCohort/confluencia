@@ -1,21 +1,28 @@
 """torusfold_rhofold.py — TorusFold + RhoFold+ 完整模型.
 
-架构:
+架构 (串联模式, 默认):
   circRNA 序列 → RhoFold+ RNA FM encoder (冻结) → node_repr + pair_repr
     ↓
-  Projection Layer (可训练): 降维到 d_model
+  S10 等变解码器 (可训练):
+    ChiralityAwareEmbedding → 4x SparseGNN → S8Refine → Latent
+    → CoordDiffusion (DDIM 100步) → physics_refine 100步
     ↓
-  PairTrack (可训练): 三角一致性
+  CG 3-bead 坐标
+
+架构 (原模式, use_s10_decoder=False):
+  circRNA 序列 → RhoFold+ RNA FM encoder (冻结) → node_repr + pair_repr
     ↓
-  CG decoder (可训练): → CG 3-bead 坐标
-    ↓
-  BSJ FAPE: 置信度 + 损失
+  Projection → PairTrack → CG Decoder → CG 3-bead 坐标
 
 用法:
-  model = TorusFoldRhoFold(freeze_backbone=True)
-  result = model(seq_tokens)
+  # 串联模式 (默认)
+  model = TorusFoldRhoFold(TorusFoldRhoFoldConfig(use_s10_decoder=True))
+  result = model(seq_tokens, refine=True)
   coords = result['coords']  # (B, L, 3)
-  bsj_conf = result['bsj_confidence']  # (B,)
+
+  # 原模式
+  model = TorusFoldRhoFold(TorusFoldRhoFoldConfig(use_s10_decoder=False))
+  result = model(seq_tokens)
 """
 from __future__ import annotations
 
@@ -30,6 +37,7 @@ from .rhofold_backbone import RhoFoldBackbone, RhoFoldBackboneLight
 from .pair_track import PairTrack, PairTrackConfig
 from .cg_decoder import CGDecoder, CGDecoderEquivariant
 from .bsj_fape import BSJFAPELoss, BSJConfidence
+from .scheme10_equivariant import StrictlyEquivariantS10, EquivariantS10Config
 
 
 @dataclass
@@ -63,6 +71,9 @@ class TorusFoldRhoFoldConfig:
     w_bond: float = 0.5
     w_closure: float = 5.0
     bond_length: float = 5.9
+
+    # S10 串联解码器
+    use_s10_decoder: bool = True  # True: RhoFold+ → S10 (串联) | False: RhoFold+ → CG Decoder
 
 
 class TorusFoldRhoFold(nn.Module):
@@ -120,19 +131,27 @@ class TorusFoldRhoFold(nn.Module):
         )
         self.node_norm_after_pair = nn.LayerNorm(c.d_node)
 
-        # 4. CG Decoder
-        if c.use_equivariant_decoder:
-            self.cg_decoder = CGDecoderEquivariant(
-                d_node=c.d_node,
-                d_hidden=c.decoder_hidden,
-                n_equiv_layers=c.decoder_layers,
-            )
+        # 4. 解码器: S10 或 CG Decoder
+        if c.use_s10_decoder:
+            # 串联模式: RhoFold+ → S10 等变解码器
+            s10_config = EquivariantS10Config()
+            self.s10_decoder = StrictlyEquivariantS10(s10_config, use_rhofold_input=True)
+            self.cg_decoder = None  # 不用 CG Decoder
         else:
-            self.cg_decoder = CGDecoder(
-                d_node=c.d_node,
-                d_hidden=c.decoder_hidden,
-                n_layers=c.decoder_layers,
-            )
+            # 原模式: RhoFold+ → CG Decoder
+            self.s10_decoder = None
+            if c.use_equivariant_decoder:
+                self.cg_decoder = CGDecoderEquivariant(
+                    d_node=c.d_node,
+                    d_hidden=c.decoder_hidden,
+                    n_equiv_layers=c.decoder_layers,
+                )
+            else:
+                self.cg_decoder = CGDecoder(
+                    d_node=c.d_node,
+                    d_hidden=c.decoder_hidden,
+                    n_layers=c.decoder_layers,
+                )
 
         # 5. BSJ FAPE + Confidence
         self.bsj_fape = BSJFAPELoss(bsj_margin=10)
@@ -147,12 +166,16 @@ class TorusFoldRhoFold(nn.Module):
         self,
         seq_tokens: torch.Tensor,
         coords_target: Optional[torch.Tensor] = None,
+        refine: bool = False,
+        refine_steps: int = 100,
     ) -> Dict[str, torch.Tensor]:
         """Forward pass.
 
         Args:
             seq_tokens: (B, L) token IDs
             coords_target: (B, L, 3) 目标坐标 (训练时)
+            refine: 推理时是否跑 physics_refine
+            refine_steps: 精修步数
 
         Returns:
             dict: {
@@ -168,29 +191,57 @@ class TorusFoldRhoFold(nn.Module):
         node_repr, pair_repr = self.backbone(seq_tokens)
         # node_repr: (B, L, 640), pair_repr: (B, L, L, 128) 或 None
 
-        # 2. Projection
-        node_feat = self.node_proj(node_repr)  # (B, L, d_node)
+        # 2. 解码: S10 串联 或 CG Decoder
+        if self.s10_decoder is not None:
+            # 串联模式: RhoFold+ → S10 等变解码器
+            s10_input = {
+                'seq_tokens': seq_tokens,
+                'rhofold_node_repr': node_repr,
+                'rhofold_pair_repr': pair_repr,
+                'refine': refine,
+                'refine_steps': refine_steps,
+                'lengths': torch.full((B,), L, device=seq_tokens.device, dtype=torch.long),
+            }
+            if self.training and coords_target is not None:
+                s10_input['target_coords'] = coords_target
+                s10_input['return_loss'] = True
+                s10_input['return_coords'] = True
+            else:
+                s10_input['return_loss'] = False
+                s10_input['return_coords'] = True
 
-        # 3. PairTrack
-        if pair_repr is not None:
-            pair_feat = self.pair_proj(pair_repr)  # (B, L, L, d_pair)
-            # 从 RNA FM pair_repr 初始化稀疏 pair
-            z = self.pair_track.init_from_rna_fm_pair(pair_feat)  # (B, L, K, d_pair)
+            s10_output = self.s10_decoder(**s10_input)
+
+            # S10 输出格式: (diffusion_loss, pred_coords, contact_pred) 或 (pred_coords,)
+            if isinstance(s10_output, tuple):
+                if len(s10_output) == 3:
+                    diffusion_loss, coords, contact_pred = s10_output
+                else:
+                    diffusion_loss = None
+                    coords = s10_output[0]
+                    contact_pred = None
+            else:
+                diffusion_loss = None
+                coords = s10_output
+                contact_pred = None
         else:
-            # fallback: 从 node 初始化
-            z = self.pair_track.init_from_node(node_feat)  # (B, L, K, d_pair)
+            # 原模式: RhoFold+ → PairTrack → CG Decoder
+            node_feat = self.node_proj(node_repr)  # (B, L, d_node)
 
-        z = self.pair_track(z)  # N 层 TriMulUpdate
+            if pair_repr is not None:
+                pair_feat = self.pair_proj(pair_repr)  # (B, L, L, d_pair)
+                z = self.pair_track.init_from_rna_fm_pair(pair_feat)
+            else:
+                z = self.pair_track.init_from_node(node_feat)
 
-        # 融合 pair → node
-        pair_enhance = z.mean(dim=2)  # (B, L, d_pair)
-        pair_enhance = self.pair_to_node(pair_enhance)  # (B, L, d_node)
-        node_feat = self.node_norm_after_pair(node_feat + pair_enhance)
+            z = self.pair_track(z)
+            pair_enhance = z.mean(dim=2)
+            pair_enhance = self.pair_to_node(pair_enhance)
+            node_feat = self.node_norm_after_pair(node_feat + pair_enhance)
+            coords = self.cg_decoder(node_feat)
+            diffusion_loss = None
 
-        # 4. CG Decoder
-        coords = self.cg_decoder(node_feat)  # (B, L, 3)
-
-        # 5. BSJ metrics
+        # 3. BSJ metrics
         closure_dist = torch.norm(coords[:, 0] - coords[:, -1], dim=-1)  # (B,)
         bsj_conf = torch.exp(-closure_dist / 10.0)  # (B,)
 
@@ -200,9 +251,11 @@ class TorusFoldRhoFold(nn.Module):
             'closure_dist': closure_dist,
         }
 
-        # 6. Losses (训练时)
+        # 4. Losses (训练时)
         if self.training and coords_target is not None:
             losses = self._compute_losses(coords, coords_target, closure_dist)
+            if diffusion_loss is not None:
+                losses['diffusion_loss'] = diffusion_loss
             result['losses'] = losses
 
         return result
