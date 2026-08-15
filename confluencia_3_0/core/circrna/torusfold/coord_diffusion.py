@@ -34,8 +34,8 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from so2_equivariant import SO2EquivariantLinear
-from mixed_attention import MixedHybridAttention
+from .so2_equivariant import SO2EquivariantLinear
+from .mixed_attention import MixedHybridAttention
 
 
 class CoordDiffusion(nn.Module):

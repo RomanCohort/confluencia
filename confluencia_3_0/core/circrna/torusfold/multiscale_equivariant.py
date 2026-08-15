@@ -66,7 +66,7 @@ class DownsampleEncoder(nn.Module):
         self.d_eq = d_eq
 
         # SO(2)-equivariant projection: pooled coarse eq → same dimension
-        from so2_equivariant import SO2EquivariantLinear
+        from .so2_equivariant import SO2EquivariantLinear
         self.eq_proj = SO2EquivariantLinear(d_eq, d_eq, degree_in=1, degree_out=1,
                                              bias=False)
 
@@ -114,7 +114,7 @@ class UpsampleDecoder(nn.Module):
 
         self.inv_proj = nn.Linear(d_inv, d_inv)
 
-        from so2_equivariant import SO2EquivariantLinear
+        from .so2_equivariant import SO2EquivariantLinear
         self.eq_proj = SO2EquivariantLinear(d_eq, d_eq, degree_in=1, degree_out=1, bias=False)
 
     def forward(self, inv_coarse: torch.Tensor, eq_coarse: torch.Tensor, L_target: int):
@@ -166,7 +166,7 @@ class FineGrainedGNN(nn.Module):
             nn.Linear(d_hidden, d_inv),
         )
 
-        from so2_equivariant import SO2EquivariantLinear
+        from .so2_equivariant import SO2EquivariantLinear
         self.eq_update = SO2EquivariantLinear(d_eq, d_eq, degree_in=1, degree_out=1)
 
         self.norm_inv = nn.LayerNorm(d_inv)
@@ -207,7 +207,7 @@ class MultiScaleLatent(nn.Module):
         self.d_eq = d_eq
 
         # 单尺度投影
-        from so2_equivariant import SO2EquivariantLinear
+        from .so2_equivariant import SO2EquivariantLinear
         self.inv_proj_single = nn.Sequential(
             nn.Linear(d_model_inv, d_inv * 2),
             nn.GELU(),
@@ -236,7 +236,7 @@ class MultiScaleLatent(nn.Module):
             )
 
             # U-Net 跳跃连接：拼接层（输入维度翻倍）
-            from so2_equivariant import SO2EquivariantLinear
+            from .so2_equivariant import SO2EquivariantLinear
             self.skip_inv_proj = nn.Sequential(
                 nn.Linear(self.d_inv * 2, self.d_inv),  # 拼接后投影回原维度
                 nn.GELU(),
